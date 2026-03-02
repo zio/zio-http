@@ -49,6 +49,20 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
     ),
   )
 
+  val appSomeAllowedHeaders = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = { case _ =>
+        Some(Header.AccessControlAllowOrigin.All)
+      },
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.Some(zio.NonEmptyChunk("content-type", "authorization")),
+    ),
+  )
+
   val appNoServerHeaders = Routes(
     Method.GET / "success" -> handler(Response.ok),
   ).handleErrorCause { cause =>
@@ -280,6 +294,55 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
         extractStatus(res) == Status.Ok,
         res.hasHeader(Header.AccessControlAllowOrigin("http", "allowed.com")),
       )
+    },
+    test("OPTIONS request with AllowedHeaders.Some returns intersection of requested and allowed headers") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+              Header.AccessControlRequestHeaders(zio.NonEmptyChunk("content-type", "authorization", "x-custom-header")),
+            ),
+          )
+
+      for {
+        res <- appSomeAllowedHeaders.runZIO(request)
+      } yield {
+        val allowHeaders = res.header(Header.AccessControlAllowHeaders)
+        assertTrue(
+          extractStatus(res) == Status.NoContent,
+          allowHeaders.isDefined,
+          allowHeaders.get match {
+            case Header.AccessControlAllowHeaders.Some(values) =>
+              values.toSet == Set("content-type", "authorization")
+            case _                                             => false
+          },
+        )
+      }
+    },
+    test("OPTIONS request with AllowedHeaders.Some returns None when no intersection") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "test-env"),
+              Header.AccessControlRequestMethod(Method.GET),
+              Header.AccessControlRequestHeaders(zio.NonEmptyChunk("x-custom-header", "x-other-header")),
+            ),
+          )
+
+      for {
+        res <- appSomeAllowedHeaders.runZIO(request)
+      } yield {
+        val allowHeaders = res.header(Header.AccessControlAllowHeaders)
+        assertTrue(
+          extractStatus(res) == Status.NoContent,
+          allowHeaders.isEmpty || allowHeaders.get == Header.AccessControlAllowHeaders.None,
+        )
+      }
     },
   )
 }

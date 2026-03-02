@@ -79,6 +79,12 @@ object Middleware extends HandlerAspects {
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
   def cors(config: CorsConfig): Middleware[Any] = {
+    // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
+    val allowedHeadersSet: Option[Set[String]] = config.allowedHeaders match {
+      case Header.AccessControlAllowHeaders.Some(values) => Some(values.toSet)
+      case _                                             => None
+    }
+
     def allowedHeaders(
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       allowedHeaders: Header.AccessControlAllowHeaders,
@@ -86,10 +92,10 @@ object Middleware extends HandlerAspects {
       // Returning an intersection of requested headers and allowed headers
       // if there are no requested headers, we return the configured allowed headers without modification
       allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(values) =>
+        case Header.AccessControlAllowHeaders.Some(_) =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(values.toSet)
+              val intersection = headers.toSet.intersect(allowedHeadersSet.get)
               NonEmptyChunk.fromIterableOption(intersection) match {
                 case Some(values) => Header.AccessControlAllowHeaders.Some(values)
                 case None         => Header.AccessControlAllowHeaders.None
