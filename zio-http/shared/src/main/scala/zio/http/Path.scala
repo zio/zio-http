@@ -206,14 +206,14 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   def removeDotSegments: Path = {
     // See https://www.rfc-editor.org/rfc/rfc3986#section-5.2.4
     // Fast path: skip all allocations when no dot segments exist (the common case)
-    var hasDots = false
-    var j       = 0
-    while (j < self.segments.length && !hasDots) {
+    var noDots = true
+    var j      = 0
+    while (j < self.segments.length && noDots) {
       val s = self.segments(j)
-      if (s == "." || s == "..") hasDots = true
+      if (s == "." || s == "..") noDots = false
       j += 1
     }
-    if (!hasDots) return self
+    if (noDots) return self
 
     val segments     = new Array[String](self.segments.length)
     var segmentCount = 0
