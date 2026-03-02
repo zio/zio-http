@@ -45,7 +45,10 @@ sealed trait SegmentCodec[A] { self =>
   def format(value: A): Path
 
   override val hashCode: Int = {
-    if (_hashCode == 0) _hashCode = (this.getClass.getName(), render).hashCode
+    if (_hashCode == 0) {
+      val h = (this.getClass.getName(), render).hashCode
+      _hashCode = if (h == 0) 1 else h
+    }
     _hashCode
   }
 
