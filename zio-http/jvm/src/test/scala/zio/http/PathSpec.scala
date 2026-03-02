@@ -464,6 +464,20 @@ object PathSpec extends ZIOHttpSpec with ExitAssertion {
 
         assertTrue(result == expected)
       },
+      test("returns same instance when no dot segments exist") {
+        val path   = Path(Path.Flags(Path.Flag.LeadingSlash), Chunk("api", "users", "123"))
+        val result = path.removeDotSegments
+        // Reference equality: no allocations when no dot segments are present
+        assertTrue(result eq path)
+      },
+      test("returns same instance for typical request paths") {
+        val paths = List(
+          Path(Path.Flags(Path.Flag.LeadingSlash), Chunk("api", "v1", "items")),
+          Path(Path.Flags(Path.Flag.LeadingSlash), Chunk("health")),
+          Path(Path.Flags(Path.Flag.LeadingSlash), Chunk("a", "b", "c", "d")),
+        )
+        assertTrue(paths.forall { p => p.removeDotSegments eq p })
+      },
     ),
   )
 }
