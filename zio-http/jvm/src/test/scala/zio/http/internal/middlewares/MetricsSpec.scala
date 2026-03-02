@@ -116,5 +116,24 @@ object MetricsSpec extends ZIOHttpSpec with TestExtensions {
           after  <- gauge.value
         } yield assertTrue(before == MetricState.Gauge(0), before == after, during == MetricState.Gauge(1))
       },
+      test("metrics labels are consistent across multiple requests to the same route") {
+        val total = Metric
+          .counterInt("http_requests_total")
+          .tagged("test", "label_consistency")
+          .tagged("path", "/items")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+
+        val routes = (Method.GET / "items" -> Handler.ok).toRoutes @@ metrics(
+          extraLabels = Set(MetricLabel("test", "label_consistency")),
+        )
+
+        for {
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          count <- total.value
+        } yield assertTrue(count == MetricState.Counter(3))
+      },
     )
 }

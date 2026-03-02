@@ -416,10 +416,11 @@ object Middleware extends HandlerAspects {
         _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
       } yield ()
 
-    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] =
-      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
-        val requestLabels = labelsForRequest(routePattern)
+    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] = {
+      // Computed once at route registration time, not per request
+      val requestLabels = labelsForRequest(routePattern)
 
+      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
         for {
           start <- Clock.nanoTime
           _     <- concurrentRequests.tagged(requestLabels).increment
@@ -429,6 +430,7 @@ object Middleware extends HandlerAspects {
 
         report(start, requestLabels, allLabels).as(response)
       })
+    }
 
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
