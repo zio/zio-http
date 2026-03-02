@@ -334,10 +334,19 @@ object URL {
   private def hasScheme(url: String): Boolean = {
     var i = 0
     while (i < url.length) {
-      val c = url.charAt(i)
+      val c          = url.charAt(i)
+      val isLower    = c >= 'a' && c <= 'z'
+      val isUpper    = c >= 'A' && c <= 'Z'
+      val isDigit    = c >= '0' && c <= '9'
+      val isSchemeSpecial = c == '+' || c == '-' || c == '.'
+      val isAlpha    = isLower || isUpper
+
       if (c == ':') return i > 0
-      if (c == '/' || c == '?' || c == '#') return false
-      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (i > 0 && ((c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')))) return false
+      else if (c == '/' || c == '?' || c == '#') return false
+      else if (isAlpha) ()                                          // letters are always valid
+      else if (i > 0 && (isDigit || isSchemeSpecial)) ()            // digits and +/-/. valid after first char
+      else return false
+
       i += 1
     }
     false
