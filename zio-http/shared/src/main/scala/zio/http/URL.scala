@@ -297,9 +297,10 @@ object URL {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
     try {
+      if (rawUrl.isEmpty) Right(URL.empty)
       // Fast path for relative URIs (the common case for incoming HTTP requests):
       // avoid allocating a java.net.URI by splitting on '?' and '#' directly.
-      if (rawUrl.nonEmpty && rawUrl.charAt(0) == '/' && !hasScheme(rawUrl)) {
+      else if (rawUrl.charAt(0) == '/' && !hasScheme(rawUrl)) {
         val fragmentIdx = rawUrl.indexOf('#')
         val queryIdx    = rawUrl.indexOf('?')
 
@@ -330,21 +331,23 @@ object URL {
     }
   }
 
-  /** Checks if the URL string contains a scheme (e.g., "http://", "https://"). */
+  /**
+   * Checks if the URL string contains a scheme (e.g., "http://", "https://").
+   */
   private def hasScheme(url: String): Boolean = {
     var i = 0
     while (i < url.length) {
-      val c          = url.charAt(i)
-      val isLower    = c >= 'a' && c <= 'z'
-      val isUpper    = c >= 'A' && c <= 'Z'
-      val isDigit    = c >= '0' && c <= '9'
+      val c               = url.charAt(i)
+      val isLower         = c >= 'a' && c <= 'z'
+      val isUpper         = c >= 'A' && c <= 'Z'
+      val isDigit         = c >= '0' && c <= '9'
       val isSchemeSpecial = c == '+' || c == '-' || c == '.'
-      val isAlpha    = isLower || isUpper
+      val isAlpha         = isLower || isUpper
 
       if (c == ':') return i > 0
       else if (c == '/' || c == '?' || c == '#') return false
-      else if (isAlpha) ()                                          // letters are always valid
-      else if (i > 0 && (isDigit || isSchemeSpecial)) ()            // digits and +/-/. valid after first char
+      else if (isAlpha) () // letters are always valid
+      else if (i > 0 && (isDigit || isSchemeSpecial)) () // digits and +/-/. valid after first char
       else return false
 
       i += 1

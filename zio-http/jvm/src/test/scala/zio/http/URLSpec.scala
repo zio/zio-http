@@ -396,6 +396,10 @@ object URLSpec extends ZIOHttpSpec {
         },
       ),
       suite("relative URI fast path")(
+        test("empty string returns URL.empty") {
+          val url = URL.decode("").toOption.get
+          assertTrue(url == URL.empty)
+        },
         test("path only") {
           val url = URL.decode("/api/users/123").toOption.get
           assertTrue(
