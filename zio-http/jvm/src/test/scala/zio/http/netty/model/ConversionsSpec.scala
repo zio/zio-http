@@ -112,6 +112,10 @@ object ConversionsSpec extends ZIOHttpSpec {
           )
         },
         test("statusToNetty preserves empty reason phrase for Custom status") {
+          // Use a non-standard code (999) with an empty reason phrase to verify that
+          // statusToNetty calls valueOf(code, reasonPhrase) — not valueOf(code) — for
+          // Custom statuses. valueOf(999) would default to "Unknown Status (999)",
+          // breaking round-trip equality in statusFromNetty.
           val custom      = Status.Custom(999, "")
           val nettyStatus = Conversions.statusToNetty(custom)
           assertTrue(
