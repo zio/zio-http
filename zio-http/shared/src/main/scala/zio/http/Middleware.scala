@@ -213,7 +213,6 @@ object Middleware extends HandlerAspects {
           Handler.scoped[Env1] {
             handler { (req: Request) =>
               val headerValues = f(req.headers)
-              println(s"Forwarding headers: $headerValues")
               RequestStore.update[ForwardedHeaders] { old =>
                 ForwardedHeaders {
                   old.map(_.headers).getOrElse(Headers.empty) ++
