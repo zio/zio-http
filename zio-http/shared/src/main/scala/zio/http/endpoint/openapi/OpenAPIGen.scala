@@ -881,28 +881,32 @@ object OpenAPIGen {
     def genDiscriminator(schema: Schema[_]): Option[OpenAPI.Discriminator] = {
       schema match {
         case enumSchema: Schema.Enum[_] =>
-          val discriminatorName =
-            enumSchema.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
-          val noDiscriminator   = enumSchema.annotations.contains(zio.schema.annotation.noDiscriminator())
-          val typeMapping       = enumSchema.cases.map { case_ =>
-            val caseName =
-              case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }.getOrElse(case_.id)
-            // There should be no enums with cases that are not records with a nominal id
-            // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
-            val typeId   =
-              (case_.schema match {
-                case lzy: Schema.Lazy[_]                  => lzy.schema
-                case transform: Schema.Transform[_, _, _] => transform.schema
-                case _                                    => case_.schema
-              })
-                .asInstanceOf[Schema.Record[_]]
-                .id
-                .asInstanceOf[TypeId.Nominal]
-            caseName -> schemaReferencePath(typeId, referenceType)
-          }
-
+          val noDiscriminator = enumSchema.annotations.contains(zio.schema.annotation.noDiscriminator())
           if (noDiscriminator) None
-          else discriminatorName.map(name => OpenAPI.Discriminator(name, typeMapping.toMap))
+          else {
+            val discriminatorName =
+              enumSchema.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
+            discriminatorName.map { name =>
+              val typeMapping = enumSchema.cases.map { case_ =>
+                val caseName =
+                  case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }
+                    .getOrElse(case_.id)
+                // There should be no enums with cases that are not records with a nominal id
+                // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
+                val typeId   =
+                  (case_.schema match {
+                    case lzy: Schema.Lazy[_]                  => lzy.schema
+                    case transform: Schema.Transform[_, _, _] => transform.schema
+                    case _                                    => case_.schema
+                  })
+                    .asInstanceOf[Schema.Record[_]]
+                    .id
+                    .asInstanceOf[TypeId.Nominal]
+                caseName -> schemaReferencePath(typeId, referenceType)
+              }
+              OpenAPI.Discriminator(name, typeMapping.toMap)
+            }
+          }
 
         case _ => None
       }
