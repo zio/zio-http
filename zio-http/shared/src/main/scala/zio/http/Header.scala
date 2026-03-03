@@ -203,7 +203,7 @@ object Header {
 
     override def headerType: HeaderType.Typed[Custom] = {
       var ht = _headerType
-      if (ht == null) {
+      if (ht eq null) {
         ht = new Header.HeaderType {
           override type HeaderValue = Custom
 
