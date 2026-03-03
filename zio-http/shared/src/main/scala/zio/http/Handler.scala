@@ -1235,7 +1235,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.NotFound, message)
 
-  def notFound(routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
+  def notFound(@scala.annotation.unused routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
     Handler
       .fromFunctionHandler[Request] { request =>
         error(Status.NotFound, request.url.path.encode)

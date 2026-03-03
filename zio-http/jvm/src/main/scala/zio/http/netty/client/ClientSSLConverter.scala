@@ -34,7 +34,7 @@ private[netty] object ClientSSLConverter {
   private def keyManagerTrustManagerToSslContext(
     keyManagerInfo: Option[(String, InputStream, Option[Secret])],
     trustManagerInfo: Option[(String, InputStream, Option[Secret])],
-    sslContextBuilder: SslContextBuilder,
+    @scala.annotation.unused sslContextBuilder: SslContextBuilder,
   ): SslContextBuilder = {
     val mkeyManagerFactory =
       keyManagerInfo.map { case (keyStoreType, inputStream, maybePassword) =>
