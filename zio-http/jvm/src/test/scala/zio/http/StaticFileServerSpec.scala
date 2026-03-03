@@ -376,14 +376,21 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
     test("concurrent file requests return proper headers") {
       ZIO.scoped {
         for {
-          tempDir <- ZIO.attemptBlocking {
-            val dir = Files.createTempDirectory("static-test").toFile
-            (0 until 3).foreach { i =>
-              val file = new File(dir, s"file-$i.txt")
-              Files.write(file.toPath, s"content-$i".getBytes)
-            }
-            dir
-          }
+          tempDir <- ZIO.acquireRelease(
+            ZIO.attemptBlocking {
+              val dir = Files.createTempDirectory("static-test").toFile
+              (0 until 3).foreach { i =>
+                val file = new File(dir, s"file-$i.txt")
+                Files.write(file.toPath, s"content-$i".getBytes(Charsets.Utf8))
+              }
+              dir
+            },
+          )(dir =>
+            ZIO.attemptBlocking {
+              dir.listFiles().foreach(_.delete())
+              dir.delete()
+            }.ignoreLogged,
+          )
           routes = Routes(
             Method.GET / "files" / trailing -> Handler.fromFunctionHandler[(Path, Request)] {
               case (path: Path, _: Request) =>
@@ -396,14 +403,12 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
           port    <- Server.installRoutes(routes)
           urls = (0 until 3).map(i => URL.decode(s"http://localhost:$port/files/file-$i.txt").toOption.get).toList
           results <- ZIO
-            .foreachPar(urls) { url =>
-              ZIO.serviceWithZIO[Client](_.request(Request.get(url)))
+            .foreach(0 to 2) { _ =>
+              ZIO.foreachPar(urls) { url =>
+                ZIO.serviceWithZIO[Client](_.request(Request.get(url)))
+              }
             }
-            .repeatN(2)
-          _       <- ZIO.attemptBlocking {
-            tempDir.listFiles().foreach(_.delete())
-            tempDir.delete()
-          }
+            .map(_.flatten)
         } yield assertTrue(
           results.forall(_.status == Status.Ok),
           results.forall(_.headers.get(Header.ContentType).isDefined),
