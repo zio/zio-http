@@ -60,6 +60,11 @@ object TextBinaryCodec {
                 Chunk((cc0.defaultConstruct(), c.caseName))
               case nested: Schema.Enum[_]    =>
                 collectLeafCases(nested)
+              case Schema.Lazy(schema0)      =>
+                schema0() match {
+                  case nestedEnum: Schema.Enum[_] => collectLeafCases(nestedEnum)
+                  case _                          => Chunk.empty
+                }
               case _                         =>
                 Chunk.empty
             }
