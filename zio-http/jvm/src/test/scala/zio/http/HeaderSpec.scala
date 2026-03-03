@@ -400,19 +400,14 @@ object HeaderSpec extends ZIOHttpSpec {
     Headers(Header.Accept(MediaType.application.json), Header.ContentType(MediaType.application.json))
 
   private val customHeaderSpec = suite("Custom header")(
-    test("headerName returns lowercase name without allocating headerType") {
-      val h = Header.Custom("X-Request-Id", "abc-123")
+    test("headerType is cached and returns correct values") {
+      val h   = Header.Custom("X-Request-Id", "abc-123")
+      val ht1 = h.headerType
+      val ht2 = h.headerType
       assertTrue(
+        ht1 eq ht2,
         h.headerName == "x-request-id",
         h.renderedValue == "abc-123",
-      )
-    },
-    test("headerType is consistent with direct overrides") {
-      val h  = Header.Custom("Content-Type", "text/plain")
-      val ht = h.headerType
-      assertTrue(
-        ht.name == h.headerName,
-        ht.render(h) == h.renderedValue,
       )
     },
   )
