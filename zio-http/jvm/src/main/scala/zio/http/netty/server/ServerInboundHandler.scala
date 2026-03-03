@@ -194,7 +194,15 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
+              case Some(bodyTask) =>
+                ctx.channel().config().setAutoRead(false)
+                Some(bodyTask.ensuring(ZIO.succeed {
+                  ctx.channel().config().setAutoRead(true)
+                  ctx.channel().read()
+                }))
+              case None           => None
+            }
           } else {
             ctx.writeAndFlush(jResponse)
             None
