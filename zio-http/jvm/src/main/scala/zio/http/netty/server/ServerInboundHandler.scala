@@ -194,7 +194,19 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
+              case Some(bodyTask) =>
+                val channelConfig    = ctx.channel().config()
+                val previousAutoRead = channelConfig.isAutoRead
+                if (previousAutoRead) channelConfig.setAutoRead(false)
+                Some(bodyTask.ensuring(ZIO.succeed {
+                  if (previousAutoRead) {
+                    channelConfig.setAutoRead(true)
+                    ctx.channel().read()
+                  }
+                }))
+              case None           => None
+            }
           } else {
             ctx.writeAndFlush(jResponse)
             None
