@@ -382,6 +382,7 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(result)(isLeft)
       },
     ),
+    customHeaderSpec,
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -397,4 +398,17 @@ object HeaderSpec extends ZIOHttpSpec {
 
   private def predefinedHeaders: Headers =
     Headers(Header.Accept(MediaType.application.json), Header.ContentType(MediaType.application.json))
+
+  private val customHeaderSpec = suite("Custom header")(
+    test("headerType is cached and returns correct values") {
+      val h   = Header.Custom("X-Request-Id", "abc-123")
+      val ht1 = h.headerType
+      val ht2 = h.headerType
+      assertTrue(
+        ht1 eq ht2,
+        h.headerName == "x-request-id",
+        h.renderedValue == "abc-123",
+      )
+    },
+  )
 }

@@ -199,14 +199,23 @@ object Header {
     override type Self = Custom
     override def self: Self = this
 
-    override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
-      override type HeaderValue = Custom
+    private[this] var _headerType: HeaderType.Typed[Custom] = _
 
-      override def name: String = self.customName.toString.toLowerCase
+    override def headerType: HeaderType.Typed[Custom] = {
+      var ht = _headerType
+      if (ht eq null) {
+        ht = new Header.HeaderType {
+          override type HeaderValue = Custom
 
-      override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
+          override def name: String = self.customName.toString.toLowerCase
 
-      override def render(value: HeaderValue): String = value.value.toString
+          override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
+
+          override def render(value: HeaderValue): String = value.value.toString
+        }
+        _headerType = ht
+      }
+      ht
     }
 
     private[http] override def headerNameAsCharSequence: CharSequence    = customName
