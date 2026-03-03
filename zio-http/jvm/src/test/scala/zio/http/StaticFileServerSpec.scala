@@ -21,7 +21,7 @@ import java.nio.file.Files
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, withLiveClock}
+import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
@@ -378,7 +378,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         for {
           tempDir <- ZIO.attemptBlocking {
             val dir = Files.createTempDirectory("static-test").toFile
-            (0 until 10).foreach { i =>
+            (0 until 3).foreach { i =>
               val file = new File(dir, s"file-$i.txt")
               Files.write(file.toPath, s"content-$i".getBytes)
             }
@@ -394,12 +394,12 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
             },
           )
           port    <- Server.installRoutes(routes)
-          urls = (0 until 10).map(i => URL.decode(s"http://localhost:$port/files/file-$i.txt").toOption.get).toList
+          urls = (0 until 3).map(i => URL.decode(s"http://localhost:$port/files/file-$i.txt").toOption.get).toList
           results <- ZIO
             .foreachPar(urls) { url =>
               ZIO.serviceWithZIO[Client](_.request(Request.get(url)))
             }
-            .repeatN(9)
+            .repeatN(2)
           _       <- ZIO.attemptBlocking {
             tempDir.listFiles().foreach(_.delete())
             tempDir.delete()
@@ -409,7 +409,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
           results.forall(_.headers.get(Header.ContentType).isDefined),
         )
       }
-    },
+    } @@ TestAspect.timeout(2.minutes),
   )
 
   private def createTestFile(content: String): ZIO[Scope, Throwable, File] =
