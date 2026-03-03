@@ -1037,9 +1037,9 @@ object OpenAPIGen {
           case AuthType.ScopedAuth(auth, _)                       =>
             loop(auth)
           case custom: AuthType.Custom[_]                         =>
-            ListMap.from(customAuthSchemes(custom.codec).map { case (name, scheme) =>
+            ListMap(customAuthSchemes(custom.codec).map { case (name, scheme) =>
               OpenAPI.Key.fromString(name).get -> ReferenceOr.Or(scheme)
-            })
+            }: _*)
           case or: AuthType.Or[_, _, _]                           =>
             loop(or.auth1) ++ loop(or.auth2)
           case _                                                  => ListMap.empty
