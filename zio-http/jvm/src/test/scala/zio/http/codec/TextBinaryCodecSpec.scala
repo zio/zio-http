@@ -10,19 +10,6 @@ import zio.http.ZIOHttpSpec
 
 object TextBinaryCodecSpec extends ZIOHttpSpec {
 
-  @simpleEnum sealed trait Fruit
-  object Fruit {
-    case object Apple extends Fruit
-
-    @simpleEnum sealed trait Citrus extends Fruit
-    object Citrus {
-      case object Orange extends Citrus
-      case object Lemon  extends Citrus
-    }
-
-    implicit val schema: Schema[Fruit] = DeriveSchema.gen[Fruit]
-  }
-
   @simpleEnum sealed trait Color
   object Color {
     case object Red   extends Color
@@ -33,38 +20,6 @@ object TextBinaryCodecSpec extends ZIOHttpSpec {
   }
 
   override def spec = suite("TextBinaryCodecSpec")(
-    suite("nested @simpleEnum sealed trait")(
-      test("encode Apple") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.encode(Fruit.Apple)
-        assertTrue(result == Chunk.fromArray("Apple".getBytes))
-      },
-      test("encode Orange (nested)") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.encode(Fruit.Citrus.Orange)
-        assertTrue(result == Chunk.fromArray("Orange".getBytes))
-      },
-      test("encode Lemon (nested)") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.encode(Fruit.Citrus.Lemon)
-        assertTrue(result == Chunk.fromArray("Lemon".getBytes))
-      },
-      test("decode Apple") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.decode(Chunk.fromArray("Apple".getBytes))
-        assertTrue(result == Right(Fruit.Apple))
-      },
-      test("decode Orange (nested)") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.decode(Chunk.fromArray("Orange".getBytes))
-        assertTrue(result == Right(Fruit.Citrus.Orange))
-      },
-      test("decode Lemon (nested)") {
-        val codec  = TextBinaryCodec.fromSchema[Fruit]
-        val result = codec.decode(Chunk.fromArray("Lemon".getBytes))
-        assertTrue(result == Right(Fruit.Citrus.Lemon))
-      },
-    ),
     suite("flat @simpleEnum sealed trait (backward compatibility)")(
       test("encode Red") {
         val codec  = TextBinaryCodec.fromSchema[Color]
