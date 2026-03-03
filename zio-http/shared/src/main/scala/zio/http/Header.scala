@@ -199,8 +199,20 @@ object Header {
     override type Self = Custom
     override def self: Self = this
 
-    override def headerName: String    = customName.toString.toLowerCase
-    override def renderedValue: String = value.toString
+    private[this] var _headerName: String    = _
+    private[this] var _renderedValue: String = _
+
+    override def headerName: String = {
+      var n = _headerName
+      if (n == null) { n = customName.toString.toLowerCase; _headerName = n }
+      n
+    }
+
+    override def renderedValue: String = {
+      var v = _renderedValue
+      if (v == null) { v = value.toString; _renderedValue = v }
+      v
+    }
 
     override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
       override type HeaderValue = Custom
