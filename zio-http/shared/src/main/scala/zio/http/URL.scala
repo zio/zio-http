@@ -309,6 +309,16 @@ object URL {
     }
   }
 
+  private[http] def decodeOrNull(rawUrl: String): URL = {
+    try {
+      val uri = new URI(rawUrl)
+      val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+      url.orNull
+    } catch {
+      case NonFatal(_) => null
+    }
+  }
+
   def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
