@@ -110,6 +110,24 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
         val actual = a.apply(())
         assert(actual)(isDie(equalTo(t)))
       },
+      test("does not evaluate fallback when first succeeds") {
+        val counter = new java.util.concurrent.atomic.AtomicInteger(0)
+        val a1      = Handler.succeed("success")
+        val a2      = Handler.fromFunctionZIO[Unit] { _ =>
+          counter.incrementAndGet()
+          ZIO.succeed("fallback")
+        }
+        val a       = a1 <> a2
+        val actual  = a.apply(())
+        assert(actual)(isSuccess(equalTo("success"))) && assert(counter.get())(equalTo(0))
+      },
+      test("evaluates fallback when first fails with typed error") {
+        val a1     = Handler.fail("error")
+        val a2     = Handler.succeed("fallback")
+        val a      = a1 <> a2
+        val actual = a.apply(())
+        assert(actual)(isSuccess(equalTo("fallback")))
+      },
     ),
     suite("fail")(
       test("should fail") {
