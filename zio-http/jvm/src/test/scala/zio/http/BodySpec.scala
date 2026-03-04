@@ -160,5 +160,28 @@ object BodySpec extends ZIOHttpSpec {
           assertTrue(body.mediaType == Option(MediaType.text.plain))
         },
       ),
+      suite("knownContentLength")(
+        test("UTF-8 ASCII string returns correct byte count") {
+          val body = Body.fromString("hello")
+          assertTrue(body.knownContentLength == Some(5L))
+        },
+        test("UTF-8 multi-byte characters counted correctly") {
+          val body = Body.fromString("日本語")
+          assertTrue(body.knownContentLength == Some(9L))
+        },
+        test("UTF-8 mixed ASCII and multi-byte") {
+          val body = Body.fromString("hello日本")
+          assertTrue(body.knownContentLength == Some(11L))
+        },
+        test("ISO-8859-1 returns data.length") {
+          val body = Body.fromString("hello", java.nio.charset.StandardCharsets.ISO_8859_1)
+          assertTrue(body.knownContentLength == Some(5L))
+        },
+        test("fallback charset returns correct byte count") {
+          val body     = Body.fromString("test", java.nio.charset.StandardCharsets.UTF_16)
+          val expected = "test".getBytes(java.nio.charset.StandardCharsets.UTF_16).length.toLong
+          assertTrue(body.knownContentLength == Some(expected))
+        },
+      ),
     ) @@ timeout(10 seconds)
 }

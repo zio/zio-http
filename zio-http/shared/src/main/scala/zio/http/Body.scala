@@ -888,8 +888,32 @@ object Body {
     /**
      * Returns the length of the body in bytes, if known.
      */
-    override def knownContentLength: Option[Long] =
-      Some(data.getBytes(charset).length.toLong)
+    override def knownContentLength: Option[Long] = {
+      val byteLength = if (charset == StandardCharsets.UTF_8) {
+        var count = 0L
+        var i     = 0
+        while (i < data.length) {
+          val ch = data.charAt(i)
+          if (ch <= 0x7f) {
+            count += 1
+          } else if (ch <= 0x7ff) {
+            count += 2
+          } else if (Character.isHighSurrogate(ch)) {
+            count += 4
+            i += 1
+          } else {
+            count += 3
+          }
+          i += 1
+        }
+        count
+      } else if (charset == StandardCharsets.ISO_8859_1) {
+        data.length.toLong
+      } else {
+        data.getBytes(charset).length.toLong
+      }
+      Some(byteLength)
+    }
 
     override def toString: String = s"StringBody($data)"
 
