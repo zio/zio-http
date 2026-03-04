@@ -414,6 +414,17 @@ object Response {
       Body.fromCharSequence(data),
     )
 
+  /**
+   * Creates a response with content-type set to application/json and the
+   * specified extra headers.
+   */
+  def json(data: CharSequence, extraHeaders: Headers): Response =
+    Response(
+      Status.Ok,
+      contentTypeJson ++ extraHeaders,
+      Body.fromCharSequence(data),
+    )
+
   def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
 
   def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
@@ -470,6 +481,17 @@ object Response {
     Response(
       Status.Ok,
       contentTypeText,
+      Body.fromCharSequence(text),
+    )
+
+  /**
+   * Creates a response with content-type set to text/plain and the specified
+   * extra headers.
+   */
+  def text(text: CharSequence, extraHeaders: Headers): Response =
+    Response(
+      Status.Ok,
+      contentTypeText ++ extraHeaders,
       Body.fromCharSequence(text),
     )
 
