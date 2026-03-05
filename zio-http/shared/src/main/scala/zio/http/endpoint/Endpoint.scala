@@ -346,6 +346,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
       case AuthType.ScopedAuth(auth, _) =>
         authCodec(auth)
+      case AuthType.WithStatus(auth, _) =>
+        authCodec(auth)
     }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
