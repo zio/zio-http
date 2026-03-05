@@ -759,6 +759,8 @@ object OpenAPIGen {
           List(SecurityRequirement(schemes.map { case (name, _) => name -> Nil }.toMap))
         case or: AuthType.Or[_, _, _]                           =>
           loop(or.auth1) ++ loop(or.auth2)
+        case AuthType.WithStatus(auth, _)                       =>
+          loop(auth)
         case _                                                  => Nil
       }
       loop(endpoint.authType.asInstanceOf[AuthType])
@@ -1063,6 +1065,8 @@ object OpenAPIGen {
             }: _*)
           case or: AuthType.Or[_, _, _]                           =>
             loop(or.auth1) ++ loop(or.auth2)
+          case AuthType.WithStatus(auth, _)                       =>
+            loop(auth)
           case _                                                  => ListMap.empty
         }
       loop(endpoint.authType.asInstanceOf[AuthType])
