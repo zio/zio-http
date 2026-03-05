@@ -764,6 +764,23 @@ object OpenAPIGen {
       loop(endpoint.authType.asInstanceOf[AuthType])
     }
 
+    def authResponse(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Responses = {
+      val authType = endpoint.authType.asInstanceOf[AuthType]
+      if (authType == AuthType.None) Map.empty
+      else {
+        val status      = authType.unauthorizedStatus
+        val statusKey   = OpenAPI.StatusOrDefault.StatusValue(status)
+        val description = status match {
+          case Status.Unauthorized => "Unauthorized"
+          case Status.NotFound     => "Not Found"
+          case Status.Forbidden    => "Forbidden"
+          case Status.BadRequest   => "Bad Request"
+          case other               => other.text
+        }
+        Map(statusKey -> OpenAPI.ReferenceOr.Or(OpenAPI.Response(description = Some(Doc.p(description)))))
+      }
+    }
+
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
       val maybeDoc = Some(endpoint.documentation + pathDoc).filter(!_.isEmpty)
       OpenAPI.Operation(
@@ -774,7 +791,7 @@ object OpenAPIGen {
         operationId = None,
         parameters = parameters,
         requestBody = requestBody,
-        responses = responses,
+        responses = authResponse(endpoint) ++ responses,
         callbacks = Map.empty,
         security = getSecurity(endpoint),
         servers = Nil,
