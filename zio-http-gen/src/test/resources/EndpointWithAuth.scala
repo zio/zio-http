@@ -8,6 +8,7 @@ object Users {
   import zio.http.codec._
   val get = Endpoint(Method.GET / "api" / "v1" / "users")
     .in[Unit]
+    .outError[Unit](status = Status.NotFound)
     .auth(AuthType.Bearer)
 
 }
