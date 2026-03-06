@@ -458,25 +458,25 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           request.render == "@get('/api/users')",
         )
       },
-      test("should render POST request with openWhenHidden") {
+      test("should render POST request with default options") {
         val request = DatastarRequest(Method.POST, url"/api/data")
 
         assertTrue(
-          request.render == """@post('/api/data', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
+          request.render == "@post('/api/data')",
         )
       },
       test("should render PUT request with signal in path") {
         val request = DatastarRequest(Method.PUT, URL(Path("/users/$userId")))
 
         assertTrue(
-          request.render == """@put('/users/$userId', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
+          request.render == "@put('/users/$userId')",
         )
       },
       test("should render DELETE request with query params") {
         val request = DatastarRequest(Method.DELETE, url"/items/42?force=true")
 
         assertTrue(
-          request.render == """@delete('/items/42?force=true', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
+          request.render == "@delete('/items/42?force=true')",
         )
       },
     ),
@@ -509,7 +509,7 @@ object DatastarRequestSpec extends ZIOSpecDefault {
       },
       test("should render request with openWhenHidden enabled") {
         val options = DatastarRequestOptions.default.copy(
-          openWhenHidden = true,
+          openWhenHidden = Some(true),
         )
         val request = DatastarRequest(Method.GET, url"/api/data", options)
 
@@ -562,7 +562,7 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         val options = DatastarRequestOptions.default.copy(
           selector = Some(id("target")),
           hdrs = Headers(Header.ContentType(MediaType.application.json)),
-          openWhenHidden = true,
+          openWhenHidden = Some(true),
           retryMaxCount = 3,
         )
         val request = DatastarRequest(Method.PATCH, url"/api/partial/update", options)
@@ -950,7 +950,7 @@ object DatastarRequestSpec extends ZIOSpecDefault {
       test("retry None is excluded from JSON output") {
         val options = DatastarRequestOptions.default.copy(
           retry = None,
-          openWhenHidden = true,
+          openWhenHidden = Some(true),
         )
         val request = DatastarRequest(Method.GET, url"/api/data", options)
 
@@ -960,40 +960,60 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         )
       },
     ),
-    suite("openWhenHidden method-dependent defaults")(
-      test("DatastarRequest GET defaults openWhenHidden to false") {
+    suite("openWhenHidden option behavior")(
+      test("GET factory should set openWhenHidden to None") {
         val request = DatastarRequest(Method.GET, url"/api/data")
 
         assertTrue(
-          request.options.openWhenHidden == false,
+          request.options.openWhenHidden == None,
         )
       },
-      test("DatastarRequest POST defaults openWhenHidden to true") {
+      test("POST factory should set openWhenHidden to None") {
         val request = DatastarRequest(Method.POST, url"/api/data")
 
         assertTrue(
-          request.options.openWhenHidden == true,
+          request.options.openWhenHidden == None,
         )
       },
-      test("DatastarRequest PUT defaults openWhenHidden to true") {
+      test("PUT factory should set openWhenHidden to None") {
         val request = DatastarRequest(Method.PUT, url"/api/data")
 
         assertTrue(
-          request.options.openWhenHidden == true,
+          request.options.openWhenHidden == None,
         )
       },
-      test("DatastarRequest DELETE defaults openWhenHidden to true") {
+      test("DELETE factory should set openWhenHidden to None") {
         val request = DatastarRequest(Method.DELETE, url"/api/data")
 
         assertTrue(
-          request.options.openWhenHidden == true,
+          request.options.openWhenHidden == None,
         )
       },
-      test("DatastarRequest PATCH defaults openWhenHidden to true") {
+      test("PATCH factory should set openWhenHidden to None") {
         val request = DatastarRequest(Method.PATCH, url"/api/data")
 
         assertTrue(
-          request.options.openWhenHidden == true,
+          request.options.openWhenHidden == None,
+        )
+      },
+      test("explicit Some(true) should render openWhenHidden in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          openWhenHidden = Some(true),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render == """@get('/api/data', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
+        )
+      },
+      test("explicit Some(false) should render openWhenHidden in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          openWhenHidden = Some(false),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render == """@get('/api/data', {"contentType":"application/json","openWhenHidden":false,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
         )
       },
     ),

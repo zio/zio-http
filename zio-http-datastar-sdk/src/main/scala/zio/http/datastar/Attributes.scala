@@ -576,6 +576,7 @@ object Attributes {
     case object ViewTransition                                              extends OptionLessIntersect
     case object Exit                                                        extends OptionLessIntersect
     final case class Threshold(percent: Int)                                extends IntersectModifier {
+      require(percent >= 0 && percent <= 100, s"Threshold percent must be between 0 and 100, got: $percent")
       val render: String = s"__threshold.$percent"
     }
   }

@@ -113,14 +113,8 @@ object DatastarRequest {
     }
   }
 
-  def apply(method: Method, url: URL): DatastarRequest = {
-    val openWhenHidden = method match {
-      case Method.GET                                              => false
-      case Method.POST | Method.PUT | Method.PATCH | Method.DELETE => true
-      case _                                                       => false
-    }
-    DatastarRequest(method, url, DatastarRequestOptions.default.copy(openWhenHidden = openWhenHidden))
-  }
+  def apply(method: Method, url: URL): DatastarRequest =
+    DatastarRequest(method, url, DatastarRequestOptions.default)
 }
 
 final case class DatastarRequestOptions(
@@ -129,7 +123,7 @@ final case class DatastarRequestOptions(
   selector: Option[CssSelector] = None,
   @fieldName("headers")
   hdrs: Headers = Headers.empty,
-  openWhenHidden: Boolean = false,
+  openWhenHidden: Option[Boolean] = None,
   retryInterval: Int = 1000,
   retryScaler: Int = 2,
   retryMaxWaitMs: Int = 30000,
