@@ -669,6 +669,43 @@ val routes = Routes(
 ) @@ multiAuthMiddleware
 ```
 
+### Configuring Auth Failure Response
+
+When authentication fails (missing or invalid credentials), the endpoint returns `404 Not Found` by default. This is the most secure default: it doesn't reveal whether the resource exists (the same approach used by GitHub).
+
+To customize the response status, use `.unauthorizedStatus(Status)`:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+
+val endpoint = Endpoint(Method.GET / "me" / "profile")
+  .out[List[Book]]
+  .auth(AuthType.Bearer)
+  .unauthorizedStatus(Status.Unauthorized)
+```
+
+When the status is `401 Unauthorized`, ZIO HTTP automatically includes the `WWW-Authenticate` header in the response per RFC 7235.
+
+You can use any `Status` value:
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.endpoint._
+
+val forbiddenEndpoint = Endpoint(Method.GET / "admin" / "panel")
+  .out[List[Book]]
+  .auth(AuthType.Bearer)
+  .unauthorizedStatus(Status.Forbidden)
+
+val badRequestEndpoint = Endpoint(Method.GET / "api" / "data")
+  .out[List[Book]]
+  .auth(AuthType.Basic)
+  .unauthorizedStatus(Status.BadRequest)
+```
+
+The configured status is automatically reflected in the generated OpenAPI specification.
+
 ## Transforming Endpoint Input/Output and Error Types
 
 To transform the input, output, and error types of an endpoint, we can use the `Endpoint#transformIn`, `Endpoint#transformOut`, and `Endpoint#transformError` methods, respectively. Let's see an example:
