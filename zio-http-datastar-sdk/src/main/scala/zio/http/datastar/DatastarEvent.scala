@@ -170,7 +170,7 @@ object DatastarEvent {
     options: ExecuteScriptOptions,
   ): ExecuteScript = {
     val removeAttr      =
-      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove")) else Dom.empty
+      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove()")) else Dom.empty
     val scriptWithAttrs =
       script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, AttributeValue.StringValue(a._2))))
 

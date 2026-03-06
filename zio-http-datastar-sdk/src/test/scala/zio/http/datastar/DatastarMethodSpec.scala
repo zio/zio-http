@@ -60,7 +60,7 @@ object DatastarMethodSpec extends ZIOSpecDefault {
           body.contains("event: datastar-patch-elements"),
           body.contains("data: elements <script"),
           body.contains("console.log('Script executed via datastar')"),
-          body.contains("data-effect=\"el.remove\""),
+          body.contains("data-effect=\"el.remove()\""),
         )
       },
       test("should handle multiple events in sequence") {
