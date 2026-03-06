@@ -346,6 +346,33 @@ object DatastarEventSpec extends ZIOSpecDefault {
         )
       },
     ),
+    suite("PatchElements with namespace")(
+      test("PatchElements with namespace generates correct SSE") {
+        val event = DatastarEvent.PatchElements(
+          elements = div(id := "svg-content")("Hello SVG"),
+          namespace = Some("http://www.w3.org/2000/svg"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data.contains("namespace http://www.w3.org/2000/svg"),
+          sse.data.contains("elements"),
+        )
+      },
+      test("PatchElements without namespace omits namespace line") {
+        val event = DatastarEvent.patchElements(
+          div("Simple content"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          !sse.data.contains("namespace "), // Note trailing space to match SSE field format
+          sse.data == "elements <div>Simple content</div>\n",
+        )
+      },
+    ),
     suite("DatastarEvent toServerSentEvent encoding")(
       test("PatchElements encodes HTML correctly") {
         val event = DatastarEvent.patchElements(

@@ -512,7 +512,9 @@ object Attributes {
       modify(IntersectModifier.Debounce(duration, leading, notrailing))
     def throttle(duration: Duration, noleading: Boolean = false, trailing: Boolean = false): DataOnIntersect =
       modify(IntersectModifier.Throttle(duration, noleading, trailing))
-    def viewTransition: DataOnIntersect = modify(IntersectModifier.ViewTransition)
+    def viewTransition: DataOnIntersect          = modify(IntersectModifier.ViewTransition)
+    def exit: DataOnIntersect                    = modify(IntersectModifier.Exit)
+    def threshold(percent: Int): DataOnIntersect = modify(IntersectModifier.Threshold(percent))
   }
 
   sealed trait IntersectModifier extends Product with Serializable {
@@ -572,6 +574,10 @@ object Attributes {
       def trailing: Throttle  = copy(trailing0 = false)
     }
     case object ViewTransition                                              extends OptionLessIntersect
+    case object Exit                                                        extends OptionLessIntersect
+    final case class Threshold(percent: Int)                                extends IntersectModifier {
+      val render: String = s"__threshold.$percent"
+    }
   }
   final case class DataOnInterval(prefix: String, modifier: OnIntervalModifier) {
     private val full = s"$prefix-on-interval${modifier.render}"
@@ -650,7 +656,7 @@ object Attributes {
   }
 
   // Binary compatibility: Keep DataOnLoad class (deprecated, use DataInit)
-  // Note: Both generate the same data-init attribute per RC6
+  // Note: Both generate the same data-init attribute per RC8
   @deprecated("Use dataInit instead of dataOnLoad", "3.6.0")
   @nowarn("cat=deprecation")
   final case class DataOnLoad(prefix: String, modifier: LoadModifier) {

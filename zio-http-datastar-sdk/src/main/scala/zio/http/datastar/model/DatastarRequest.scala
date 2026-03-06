@@ -114,7 +114,7 @@ object DatastarRequest {
   }
 
   def apply(method: Method, url: URL): DatastarRequest =
-    DatastarRequest(method, url, DatastarRequestOptions.default)
+    DatastarRequest(method, url, DatastarRequestOptions.default.copy(openWhenHidden = method != Method.GET))
 }
 
 final case class DatastarRequestOptions(
@@ -129,6 +129,9 @@ final case class DatastarRequestOptions(
   retryMaxWaitMs: Int = 30000,
   retryMaxCount: Int = 10,
   requestCancellation: DatastarRequestCancellation = DatastarRequestCancellation.Auto,
+  retry: Option[DatastarRetry] = None,
+  payload: Option[Js] = None,
+  cleanup: Option[Js] = None,
 ) extends HeaderOps[DatastarRequestOptions] {
 
   /**
@@ -151,6 +154,10 @@ object DatastarRequestOptions {
       map => Headers.fromIterable(map.map { case (k, v) => Header.Custom(k, v) }),
       headers => headers.map(h => h.headerName -> h.renderedValue).toMap,
     )
+  implicit val jsSchema: Schema[Js]                   = Schema[String].transform[Js](
+    Js(_),
+    _.value,
+  )
   implicit val schema: Schema[DatastarRequestOptions] = DeriveSchema.gen
 
   implicit val json: JsonCodec[DatastarRequestOptions] = jsonCodec(schema)
@@ -181,6 +188,24 @@ object DatastarRequestCancellation {
       case Auto          => "Auto"
       case Disabled      => "Disabled"
       case Custom(value) => value.value
+    },
+  )
+}
+
+sealed trait DatastarRetry
+object DatastarRetry {
+  case object Auto  extends DatastarRetry
+  case object Error extends DatastarRetry
+
+  implicit val schema: Schema[DatastarRetry] = Schema[String].transform[DatastarRetry](
+    {
+      case "auto"  => Auto
+      case "error" => Error
+      case other   => Auto
+    },
+    {
+      case Auto  => "auto"
+      case Error => "error"
     },
   )
 }

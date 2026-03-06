@@ -5,6 +5,7 @@ import scala.annotation.nowarn
 import zio.test._
 
 import zio.http._
+import zio.http.datastar.model.DatastarRetry
 import zio.http.endpoint._
 import zio.http.template2._
 
@@ -461,21 +462,27 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         val request = DatastarRequest(Method.POST, url"/api/data")
 
         assertTrue(
-          request.render == "@post('/api/data')",
+          request.render.contains("@post"),
+          request.render.contains("/api/data"),
+          request.render.contains("openWhenHidden"),
         )
       },
       test("should render PUT request with signal in path") {
         val request = DatastarRequest(Method.PUT, URL(Path("/users/$userId")))
 
         assertTrue(
-          request.render == "@put('/users/$userId')",
+          request.render.contains("@put"),
+          request.render.contains("/users/$userId"),
+          request.render.contains("openWhenHidden"),
         )
       },
       test("should render DELETE request with query params") {
         val request = DatastarRequest(Method.DELETE, url"/items/42?force=true")
 
         assertTrue(
-          request.render == "@delete('/items/42?force=true')",
+          request.render.contains("@delete"),
+          request.render.contains("/items/42?force=true"),
+          request.render.contains("openWhenHidden"),
         )
       },
     ),
@@ -924,6 +931,70 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           )
         },
       ),
+    ),
+    suite("DatastarRetry serialization")(
+      test("DatastarRetry.Auto serializes as auto in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          retry = Some(DatastarRetry.Auto),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render.contains("\"retry\":\"auto\""),
+        )
+      },
+      test("DatastarRetry.Error serializes as error in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          retry = Some(DatastarRetry.Error),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render.contains("\"retry\":\"error\""),
+        )
+      },
+      test("retry None is excluded from JSON output") {
+        val options = DatastarRequestOptions.default.copy(
+          retry = None,
+          openWhenHidden = true,
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          !request.render.contains("\"retry\":"),
+          request.render.contains("openWhenHidden"),
+        )
+      },
+    ),
+    suite("openWhenHidden method-dependent defaults")(
+      test("DatastarRequest GET defaults openWhenHidden to false") {
+        val request = DatastarRequest(Method.GET, url"/api/data")
+
+        assertTrue(
+          request.options.openWhenHidden == false,
+        )
+      },
+      test("DatastarRequest POST defaults openWhenHidden to true") {
+        val request = DatastarRequest(Method.POST, url"/api/data")
+
+        assertTrue(
+          request.options.openWhenHidden == true,
+        )
+      },
+      test("DatastarRequest PUT defaults openWhenHidden to true") {
+        val request = DatastarRequest(Method.PUT, url"/api/data")
+
+        assertTrue(
+          request.options.openWhenHidden == true,
+        )
+      },
+      test("DatastarRequest DELETE defaults openWhenHidden to true") {
+        val request = DatastarRequest(Method.DELETE, url"/api/data")
+
+        assertTrue(
+          request.options.openWhenHidden == true,
+        )
+      },
     ),
   )
 }

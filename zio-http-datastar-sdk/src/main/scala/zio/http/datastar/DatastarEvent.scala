@@ -24,6 +24,7 @@ object DatastarEvent {
     selector: Option[CssSelector] = None,
     mode: ElementPatchMode = ElementPatchMode.Outer,
     useViewTransition: Boolean = false,
+    namespace: Option[String] = None,
     eventId: Option[String] = None,
     retryDuration: Duration = 1000.millis,
   ) extends DatastarEvent {
@@ -44,6 +45,8 @@ object DatastarEvent {
       if (useViewTransition) {
         sb.append("useViewTransition true\n")
       }
+
+      namespace.foreach(ns => sb.append("namespace ").append(ns).append('\n'))
 
       val rendered = elements.renderMinified
       if (rendered.contains('\n'))
@@ -291,7 +294,7 @@ object DatastarEvent {
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchElements =
-    PatchElements(element, selector, mode, useViewTransition, eventId, retryDuration)
+    PatchElements(element, selector, mode, useViewTransition, None, eventId, retryDuration)
 
   def patchSignals(signal: (String, String)): PatchSignals =
     patchSignals(Seq(signal), PatchSignalOptions.default)
