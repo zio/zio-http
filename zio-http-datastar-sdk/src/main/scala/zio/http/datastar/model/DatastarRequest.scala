@@ -113,8 +113,14 @@ object DatastarRequest {
     }
   }
 
-  def apply(method: Method, url: URL): DatastarRequest =
-    DatastarRequest(method, url, DatastarRequestOptions.default.copy(openWhenHidden = method != Method.GET))
+  def apply(method: Method, url: URL): DatastarRequest = {
+    val openWhenHidden = method match {
+      case Method.GET                                              => false
+      case Method.POST | Method.PUT | Method.PATCH | Method.DELETE => true
+      case _                                                       => false
+    }
+    DatastarRequest(method, url, DatastarRequestOptions.default.copy(openWhenHidden = openWhenHidden))
+  }
 }
 
 final case class DatastarRequestOptions(

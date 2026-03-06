@@ -176,6 +176,8 @@ object ServerSentEventGenerator {
         sb.append("useViewTransition true\n")
       }
 
+      options.namespace.foreach(ns => sb.append("namespace ").append(ns).append('\n'))
+
       val rendered = elements.renderMinified
       if (rendered.contains('\n'))
         rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
