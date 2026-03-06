@@ -368,7 +368,6 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          !sse.data.contains("namespace "), // Note trailing space to match SSE field format
           sse.data == "elements <div>Simple content</div>\n",
         )
       },

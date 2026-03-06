@@ -458,31 +458,25 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           request.render == "@get('/api/users')",
         )
       },
-      test("should render POST request with default options") {
+      test("should render POST request with openWhenHidden") {
         val request = DatastarRequest(Method.POST, url"/api/data")
 
         assertTrue(
-          request.render.contains("@post"),
-          request.render.contains("/api/data"),
-          request.render.contains("openWhenHidden"),
+          request.render == """@post('/api/data', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
         )
       },
       test("should render PUT request with signal in path") {
         val request = DatastarRequest(Method.PUT, URL(Path("/users/$userId")))
 
         assertTrue(
-          request.render.contains("@put"),
-          request.render.contains("/users/$userId"),
-          request.render.contains("openWhenHidden"),
+          request.render == """@put('/users/$userId', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
         )
       },
       test("should render DELETE request with query params") {
         val request = DatastarRequest(Method.DELETE, url"/items/42?force=true")
 
         assertTrue(
-          request.render.contains("@delete"),
-          request.render.contains("/items/42?force=true"),
-          request.render.contains("openWhenHidden"),
+          request.render == """@delete('/items/42?force=true', {"contentType":"application/json","openWhenHidden":true,"retryInterval":1000,"retryScaler":2,"retryMaxWaitMs":30000,"retryMaxCount":10,"requestCancellation":"Auto"})""",
         )
       },
     ),
