@@ -197,15 +197,15 @@ object DatastarRetry {
   case object Auto  extends DatastarRetry
   case object Error extends DatastarRetry
 
-  implicit val schema: Schema[DatastarRetry] = Schema[String].transform[DatastarRetry](
+  implicit val schema: Schema[DatastarRetry] = Schema[String].transformOrFail[DatastarRetry](
     {
-      case "auto"  => Auto
-      case "error" => Error
-      case other   => Auto
+      case "auto"  => Right(Auto)
+      case "error" => Right(Error)
+      case other   => Left(s"Invalid DatastarRetry value: '$other'. Expected 'auto' or 'error'.")
     },
     {
-      case Auto  => "auto"
-      case Error => "error"
+      case Auto  => Right("auto")
+      case Error => Right("error")
     },
   )
 }

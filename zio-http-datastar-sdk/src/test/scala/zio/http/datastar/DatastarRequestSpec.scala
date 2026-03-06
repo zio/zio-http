@@ -989,6 +989,13 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           request.options.openWhenHidden == true,
         )
       },
+      test("DatastarRequest PATCH defaults openWhenHidden to true") {
+        val request = DatastarRequest(Method.PATCH, url"/api/data")
+
+        assertTrue(
+          request.options.openWhenHidden == true,
+        )
+      },
     ),
   )
 }

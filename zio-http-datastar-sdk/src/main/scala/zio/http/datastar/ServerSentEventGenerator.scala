@@ -83,6 +83,7 @@ final case class PatchElementOptions(
   selector: Option[CssSelector] = None,
   mode: ElementPatchMode = ElementPatchMode.Outer,
   useViewTransition: Boolean = false,
+  namespace: Option[String] = None,
   eventId: Option[String] = None,
   retryDuration: Duration = 1000.millis,
 )
