@@ -296,13 +296,39 @@ object URL {
   def decode(rawUrl: String): Either[MalformedURLException, URL] = {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))
 
-    try {
-      val uri = new URI(rawUrl)
-      val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+    def isRelativeUrl(url: String): Boolean = url.charAt(0) == '/'
 
-      url match {
-        case Some(value) => Right(value)
-        case None        => invalidURL()
+    try {
+      if (rawUrl.isEmpty) Right(URL.empty)
+      // Fast path for relative URIs (the common case for incoming HTTP requests):
+      // avoid allocating a java.net.URI by splitting on '?' and '#' directly.
+      else if (isRelativeUrl(rawUrl)) {
+        val fragmentIdx = rawUrl.indexOf('#')
+        val rawQueryIdx = rawUrl.indexOf('?')
+        // A '?' after '#' is part of the fragment, not a query delimiter
+        val queryIdx    = if (fragmentIdx >= 0 && rawQueryIdx > fragmentIdx) -1 else rawQueryIdx
+
+        val pathEnd  = if (queryIdx >= 0) queryIdx else if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
+        val rawPath  = rawUrl.substring(0, pathEnd)
+        val rawQuery = if (queryIdx >= 0) {
+          val queryEnd = if (fragmentIdx > queryIdx) fragmentIdx else rawUrl.length
+          rawUrl.substring(queryIdx + 1, queryEnd)
+        } else null
+        val fragment = if (fragmentIdx >= 0) {
+          val rawFrag     = rawUrl.substring(fragmentIdx + 1)
+          val decodedFrag = java.net.URLDecoder.decode(rawFrag, "UTF-8")
+          Some(Fragment(rawFrag, decodedFrag))
+        } else None
+
+        Right(URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(rawQuery), fragment))
+      } else {
+        val uri = new URI(rawUrl)
+        val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+
+        url match {
+          case Some(value) => Right(value)
+          case None        => invalidURL()
+        }
       }
     } catch {
       case NonFatal(e) => invalidURL(e)
