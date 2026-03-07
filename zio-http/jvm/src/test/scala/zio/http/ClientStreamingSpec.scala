@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 import zio.test.Assertion.{equalTo, fails, hasMessage}
 import zio.test.TestAspect._
@@ -29,6 +31,7 @@ import zio.http.internal.RoutesRunnableSpec
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
+@nowarn("msg=deprecated")
 object ClientStreamingSpec extends RoutesRunnableSpec {
   def extractStatus(response: Response): Status = response.status
 
