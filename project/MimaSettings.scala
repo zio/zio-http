@@ -47,6 +47,8 @@ object MimaSettings {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.RichTextCodec.|"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.DnsResolver#CachingResolver.this"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.DnsResolver#CachingResolver.make"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.endpoint.AuthType.unauthorizedStatus"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.endpoint.AuthType.withUnauthorizedStatus"),
       ),
       mimaFailOnProblem := failOnProblem,
     )

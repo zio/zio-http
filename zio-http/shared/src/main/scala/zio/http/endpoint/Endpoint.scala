@@ -201,6 +201,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
+  def unauthorizedStatus(status: Status): Endpoint[PathInput, Input, Err, Output, Auth] =
+    copy(authType = authType.withUnauthorizedStatus(status).asInstanceOf[Auth])
+
   def scopes: List[String] = authScopesRecursive(authType)
 
   private def authScopesRecursive(authType: AuthType): List[String] = authType match {
@@ -346,11 +349,33 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         authCodec(auth1).orElseEither(authCodec(auth2))(Alternator.leftRightEqual[Unit])
       case AuthType.ScopedAuth(auth, _) =>
         authCodec(auth)
+      case AuthType.WithStatus(auth, _) =>
+        authCodec(auth)
     }
 
     val maybeUnauthedResponse = authType.asInstanceOf[AuthType] match {
       case AuthType.None => None
-      case _             => Some(Handler.succeed(Response.unauthorized))
+      case auth          =>
+        val resp = auth.unauthorizedStatus match {
+          case Status.Unauthorized =>
+            val wwwAuth = (auth match {
+              case AuthType.Basic            => Header.WWWAuthenticate.Basic()
+              case AuthType.Bearer           => Header.WWWAuthenticate.Bearer(realm = "")
+              case AuthType.Digest           => Header.WWWAuthenticate.Digest(realm = Some(""))
+              case AuthType.WithStatus(a, _) =>
+                (a: AuthType) match {
+                  case AuthType.Basic  => Header.WWWAuthenticate.Basic()
+                  case AuthType.Bearer => Header.WWWAuthenticate.Bearer(realm = "")
+                  case AuthType.Digest => Header.WWWAuthenticate.Digest(realm = Some(""))
+                  case _               => Header.WWWAuthenticate.Bearer(realm = "")
+                }
+              case _                         => Header.WWWAuthenticate.Bearer(realm = "")
+            }): Header.WWWAuthenticate
+            Response(status = Status.Unauthorized, headers = Headers(wwwAuth))
+          case status              =>
+            Response(status = status)
+        }
+        Some(Handler.succeed(resp))
     }
 
     def handlers(
@@ -435,6 +460,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             asHttpCodecError(cause) match {
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
+                maybeUnauthedResponse.get
+              case Some(e: HttpCodecError.MissingHeader)
+                  if maybeUnauthedResponse.isDefined && e.headerName.toLowerCase == "authorization" =>
                 maybeUnauthedResponse.get
               case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>

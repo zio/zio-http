@@ -357,6 +357,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "Bearer": []
@@ -393,6 +398,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withAuthScopes": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "Bearer": ["read", "write"]
@@ -4921,6 +4931,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withCustomHeaderAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "x-Api-Token": []
@@ -4958,6 +4973,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withCustomQueryAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "api_key": []
@@ -4995,6 +5015,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withCookieAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "cookie": []
@@ -5032,6 +5057,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withOrAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "Bearer": []
@@ -5079,6 +5109,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withMultiHeaderAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "x-Api-Key": [],
@@ -5106,6 +5141,48 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |    {
                              |      "x-Api-Key": [],
                              |      "x-Tenant-Id": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("auth with custom 401 status to OpenAPI") {
+        val endpoint401  = Endpoint(GET / "withAuth401").auth(AuthType.Bearer).unauthorizedStatus(Status.Unauthorized)
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth 401", "1.0", endpoint401)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth 401",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuth401": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "401": {
+                             |            "description": "Unauthorized\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "Bearer": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": []
                              |    }
                              |  ]
                              |}""".stripMargin

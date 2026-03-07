@@ -759,9 +759,34 @@ object OpenAPIGen {
           List(SecurityRequirement(schemes.map { case (name, _) => name -> Nil }.toMap))
         case or: AuthType.Or[_, _, _]                           =>
           loop(or.auth1) ++ loop(or.auth2)
+        case AuthType.WithStatus(auth, _)                       =>
+          loop(auth)
         case _                                                  => Nil
       }
       loop(endpoint.authType.asInstanceOf[AuthType])
+    }
+
+    def authResponse(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Responses = {
+      val authType                      = endpoint.authType.asInstanceOf[AuthType]
+      def isNone(at: AuthType): Boolean = at match {
+        case AuthType.None             => true
+        case AuthType.WithStatus(a, _) => isNone(a)
+        case AuthType.ScopedAuth(a, _) => isNone(a)
+        case _                         => false
+      }
+      if (isNone(authType)) Map.empty
+      else {
+        val status      = authType.unauthorizedStatus
+        val statusKey   = OpenAPI.StatusOrDefault.StatusValue(status)
+        val description = status match {
+          case Status.Unauthorized => "Unauthorized"
+          case Status.NotFound     => "Not Found"
+          case Status.Forbidden    => "Forbidden"
+          case Status.BadRequest   => "Bad Request"
+          case other               => other.text
+        }
+        Map(statusKey -> OpenAPI.ReferenceOr.Or(OpenAPI.Response(description = Some(Doc.p(description)))))
+      }
     }
 
     def operation(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Operation = {
@@ -774,7 +799,7 @@ object OpenAPIGen {
         operationId = None,
         parameters = parameters,
         requestBody = requestBody,
-        responses = responses,
+        responses = authResponse(endpoint) ++ responses,
         callbacks = Map.empty,
         security = getSecurity(endpoint),
         servers = Nil,
@@ -1046,6 +1071,8 @@ object OpenAPIGen {
             }: _*)
           case or: AuthType.Or[_, _, _]                           =>
             loop(or.auth1) ++ loop(or.auth2)
+          case AuthType.WithStatus(auth, _)                       =>
+            loop(auth)
           case _                                                  => ListMap.empty
         }
       loop(endpoint.authType.asInstanceOf[AuthType])
