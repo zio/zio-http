@@ -182,6 +182,12 @@ object BodySpec extends ZIOHttpSpec {
           val expected = "test".getBytes(java.nio.charset.StandardCharsets.UTF_16).length.toLong
           assertTrue(body.knownContentLength == Some(expected))
         },
+        test("UTF-8 unpaired surrogate counted as replacement character") {
+          val data     = "a\uD800b"
+          val body     = Body.fromString(data)
+          val expected = data.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong
+          assertTrue(body.knownContentLength == Some(expected))
+        },
       ),
     ) @@ timeout(10 seconds)
 }

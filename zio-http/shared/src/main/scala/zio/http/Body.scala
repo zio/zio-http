@@ -898,9 +898,13 @@ object Body {
             count += 1
           } else if (ch <= 0x7ff) {
             count += 2
-          } else if (Character.isHighSurrogate(ch)) {
+          } else if (
+            Character.isHighSurrogate(ch) && i + 1 < data.length && Character.isLowSurrogate(data.charAt(i + 1))
+          ) {
             count += 4
             i += 1
+          } else if (Character.isSurrogate(ch)) {
+            count += 1
           } else {
             count += 3
           }

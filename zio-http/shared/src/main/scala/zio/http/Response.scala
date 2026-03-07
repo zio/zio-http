@@ -421,7 +421,7 @@ object Response {
   def json(data: CharSequence, extraHeaders: Headers): Response =
     Response(
       Status.Ok,
-      contentTypeJson ++ extraHeaders,
+      extraHeaders ++ contentTypeJson,
       Body.fromCharSequence(data),
     )
 
@@ -491,7 +491,7 @@ object Response {
   def text(text: CharSequence, extraHeaders: Headers): Response =
     Response(
       Status.Ok,
-      contentTypeText ++ extraHeaders,
+      extraHeaders ++ contentTypeText,
       Body.fromCharSequence(text),
     )
 
