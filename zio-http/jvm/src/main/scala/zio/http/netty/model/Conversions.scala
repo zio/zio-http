@@ -94,12 +94,44 @@ private[netty] object Conversions {
       (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
     )
 
+  private val singletonHeaders: java.util.HashSet[String] = {
+    val set = new java.util.HashSet[String](32)
+    set.add("age")
+    set.add("authorization")
+    set.add("content-length")
+    set.add("content-type")
+    set.add("content-location")
+    set.add("content-range")
+    set.add("date")
+    set.add("etag")
+    set.add("expect")
+    set.add("expires")
+    set.add("from")
+    set.add("host")
+    set.add("if-modified-since")
+    set.add("if-range")
+    set.add("if-unmodified-since")
+    set.add("last-modified")
+    set.add("location")
+    set.add("max-forwards")
+    set.add("proxy-authorization")
+    set.add("referer")
+    set.add("retry-after")
+    set.add("server")
+    set.add("user-agent")
+    set
+  }
+
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
     val nettyHeaders = new DefaultHttpHeaders()
     val iter         = headers.iterator
     while (iter.hasNext) {
       val header = iter.next()
-      nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
+      if (singletonHeaders.contains(header.headerName)) {
+        nettyHeaders.set(header.headerName, header.renderedValueAsCharSequence)
+      } else {
+        nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
+      }
     }
     nettyHeaders
   }

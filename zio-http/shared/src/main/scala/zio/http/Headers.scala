@@ -122,8 +122,8 @@ object Headers {
       first.iterator ++ second.iterator
 
     private[http] override def getUnsafe(key: CharSequence): String = {
-      val fromFirst = first.getUnsafe(key)
-      if (fromFirst ne null) fromFirst else second.getUnsafe(key)
+      val fromSecond = second.getUnsafe(key)
+      if (fromSecond ne null) fromSecond else first.getUnsafe(key)
     }
   }
 
