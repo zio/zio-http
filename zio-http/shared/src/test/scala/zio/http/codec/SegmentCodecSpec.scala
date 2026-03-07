@@ -101,5 +101,25 @@ object SegmentCodecSpec extends ZIOSpecDefault {
         assertTrue(codec.matches(path, 1) == 1)
       },
     ),
+    suite("hashCode")(
+      test("hashCode is stable across multiple calls") {
+        val codec = SegmentCodec.literal("test")
+        val hash1 = codec.hashCode
+        val hash2 = codec.hashCode
+        assertTrue(hash1 == hash2, hash1 != 0)
+      },
+      test("hashCode is non-zero for all standard segment codecs") {
+        val codecs: List[SegmentCodec[_]] = List(
+          SegmentCodec.empty,
+          SegmentCodec.literal("users"),
+          SegmentCodec.int("id"),
+          SegmentCodec.long("id"),
+          SegmentCodec.string("name"),
+          SegmentCodec.uuid("uuid"),
+          SegmentCodec.trailing,
+        )
+        assertTrue(codecs.forall(_.hashCode != 0))
+      },
+    ),
   )
 }
