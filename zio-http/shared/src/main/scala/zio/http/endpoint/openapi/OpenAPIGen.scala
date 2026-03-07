@@ -767,8 +767,14 @@ object OpenAPIGen {
     }
 
     def authResponse(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Responses = {
-      val authType = endpoint.authType.asInstanceOf[AuthType]
-      if (authType == AuthType.None) Map.empty
+      val authType                      = endpoint.authType.asInstanceOf[AuthType]
+      def isNone(at: AuthType): Boolean = at match {
+        case AuthType.None             => true
+        case AuthType.WithStatus(a, _) => isNone(a)
+        case AuthType.ScopedAuth(a, _) => isNone(a)
+        case _                         => false
+      }
+      if (isNone(authType)) Map.empty
       else {
         val status      = authType.unauthorizedStatus
         val statusKey   = OpenAPI.StatusOrDefault.StatusValue(status)

@@ -361,11 +361,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             val wwwAuth = (auth match {
               case AuthType.Basic            => Header.WWWAuthenticate.Basic()
               case AuthType.Bearer           => Header.WWWAuthenticate.Bearer(realm = "")
-              case AuthType.Digest           => Header.WWWAuthenticate.Bearer(realm = "")
+              case AuthType.Digest           => Header.WWWAuthenticate.Digest(realm = Some(""))
               case AuthType.WithStatus(a, _) =>
                 (a: AuthType) match {
                   case AuthType.Basic  => Header.WWWAuthenticate.Basic()
                   case AuthType.Bearer => Header.WWWAuthenticate.Bearer(realm = "")
+                  case AuthType.Digest => Header.WWWAuthenticate.Digest(realm = Some(""))
                   case _               => Header.WWWAuthenticate.Bearer(realm = "")
                 }
               case _                         => Header.WWWAuthenticate.Bearer(realm = "")
@@ -460,9 +461,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
               case Some(HttpCodecError.CustomError("SchemaTransformationFailure", message))
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
-              case Some(_: HttpCodecError.MissingHeader) if maybeUnauthedResponse.isDefined =>
+              case Some(e: HttpCodecError.MissingHeader)
+                  if maybeUnauthedResponse.isDefined && e.headerName.toLowerCase == "authorization" =>
                 maybeUnauthedResponse.get
-              case Some(_)                                                                  =>
+              case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
@@ -477,7 +479,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   }
                   ZIO.succeed(response)
                 }
-              case None                                                                     =>
+              case None    =>
                 Handler.failCause(cause)
             }
           }
