@@ -62,6 +62,14 @@ object ConversionsSpec extends ZIOHttpSpec {
             result.get("content-type") == "application/json",
           )
         },
+        test("should deduplicate mixed-case singleton Content-Type header (last wins)") {
+          val headers = Headers("Content-Type", "text/plain") ++ Headers("content-type", "application/json")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("content-type") == "application/json",
+          )
+        },
         test("should preserve duplicate list-based Accept headers") {
           val headers = Headers("accept", "text/html") ++ Headers("accept", "application/json")
           val result  = Conversions.headersToNetty(headers)

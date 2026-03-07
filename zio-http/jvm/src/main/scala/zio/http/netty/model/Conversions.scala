@@ -127,11 +127,10 @@ private[netty] object Conversions {
     val iter         = headers.iterator
     while (iter.hasNext) {
       val header = iter.next()
-      val name   = header.headerName
-      if (singletonHeaders.contains(name.toString.toLowerCase(java.util.Locale.ROOT))) {
-        nettyHeaders.set(name, header.renderedValueAsCharSequence)
+      if (singletonHeaders.contains(header.headerName)) {
+        nettyHeaders.set(header.headerName, header.renderedValueAsCharSequence)
       } else {
-        nettyHeaders.add(name, header.renderedValueAsCharSequence)
+        nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
       }
     }
     nettyHeaders
