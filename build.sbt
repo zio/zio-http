@@ -9,6 +9,39 @@ val releaseDrafterVersion = "5"
 // Setting default log level to INFO
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
+// Module definitions for split architecture
+lazy val zioHttpCore = project
+  .in(file("zio-http-core"))
+  .settings(stdSettings("zio-http-core"))
+  .settings(publishSetting(true))
+  .settings(libraryDependencies ++= Seq(
+    "dev.zio" %% "zio" % ZioVersion,
+    "dev.zio" %% "zio-streams" % ZioVersion
+  ))
+
+lazy val zioHttpEndpoint = project
+  .in(file("zio-http-endpoint"))
+  .settings(stdSettings("zio-http-endpoint"))
+  .settings(publishSetting(true))
+  .dependsOn(zioHttpCore)
+  .settings(libraryDependencies ++= Seq(
+    "dev.zio" %% "zio-schema" % ZioSchemaVersion
+  ))
+
+lazy val zioHttpNetty = project
+  .in(file("zio-http-netty"))
+  .settings(stdSettings("zio-http-netty"))
+  .settings(publishSetting(true))
+  .dependsOn(zioHttpCore, zioHttpEndpoint)
+  .settings(libraryDependencies ++= Dependencies.netty)
+
+lazy val zioHttp = project
+  .in(file("zio-http"))
+  .settings(stdSettings("zio-http"))
+  .settings(publishSetting(true))
+  .dependsOn(zioHttpCore, zioHttpEndpoint, zioHttpNetty)
+  .aggregate(zioHttpCore, zioHttpEndpoint, zioHttpNetty)
+
 // CI Configuration
 ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
