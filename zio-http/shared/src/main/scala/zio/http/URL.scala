@@ -309,6 +309,36 @@ object URL {
     }
   }
 
+  private[http] def fromAbsoluteURIOrNull(uri: URI): URL = {
+    val scheme     = Scheme.decode(uri.getScheme).orNull
+    if (scheme eq null) return null
+    val host       = uri.getHost
+    if (host eq null) return null
+    val rawPath    = uri.getRawPath
+    if (rawPath eq null) return null
+    val port       = uri.getPort
+    val portOpt    = if (port == -1) None else Some(port)
+    val connection = URL.Location.Absolute(scheme, host, portOpt)
+    val path2      = Path.decodeRaw(rawPath)
+    val path3      = if (rawPath.nonEmpty) path2.addLeadingSlash else path2
+    URL(path3, connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+  }
+
+  private[http] def fromRelativeURIOrNull(uri: URI): URL = {
+    val rawPath = uri.getRawPath
+    if (rawPath eq null) return null
+    URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+  }
+
+  private[http] def decodeOrNull(rawUrl: String): URL = {
+    try {
+      val uri = new URI(rawUrl)
+      if (uri.isAbsolute) fromAbsoluteURIOrNull(uri) else fromRelativeURIOrNull(uri)
+    } catch {
+      case NonFatal(_) => null
+    }
+  }
+
   def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)

@@ -449,17 +449,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
-        (self(in), that(in)) match {
-          case (s @ Exit.Success(_), _)                        =>
-            s
-          case (Exit.Failure(cause), _) if cause.isDie         =>
-            Exit.die(cause.dieOption.get)
-          case (Exit.Failure(cause), other) if cause.isFailure =>
-            other
-          case (self, other)                                   =>
-            self.orElse(other)
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] = {
+        val s = self(in)
+        s match {
+          case s @ Exit.Success(_)                    => s
+          case Exit.Failure(cause) if cause.isDie     => Exit.die(cause.dieOption.get)
+          case Exit.Failure(cause) if cause.isFailure => that(in)
+          case _                                      => s.orElse(that(in))
         }
+      }
     }
 
   /**
