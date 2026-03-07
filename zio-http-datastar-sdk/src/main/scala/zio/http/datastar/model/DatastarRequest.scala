@@ -176,7 +176,7 @@ object DatastarRequestOptions {
     JsonEncoder[Json].contramap[DatastarRequestOptions] { a =>
       fullCodec.encoder.toJsonAST(a) match {
         case Right(Json.Obj(fields)) =>
-          Json.Obj(Chunk.from(fields.filter { case (k, v) => !defaultFields.get(k).contains(v) }))
+          Json.Obj(Chunk.fromIterable(fields.filter { case (k, v) => !defaultFields.get(k).contains(v) }))
         case Right(other)            => other
         case Left(_)                 => Json.Obj()
       }
