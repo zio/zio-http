@@ -25,7 +25,7 @@ trait DatastarPackageBase extends Attributes {
 
   private[datastar] val scriptName: String
 
-  private val DefaultDatastarVersion = "1.0.0-RC.6"
+  private val DefaultDatastarVersion = "1.0.0-RC.8"
 
   /**
    * Script element that loads Datastar from CDN using the version
@@ -38,12 +38,12 @@ trait DatastarPackageBase extends Attributes {
 
   /**
    * Script element that loads Datastar from CDN using a specific version. Must
-   * be at least version 1.0.0-RC.6
+   * be at least version 1.0.0-RC.8
    *
    * @param version
-   *   The Datastar version to load (e.g., "1.0.0-RC.6")
+   *   The Datastar version to load (e.g., "1.0.0-RC.8")
    * @example
-   *   {{{head( datastarScript("1.0.0-RC.6") )}}}
+   *   {{{head( datastarScript("1.0.0-RC.8") )}}}
    */
   def datastarScript(version: String): Dom.Element.Script =
     script.externalModule(s"https://cdn.jsdelivr.net/gh/starfederation/datastar@$version/bundles/$scriptName")
@@ -62,7 +62,7 @@ trait DatastarPackageBase extends Attributes {
    * @example
    *   {{{ mainPage( headContent = Seq( title("My App"), meta.charset("UTF-8")
    *   ), bodyContent = Seq( div("Hello, Datastar!") ), datastarVersion =
-   *   "1.0.0-RC.6", language = Some("en") ) }}}
+   *   "1.0.0-RC.8", language = Some("en") ) }}}
    */
   def mainPage(
     headContent: Seq[Dom],
@@ -112,13 +112,15 @@ trait DatastarPackageBase extends Attributes {
     HttpCodec.header(Header.CacheControl).const(Header.CacheControl.NoCache) ++
     HttpCodec.headerAs[CssSelector]("datastar-selector").optional ++
     HttpCodec.headerAs[ElementPatchMode]("datastar-mode").optional ++
-    HttpCodec.headerAs[Boolean]("datastar-use-view-transition").optional)
+    HttpCodec.headerAs[Boolean]("datastar-use-view-transition").optional ++
+    HttpCodec.headerAs[String]("datastar-namespace").optional)
     .transformOrFailLeft[DatastarEvent.PatchElements](_ => Left("Not implemented"))(event =>
       (
         event.elements,
         event.selector,
         if (event.mode == ElementPatchMode.Outer) None else Some(event.mode),
         if (event.useViewTransition) Some(true) else None,
+        event.namespace,
       ),
     )
 

@@ -83,6 +83,7 @@ final case class PatchElementOptions(
   selector: Option[CssSelector] = None,
   mode: ElementPatchMode = ElementPatchMode.Outer,
   useViewTransition: Boolean = false,
+  namespace: Option[String] = None,
   eventId: Option[String] = None,
   retryDuration: Duration = 1000.millis,
 )
@@ -136,7 +137,7 @@ object ServerSentEventGenerator {
     options: ExecuteScriptOptions,
   ): ZIO[Datastar, Nothing, Unit] = {
     val removeAttr =
-      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove")) else Dom.empty
+      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove()")) else Dom.empty
     patchElements(
       script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, AttributeValue.StringValue(a._2)))),
       PatchElementOptions(
@@ -174,6 +175,8 @@ object ServerSentEventGenerator {
       if (options.useViewTransition) {
         sb.append("useViewTransition true\n")
       }
+
+      options.namespace.foreach(ns => sb.append("namespace ").append(ns).append('\n'))
 
       val rendered = elements.renderMinified
       if (rendered.contains('\n'))

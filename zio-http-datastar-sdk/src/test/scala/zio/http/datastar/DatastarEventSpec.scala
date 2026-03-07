@@ -62,11 +62,11 @@ object DatastarEventSpec extends ZIOSpecDefault {
         } yield assertTrue(
           events.length == 2,
           events.head.eventType.contains("datastar-patch-elements"),
-          events.head.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">console.log('test1')</script>\n",
+          events.head.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test1')</script>\n",
           events(1).eventType.contains("datastar-patch-elements"),
           events(
             1,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">console.log('test2')</script>\n",
+          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test2')</script>\n",
         )
       },
       test("should handle mixed DatastarEvent types in stream") {
@@ -88,7 +88,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           events(2).eventType.contains("datastar-patch-elements"),
           events(
             2,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">console.log('script')</script>\n",
+          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('script')</script>\n",
         )
       },
       test("should preserve event options in SSE stream") {
@@ -195,7 +195,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sseEvents(3).eventType.contains("datastar-patch-elements"),
           sseEvents(
             3,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">console.log('done')</script>",
+          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('done')</script>",
         )
       },
       test("should handle handler with effectful stream creation") {
@@ -300,7 +300,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">console.log('test')</script>\n",
+          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test')</script>\n",
         )
       },
       test("executeScript with autoRemove false") {
@@ -325,7 +325,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\" data-custom=\"value\" data-foo=\"bar\">console.log('test')</script>\n",
+          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\" data-custom=\"value\" data-foo=\"bar\">console.log('test')</script>\n",
         )
       },
       test("executeScript with all parameters") {
@@ -343,6 +343,32 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sse.id.contains("script-789"),
           sse.retry.contains(4000.millis),
           sse.data == "selector <body></body>\nmode append\nelements <script async=\"true\">window.location.reload()</script>\n",
+        )
+      },
+    ),
+    suite("PatchElements with namespace")(
+      test("PatchElements with namespace generates correct SSE") {
+        val event = DatastarEvent.PatchElements(
+          elements = div(id := "svg-content")("Hello SVG"),
+          namespace = Some("http://www.w3.org/2000/svg"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data.contains("namespace http://www.w3.org/2000/svg"),
+          sse.data.contains("elements"),
+        )
+      },
+      test("PatchElements without namespace omits namespace line") {
+        val event = DatastarEvent.patchElements(
+          div("Simple content"),
+        )
+
+        val sse = event.toServerSentEvent
+
+        assertTrue(
+          sse.data == "elements <div>Simple content</div>\n",
         )
       },
     ),
@@ -383,7 +409,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove\">" + scriptContent + "</script>\n",
+          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">" + scriptContent + "</script>\n",
         )
       },
       test("default retry duration is not included in SSE") {
@@ -556,7 +582,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         assertTrue(
           sse.data.contains("selector <body></body>\n"),
           sse.data.contains("mode append\n"),
-          sse.data.contains("elements <script data-effect=\"el.remove\">const x = 1;\n"),
+          sse.data.contains("elements <script data-effect=\"el.remove()\">const x = 1;\n"),
           sse.data.contains("elements const y = 2;\n"),
           sse.data.contains("elements console.log(x + y);</script>\n"),
         )
