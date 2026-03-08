@@ -405,7 +405,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
           results <- ZIO
             .foreach(0 to 2) { _ =>
               ZIO.foreachPar(urls) { url =>
-                ZIO.serviceWithZIO[Client](_.request(Request.get(url)))
+                ZIO.serviceWithZIO[Client](_.batched(Request.get(url)))
               }
             }
             .map(_.flatten)
