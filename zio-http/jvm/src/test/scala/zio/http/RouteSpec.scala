@@ -460,8 +460,7 @@ object RouteSpec extends ZIOHttpSpec {
           body     <- response.body.asString
         } yield assertTrue(
           response.status == Status.Ok,
-          body.contains("id=test123"),
-          body.contains("ctx=42"),
+          body == "id=test123\nctx=42",
         )
       },
     ),
