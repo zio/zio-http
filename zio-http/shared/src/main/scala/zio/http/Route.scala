@@ -442,9 +442,9 @@ sealed trait Route[-Env, +Err] { self =>
    * level.
    *
    * Unlike the other `@@` overloads on `Route`, which all return a `Route`,
-   * this overload returns a [[zio.http.Routes.ApplyContextAspect]]. When you
-   * later apply a context aspect to the returned value (via `.apply(aspect)`),
-   * it will produce a `Routes` rather than a single `Route`.
+   * this overload returns an `ApplyContextAspect`. When you later apply a
+   * context aspect to the returned value (via `.apply(aspect)`), it will
+   * produce a `Routes` rather than a single `Route`.
    *
    * This overload is intended for use when you need to construct or modify a
    * `Routes` value while applying context-aware handler aspects derived from a

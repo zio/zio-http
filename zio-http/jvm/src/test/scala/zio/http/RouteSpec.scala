@@ -446,11 +446,9 @@ object RouteSpec extends ZIOHttpSpec {
             (request, 42)
           })
 
-        // Fixed: Apply aspect to the Route (not the Handler) using the new Route.@@ operator
-        // This correctly applies the aspect after path parameters are decoded
         val route = (Method.GET / "base" / string("id") ->
           handler { (id: String, _: Request) =>
-            ZIO.environment[Int].map(ctx => Response.text(s"id=$id\nctx=${ctx.get[Int]}"))
+            withContext((ctx: Int) => Response.text(s"id=$id\nctx=$ctx"))
           }) @@ authAspect
 
         val routes = Routes(route)
@@ -471,7 +469,7 @@ object RouteSpec extends ZIOHttpSpec {
 
         val route = Method.GET / "base" / string("id") ->
           handler { (id: String, _: Request) =>
-            ZIO.environment[Int].map(ctx => Response.text(s"id=$id\nctx=${ctx.get[Int]}"))
+            withContext((ctx: Int) => Response.text(s"id=$id\nctx=$ctx"))
           }
 
         val routes = route.@@[Any].apply(authAspect)
