@@ -18,7 +18,7 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
-import scala.annotation.unroll
+import scala.annotation.{nowarn, unroll}
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -39,6 +39,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   bodyDecoder: ZClient.BodyDecoder[Env, Err, Out],
   driver: ZClient.Driver[Env, ReqEnv, Err],
 ) extends HeaderOps[ZClient[Env, ReqEnv, In, Err, Out]] { self =>
+  @nowarn("msg=deprecated")
   def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     self.request(request)
 
@@ -113,6 +114,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       self.driver,
     )
 
+  @nowarn("msg=deprecated")
   def delete(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.DELETE, suffix)(ev(Body.empty))
 
@@ -125,9 +127,11 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def disableStreaming(implicit ev1: ReqEnv =:= Scope): ZClient[Env, Any, In, Err, Out] =
     batched
 
+  @nowarn("msg=deprecated")
   def get(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.GET, suffix)(ev(Body.empty))
 
+  @nowarn("msg=deprecated")
   def head(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.HEAD, suffix)(ev(Body.empty))
 
@@ -158,15 +162,18 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def updatePath(f: Path => Path): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(path = f(url.path)))
 
+  @nowarn("msg=deprecated")
   def patch(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.PATCH, suffix)(ev(Body.empty))
 
   def port(port: Int): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.port(port))
 
+  @nowarn("msg=deprecated")
   def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.POST, suffix)(body)
 
+  @nowarn("msg=deprecated")
   def put(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.PUT, suffix)(body)
 
@@ -179,6 +186,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   ): ZClient[Env, ReqEnv, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
+  @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] = {
     def makeRequest(body: Body) = {
       driver.request(
@@ -199,6 +207,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
         .flatMap(body => bodyDecoder.decodeZIO(makeRequest(body)))
   }
 
+  @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     bodyEncoder
       .encode(body)
@@ -226,6 +235,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
    * Executes an HTTP request and transforms the response into a `ZStream` using
    * the provided function
    */
+  @nowarn("msg=deprecated")
   def stream[R, E0 >: Err, A](request: Request)(f: Out => ZStream[R, E0, A])(implicit
     trace: Trace,
     ev1: Body <:< In,
@@ -292,6 +302,7 @@ object ZClient extends ZClientPlatformSpecific {
    *   [[streaming]] for a variant that doesn't materialize the response body in
    *   memory, allowing to stream response bodies
    */
+  @nowarn("msg=deprecated")
   def batched(request: Request)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.batched.request(request))
 
@@ -308,6 +319,7 @@ object ZClient extends ZClientPlatformSpecific {
     )
 
   @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
+  @nowarn("msg=deprecated")
   def request(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.request(request))
 
@@ -325,6 +337,7 @@ object ZClient extends ZClientPlatformSpecific {
    *   [[batched]] for a variant that doesn't require manual handling of the
    *   request's resources (i.e., `Scope`)
    */
+  @nowarn("msg=deprecated")
   def streaming(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.request(request))
 
