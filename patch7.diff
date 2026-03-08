@@ -1,5 +1,0 @@
---- zio-http/jvm/src/test/scala/zio/http/RouteSpec.scala
-+++ zio-http/jvm/src/test/scala/zio/http/RouteSpec.scala
-@@ -476,2 +476,2 @@
--        val routes = route.@@[Any](authAspect)
-+        val routes = route.@@[Any].apply(authAspect)
