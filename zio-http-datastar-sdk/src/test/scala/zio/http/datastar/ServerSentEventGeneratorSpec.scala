@@ -608,9 +608,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
           event <- queue.take
         } yield assertTrue(
           event.eventType.contains("datastar-patch-elements"),
-          event.data.contains("CustomEvent('test-event'"),
-          event.data.contains("detail:{\"name\":\"foo\",\"value\":42}"),
-          event.data.contains("bubbles:true,cancelable:false,composed:false"),
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('test-event',{detail:{\"name\":\"foo\",\"value\":42},bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
       test("should send dispatchEvent with options") {
@@ -621,8 +619,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
           _ <- ServerSentEventGenerator.dispatchEvent("custom", Info("hi"), options).provide(ZLayer.succeed(datastar))
           event <- queue.take
         } yield assertTrue(
-          event.data.contains("querySelector('#target')"),
-          event.data.contains("bubbles:false,cancelable:true,composed:false"),
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('#target');if(el)el.dispatchEvent(new CustomEvent('custom',{detail:{\"msg\":\"hi\"},bubbles:false,cancelable:true,composed:false}))})()</script>\n",
         )
       },
     ),
