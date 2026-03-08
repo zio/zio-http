@@ -88,7 +88,7 @@ object NettyBody {
 
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
 
-    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(asciiString.array()))
+    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(asciiString.toByteArray))
   }
 
   private[zio] final case class AsyncBody(

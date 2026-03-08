@@ -958,7 +958,7 @@ object Body {
 
     override def materializedAsString: Option[String] = Some(data)
 
-    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(data.getBytes(charset)))
+    override lazy val materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(data.getBytes(charset)))
 
   }
 
