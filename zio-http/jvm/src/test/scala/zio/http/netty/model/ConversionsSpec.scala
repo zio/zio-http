@@ -54,6 +54,58 @@ object ConversionsSpec extends ZIOHttpSpec {
           val result  = Conversions.headersToNetty(headers).entries().size()
           assertTrue(result == 2)
         },
+        test("should deduplicate singleton Content-Type header (last wins)") {
+          val headers = Headers("content-type", "text/plain") ++ Headers("content-type", "application/json")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("content-type") == "application/json",
+          )
+        },
+        test("should deduplicate mixed-case singleton Content-Type header (last wins)") {
+          val headers = Headers("Content-Type", "text/plain") ++ Headers("content-type", "application/json")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("content-type") == "application/json",
+          )
+        },
+        test("should preserve duplicate list-based Accept headers") {
+          val headers = Headers("accept", "text/html") ++ Headers("accept", "application/json")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(result.entries().size() == 2)
+        },
+        test("should preserve duplicate Set-Cookie headers") {
+          val headers = Headers("set-cookie", "a=1") ++ Headers("set-cookie", "b=2")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(result.entries().size() == 2)
+        },
+        test("should preserve duplicate WWW-Authenticate headers") {
+          val headers = Headers("www-authenticate", "Bearer") ++ Headers("www-authenticate", "Basic")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(result.entries().size() == 2)
+        },
+        test("should deduplicate singleton Host header (last wins)") {
+          val headers = Headers("host", "example.com") ++ Headers("host", "other.com")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("host") == "other.com",
+          )
+        },
+        test("should deduplicate singleton Authorization header (last wins)") {
+          val headers = Headers("authorization", "Bearer token1") ++ Headers("authorization", "Bearer token2")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("authorization") == "Bearer token2",
+          )
+        },
+        test("should preserve duplicate unknown custom headers") {
+          val headers = Headers("x-custom", "value1") ++ Headers("x-custom", "value2")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(result.entries().size() == 2)
+        },
       ),
       suite("scheme")(
         test("java http scheme") {

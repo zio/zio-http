@@ -382,6 +382,20 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(result)(isLeft)
       },
     ),
+    suite("Headers concatenation")(
+      test("should return second value when both have same key") {
+        val h1     = Headers("key", "old")
+        val h2     = Headers("key", "new")
+        val result = (h1 ++ h2).get("key")
+        assertTrue(result == Some("new"))
+      },
+      test("should return first value when only first has key") {
+        val h1     = Headers("key", "old")
+        val h2     = Headers("other", "val")
+        val result = (h1 ++ h2).get("key")
+        assertTrue(result == Some("old"))
+      },
+    ),
     customHeaderSpec,
   )
 
