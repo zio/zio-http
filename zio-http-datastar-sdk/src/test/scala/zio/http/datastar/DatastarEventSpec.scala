@@ -14,6 +14,10 @@ import zio.http.template2._
 object DatastarEventSpec extends ZIOSpecDefault {
   case class CountUpdate(count: Int)
   implicit val schema: Schema[CountUpdate] = DeriveSchema.gen[CountUpdate]
+  case class Inner(x: Int, y: String)
+  implicit val innerSchema: Schema[Inner]  = DeriveSchema.gen[Inner]
+  case class Outer(inner: Inner, flag: Boolean)
+  implicit val outerSchema: Schema[Outer]  = DeriveSchema.gen[Outer]
   override def spec                        = suite("DatastarEventSpec")(
     suite("events from ZStream[DatastarEvent]")(
       test("should convert ZStream of PatchElements events to SSE stream") {
@@ -585,6 +589,79 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sse.data.contains("elements <script data-effect=\"el.remove()\">const x = 1;\n"),
           sse.data.contains("elements const y = 2;\n"),
           sse.data.contains("elements console.log(x + y);</script>\n"),
+        )
+      },
+    ),
+    suite("dispatchEvent")(
+      test("basic dispatch with default options") {
+        val event = DatastarEvent.dispatchEvent("test-event", CountUpdate(42))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.eventType.contains("datastar-patch-elements"),
+          sse.data.contains(
+            "document.dispatchEvent(new CustomEvent('test-event',{detail:{\"count\":42},bubbles:true,cancelable:false,composed:false}))",
+          ),
+        )
+      },
+      test("dispatch with custom selector") {
+        val event = DatastarEvent.dispatchEvent(
+          "my-event",
+          CountUpdate(1),
+          DispatchEventOptions(source = Some(selector"#my-el")),
+        )
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("querySelector('#my-el')"),
+          sse.data.contains("dispatchEvent(new CustomEvent('my-event'"),
+        )
+      },
+      test("dispatch with all event options") {
+        val event = DatastarEvent.dispatchEvent(
+          "custom",
+          CountUpdate(5),
+          DispatchEventOptions(bubbles = false, cancelable = true, composed = true),
+        )
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("bubbles:false,cancelable:true,composed:true"),
+        )
+      },
+      test("event name escaping") {
+        val event = DatastarEvent.dispatchEvent("it's-an-event", CountUpdate(0))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("CustomEvent('it\\'s-an-event'"),
+        )
+      },
+      test("complex nested payload") {
+        val event = DatastarEvent.dispatchEvent("nested", Outer(Inner(1, "hello"), true))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("detail:{\"inner\":{\"x\":1,\"y\":\"hello\"},\"flag\":true}"),
+        )
+      },
+      test("raw Js payload") {
+        val event = DatastarEvent.dispatchEvent("raw", Js("myExpression"))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("detail:myExpression,bubbles:true,cancelable:false,composed:false"),
+        )
+      },
+      test("dispatch with source convenience overload") {
+        val event = DatastarEvent.dispatchEvent("ev", CountUpdate(7), Some(selector".cls"))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data.contains("querySelector('.cls')"),
+        )
+      },
+      test("SSE format verification") {
+        val event = DatastarEvent.dispatchEvent("fmt-test", CountUpdate(99))
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.eventType.contains("datastar-patch-elements"),
+          sse.data.contains("selector <body></body>"),
+          sse.data.contains("mode append"),
+          sse.data.contains("data-effect=\"el.remove()\""),
         )
       },
     ),
