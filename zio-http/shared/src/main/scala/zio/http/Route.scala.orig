@@ -17,8 +17,8 @@ package zio.http
 
 import zio._
 
-import zio.http.Route.CheckResponse
 import zio.http.Routes.ApplyContextAspect
+import zio.http.Route.CheckResponse
 import zio.http.codec.PathCodec
 
 /*
@@ -437,7 +437,7 @@ sealed trait Route[-Env, +Err] { self =>
   ): Route[Env0, Err] =
     self.transform[Env0](handler => handler @@ aspect)
 
-  final def @@[Env0](implicit dummy: DummyImplicit, dummy2: DummyImplicit): ApplyContextAspect[Env, Err, Env0] =
+  final def @@[Env0](implicit dummy: DummyImplicit): ApplyContextAspect[Env, Err, Env0] =
     new ApplyContextAspect[Env, Err, Env0](self.toRoutes)
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]

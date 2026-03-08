@@ -1,0 +1,23 @@
+--- zio-http/jvm/src/test/scala/zio/http/RouteSpec.scala
++++ zio-http/jvm/src/test/scala/zio/http/RouteSpec.scala
+@@ -451,13 +451,14 @@
+         val route = (Method.GET / "base" / string("id") ->
+-          handler((id: String, req: Request) => {
+-            ZIO.succeed(Response.text(s"id=$id"))
+-          })) @@ authAspect
++          handler { (id: String, req: Request) =>
++            ZIO.environment[Int].map(ctx => Response.text(s"id=$id\nctx=${ctx.get}"))
++          }) @@ authAspect
+
+         val routes = Routes(route)
+
+         for {
+           response <- routes.runZIO(Request.get(url"/base/test123"))
+           body     <- response.body.asString
+         } yield assertTrue(
+           response.status == Status.Ok,
+-          body == "id=test123",
++          body.contains("id=test123"),
++          body.contains("ctx=42"),
+         )
+       },
