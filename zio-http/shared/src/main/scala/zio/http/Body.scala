@@ -250,6 +250,24 @@ trait Body { self =>
   private[zio] final def boundary: Option[Boundary] =
     contentType.flatMap(_.boundary)
 
+  /**
+   * Returns the materialized content of the body if it's already in memory.
+   * Streaming and file bodies return None as they are not materialized.
+   */
+  def materializedContent: Option[Chunk[Byte]] = None
+
+  /**
+   * Returns the materialized content as a string if it's already in memory.
+   * Uses the charset from contentType if available, otherwise uses HTTP
+   * charset. Streaming and file bodies return None as they are not
+   * materialized.
+   */
+  def materializedAsString: Option[String] =
+    materializedContent.map { chunk =>
+      val charset = this.contentType.flatMap(_.charset).getOrElse(Charsets.Http)
+      new String(chunk.toArray, charset)
+    }
+
 }
 
 object Body {
@@ -645,6 +663,8 @@ object Body {
     override def contentType: Option[Body.ContentType] = None
 
     override def knownContentLength: Option[Long] = Some(0L)
+
+    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.empty)
   }
 
   private[zio] final case class ErrorBody(cause: Cause[Throwable]) extends Body {
@@ -666,6 +686,8 @@ object Body {
     override def contentType: Option[Body.ContentType] = None
 
     override def knownContentLength: Option[Long] = Some(0L)
+
+    override def materializedContent: Option[Chunk[Byte]] = None
   }
 
   private[zio] final case class ChunkBody(
@@ -691,6 +713,8 @@ object Body {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
+
+    override def materializedContent: Option[Chunk[Byte]] = Some(data)
   }
 
   private[zio] final case class ArrayBody(
@@ -716,6 +740,8 @@ object Body {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(data.length.toLong)
+
+    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(data))
   }
 
   private[zio] final case class FileBody(
@@ -816,6 +842,8 @@ object Body {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(effectiveLength)
+
+    override def materializedContent: Option[Chunk[Byte]] = None
   }
 
   private[zio] final case class StreamBody(
@@ -835,6 +863,8 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def materializedContent: Option[Chunk[Byte]] = None
   }
 
   private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
@@ -856,6 +886,8 @@ object Body {
     def contentType(newContentType: Body.ContentType): zio.http.Body = this
 
     override def knownContentLength: Option[Long] = Some(0L)
+
+    override def materializedContent: Option[Chunk[Byte]] = None
 
   }
 
@@ -923,6 +955,10 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       data.getBytes(charset)
+
+    override def materializedAsString: Option[String] = Some(data)
+
+    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(data.getBytes(charset)))
 
   }
 

@@ -87,6 +87,8 @@ object NettyBody {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
+
+    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(asciiString.array()))
   }
 
   private[zio] final case class AsyncBody(
@@ -138,6 +140,8 @@ object NettyBody {
     override def toString: String = s"AsyncBody($unsafeAsync)"
 
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def materializedContent: Option[Chunk[Byte]] = None
   }
 
   /**
