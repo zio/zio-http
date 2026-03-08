@@ -22,7 +22,7 @@ import zio.json.{DeriveJsonDecoder, DeriveJsonEncoder, JsonDecoder, JsonEncoder}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.{Scope, durationInt}
+import zio.{Chunk, Scope, ZIO, durationInt}
 
 import zio.stream.ZStream
 
@@ -187,6 +187,73 @@ object BodySpec extends ZIOHttpSpec {
           val body     = Body.fromString(data)
           val expected = data.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong
           assertTrue(body.knownContentLength == Some(expected))
+        },
+      ),
+      suite("materializedContent")(
+        test("EmptyBody returns Some(Chunk.empty)") {
+          val body = Body.empty
+          assertTrue(body.materializedContent == Some(Chunk.empty))
+        },
+        test("ArrayBody returns Some with chunk") {
+          val data = "hello".getBytes(Charsets.Http)
+          val body = Body.fromArray(data)
+          assertTrue(body.materializedContent == Some(Chunk.fromArray(data)))
+        },
+        test("ChunkBody returns Some with chunk") {
+          val chunk = Chunk.fromArray("hello".getBytes(Charsets.Http))
+          val body  = Body.fromChunk(chunk)
+          assertTrue(body.materializedContent == Some(chunk))
+        },
+        test("StringBody returns Some with encoded bytes") {
+          val text     = "hello"
+          val body     = Body.fromString(text)
+          val expected = Chunk.fromArray(text.getBytes(Charsets.Http))
+          assertTrue(body.materializedContent == Some(expected))
+        },
+        test("FileBody returns None") {
+          lazy val file = testFile
+          val body      = Body.fromFile(file)
+          for {
+            b <- body
+          } yield assertTrue(b.materializedContent == None)
+        },
+        test("StreamBody returns None") {
+          val stream = ZStream.fromIterable("hello".getBytes(Charsets.Http))
+          val body   = Body.fromStreamChunked(stream)
+          assertTrue(body.materializedContent == None)
+        },
+      ),
+      suite("materializedAsString")(
+        test("EmptyBody returns Some empty string") {
+          val body = Body.empty
+          assertTrue(body.materializedAsString == Some(""))
+        },
+        test("StringBody returns Some with string") {
+          val text = "hello world"
+          val body = Body.fromString(text)
+          assertTrue(body.materializedAsString == Some(text))
+        },
+        test("ArrayBody returns Some with decoded string") {
+          val text = "test data"
+          val body = Body.fromArray(text.getBytes(Charsets.Http))
+          assertTrue(body.materializedAsString == Some(text))
+        },
+        test("ChunkBody returns Some with decoded string") {
+          val text  = "chunk data"
+          val chunk = Chunk.fromArray(text.getBytes(Charsets.Http))
+          val body  = Body.fromChunk(chunk)
+          assertTrue(body.materializedAsString == Some(text))
+        },
+        test("StreamBody returns None") {
+          val stream = ZStream.fromIterable("hello".getBytes(Charsets.Http))
+          val body   = Body.fromStreamChunked(stream)
+          assertTrue(body.materializedAsString == None)
+        },
+        test("respects charset in contentType") {
+          val text    = "test"
+          val charset = java.nio.charset.StandardCharsets.UTF_16
+          val body    = Body.fromString(text, charset)
+          assertTrue(body.materializedAsString == Some(text))
         },
       ),
     ) @@ timeout(10 seconds)
