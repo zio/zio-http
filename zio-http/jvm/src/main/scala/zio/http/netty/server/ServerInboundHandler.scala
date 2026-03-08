@@ -194,7 +194,19 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
+              case Some(bodyTask) =>
+                val channelConfig    = ctx.channel().config()
+                val previousAutoRead = channelConfig.isAutoRead
+                if (previousAutoRead) channelConfig.setAutoRead(false)
+                Some(bodyTask.ensuring(ZIO.succeed {
+                  if (previousAutoRead) {
+                    channelConfig.setAutoRead(true)
+                    ctx.channel().read()
+                  }
+                }))
+              case None           => None
+            }
           } else {
             ctx.writeAndFlush(jResponse)
             None
@@ -242,7 +254,7 @@ private[zio] final case class ServerInboundHandler(
           body = NettyBody.fromByteBuf(nettyReq.content(), contentTypeHeader),
           headers = headers,
           method = Conversions.methodFromNetty(nettyReq.method()),
-          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          url = { val decoded = URL.decodeOrNull(nettyReq.uri()); if (decoded ne null) decoded else URL.empty },
           version = protocolVersion,
           remoteAddress = remoteAddress,
           remoteCertificate = clientCert,
@@ -261,7 +273,7 @@ private[zio] final case class ServerInboundHandler(
           body = body,
           headers = headers,
           method = Conversions.methodFromNetty(nettyReq.method()),
-          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          url = { val decoded = URL.decodeOrNull(nettyReq.uri()); if (decoded ne null) decoded else URL.empty },
           version = protocolVersion,
           remoteAddress = remoteAddress,
           remoteCertificate = clientCert,

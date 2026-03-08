@@ -1,9 +1,12 @@
 package example
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.http._
 
+@nowarn("msg=deprecated")
 object CurlLoggerExample extends ZIOAppDefault {
   val program =
     for {

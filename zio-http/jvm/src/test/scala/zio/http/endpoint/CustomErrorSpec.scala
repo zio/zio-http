@@ -126,6 +126,30 @@ object CustomErrorSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("error response with custom media type") {
+      check(Gen.int) { userId =>
+        val routes  =
+          Endpoint(GET / "users" / int("userId"))
+            .out[String]
+            .outError[String](Status.BadRequest, MediaType.text.plain)
+            .implementHandler {
+              Handler.fromFunctionZIO { userId =>
+                ZIO.fail(s"User not found: $userId")
+              }
+            }
+            .toRoutes
+        val request = Request.get(url"/users/$userId")
+
+        for {
+          response <- routes.runZIO(request)
+          body     <- response.body.asString.orDie
+        } yield assertTrue(
+          extractStatus(response) == Status.BadRequest,
+          response.headers.header(Header.ContentType).exists(_.mediaType == MediaType.text.plain),
+          body == s"User not found: $userId",
+        )
+      }
+    },
   )
 
   sealed trait TestError

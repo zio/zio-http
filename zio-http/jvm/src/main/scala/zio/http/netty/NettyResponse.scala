@@ -29,6 +29,9 @@ import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
 private[netty] object NettyResponse {
 
+  private def statusMustNotHaveBody(status: zio.http.Status): Boolean =
+    status.isInformational || status.code == 204 || status.code == 304
+
   def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())
@@ -51,7 +54,7 @@ private[netty] object NettyResponse {
     val headers            = Conversions.headersFromNetty(jRes.headers())
     val knownContentLength = headers.get(Header.ContentLength).map(_.length)
 
-    if (knownContentLength.contains(0L)) {
+    if (knownContentLength.contains(0L) || statusMustNotHaveBody(status)) {
       onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
       Response(status, headers, Body.empty)
     } else {

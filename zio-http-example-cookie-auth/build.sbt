@@ -1,13 +1,13 @@
 name := "zio-http-example-cookie-auth"
 version := "0.1.0"
-scalaVersion := "2.13.17"
+scalaVersion := "2.13.18"
 
 publish / skip  := true
 publishArtifact := false
 run / fork := true
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio" % "2.1.22",
+  "dev.zio" %% "zio" % "2.1.24",
   "dev.zio" %% "zio-http" % "3.5.1",
 )
 

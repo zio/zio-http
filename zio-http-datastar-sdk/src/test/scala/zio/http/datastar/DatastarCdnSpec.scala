@@ -15,7 +15,7 @@ object DatastarCdnSpec extends ZIOSpecDefault {
           rendered.contains("<script"),
           rendered.contains("type=\"module\""),
           rendered.contains(
-            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.6/bundles/datastar.js\"",
+            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar.js\"",
           ),
           rendered.contains("</script>"),
         )

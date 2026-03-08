@@ -201,6 +201,43 @@ object RequestSpec extends ZIOHttpSpec {
             assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
         }
       },
+      test("content negotiation with multiple output codecs") {
+        val jsonCodec = HttpCodec.content[String](MediaType.application.`json`)
+        val textCodec = HttpCodec.content[String](MediaType.text.`plain`)
+        val combined  = jsonCodec | textCodec
+        val endpoint  = Endpoint(GET / "negotiate").outCodec(combined)
+        val routes    = endpoint.implementAs("hello").toRoutes
+
+        for {
+          jsonRes <- routes.runZIO(
+            Request
+              .get(URL.decode("/negotiate").toOption.get)
+              .addHeader(Header.Accept(MediaType.application.`json`)),
+          )
+          jsonContentType = jsonRes.header(Header.ContentType)
+          textRes <- routes.runZIO(
+            Request
+              .get(URL.decode("/negotiate").toOption.get)
+              .addHeader(Header.Accept(MediaType.text.`plain`)),
+          )
+          textContentType = textRes.header(Header.ContentType)
+          textPreferredRes <- routes.runZIO(
+            Request
+              .get(URL.decode("/negotiate").toOption.get)
+              .addHeader(
+                Header.Accept(
+                  Header.Accept.MediaTypeWithQFactor(MediaType.text.`plain`, None),
+                  Header.Accept.MediaTypeWithQFactor(MediaType.application.`json`, Some(0.5)),
+                ),
+              ),
+          )
+          textPreferredContentType = textPreferredRes.header(Header.ContentType)
+        } yield assertTrue(
+          jsonContentType == Some(ContentType(MediaType.application.`json`)),
+          textContentType == Some(ContentType(MediaType.text.`plain`)),
+          textPreferredContentType == Some(ContentType(MediaType.text.`plain`)),
+        )
+      },
       test("custom status code") {
         check(Gen.int) { id =>
           val endpoint =

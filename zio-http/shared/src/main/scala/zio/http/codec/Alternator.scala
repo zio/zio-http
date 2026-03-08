@@ -34,6 +34,8 @@ sealed trait Alternator[L, R] {
   def unleft(out: Out): Option[L]
 
   def unright(out: Out): Option[R]
+
+  def isSameType: Boolean = false
 }
 
 object Alternator extends AlternatorLowPriority1 {
@@ -50,6 +52,8 @@ object Alternator extends AlternatorLowPriority1 {
       def unleft(out: Out): Option[A] = Some(out)
 
       def unright(out: Out): Option[A] = Some(out)
+
+      override def isSameType: Boolean = true
     }
 }
 

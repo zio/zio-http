@@ -62,7 +62,7 @@ object ContentTypeSpec extends RoutesRunnableSpec {
       val res      =
         Handler
           .fromResource("TestFile6.mp3")
-          .map(_.addHeader(Header.ContentType(expected)))
+          .map(_.removeHeader(Header.ContentType).addHeader(Header.ContentType(expected)))
           .sandbox
           .toRoutes
           .deploy(Request())

@@ -130,6 +130,64 @@ object DnsResolverSpec extends ZIOHttpSpec {
           implementation = TestResolver(),
         ),
       ),
+      test("resolve returns previous addresses when refresh fails") {
+        for {
+          failing    <- Ref.make(false)
+          failSignal <- Promise.make[Nothing, Unit]
+          result     <- {
+            val impl = new DnsResolver {
+              override def resolve(host: String)(implicit
+                trace: Trace,
+              ): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
+                failing.get.flatMap {
+                  case true  => failSignal.succeed(()) *> ZIO.fail(new UnknownHostException(host))
+                  case false =>
+                    ZIO.succeed(Chunk(InetAddress.getByAddress(Array(127, 0, 0, host.stripPrefix("host").toByte))))
+                }
+            }
+            (for {
+              _      <- DnsResolver.resolve("host1")
+              _      <- failing.set(true)
+              _      <- TestClock.adjust(15.seconds)
+              _      <- failSignal.await
+              result <- DnsResolver.resolve("host1")
+            } yield result).provide(
+              DnsResolver.explicit(
+                ttl = 10.seconds,
+                unknownHostTtl = 10.seconds,
+                refreshRate = 1.second,
+                expireAction = ExpireAction.Refresh,
+                implementation = impl,
+              ),
+            )
+          }
+        } yield assertTrue(
+          result.map(_.toString) == Chunk("/127.0.0.1"),
+        )
+      },
+      test("Permanently failing hosts are dropped after maxRetries in Refresh mode") {
+        for {
+          _        <- DnsResolver.resolve("unknown").exit
+          entries1 <- DnsResolver.snapshot()
+          _        <- TestClock.adjust(6.seconds)
+          entries2 <- DnsResolver.snapshot()
+          _        <- TestClock.adjust(6.seconds)
+          entries3 <- DnsResolver.snapshot()
+        } yield assertTrue(
+          entries1.contains("unknown"),
+          entries2.contains("unknown"),
+          !entries3.contains("unknown"),
+        )
+      }.provide(
+        DnsResolver.explicit(
+          maxCount = 10,
+          refreshRate = 1.second,
+          unknownHostTtl = 5.seconds,
+          expireAction = ExpireAction.Refresh,
+          maxRetries = 2,
+          implementation = TestResolver(),
+        ),
+      ),
     )
 
   private def stringSnapshot(): ZIO[DnsResolver, Nothing, Set[String]] =

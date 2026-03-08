@@ -24,6 +24,7 @@ object DatastarEvent {
     selector: Option[CssSelector] = None,
     mode: ElementPatchMode = ElementPatchMode.Outer,
     useViewTransition: Boolean = false,
+    namespace: Option[String] = None,
     eventId: Option[String] = None,
     retryDuration: Duration = 1000.millis,
   ) extends DatastarEvent {
@@ -44,6 +45,8 @@ object DatastarEvent {
       if (useViewTransition) {
         sb.append("useViewTransition true\n")
       }
+
+      namespace.foreach(ns => sb.append("namespace ").append(ns).append('\n'))
 
       val rendered = elements.renderMinified
       if (rendered.contains('\n'))
@@ -167,7 +170,7 @@ object DatastarEvent {
     options: ExecuteScriptOptions,
   ): ExecuteScript = {
     val removeAttr      =
-      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove")) else Dom.empty
+      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove()")) else Dom.empty
     val scriptWithAttrs =
       script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, AttributeValue.StringValue(a._2))))
 
@@ -235,7 +238,10 @@ object DatastarEvent {
     useViewTransition: Boolean,
     eventId: Option[String],
   ): PatchElements =
-    patchElements(elements, PatchElementOptions(selector, mode, useViewTransition, eventId))
+    patchElements(
+      elements,
+      PatchElementOptions(selector = selector, mode = mode, useViewTransition = useViewTransition, eventId = eventId),
+    )
 
   def patchElements(
     elements: String,
@@ -245,17 +251,27 @@ object DatastarEvent {
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchElements =
-    patchElements(elements, PatchElementOptions(selector, mode, useViewTransition, eventId, retryDuration))
+    patchElements(
+      elements,
+      PatchElementOptions(
+        selector = selector,
+        mode = mode,
+        useViewTransition = useViewTransition,
+        eventId = eventId,
+        retryDuration = retryDuration,
+      ),
+    )
 
   def patchElements(element: Dom): PatchElements =
     patchElements(element, PatchElementOptions.default)
 
   def patchElements(element: Dom, options: PatchElementOptions): PatchElements =
-    patchElements(
+    PatchElements(
       element,
       options.selector,
       options.mode,
       options.useViewTransition,
+      options.namespace,
       options.eventId,
       options.retryDuration,
     )
@@ -281,7 +297,10 @@ object DatastarEvent {
     useViewTransition: Boolean,
     eventId: Option[String],
   ): PatchElements =
-    patchElements(element, PatchElementOptions(selector, mode, useViewTransition, eventId))
+    patchElements(
+      element,
+      PatchElementOptions(selector = selector, mode = mode, useViewTransition = useViewTransition, eventId = eventId),
+    )
 
   def patchElements(
     element: Dom,
@@ -291,7 +310,18 @@ object DatastarEvent {
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchElements =
-    PatchElements(element, selector, mode, useViewTransition, eventId, retryDuration)
+    PatchElements(element, selector, mode, useViewTransition, None, eventId, retryDuration)
+
+  def patchElements(
+    element: Dom,
+    selector: Option[CssSelector],
+    mode: ElementPatchMode,
+    useViewTransition: Boolean,
+    namespace: Option[String],
+    eventId: Option[String],
+    retryDuration: Duration,
+  ): PatchElements =
+    PatchElements(element, selector, mode, useViewTransition, namespace, eventId, retryDuration)
 
   def patchSignals(signal: (String, String)): PatchSignals =
     patchSignals(Seq(signal), PatchSignalOptions.default)

@@ -14,6 +14,7 @@ ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG
 ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
 
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
+ThisBuild / libraryDependencySchemes += "dev.zio" %% "zio-json" % VersionScheme.Always
 
 ThisBuild / githubWorkflowJavaVersions   := Seq(
   JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
@@ -163,6 +164,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpHtmx,
       zioHttpStomp,
       zioHttpExample,
+      zioHttpExampleDatastarChat,
       zioHttpTestkit,
       zioHttpTools,
       docs,
@@ -277,8 +279,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.5",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.5",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.10",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.10",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -369,6 +371,15 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
 
+lazy val zioHttpExampleDatastarChat = (project in file("zio-http-example-datastar-chat"))
+  .disablePlugins(ScalafixPlugin)
+  .settings(stdSettings("zio-http-example-datastar-chat"))
+  .settings(publishSetting(false))
+  .settings(
+    run / fork := true,
+  )
+  .dependsOn(zioHttpJVM, zioHttpDatastarSdk)
+
 lazy val zioHttpTools = (project in file("zio-http-tools"))
   .settings(stdSettings("zio-http-tools"))
   .settings(publishSetting(false))
@@ -384,7 +395,9 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-test`,
       `zio-test-sbt`,
       `zio-config`,
-      scalafmt.cross(CrossVersion.for3Use2_13),
+      scalafmt
+        .cross(CrossVersion.for3Use2_13)
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
       scalametaParsers
         .cross(CrossVersion.for3Use2_13)
         .exclude("org.scala-lang.modules", "scala-collection-compat_2.13")
@@ -410,7 +423,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.34.0"  % "protobuf",
     ),
   )
   .settings(
@@ -434,7 +447,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.33.4"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.34.0"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,
@@ -471,6 +484,9 @@ lazy val docs = project
   .in(file("zio-http-docs"))
   .settings(stdSettings("zio-http-docs"))
   .settings(publishSetting(false))
+  .settings(
+    excludeDependencies += "com.github.plokhotnyuk.jsoniter-scala" % "jsoniter-scala-core_2.13",
+  )
   .settings(
     fork                                       := false,
     moduleName                                 := "zio-http-docs",

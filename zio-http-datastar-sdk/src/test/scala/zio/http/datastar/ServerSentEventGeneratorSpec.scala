@@ -319,7 +319,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
           event.eventType.contains("datastar-patch-elements"),
           event.data.contains("elements <script"),
           event.data.contains("console.log('Here')"),
-          event.data.contains("data-effect=\"el.remove\""),
+          event.data.contains("data-effect=\"el.remove()\""),
           event.id.isEmpty,
           event.retry.isEmpty,
         )
@@ -548,7 +548,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
         } yield assertTrue(
           event.data.contains("selector body\n"),
           event.data.contains("mode append\n"),
-          event.data.contains("elements <script data-effect=\"el.remove\">const x = 1;\n"),
+          event.data.contains("elements <script data-effect=\"el.remove()\">const x = 1;\n"),
           event.data.contains("elements const y = 2;\n"),
           event.data.contains("elements console.log(x + y);</script>\n"),
         )

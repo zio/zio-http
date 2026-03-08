@@ -21,7 +21,7 @@ import java.nio.file.Files
 
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, withLiveClock}
+import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
@@ -46,7 +46,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
       .deploy
 
   override def spec = suite("StaticFileServerSpec") {
-    serve.as(List(staticSpec, rangeSpec))
+    serve.as(List(staticSpec, rangeSpec, concurrentSpec))
   }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
@@ -370,6 +370,51 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
         )
       },
     ),
+  )
+
+  private def concurrentSpec = suite("Concurrent file responses")(
+    test("concurrent file requests return proper headers") {
+      ZIO.scoped {
+        for {
+          tempDir <- ZIO.acquireRelease(
+            ZIO.attemptBlocking {
+              val dir = Files.createTempDirectory("static-test").toFile
+              (0 until 3).foreach { i =>
+                val file = new File(dir, s"file-$i.txt")
+                Files.write(file.toPath, s"content-$i".getBytes(Charsets.Utf8))
+              }
+              dir
+            },
+          )(dir =>
+            ZIO.attemptBlocking {
+              dir.listFiles().foreach(_.delete())
+              dir.delete()
+            }.ignoreLogged,
+          )
+          routes = Routes(
+            Method.GET / "files" / trailing -> Handler.fromFunctionHandler[(Path, Request)] {
+              case (path: Path, _: Request) =>
+                Handler
+                  .fromFileZIO(ZIO.attempt(new File(tempDir, path.encode)))
+                  .orElse(Handler.notFound)
+                  .contramap(_._2)
+            },
+          )
+          port    <- Server.installRoutes(routes)
+          urls = (0 until 3).map(i => URL.decode(s"http://localhost:$port/files/file-$i.txt").toOption.get).toList
+          results <- ZIO
+            .foreach(0 to 2) { _ =>
+              ZIO.foreachPar(urls) { url =>
+                ZIO.serviceWithZIO[Client](_.batched(Request.get(url)))
+              }
+            }
+            .map(_.flatten)
+        } yield assertTrue(
+          results.forall(_.status == Status.Ok),
+          results.forall(_.headers.get(Header.ContentType).isDefined),
+        )
+      }
+    } @@ TestAspect.timeout(2.minutes),
   )
 
   private def createTestFile(content: String): ZIO[Scope, Throwable, File] =

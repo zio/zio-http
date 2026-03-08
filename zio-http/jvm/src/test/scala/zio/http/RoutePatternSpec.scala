@@ -468,6 +468,10 @@ object RoutePatternSpec extends ZIOHttpSpec {
 
         assertTrue(routePattern.format((1, "abc")) == Right(Path("/users/1/posts/abc")))
       },
+      test("root - issue #3760") {
+        val routePattern = Method.GET / Root
+        assertTrue(routePattern.format(()) == Right(Path("/")))
+      },
     )
 
   def structureEquals = suite("structure equals")(

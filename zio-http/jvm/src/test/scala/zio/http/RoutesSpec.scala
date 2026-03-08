@@ -137,6 +137,26 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("embedded route should not match root path - issue #3609") {
+      import PathCodec._
+      val routes = literal("api") / Routes(
+        Method.GET / "" -> handler(Response.text("from api route")),
+      ) ++ Routes(
+        Method.GET / "" -> handler(Response.text("from / route")),
+      )
+
+      for {
+        rootResponse <- routes.run(path = Path.root)
+        rootBody     <- rootResponse.body.asString
+        apiResponse  <- routes.run(path = Path.root / "api")
+        apiBody      <- apiResponse.body.asString
+      } yield assertTrue(
+        rootResponse.status == Status.Ok,
+        rootBody == "from / route",
+        apiResponse.status == Status.Ok,
+        apiBody == "from api route",
+      )
+    },
     test("trailing path matchers are checked last regardless of registration order") {
       // Test case 1: Trailing route registered first
       val appTrailingFirst = Routes(

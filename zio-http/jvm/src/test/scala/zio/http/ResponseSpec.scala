@@ -241,6 +241,24 @@ object ResponseSpec extends ZIOHttpSpec {
         val x = Response.json("""{"message": "Hello"}""")
         assertTrue(x.header(Header.ContentType).contains(Header.ContentType(MediaType.application.json)))
       },
+      test("json with extra headers includes content type and extra headers") {
+        val extra = Headers(Header.Custom("X-Custom", "value"))
+        val resp  = Response.json("{}", extra)
+        assertTrue(
+          resp.status == Status.Ok,
+          resp.header(Header.ContentType).contains(Header.ContentType(MediaType.application.json)),
+          resp.headers.get("X-Custom").contains("value"),
+        )
+      },
+      test("text with extra headers includes content type and extra headers") {
+        val extra = Headers(Header.Custom("X-Custom", "value"))
+        val resp  = Response.text("hello", extra)
+        assertTrue(
+          resp.status == Status.Ok,
+          resp.header(Header.ContentType).contains(Header.ContentType(MediaType.text.plain)),
+          resp.headers.get("X-Custom").contains("value"),
+        )
+      },
     ),
     suite("toHandler")(
       test("should convert response to handler") {

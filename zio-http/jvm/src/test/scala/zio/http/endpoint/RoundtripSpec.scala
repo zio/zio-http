@@ -26,7 +26,7 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.schema._
-import zio.schema.annotation.validate
+import zio.schema.annotation.{noDiscriminator, validate}
 import zio.schema.validation.Validation
 
 import zio.http.Method._
@@ -34,6 +34,7 @@ import zio.http._
 import zio.http.codec.HttpContentCodec.protobuf
 import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
+import zio.http.endpoint.openapi.OpenAPIGen
 import zio.http.netty.NettyConfig
 
 object RoundtripSpec extends ZIOHttpSpec {
@@ -89,6 +90,26 @@ object RoundtripSpec extends ZIOHttpSpec {
   case class OptOut(age: Option[Int], name: Option[String])
 
   implicit val optOutSchema: Schema[OptOut] = DeriveSchema.gen[OptOut]
+
+  @noDiscriminator
+  sealed trait NestedShape
+  object NestedShape {
+    implicit val schema: Schema[NestedShape] = DeriveSchema.gen[NestedShape]
+
+    sealed trait Polygon extends NestedShape
+    object Polygon {
+      case class Triangle(base: Double, height: Double) extends Polygon
+      object Triangle { implicit val schema: Schema[Triangle] = DeriveSchema.gen[Triangle] }
+      case class Rectangle(width: Double, length: Double) extends Polygon
+      object Rectangle { implicit val schema: Schema[Rectangle] = DeriveSchema.gen[Rectangle] }
+    }
+
+    sealed trait Curved extends NestedShape
+    object Curved {
+      case class Circle(radius: Double) extends Curved
+      object Circle { implicit val schema: Schema[Circle] = DeriveSchema.gen[Circle] }
+    }
+  }
 
   case class Name(firstName: String, lastName: String)
 
@@ -192,6 +213,20 @@ object RoundtripSpec extends ZIOHttpSpec {
         val healthCheckAPI     = Endpoint(GET / "health-check").out[Unit]
         val healthCheckHandler = healthCheckAPI.implementAs(())
         testEndpoint(healthCheckAPI, Routes(healthCheckHandler), (), ())
+      }
+      test("NoContent status returns empty body - issue #3861") {
+        val noContentAPI     = Endpoint(DELETE / "posts" / int("postId")).out[Unit](Status.NoContent)
+        val noContentHandler = noContentAPI.implementHandler {
+          Handler.fromFunction { _ => () }
+        }
+        testEndpoint(noContentAPI, Routes(noContentHandler), 42, ())
+      }
+      test("NotModified status returns empty body - issue #3861") {
+        val notModifiedAPI     = Endpoint(GET / "resource" / int("id")).out[Unit](Status.NotModified)
+        val notModifiedHandler = notModifiedAPI.implementHandler {
+          Handler.fromFunction { _ => () }
+        }
+        testEndpoint(notModifiedAPI, Routes(notModifiedHandler), 1, ())
       }
       test("simple get with query params from case class") {
         val endpoint = Endpoint(GET / "query")
@@ -765,6 +800,27 @@ object RoundtripSpec extends ZIOHttpSpec {
             response.body.asString.map(s =>
               assertTrue(s.contains("Malformed request body failed to decode: (extra field)")),
             ),
+        )
+      }
+      test("round-trip nested sealed trait hierarchy through endpoint") {
+        val api   = Endpoint(POST / "shapes").in[NestedShape].out[NestedShape]
+        val route = api.implementPurely((shape: NestedShape) => shape)
+
+        val triangle: NestedShape  = NestedShape.Polygon.Triangle(3.0, 4.0)
+        val rectangle: NestedShape = NestedShape.Polygon.Rectangle(5.0, 10.0)
+        val circle: NestedShape    = NestedShape.Curved.Circle(2.5)
+
+        testEndpoint(api, Routes(route), triangle, triangle) &&
+        testEndpoint(api, Routes(route), rectangle, rectangle) &&
+        testEndpoint(api, Routes(route), circle, circle)
+      }
+      test("OpenAPI spec for nested sealed trait has flat oneOf with leaf types only") {
+        val api       = Endpoint(POST / "shapes").in[NestedShape].out[NestedShape]
+        val generated = OpenAPIGen.fromEndpoints("Shapes API", "1.0", api)
+        val json      = generated.toJson
+        assertTrue(
+          !json.contains("Polygon") && !json.contains("Curved"),
+          json.contains("Triangle") && json.contains("Rectangle") && json.contains("Circle"),
         )
       }
 

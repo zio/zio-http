@@ -288,14 +288,22 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     self | that
 
   final def toLeft[R]: HttpCodec[AtomTypes, Either[Value, R]] =
-    self.transformOrFail[Either[Value, R]](value => Right(Left(value)))(either =>
-      either.swap.left.map(_ => "Error!"),
-    ) // TODO: Solve with partiality
+    self.transformOrFail[Either[Value, R]](value => Right(Left(value)))(either => either.swap.left.map(_ => "Error!"))
 
   final def toRight[L]: HttpCodec[AtomTypes, Either[L, Value]] =
-    self.transformOrFail[Either[L, Value]](value => Right(Right(value)))(either =>
-      either.left.map(_ => "Error!"),
-    ) // TODO: Solve with partiality
+    self.transformOrFail[Either[L, Value]](value => Right(Right(value)))(either => either.left.map(_ => "Error!"))
+
+  private[codec] final def toLeftLenient[R]: HttpCodec[AtomTypes, Either[Value, R]] =
+    self.transform[Either[Value, R]](value => Left(value)) {
+      case Left(value)  => value
+      case Right(value) => value.asInstanceOf[Value]
+    }
+
+  private[codec] final def toRightLenient[L]: HttpCodec[AtomTypes, Either[L, Value]] =
+    self.transform[Either[L, Value]](value => Right(value)) {
+      case Right(value) => value
+      case Left(value)  => value.asInstanceOf[Value]
+    }
 
   /**
    * Transforms the type parameter of this HttpCodec from `Value` to `Value2`.
@@ -2444,12 +2452,21 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     ): Chunk[(HttpCodec[T, B], Fallback.Condition)] =
       api match {
         case fallback @ HttpCodec.Fallback(left, right, alternator, condition) =>
-          rewrite[T, fallback.Left](left, reduceExamplesLeft(annotations, alternator)).map { case (codec, condition) =>
-            codec.toLeft[fallback.Right] -> condition
-          } ++
-            rewrite[T, fallback.Right](right, reduceExamplesRight(annotations, alternator)).map { case (codec, _) =>
-              codec.toRight[fallback.Left] -> condition
-            }
+          if (alternator.isSameType) {
+            rewrite[T, fallback.Left](left, reduceExamplesLeft(annotations, alternator)).map { case (codec, cond) =>
+              codec.toLeftLenient[fallback.Right] -> cond
+            } ++
+              rewrite[T, fallback.Right](right, reduceExamplesRight(annotations, alternator)).map { case (codec, _) =>
+                codec.toRightLenient[fallback.Left] -> condition
+              }
+          } else {
+            rewrite[T, fallback.Left](left, reduceExamplesLeft(annotations, alternator)).map { case (codec, cond) =>
+              codec.toLeft[fallback.Right] -> cond
+            } ++
+              rewrite[T, fallback.Right](right, reduceExamplesRight(annotations, alternator)).map { case (codec, _) =>
+                codec.toRight[fallback.Left] -> condition
+              }
+          }
 
         case transform @ HttpCodec.TransformOrFail(codec, f, g) =>
           rewrite[T, transform.In](

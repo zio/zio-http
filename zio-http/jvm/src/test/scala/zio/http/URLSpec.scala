@@ -99,6 +99,20 @@ object URLSpec extends ZIOHttpSpec {
           val expected     = urlWithSpace.encode
           assertTrue(expected == "/my%20folder/file.txt")
         },
+        test("url with already encoded path should not double encode") {
+          val originalUrl = "http://testsample.com/file/test%20hotel.pdf"
+          val decoded     = URL.decode(originalUrl)
+          val reEncoded   = decoded.map(_.encode)
+          assertTrue(reEncoded == Right(originalUrl))
+        },
+        test("url fromURI should not double encode path") {
+          val uri = new java.net.URI("http://testsample.com/file/test%20hotel.pdf")
+          val url = URL.fromURI(uri)
+          assertTrue(
+            url.isDefined,
+            url.get.encode == "http://testsample.com/file/test%20hotel.pdf",
+          )
+        },
         test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.copy(path = url.path.addLeadingSlash)
@@ -281,6 +295,24 @@ object URLSpec extends ZIOHttpSpec {
           assertZIO(result)(isLeft)
         },
       ),
+      suite("query parameter encoding")(
+        test("colons in query param values should be percent-encoded") {
+          val url = URL.root.addQueryParam("pe", "http://example.com")
+          assertTrue(url.encode == "/?pe=http%3A%2F%2Fexample.com")
+        },
+        test("at-signs in query param values should be percent-encoded") {
+          val url = URL.root.addQueryParam("email", "user@example.com")
+          assertTrue(url.encode == "/?email=user%40example.com")
+        },
+        test("colons in path segments should NOT be percent-encoded") {
+          val url = URL(Path("/v1:validateAddress"))
+          assertTrue(url.encode == "/v1:validateAddress")
+        },
+        test("at-signs in path segments should NOT be percent-encoded") {
+          val url = URL(Path("/users/@me"))
+          assertTrue(url.encode == "/users/@me")
+        },
+      ),
       suite("relative resolution")(
         // next ones are edge cases
         test("absolute reference with relative base") {
@@ -361,6 +393,33 @@ object URLSpec extends ZIOHttpSpec {
 
           val result = base.resolve(reference)
           assertTrue(result.contains(expected))
+        },
+      ),
+      suite("decodeOrNull")(
+        test("valid plain path returns non-null URL") {
+          val result = URL.decodeOrNull("/plaintext")
+          assertTrue(
+            result ne null,
+            result.path == Path("/plaintext"),
+          )
+        },
+        test("valid path with query params returns non-null URL") {
+          val result = URL.decodeOrNull("/api/users?id=1")
+          assertTrue(
+            result ne null,
+            result.path == Path("/api/users"),
+          )
+        },
+        test("invalid URL returns null") {
+          val result = URL.decodeOrNull("not valid %%%")
+          assertTrue(result eq null)
+        },
+        test("valid absolute URL returns non-null URL") {
+          val result = URL.decodeOrNull("http://example.com/path")
+          assertTrue(
+            result ne null,
+            result.kind.isAbsolute,
+          )
         },
       ),
     )

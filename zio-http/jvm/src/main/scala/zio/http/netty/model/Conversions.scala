@@ -94,24 +94,55 @@ private[netty] object Conversions {
       (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
     )
 
+  private val singletonHeaders: java.util.HashSet[String] = {
+    val set = new java.util.HashSet[String](32)
+    set.add("age")
+    set.add("authorization")
+    set.add("content-length")
+    set.add("content-type")
+    set.add("content-location")
+    set.add("content-range")
+    set.add("date")
+    set.add("etag")
+    set.add("expect")
+    set.add("expires")
+    set.add("from")
+    set.add("host")
+    set.add("if-modified-since")
+    set.add("if-range")
+    set.add("if-unmodified-since")
+    set.add("last-modified")
+    set.add("location")
+    set.add("max-forwards")
+    set.add("proxy-authorization")
+    set.add("referer")
+    set.add("retry-after")
+    set.add("server")
+    set.add("user-agent")
+    set
+  }
+
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
-    val nettyHeaders  = new DefaultHttpHeaders()
-    val setCookieName = Header.SetCookie.name
-    val iter          = headers.iterator
+    val nettyHeaders = new DefaultHttpHeaders()
+    val iter         = headers.iterator
     while (iter.hasNext) {
       val header = iter.next()
-      val name   = header.headerName
-      if (name == setCookieName) {
-        nettyHeaders.add(name, header.renderedValueAsCharSequence)
+      if (singletonHeaders.contains(header.headerName)) {
+        nettyHeaders.set(header.headerName, header.renderedValueAsCharSequence)
       } else {
-        nettyHeaders.set(name, header.renderedValueAsCharSequence)
+        nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
       }
     }
     nettyHeaders
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =
-    HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
+    status match {
+      case _: Status.Custom =>
+        HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
+      case _                =>
+        HttpResponseStatus.valueOf(status.code)
+    }
 
   def statusFromNetty(status: HttpResponseStatus): Status =
     Status.fromInt(status.code) match {

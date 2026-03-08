@@ -174,7 +174,15 @@ final case class EndpointGen(config: Config) {
             else
               anEnum.copy(cases = shouldBePreserved ++ shouldBeReplaced.flatMap { cc =>
                 replacedCasesToOmitAsTopComponents = replacedCasesToOmitAsTopComponents + cc.name
-                componentNameToCodeFile(cc.name).caseClasses
+                val replacementCaseClasses = componentNameToCodeFile(cc.name).caseClasses
+                anEnum.discriminator match {
+                  case Some(discriminatorProp) =>
+                    replacementCaseClasses.map { caseClass =>
+                      caseClass.copy(fields = caseClass.fields.filterNot(_.name == s"`$discriminatorProp`"))
+                    }
+                  case None                    =>
+                    replacementCaseClasses
+                }
               })
           })
         }
@@ -697,32 +705,48 @@ final case class EndpointGen(config: Config) {
       case _: JsonSchema.Number             => throw new Exception("Floating point path variables are not supported")
     }
 
-  @tailrec
   private def schemaToQueryParamCodec(
     schema: JsonSchema,
     openAPI: OpenAPI,
     name: String,
+  ): Code.QueryParamCode = schemaToQueryParamCodecHelper(schema, openAPI, name)
+
+  @tailrec
+  private def schemaToQueryParamCodecHelper(
+    schema: JsonSchema,
+    openAPI: OpenAPI,
+    name: String,
   ): Code.QueryParamCode = schema match {
-    case JsonSchema.AnnotatedSchema(s, _) => schemaToQueryParamCodec(s, openAPI, name)
-    case JsonSchema.RefSchema(ref)        => schemaToQueryParamCodec(resolveSchemaRef(openAPI, ref), openAPI, name)
-    case JsonSchema.Boolean               => Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
-    case s: JsonSchema.Integer            => Code.QueryParamCode(name = name, queryType = integerCodec(s.format))
-    case s: JsonSchema.String             => Code.QueryParamCode(name = name, queryType = stringCodec(s.format))
-    case _: JsonSchema.Number             => throw new Exception("Floating point query parameters are not supported")
-    case JsonSchema.OneOfSchema(_)        => throw new Exception("Alternative query parameters are not supported")
-    case JsonSchema.AllOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
-    case JsonSchema.AnyOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
-    case JsonSchema.ArrayType(_, _, _)    => throw new Exception("Array query parameters are not supported")
-    case JsonSchema.Object(_, _, _)       => throw new Exception("Object query parameters are not supported")
-    case JsonSchema.Enum(_)               => throw new Exception("Enum query parameters are not supported")
-    case JsonSchema.Null                  => throw new Exception("Null query parameters are not supported")
-    case JsonSchema.AnyJson               => throw new Exception("AnyJson query parameters are not supported")
+    case JsonSchema.AnnotatedSchema(s, _) => schemaToQueryParamCodecHelper(s, openAPI, name)
+    case JsonSchema.RefSchema(ref) => schemaToQueryParamCodecHelper(resolveSchemaRef(openAPI, ref), openAPI, name)
+    case JsonSchema.Boolean        => Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
+    case s: JsonSchema.Integer     => Code.QueryParamCode(name = name, queryType = integerCodec(s.format))
+    case s: JsonSchema.String      => Code.QueryParamCode(name = name, queryType = stringCodec(s.format))
+    case _: JsonSchema.Number      => throw new Exception("Floating point query parameters are not supported")
+    case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative query parameters are not supported")
+    case JsonSchema.AllOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.AnyOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.ArrayType(items, minItems, uniqueItems) =>
+      val nonEmpty       = minItems.exists(_ > 0)
+      val elementType    = items
+        .map(itemSchema => schemaToQueryParamCodec(itemSchema, openAPI, name).queryType)
+        .getOrElse(Code.CodecType.String)
+      val collectionType =
+        if (uniqueItems) Code.CodecType.SetOf(elementType, nonEmpty)
+        else Code.CodecType.SeqOf(elementType, nonEmpty)
+      Code.QueryParamCode(name = name, queryType = collectionType)
+    case JsonSchema.Object(_, _, _) => throw new Exception("Object query parameters are not supported")
+    case JsonSchema.Enum(_) => throw new Exception("Enum query parameters are not supported")
+    case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")
+    case JsonSchema.AnyJson => throw new Exception("AnyJson query parameters are not supported")
   }
 
   private def fieldsOfObject(openAPI: OpenAPI, annotations: Chunk[JsonSchema.MetaData])(
     obj: JsonSchema.Object,
-  ): List[Code.Field] =
-    obj.properties.map { case (name, schema) =>
+  ): List[Code.Field] = {
+    val discriminatorPropertyName =
+      annotations.collectFirst { case JsonSchema.MetaData.Discriminator(d) => d.propertyName }
+    obj.properties.filterNot { case (name, _) => discriminatorPropertyName.contains(name) }.map { case (name, schema) =>
       val field = schemaToField(schema, openAPI, name, annotations)
         .getOrElse(
           throw new Exception(s"Could not generate code for field $name of object $name"),
@@ -730,6 +754,7 @@ final case class EndpointGen(config: Config) {
         .asInstanceOf[Code.Field]
       if (obj.required.contains(name)) field else field.copy(fieldType = field.fieldType.opt)
     }.toList
+  }
 
   /**
    * @param openAPI

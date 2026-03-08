@@ -193,7 +193,25 @@ object MultipartSpec extends ZIOHttpSpec {
         }
       },
       test("multipart input/output roundtrip check") {
-        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+        check(Gen.chunkOfBounded(2, 8)(formField)) { rawFields =>
+          // Ensure all effective field names (used by both the endpoint codec and the
+          // form) are unique. The endpoint codec's indexByName is built with .toMap which
+          // silently drops duplicates, causing "Missing multipart/form-data field" errors.
+          // Effective name = explicit name if present, or "field{idx}" for unnamed fields.
+          val fields   = {
+            val seen = scala.collection.mutable.Set.empty[String]
+            rawFields.zipWithIndex.map { case ((ff, schema, name, isStreaming), idx) =>
+              val effectiveName = name.getOrElse(s"field$idx")
+              if (seen.add(effectiveName)) {
+                (ff, schema, name, isStreaming)
+              } else {
+                // Collision detected: make both the codec name and form field name unique
+                val uniqueName = s"${effectiveName}_$idx"
+                seen.add(uniqueName)
+                (ff.name(uniqueName), schema, Some(uniqueName), isStreaming)
+              }
+            }
+          }
           val endpoint =
             fields.foldLeft(
               Endpoint(POST / "test-form")

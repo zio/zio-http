@@ -1,19 +1,49 @@
 package zio.http
 
+import scala.scalajs.js
+
 import zio._
-import zio.test.TestAspect._
 import zio.test._
 
 import zio.http.internal.FetchBodyBatched
 
 object JSClientSpec extends ZIOSpecDefault {
+
+  private val serverLayer: ZLayer[Any, Throwable, (js.Dynamic, Int)] = ZLayer.scoped {
+    ZIO.acquireRelease {
+      ZIO.async[Any, Throwable, (js.Dynamic, Int)] { callback =>
+        val http          = js.Dynamic.global.require("http")
+        val server        = http.createServer { (_: js.Dynamic, res: js.Dynamic) =>
+          res.writeHead(200, js.Dictionary("Content-Type" -> "text/html"))
+          res.end("<!doctype html><html><body>Hello</body></html>")
+          ()
+        }
+        val _: js.Dynamic = server.listen(
+          0,
+          { () =>
+            val port = server.address().port.asInstanceOf[Int]
+            callback(ZIO.succeed((server, port)))
+          },
+        )
+      }
+    } { case (server, _) =>
+      ZIO.succeed(server.close())
+    }
+  }
+
+  private val portLayer: ZLayer[Any, Throwable, Int] =
+    serverLayer.map(env => ZEnvironment(env.get[(js.Dynamic, Int)]._2))
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("JSClientSpec")(
       suite("HTTP")(
         test("Get without User Agent") {
           for {
-            res <- (for {
-              response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").batched.get("") }
+            port <- ZIO.service[Int]
+            res  <- (for {
+              response <- ZIO.serviceWithZIO[Client] {
+                _.url(url"http://localhost/").port(port).batched.get("")
+              }
               string   <- response.body.asString
             } yield (response, string))
               .provide(ZLayer.succeed(ZClient.Config.default.addUserAgentHeader(false)) >>> ZClient.live)
@@ -25,15 +55,20 @@ object JSClientSpec extends ZIOSpecDefault {
           )
         },
         test("Get with User Agent") {
-          val client = (for {
-            response <- ZIO.serviceWithZIO[Client] { _.url(url"https://example.com").batched.get("") }
-            string   <- response.body.asString
-          } yield (response, string)).provide(ZClient.default)
           for {
-            isSuccess <- client.isSuccess
-          } yield assertTrue(isSuccess)
-        }, // calling a real website is not the best idea.
-        // Should be replaced with a local server, as soon as we have js server support
+            port <- ZIO.service[Int]
+            res  <- (for {
+              response <- ZIO.serviceWithZIO[Client] {
+                _.url(url"http://localhost/").port(port).batched.get("")
+              }
+              string   <- response.body.asString
+            } yield (response, string)).provide(ZClient.default)
+            (response, string) = res
+          } yield assertTrue(
+            response.status.isSuccess,
+            string.startsWith("<!doctype html>"),
+          )
+        },
       ),
 //      suite("WebSocket")(
 //        test("Echo") {
@@ -67,5 +102,5 @@ object JSClientSpec extends ZIOSpecDefault {
 //          } yield assertTrue(consoleMessages.contains("Server: Hello, World!"))
 //        }.provideSome[Scope & Client](ZLayer(Queue.bounded[String](100))),
 //      ),
-    ) @@ flaky
+    ).provideShared(portLayer) @@ TestAspect.ifEnvSet("CI")
 }

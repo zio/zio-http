@@ -81,20 +81,29 @@ private[codec] object EncoderDecoder {
     override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
+      val orderedSingles = if (outputTypes.nonEmpty) {
+        val matchingAlternatives = outputTypes.flatMap { acceptedType =>
+          singles.filter { case (single, _) => single.matchesMediaType(acceptedType.mediaType) }
+        }
+        val remaining            = singles.filterNot(s => matchingAlternatives.exists(_._1 eq s._1))
+        (matchingAlternatives ++ remaining).distinct
+      } else {
+        singles
+      }
+
       var i         = 0
       var encoded   = null.asInstanceOf[Z]
       var lastError = null.asInstanceOf[Throwable]
 
-      while (i < singles.length) {
-        val (current, _) = singles(i)
+      while (i < orderedSingles.length) {
+        val (current, _) = orderedSingles(i)
 
         try {
           encoded = current.encodeWith(config, value, outputTypes)(f)
 
-          i = singles.length // break
+          i = orderedSingles.length // break
         } catch {
           case error: HttpCodecError =>
-            // TODO: Aggregate all errors in disjunction:
             lastError = error
         }
 
@@ -154,6 +163,13 @@ private[codec] object EncoderDecoder {
       codec.name.getOrElse("field" + idx.toString) -> idx
     }.toMap
     private lazy val nameByIndex  = indexByName.map(_.swap)
+
+    def matchesMediaType(mediaType: MediaType): Boolean =
+      flattened.content.headOption.exists {
+        case BodyCodec.Single(codec, _) => codec.lookup(mediaType).isDefined
+        case BodyCodec.Empty            => false
+        case _: BodyCodec.Multiple[_]   => false
+      }
 
     override def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(
       implicit trace: Trace,

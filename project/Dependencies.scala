@@ -2,21 +2,21 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "11.0.3"
-  val NettyVersion                 = "4.2.9.Final"
-  val ScalaCompatCollectionVersion = "2.13.0"
-  val ZioVersion                   = "2.1.23"
-  val ZioCliVersion                = "0.7.5"
-  val ZioJsonVersion               = "0.8.0"
-  val ZioSchemaVersion             = "1.7.5"
+  val NettyVersion                 = "4.2.10.Final"
+  val ScalaCompatCollectionVersion = "2.14.0"
+  val ZioVersion                   = "2.1.24"
+  val ZioCliVersion                = "0.8.0"
+  val ZioJsonVersion               = "0.9.0"
+  val ZioSchemaVersion             = "1.8.2"
   val SttpVersion                  = "3.3.18"
-  val ZioConfigVersion             = "4.0.5"
+  val ZioConfigVersion             = "4.0.6"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.9.9"
-  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.5"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.10.7"
+  val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.7"
 
   val netty =
     Seq(

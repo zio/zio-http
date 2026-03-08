@@ -303,6 +303,10 @@ object CodeGen {
         sb ++= newtypeName
         sb ++= ".unwrap)"
         sb.result() -> (Code.Import.FromBase("components." + newtypeName) :: imports)
+      case Code.CodecType.SeqOf(_, _)                      =>
+        throw new Exception("Collection path segments are not supported")
+      case Code.CodecType.SetOf(_, _)                      =>
+        throw new Exception("Collection path segments are not supported")
     }
 
   def renderSegment(segment: Code.PathSegmentCode): (String, List[Code.Import]) = segment match {
@@ -399,23 +403,42 @@ object CodeGen {
 
   def renderQueryCode(queryCode: Code.QueryParamCode): (List[Code.Import], String) = queryCode match {
     case Code.QueryParamCode(name, queryType) =>
-      val (imports, tpe) = queryType match {
-        case Code.CodecType.Boolean   => Nil                                      -> "Boolean"
-        case Code.CodecType.Int       => Nil                                      -> "Int"
-        case Code.CodecType.Long      => Nil                                      -> "Long"
-        case Code.CodecType.String    => Nil                                      -> "String"
-        case Code.CodecType.UUID      => List(Code.Import("java.util.UUID"))      -> "UUID"
-        case Code.CodecType.LocalDate => List(Code.Import("java.time.LocalDate")) -> "LocalDate"
-        case Code.CodecType.LocalTime => List(Code.Import("java.time.LocalTime")) -> "LocalTime"
-        case Code.CodecType.Instant   => List(Code.Import("java.time.Instant"))   -> "Instant"
-        case Code.CodecType.Duration  => List(Code.Import("java.time.Duration"))  -> "Duration"
-        case Code.CodecType.Literal   => throw new Exception("Literal query params are not supported")
-        case Code.CodecType.Aliased(underlying, newtypeName) =>
-          val (imports, _) = renderQueryCode(Code.QueryParamCode(name, underlying))
-          (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> (newtypeName + ".Type")
-      }
+      val (imports, tpe) = renderQueryCodecType(queryType, name)
       imports -> s""".query(HttpCodec.query[$tpe]("$name"))"""
   }
+
+  private def renderQueryCodecType(queryType: Code.CodecType, name: String): (List[Code.Import], String) =
+    queryType match {
+      case Code.CodecType.Boolean   => Nil                                      -> "Boolean"
+      case Code.CodecType.Int       => Nil                                      -> "Int"
+      case Code.CodecType.Long      => Nil                                      -> "Long"
+      case Code.CodecType.String    => Nil                                      -> "String"
+      case Code.CodecType.UUID      => List(Code.Import("java.util.UUID"))      -> "UUID"
+      case Code.CodecType.LocalDate => List(Code.Import("java.time.LocalDate")) -> "LocalDate"
+      case Code.CodecType.LocalTime => List(Code.Import("java.time.LocalTime")) -> "LocalTime"
+      case Code.CodecType.Instant   => List(Code.Import("java.time.Instant"))   -> "Instant"
+      case Code.CodecType.Duration  => List(Code.Import("java.time.Duration"))  -> "Duration"
+      case Code.CodecType.Literal   => throw new Exception("Literal query params are not supported")
+      case Code.CodecType.Aliased(underlying, newtypeName) =>
+        val (imports, _) = renderQueryCodecType(underlying, name)
+        (Code.Import.FromBase(s"components.$newtypeName") :: imports) -> (newtypeName + ".Type")
+      case Code.CodecType.SeqOf(elementType, nonEmpty)     =>
+        val (imports, elemTpe) = renderQueryCodecType(elementType, name)
+        val chunkImport        = Code.Import("zio.Chunk")
+        val collectionType     = if (nonEmpty) s"NonEmptyChunk[$elemTpe]" else s"Chunk[$elemTpe]"
+        val allImports         =
+          if (nonEmpty) Code.Import("zio.NonEmptyChunk") :: chunkImport :: imports
+          else chunkImport :: imports
+        allImports -> collectionType
+      case Code.CodecType.SetOf(elementType, nonEmpty)     =>
+        val (imports, elemTpe) = renderQueryCodecType(elementType, name)
+        val chunkImport        = Code.Import("zio.Chunk")
+        val collectionType     = if (nonEmpty) s"NonEmptyChunk[$elemTpe]" else s"Chunk[$elemTpe]"
+        val allImports         =
+          if (nonEmpty) Code.Import("zio.NonEmptyChunk") :: chunkImport :: imports
+          else chunkImport :: imports
+        allImports -> collectionType
+    }
 
   def renderInCode(inCode: Code.InCode): String = {
     val stream = if (inCode.streaming) "Stream" else ""

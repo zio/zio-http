@@ -1,13 +1,13 @@
 name         := "zio-http-example-oauth-bearer-token-auth"
 version      := "0.1.1"
-scalaVersion := "2.13.17"
+scalaVersion := "2.13.18"
 
 publish / skip  := true
 publishArtifact := false
 run / fork := true
 
 libraryDependencies ++= Seq(
-  "dev.zio"              %% "zio"          % "2.1.22",
+  "dev.zio"              %% "zio"          % "2.1.24",
   "dev.zio"              %% "zio-http"     % "3.5.1",
   "com.github.jwt-scala" %% "jwt-core"     % "11.0.3",
   "com.github.jwt-scala" %% "jwt-zio-json" % "11.0.3",

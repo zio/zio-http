@@ -342,6 +342,61 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(actual)(isFalse)
       },
     ),
+    suite("StrictTransportSecurity")(
+      test("parse max-age only") {
+        val result = Header.StrictTransportSecurity.parse("max-age=31536000")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(31536000L))))
+      },
+      test("parse max-age with includeSubDomains") {
+        val result = Header.StrictTransportSecurity.parse("max-age=31536000; includeSubDomains")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(31536000L, includeSubDomains = true))))
+      },
+      test("parse all directives") {
+        val result = Header.StrictTransportSecurity.parse("max-age=0; includeSubDomains; preload")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(0L, includeSubDomains = true, preload = true))))
+      },
+      test("parse case-insensitive directives") {
+        val result = Header.StrictTransportSecurity.parse("Max-Age=600; INCLUDESUBDOMAINS; Preload")
+        assert(result)(isRight(equalTo(Header.StrictTransportSecurity(600L, includeSubDomains = true, preload = true))))
+      },
+      test("render max-age only") {
+        val rendered = Header.StrictTransportSecurity.render(Header.StrictTransportSecurity(31536000L))
+        assertTrue(rendered == "max-age=31536000")
+      },
+      test("render all directives") {
+        val rendered = Header.StrictTransportSecurity.render(
+          Header.StrictTransportSecurity(31536000L, includeSubDomains = true, preload = true),
+        )
+        assertTrue(rendered == "max-age=31536000; includeSubDomains; preload")
+      },
+      test("parse invalid header - missing max-age") {
+        val result = Header.StrictTransportSecurity.parse("includeSubDomains; preload")
+        assert(result)(isLeft)
+      },
+      test("parse invalid header - negative max-age") {
+        val result = Header.StrictTransportSecurity.parse("max-age=-1")
+        assert(result)(isLeft)
+      },
+      test("parse invalid header - non-numeric max-age") {
+        val result = Header.StrictTransportSecurity.parse("max-age=abc")
+        assert(result)(isLeft)
+      },
+    ),
+    suite("Headers concatenation")(
+      test("should return second value when both have same key") {
+        val h1     = Headers("key", "old")
+        val h2     = Headers("key", "new")
+        val result = (h1 ++ h2).get("key")
+        assertTrue(result == Some("new"))
+      },
+      test("should return first value when only first has key") {
+        val h1     = Headers("key", "old")
+        val h2     = Headers("other", "val")
+        val result = (h1 ++ h2).get("key")
+        assertTrue(result == Some("old"))
+      },
+    ),
+    customHeaderSpec,
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -357,4 +412,17 @@ object HeaderSpec extends ZIOHttpSpec {
 
   private def predefinedHeaders: Headers =
     Headers(Header.Accept(MediaType.application.json), Header.ContentType(MediaType.application.json))
+
+  private val customHeaderSpec = suite("Custom header")(
+    test("headerType is cached and returns correct values") {
+      val h   = Header.Custom("X-Request-Id", "abc-123")
+      val ht1 = h.headerType
+      val ht2 = h.headerType
+      assertTrue(
+        ht1 eq ht2,
+        h.headerName == "x-request-id",
+        h.renderedValue == "abc-123",
+      )
+    },
+  )
 }

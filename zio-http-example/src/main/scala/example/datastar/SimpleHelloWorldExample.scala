@@ -42,7 +42,7 @@ object SimpleHelloWorldExample extends ZIOAppDefault {
       style.inlineCss(css),
     ),
     body(
-      dataOn.load := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
+      dataInit := Endpoint(Method.GET / "hello-world").out[String].datastarRequest(()),
       div(
         className := "container",
         h1("Hello World Example"),

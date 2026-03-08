@@ -199,14 +199,23 @@ object Header {
     override type Self = Custom
     override def self: Self = this
 
-    override def headerType: HeaderType.Typed[Custom] = new Header.HeaderType {
-      override type HeaderValue = Custom
+    private[this] var _headerType: HeaderType.Typed[Custom] = _
 
-      override def name: String = self.customName.toString.toLowerCase
+    override def headerType: HeaderType.Typed[Custom] = {
+      var ht = _headerType
+      if (ht eq null) {
+        ht = new Header.HeaderType {
+          override type HeaderValue = Custom
 
-      override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
+          override def name: String = self.customName.toString.toLowerCase
 
-      override def render(value: HeaderValue): String = value.value.toString
+          override def parse(value: String): Either[String, HeaderValue] = Right(Custom(self.customName, value))
+
+          override def render(value: HeaderValue): String = value.value.toString
+        }
+        _headerType = ht
+      }
+      ht
     }
 
     private[http] override def headerNameAsCharSequence: CharSequence    = customName
@@ -4069,7 +4078,69 @@ object Header {
       server.name
   }
 
-  sealed trait Te extends Header {
+  /**
+   * The Strict-Transport-Security response header informs browsers that the
+   * site should only be accessed using HTTPS, and that any future attempts to
+   * access it using HTTP should automatically be converted to HTTPS.
+   *
+   * See:
+   * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+   */
+  final case class StrictTransportSecurity(
+    maxAge: Long,
+    includeSubDomains: Boolean = false,
+    preload: Boolean = false,
+  ) extends Header {
+    override type Self = StrictTransportSecurity
+    override def self: Self                                            = this
+    override def headerType: HeaderType.Typed[StrictTransportSecurity] = StrictTransportSecurity
+  }
+
+  object StrictTransportSecurity extends HeaderType {
+    override type HeaderValue = StrictTransportSecurity
+
+    override def name: String = "strict-transport-security"
+
+    def parse(value: String): Either[String, StrictTransportSecurity] = {
+      val parts             = value.split(";").map(_.trim).filter(_.nonEmpty)
+      var maxAge: Long      = -1
+      var includeSubDomains = false
+      var preload           = false
+      var valid             = true
+
+      parts.foreach { part =>
+        val lower = part.toLowerCase
+        if (lower.startsWith("max-age=")) {
+          try {
+            val v = part.substring(8).trim.toLong
+            if (v >= 0) maxAge = v
+            else valid = false
+          } catch {
+            case NonFatal(_) => valid = false
+          }
+        } else if (lower == "includesubdomains") {
+          includeSubDomains = true
+        } else if (lower == "preload") {
+          preload = true
+        }
+      }
+
+      if (valid && maxAge >= 0)
+        Right(StrictTransportSecurity(maxAge, includeSubDomains, preload))
+      else
+        Left("Invalid Strict-Transport-Security header")
+    }
+
+    def render(sts: StrictTransportSecurity): String = {
+      val sb = new StringBuilder
+      sb.append("max-age=")
+      sb.append(sts.maxAge)
+      if (sts.includeSubDomains) sb.append("; includeSubDomains")
+      if (sts.preload) sb.append("; preload")
+      sb.toString
+    }
+  }
+  sealed trait Te                extends Header     {
     override type Self = Te
     override def self: Self                       = this
     override def headerType: HeaderType.Typed[Te] = Te
