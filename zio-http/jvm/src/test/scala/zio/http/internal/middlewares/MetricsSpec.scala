@@ -135,5 +135,57 @@ object MetricsSpec extends ZIOHttpSpec with TestExtensions {
           count <- total.value
         } yield assertTrue(count == MetricState.Counter(3))
       },
+      test("http_requests_total with response-derived labels") {
+        val responseLabels: Response => Set[MetricLabel] =
+          response => Set(MetricLabel("status_class", (response.status.code / 100).toString + "xx"))
+
+        val routes = Routes(
+          Method.GET / "ok"    -> Handler.ok,
+          Method.GET / "error" -> Handler.internalServerError,
+        ) @@ metrics(
+          responseLabels = responseLabels,
+          pathLabelMapper = Predef.identity[String],
+          extraLabels = Set(MetricLabel("test", "response_labels")),
+        )
+
+        val total      = Metric.counterInt("http_requests_total").tagged("test", "response_labels")
+        val totalOk    = total
+          .tagged("path", "/ok")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+          .tagged("status_class", "2xx")
+        val totalError = total
+          .tagged("path", "/error")
+          .tagged("method", "GET")
+          .tagged("status", "500")
+          .tagged("status_class", "5xx")
+
+        for {
+          _          <- routes.runZIO(Request.get("/ok"))
+          _          <- routes.runZIO(Request.get("/error"))
+          okCount    <- totalOk.value
+          errorCount <- totalError.value
+        } yield assertTrue(
+          okCount == MetricState.Counter(1),
+          errorCount == MetricState.Counter(1),
+        )
+      },
+      test("metrics with response labels does not affect existing overload") {
+        val routes = (Method.GET / "simple" -> Handler.ok).toRoutes @@ metrics(
+          extraLabels = Set(MetricLabel("test", "existing_overload")),
+        )
+
+        val total = Metric
+          .counterInt("http_requests_total")
+          .tagged("test", "existing_overload")
+          .tagged("path", "/simple")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+
+        for {
+          _     <- routes.runZIO(Request.get("/simple"))
+          count <- total.value
+        } yield assertTrue(count == MetricState.Counter(1))
+      },
     )
 }

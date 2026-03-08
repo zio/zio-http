@@ -3,9 +3,15 @@ package zio.http.datastar
 import zio._
 import zio.test._
 
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.template2._
 
 object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
+  case class Payload(name: String, value: Int)
+  implicit val payloadSchema: Schema[Payload] = DeriveSchema.gen[Payload]
+  case class Info(msg: String)
+  implicit val infoSchema: Schema[Info]       = DeriveSchema.gen[Info]
 
   override def spec = suite("ServerSentEventGeneratorSpec")(
     suite("EventType")(
@@ -589,6 +595,32 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
             event.data.contains("Line 2"),
           )
         }
+      },
+    ),
+    suite("dispatchEvent")(
+      test("should send dispatchEvent with typed payload") {
+        for {
+          datastar <- Datastar.make
+          queue = datastar.queue
+          _     <- ServerSentEventGenerator
+            .dispatchEvent("test-event", Payload("foo", 42))
+            .provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.eventType.contains("datastar-patch-elements"),
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('test-event',{detail:{\"name\":\"foo\",\"value\":42},bubbles:true,cancelable:false,composed:false}))</script>\n",
+        )
+      },
+      test("should send dispatchEvent with options") {
+        for {
+          datastar <- Datastar.make
+          queue   = datastar.queue
+          options = DispatchEventOptions(source = Some(selector"#target"), bubbles = false, cancelable = true)
+          _ <- ServerSentEventGenerator.dispatchEvent("custom", Info("hi"), options).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('#target');if(el)el.dispatchEvent(new CustomEvent('custom',{detail:{\"msg\":\"hi\"},bubbles:false,cancelable:true,composed:false}))})()</script>\n",
+        )
       },
     ),
   )

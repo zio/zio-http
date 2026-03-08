@@ -208,6 +208,62 @@ object DatastarEvent {
   ): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions(autoRemove, attributes, eventId, retryDuration))
 
+  def dispatchEvent[T <: Product: Schema](eventName: String, payload: T): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent[T <: Product: Schema](
+    eventName: String,
+    payload: T,
+    options: DispatchEventOptions,
+  ): ExecuteScript = {
+    val escapedName  = eventName.replace("\\", "\\\\").replace("'", "\\'")
+    val jsonPayload  = zio.schema.codec.JsonCodec.jsonCodec(Schema[T]).encodeJson(payload, None).toString
+    val eventOptions =
+      s"detail:$jsonPayload,bubbles:${options.bubbles},cancelable:${options.cancelable},composed:${options.composed}"
+    val jsCode       = options.source match {
+      case None           =>
+        s"document.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))"
+      case Some(selector) =>
+        val sel = selector.render.replace("\\", "\\\\").replace("'", "\\'")
+        s"(function(){var el=document.querySelector('$sel');if(el)el.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))})()"
+    }
+    executeScript(
+      jsCode,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+      ),
+    )
+  }
+
+  def dispatchEvent[T <: Product: Schema](eventName: String, payload: T, source: Option[CssSelector]): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions(source = source))
+
+  def dispatchEvent(eventName: String, payload: Js): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent(eventName: String, payload: Js, options: DispatchEventOptions): ExecuteScript = {
+    val escapedName  = eventName.replace("\\", "\\\\").replace("'", "\\'")
+    val eventOptions =
+      s"detail:${payload.value},bubbles:${options.bubbles},cancelable:${options.cancelable},composed:${options.composed}"
+    val jsCode       = options.source match {
+      case None           =>
+        s"document.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))"
+      case Some(selector) =>
+        val sel = selector.render.replace("\\", "\\\\").replace("'", "\\'")
+        s"(function(){var el=document.querySelector('$sel');if(el)el.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))})()"
+    }
+    executeScript(
+      jsCode,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+      ),
+    )
+  }
+
   def patchElements(elements: String): PatchElements =
     patchElements(elements, PatchElementOptions.default)
 
