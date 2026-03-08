@@ -2269,7 +2269,7 @@ object Header {
 
     final case class Combined(directives: Chunk[ContentSecurityPolicy]) extends ContentSecurityPolicy
 
-    def apply(first: ContentSecurityPolicy, rest: ContentSecurityPolicy*): ContentSecurityPolicy =
+    def combined(first: ContentSecurityPolicy, rest: ContentSecurityPolicy*): ContentSecurityPolicy =
       if (rest.isEmpty) first
       else Combined(Chunk(first) ++ Chunk.fromIterable(rest))
 

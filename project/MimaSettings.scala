@@ -53,8 +53,6 @@ object MimaSettings {
         ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicy$Combined$"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicyReportOnly"),
         ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicyReportOnly$"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.Header$ContentSecurityPolicy.apply"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.Header$ContentSecurityPolicy.parseSingle"),
       ),
       mimaFailOnProblem := failOnProblem,
     )

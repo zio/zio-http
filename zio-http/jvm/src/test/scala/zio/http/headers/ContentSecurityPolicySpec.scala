@@ -99,12 +99,12 @@ object ContentSecurityPolicySpec extends ZIOHttpSpec {
     suite("factory method")(
       test("single directive returns directive directly") {
         val single = SourcePolicy(SourcePolicyType.`default-src`, Source.none)
-        assertTrue(ContentSecurityPolicy(single) == single)
+        assertTrue(ContentSecurityPolicy.combined(single) == single)
       },
       test("multiple directives returns Combined") {
         val d1     = SourcePolicy(SourcePolicyType.`default-src`, Source.none)
         val d2     = SourcePolicy(SourcePolicyType.`script-src`, Source.Self)
-        val result = ContentSecurityPolicy(d1, d2)
+        val result = ContentSecurityPolicy.combined(d1, d2)
         assertTrue(result == Combined(zio.Chunk(d1, d2)))
       },
     ),
