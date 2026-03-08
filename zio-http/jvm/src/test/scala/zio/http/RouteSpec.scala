@@ -449,9 +449,9 @@ object RouteSpec extends ZIOHttpSpec {
         // Fixed: Apply aspect to the Route (not the Handler) using the new Route.@@ operator
         // This correctly applies the aspect after path parameters are decoded
         val route = (Method.GET / "base" / string("id") ->
-          handler((id: String, req: Request) => {
-            ZIO.succeed(Response.text(s"id=$id"))
-          })) @@ authAspect
+          handler { (id: String, _: Request) =>
+            ZIO.environment[Int].map(ctx => Response.text(s"id=$id\nctx=${ctx.get[Int]}"))
+          }) @@ authAspect
 
         val routes = Routes(route)
 
@@ -460,7 +460,28 @@ object RouteSpec extends ZIOHttpSpec {
           body     <- response.body.asString
         } yield assertTrue(
           response.status == Status.Ok,
-          body == "id=test123",
+          body == "id=test123\nctx=42",
+        )
+      },
+      test("HandlerAspect should work when applying ApplyContextAspect overload") {
+        val authAspect: HandlerAspect[Any, Int] =
+          HandlerAspect.interceptIncomingHandler(Handler.fromFunction[Request] { request =>
+            (request, 42)
+          })
+
+        val route = Method.GET / "base" / string("id") ->
+          handler { (id: String, _: Request) =>
+            ZIO.environment[Int].map(ctx => Response.text(s"id=$id\nctx=${ctx.get[Int]}"))
+          }
+
+        val routes = route.@@[Any].apply(authAspect)
+
+        for {
+          response <- routes.runZIO(Request.get(url"/base/test123"))
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "id=test123\nctx=42",
         )
       },
     ),
