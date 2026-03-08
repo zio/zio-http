@@ -459,6 +459,110 @@ object Middleware extends HandlerAspects {
     }
   }
 
+  /**
+   * Creates middleware that will track metrics, with additional labels derived
+   * from the response.
+   *
+   * @param responseLabels
+   *   A pure function that derives additional metric labels from the response
+   *   (e.g. status class, specific headers). Invoked once per response.
+   * @param concurrentRequestsName
+   *   Concurrent HTTP requests metric name.
+   * @param totalRequestsName
+   *   Total HTTP requests metric name.
+   * @param requestDurationName
+   *   HTTP request duration metric name.
+   * @param requestDurationBoundaries
+   *   Boundaries for the HTTP request duration metric.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   */
+  def metrics(
+    responseLabels: Response => Set[MetricLabel],
+    pathLabelMapper: String => String,
+    concurrentRequestsName: String,
+    totalRequestsName: String,
+    requestDurationName: String,
+    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries,
+    extraLabels: Set[MetricLabel],
+  )(implicit trace: Trace): Middleware[Any] = {
+    val requestsTotal: Metric.Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+    val concurrentRequests: Metric.Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+    val requestDuration: Metric.Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+    val nanosToSeconds: Double                      = 1e9d
+
+    def labelsForRequest(routePattern: RoutePattern[_]): Set[MetricLabel] =
+      Set(
+        MetricLabel("method", routePattern.method.render),
+        MetricLabel("path", pathLabelMapper(routePattern.pathCodec.render)),
+      ) ++ extraLabels
+
+    def labelsForResponse(res: Response): Set[MetricLabel] =
+      Set(
+        MetricLabel("status", res.status.code.toString),
+      ) ++ responseLabels(res)
+
+    def report(
+      start: Long,
+      requestLabels: Set[MetricLabel],
+      labels: Set[MetricLabel],
+    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      for {
+        _   <- requestsTotal.tagged(labels).increment
+        _   <- concurrentRequests.tagged(requestLabels).decrement
+        end <- ZIO.succeed(java.lang.System.nanoTime())
+        took = end - start
+        _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+      } yield ()
+
+    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] = {
+      val requestLabels = labelsForRequest(routePattern)
+
+      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
+        for {
+          start <- ZIO.succeed(java.lang.System.nanoTime())
+          _     <- concurrentRequests.tagged(requestLabels).increment
+        } yield ((start, requestLabels), (req, ()))
+      })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
+        val allLabels = requestLabels ++ labelsForResponse(response)
+
+        report(start, requestLabels, allLabels).as(response)
+      })
+    }
+
+    new Middleware[Any] {
+      def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(
+          routes.routes.map(route => route.transform[Env1](handler => handler.sandbox @@ aspect(route.routePattern))),
+        )
+    }
+  }
+
+  /**
+   * Creates middleware that will track metrics, with additional labels derived
+   * from the response. Uses default metric names and boundaries.
+   *
+   * @param responseLabels
+   *   A pure function that derives additional metric labels from the response
+   *   (e.g. status class, specific headers). Invoked once per response.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   */
+  def metrics(
+    responseLabels: Response => Set[MetricLabel],
+    pathLabelMapper: String => String,
+    extraLabels: Set[MetricLabel],
+  )(implicit trace: Trace): Middleware[Any] =
+    metrics(
+      responseLabels = responseLabels,
+      pathLabelMapper = pathLabelMapper,
+      concurrentRequestsName = "http_concurrent_requests_total",
+      totalRequestsName = "http_requests_total",
+      requestDurationName = "http_request_duration_seconds",
+      requestDurationBoundaries = defaultBoundaries,
+      extraLabels = extraLabels,
+    )
+
   private sealed trait StaticServe[-R, +E] { self =>
     def run(path: Path, req: Request): Handler[R, E, Request, Response]
 
