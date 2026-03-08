@@ -430,7 +430,7 @@ object Middleware extends HandlerAspects {
       for {
         _   <- requestsTotal.tagged(labels).increment
         _   <- concurrentRequests.tagged(requestLabels).decrement
-        end <- Clock.nanoTime
+        end <- ZIO.succeed(java.lang.System.nanoTime())
         took = end - start
         _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
       } yield ()
@@ -441,7 +441,7 @@ object Middleware extends HandlerAspects {
 
       HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
         for {
-          start <- Clock.nanoTime
+          start <- ZIO.succeed(java.lang.System.nanoTime())
           _     <- concurrentRequests.tagged(requestLabels).increment
         } yield ((start, requestLabels), (req, ()))
       })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>

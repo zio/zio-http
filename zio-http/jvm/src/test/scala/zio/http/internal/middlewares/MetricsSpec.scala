@@ -144,7 +144,7 @@ object MetricsSpec extends ZIOHttpSpec with TestExtensions {
           Method.GET / "error" -> Handler.internalServerError,
         ) @@ metrics(
           responseLabels = responseLabels,
-          pathLabelMapper = Predef.identity,
+          pathLabelMapper = Predef.identity[String],
           extraLabels = Set(MetricLabel("test", "response_labels")),
         )
 
