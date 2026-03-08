@@ -113,6 +113,20 @@ object ExecuteScriptOptions {
   val default: ExecuteScriptOptions = ExecuteScriptOptions()
 }
 
+final case class DispatchEventOptions(
+  source: Option[CssSelector] = None,
+  bubbles: Boolean = true,
+  cancelable: Boolean = false,
+  composed: Boolean = false,
+  autoRemove: Boolean = true,
+  eventId: Option[String] = None,
+  retryDuration: Duration = 1000.millis,
+)
+
+object DispatchEventOptions {
+  val default: DispatchEventOptions = DispatchEventOptions()
+}
+
 object ServerSentEventGenerator {
 
   private[datastar] val DefaultRetryDelay: Duration = 1000.millis
@@ -145,6 +159,40 @@ object ServerSentEventGenerator {
         retryDuration = options.retryDuration,
         selector = Some(body),
         mode = ElementPatchMode.Append,
+      ),
+    )
+  }
+
+  def dispatchEvent[T <: Product: Schema](eventName: String, payload: T): ZIO[Datastar, Nothing, Unit] =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent[T <: Product: Schema](
+    eventName: String,
+    payload: T,
+    options: DispatchEventOptions,
+  ): ZIO[Datastar, Nothing, Unit] = {
+    val event = DatastarEvent.dispatchEvent(eventName, payload, options)
+    executeScript(
+      event.script,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+      ),
+    )
+  }
+
+  def dispatchEvent(eventName: String, payload: Js): ZIO[Datastar, Nothing, Unit] =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent(eventName: String, payload: Js, options: DispatchEventOptions): ZIO[Datastar, Nothing, Unit] = {
+    val event = DatastarEvent.dispatchEvent(eventName, payload, options)
+    executeScript(
+      event.script,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
       ),
     )
   }
