@@ -563,6 +563,47 @@ object Middleware extends HandlerAspects {
       extraLabels = extraLabels,
     )
 
+  /**
+   * Creates middleware for HTTP request tracing using ZIO's built-in log spans
+   * and annotations. When used with a ZIO OpenTelemetry backend, spans are
+   * automatically exported as OpenTelemetry traces.
+   *
+   * @param spanName
+   *   Derives the span name from the route pattern and request. Defaults to
+   *   "{METHOD} {route}" per OpenTelemetry semantic conventions.
+   * @param additionalAttributes
+   *   Derives additional log annotations from the request.
+   */
+  def tracing(
+    spanName: (RoutePattern[_], Request) => String = (routePattern, request) =>
+      s"${request.method.render} ${routePattern.pathCodec.render}",
+    additionalAttributes: Request => Set[LogAnnotation] = _ => Set.empty,
+  )(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(
+          routes.routes.map { route =>
+            val routePattern = route.routePattern
+            route.transform[Env1] { h =>
+              Handler.scoped[Env1](handler { (request: Request) =>
+                val name        = spanName(routePattern, request)
+                val annotations = Set(
+                  LogAnnotation("http.method", request.method.render),
+                  LogAnnotation("http.route", routePattern.pathCodec.render),
+                  LogAnnotation("http.target", request.url.path.encode + request.url.queryParams.encode),
+                ) ++ additionalAttributes(request)
+
+                ZIO.logSpan(name) {
+                  ZIO.logAnnotate(annotations) {
+                    h(request)
+                  }
+                }
+              })
+            }
+          },
+        )
+    }
+
   private sealed trait StaticServe[-R, +E] { self =>
     def run(path: Path, req: Request): Handler[R, E, Request, Response]
 
