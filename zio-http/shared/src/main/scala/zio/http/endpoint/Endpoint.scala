@@ -792,6 +792,29 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       error = ((ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)) ?? doc) | self.error,
     )
 
+  /**
+   * Returns a new endpoint that can fail with the specified error type for the
+   * specified status code with a custom media type.
+   */
+  def outError[Err2: HttpContentCodec](status: Status, mediaType: MediaType)(implicit
+    alt: Alternator[Err2, Err],
+  ): Endpoint[PathInput, Input, alt.Out, Output, Auth] =
+    copy[PathInput, Input, alt.Out, Output, Auth](
+      error = (ContentCodec.content[Err2]("error-response", mediaType) ++ StatusCodec.status(status)) | self.error,
+    )
+
+  /**
+   * Returns a new endpoint that can fail with the specified error type for the
+   * specified status code with a custom media type and is documented.
+   */
+  def outError[Err2: HttpContentCodec](status: Status, mediaType: MediaType, doc: Doc)(implicit
+    alt: Alternator[Err2, Err],
+  ): Endpoint[PathInput, Input, alt.Out, Output, Auth] =
+    copy[PathInput, Input, alt.Out, Output, Auth](
+      error =
+        ((ContentCodec.content[Err2]("error-response", mediaType) ++ StatusCodec.status(status)) ?? doc) | self.error,
+    )
+
   def outErrors[Err2]: OutErrors[PathInput, Input, Err, Output, Auth, Err2] = OutErrors(self)
 
   def outHeader[A](codec: HeaderCodec[A])(implicit
