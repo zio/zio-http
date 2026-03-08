@@ -93,7 +93,7 @@ object DatastarEvent {
       sb.append("selector ").append(body.render).append('\n')
       sb.append("mode append\n")
 
-      val rendered = script.render
+      val rendered = escapeScriptContent(script.render)
       if (rendered.contains('\n'))
         rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
       else
@@ -101,6 +101,18 @@ object DatastarEvent {
 
       val retry = if (retryDuration != DefaultRetryDelay) Some(retryDuration) else None
       ServerSentEvent(sb.toString(), Some(eventType.render), eventId, retry)
+    }
+  }
+
+  private val ScriptEndPattern = "(?i)</script".r
+
+  private def escapeScriptContent(rendered: String): String = {
+    val closingTagIdx = rendered.lastIndexOf("</script>")
+    if (closingTagIdx < 0) rendered
+    else {
+      val content    = rendered.substring(0, closingTagIdx)
+      val closingTag = rendered.substring(closingTagIdx)
+      ScriptEndPattern.replaceAllIn(content, "<\\\\/script") + closingTag
     }
   }
 

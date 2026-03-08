@@ -591,6 +591,13 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sse.data.contains("elements console.log(x + y);</script>\n"),
         )
       },
+      test("executeScript escapes </script> in JS content") {
+        val event = DatastarEvent.executeScript("var x = '</script><div>xss</div>'; alert(x)")
+        val sse   = event.toServerSentEvent
+        assertTrue(
+          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">var x = '<\\/script><div>xss</div>'; alert(x)</script>\n",
+        )
+      },
     ),
     suite("dispatchEvent")(
       test("basic dispatch with default options") {
