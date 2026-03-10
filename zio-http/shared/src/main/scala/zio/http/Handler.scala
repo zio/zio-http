@@ -560,7 +560,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   private def logUnhandledError(cause: Cause[Any]): UIO[Unit] =
     cause.failureOrCause match {
       case Left(_: Response) => ZIO.unit
-      case _ => ZIO.logErrorCause("Unhandled exception in request handler", cause)
+      case _                 => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =

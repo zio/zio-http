@@ -420,7 +420,7 @@ sealed trait Route[-Env, +Err] { self =>
   private def logUnhandledError(cause: Cause[Any]): UIO[Unit] =
     cause.failureOrCause match {
       case Left(_: Response) => ZIO.unit
-      case _ => ZIO.logErrorCause("Unhandled exception in request handler", cause)
+      case _                 => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
