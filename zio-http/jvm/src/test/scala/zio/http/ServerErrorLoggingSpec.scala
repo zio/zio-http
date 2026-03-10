@@ -39,6 +39,16 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
     Method.GET / "fail" -> Handler.fail(new RuntimeException("typed failure")),
   ).sandbox
 
+  // Routes that fail with a response, should not produce error logs
+  val routesFailResponse = Routes(
+    Method.GET / "fail-response" -> Handler.fail(Response.fromThrowable(new RuntimeException("typed failure"))),
+  ).sandbox
+
+  // Routes that fail with a response because of Middleware, should not produce error logs
+  val routesFailMiddlewareResponse = (Routes(
+    Method.GET / "fail-middleware-response" -> Handler.ok,
+  ) @@ Middleware.fail(Response.fromThrowable(new RuntimeException("typed failure")))).sandbox
+
   // Routes that succeed - should not produce error logs
   val routesOk = Routes(
     Method.GET / "ok" -> Handler.ok,
@@ -71,6 +81,26 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
           errorLog.isDefined,
           errorLog.get.logLevel == LogLevel.Error,
         )
+      },
+      test("sandbox does not log requests with failures of type Response") {
+        for {
+          port    <- Server.installRoutes(routesFailResponse)
+          _       <- ZIO.scoped {
+            Client.streaming(Request.get(s"http://localhost:$port/fail-response")).flatMap(_.ignoreBody)
+          }
+          entries <- ZTestLogger.logOutput
+          errorLog = entries.find(_.message() == "Unhandled exception in request handler")
+        } yield assertTrue(errorLog.isEmpty)
+      },
+      test("sandbox does not log requests with middleware failures of type Response") {
+        for {
+          port    <- Server.installRoutes(routesFailMiddlewareResponse)
+          _       <- ZIO.scoped {
+            Client.streaming(Request.get(s"http://localhost:$port/fail-middleware-response")).flatMap(_.ignoreBody)
+          }
+          entries <- ZTestLogger.logOutput
+          errorLog = entries.find(_.message() == "Unhandled exception in request handler")
+        } yield assertTrue(errorLog.isEmpty)
       },
       test("sandbox does not log for successful requests") {
         for {

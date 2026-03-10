@@ -410,8 +410,17 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
     handleErrorCauseZIO { cause =>
-      ZIO.logErrorCause("Unhandled exception in request handler", cause) *>
+      logUnhandledError(cause) *>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(cause, cfg)))
+    }
+
+  /**
+   * Log an unhandled error unless the cause is already a response
+   */
+  private def logUnhandledError(cause: Cause[Any]): UIO[Unit] =
+    cause.failureOrCause match {
+      case Left(_: Response) => ZIO.unit
+      case _ => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
