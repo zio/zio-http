@@ -439,5 +439,50 @@ object RouteSpec extends ZIOHttpSpec {
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
     },
+    suite("Route#@@ with path parameters (#3141)")(
+      test("HandlerAspect[Any, Unit] applied via Route#@@ should not ClassCastException") {
+        // Regression test for https://github.com/zio/zio-http/issues/3141
+        // Applying a HandlerAspect via handler @@ when the handler has path
+        // parameters would throw ClassCastException at runtime because the
+        // handler's In type is (String, Request), not Request.
+        // Route#@@ applies the aspect after path decoding so In = Request.
+        val addHeader: HandlerAspect[Any, Unit] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request](req => ZIO.succeed((req, ()))),
+          )
+
+        val route =
+          (Method.GET / "base" / string("param") -> handler { (param: String, req: Request) =>
+            Response.text(s"param=$param")
+          }) @@ addHeader
+
+        val req = Request.get(URL(Path.root / "base" / "hello"))
+        for {
+          response <- route.toRoutes.runZIO(req)
+          body     <- response.body.asString
+        } yield assertTrue(body == "param=hello", response.status == Status.Ok)
+      },
+      test("context-providing HandlerAspect applied via Route#@@ should not ClassCastException") {
+        // Regression test for https://github.com/zio/zio-http/issues/3141
+        // A HandlerAspect that provides context should also work via Route#@@.
+        case class WebSession(id: Int)
+
+        val maybeSession: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request](req => ZIO.succeed((req, Some(WebSession(42))))),
+          )
+
+        val route =
+          (Method.GET / "base" / string("param") -> handler { (param: String, req: Request) =>
+            withContext((sess: Option[WebSession]) => Response.text(s"param=$param,session=${sess.map(_.id)}"))
+          }) @@ maybeSession
+
+        val req = Request.get(URL(Path.root / "base" / "hello"))
+        for {
+          response <- route.toRoutes.runZIO(req)
+          body     <- response.body.asString
+        } yield assertTrue(body == "param=hello,session=Some(42)", response.status == Status.Ok)
+      },
+    ),
   )
 }
