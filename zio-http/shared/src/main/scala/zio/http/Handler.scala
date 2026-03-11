@@ -550,8 +550,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCauseZIO { cause =>
-      ZIO.logErrorCause("Unhandled exception in request handler", cause) *>
+      logUnhandledError(cause) *>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(cause, cfg)))
+    }
+
+  /**
+   * Log an unhandled error unless the cause is already a response
+   */
+  private def logUnhandledError(cause: Cause[Any]): UIO[Unit] =
+    cause.failureOrCause match {
+      case Left(_: Response) => ZIO.unit
+      case _                 => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
