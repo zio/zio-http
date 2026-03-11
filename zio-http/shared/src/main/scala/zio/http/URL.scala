@@ -20,7 +20,7 @@ import java.net.{MalformedURLException, URI}
 
 import scala.util.control.NonFatal
 
-import zio.{Config, ZIO, durationInt}
+import zio.{Config, Unsafe, ZIO, durationInt}
 
 import zio.http.URL.Location.Relative
 import zio.http.URL.{Fragment, Location}
@@ -310,7 +310,7 @@ object URL {
   }
 
   private[http] def fromAbsoluteURIOrNull(uri: URI): URL = {
-    val scheme     = Scheme.decode(uri.getScheme).orNull
+    val scheme     = Scheme.unsafe.decode(uri.getScheme)(Unsafe.unsafe)
     if (scheme eq null) return null
     val host       = uri.getHost
     if (host eq null) return null
