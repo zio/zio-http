@@ -153,6 +153,13 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     )
   } else {
     Seq[ProjectReference](
+      // New sub-modules (issue #3472)
+      zioHttpCoreJVM,
+      zioHttpCoreJS,
+      zioHttpEndpointJVM,
+      zioHttpEndpointJS,
+      zioHttpNetty,
+      // Existing modules
       zioHttpJVM,
       zioHttpJS,
       zioHttpBenchmarks,
@@ -235,6 +242,237 @@ lazy val zioHttpJS = zioHttp.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioHttpJVM = zioHttp.jvm
+
+// ─────────────────────────────────────────────────────────────────────────────
+// New sub-modules (issue #3472): zio-http-core, zio-http-endpoint, zio-http-netty
+//
+// Goal: split the monolithic zio-http artifact into focused Maven artifacts so
+// users can depend on only what they need.  The existing `zio-http` project is
+// kept as an umbrella that depends on all three new modules, preserving full
+// backward compatibility.
+//
+// Source layout strategy (incremental migration):
+//   Phase 1 (this PR): define new sbt projects; sources remain in the original
+//     `zio-http/` tree and are pulled in via `unmanagedSourceDirectories`.
+//     The umbrella `zio-http` project is gutted to a thin re-export shim.
+//   Phase 2 (follow-up): physically move sources into the new module trees and
+//     remove the `unmanagedSourceDirectories` overrides.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * zio-http-core
+ *
+ * Fundamental HTTP types that have no dependency on Netty or the Endpoint DSL:
+ *   - HTTP primitives: Request, Response, Body, Headers, Status, Method, URL
+ *   - Handler, Routes, Route, Middleware abstractions
+ *   - Server / ZClient interfaces (traits, not Netty-backed implementations)
+ *   - Cookie, Form, QueryParams, WebSocket frame types
+ *   - template / template2 HTML DSL
+ *   - Internal helpers (CookieEncoding, DateEncoding, …)
+ *
+ * JVM platform also includes the non-Netty JVM platform-specific adapters.
+ */
+lazy val zioHttpCore = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-http-core"))
+  .settings(stdSettings("zio-http-core"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(crossProjectSettings)
+  // ── Phase-1: pull sources from the original zio-http tree ──────────────────
+  // Shared sources: everything except codec/, endpoint/, template/, template2/
+  // are considered "core".  We point directly at the original shared src tree
+  // and exclude the sub-packages that belong to zio-http-endpoint.
+  .settings(
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala",
+    ),
+    Compile / excludeFilter := {
+      val endpointDir = baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala" / "zio" / "http" / "endpoint"
+      val codecDir = baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala" / "zio" / "http" / "codec"
+      new SimpleFileFilter(f =>
+        f.getCanonicalPath.startsWith(endpointDir.getCanonicalPath) ||
+          f.getCanonicalPath.startsWith(codecDir.getCanonicalPath),
+      )
+    },
+  )
+  .settings(
+    autoCompilerPlugins := true,
+    libraryDependencies ++= unroll,
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
+        case _            => Seq.empty
+      }
+    },
+  )
+  .jvmSettings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-schema-json`,
+      `zio-schema-protobuf`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `scala-compat-collection`,
+    ),
+    // JVM platform-specific sources (non-Netty): DriverPlatformSpecific, etc.
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala",
+    ),
+    Compile / excludeFilter := {
+      val nettyDir = baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala" / "zio" / "http" / "netty"
+      new SimpleFileFilter(f => f.getCanonicalPath.startsWith(nettyDir.getCanonicalPath))
+    },
+  )
+  .jsSettings(
+    ThisProject / fork := false,
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "org.scala-js"           %%% "scalajs-dom"             % "2.8.1",
+      "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
+      "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
+      "dev.zio"                %%% "zio"                     % ZioVersion,
+      "dev.zio"                %%% "zio-streams"             % ZioVersion,
+      "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
+    ),
+    // JS platform sources from original tree
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "js" / "src" / "main" / "scala",
+    ),
+  )
+
+lazy val zioHttpCoreJS  = zioHttpCore.js
+lazy val zioHttpCoreJVM = zioHttpCore.jvm
+
+/**
+ * zio-http-endpoint
+ *
+ * Typed Endpoint DSL and HTTP codec layer:
+ *   - codec/: HttpCodec, PathCodec, QueryCodec, HeaderCodec, …
+ *   - endpoint/: Endpoint, EndpointExecutor, OpenAPI generation, gRPC support
+ *
+ * Depends on zio-http-core.
+ */
+lazy val zioHttpEndpoint = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-http-endpoint"))
+  .settings(stdSettings("zio-http-endpoint"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(crossProjectSettings)
+  // ── Phase-1: pull codec + endpoint sources from the original tree ──────────
+  .settings(
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala",
+    ),
+    Compile / includeFilter := {
+      val endpointDir = baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala" / "zio" / "http" / "endpoint"
+      val codecDir = baseDirectory.value / ".." / "zio-http" / "shared" / "src" / "main" / "scala" / "zio" / "http" / "codec"
+      new SimpleFileFilter(f =>
+        f.getCanonicalPath.startsWith(endpointDir.getCanonicalPath) ||
+          f.getCanonicalPath.startsWith(codecDir.getCanonicalPath) ||
+          f.isDirectory,
+      )
+    },
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
+        case _            => Seq.empty
+      }
+    },
+  )
+  .jvmSettings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-schema`,
+      `zio-schema-json`,
+      `zio-schema-protobuf`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `scala-compat-collection`,
+    ),
+    // JVM endpoint-specific sources
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala",
+    ),
+    Compile / includeFilter := {
+      val endpointPlatformDir = baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala" / "zio" / "http" / "endpoint"
+      new SimpleFileFilter(f =>
+        f.getCanonicalPath.startsWith(endpointPlatformDir.getCanonicalPath) || f.isDirectory,
+      )
+    },
+  )
+  .jsSettings(
+    ThisProject / fork := false,
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
+      "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
+      "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
+      "dev.zio"                %%% "zio"                     % ZioVersion,
+      "dev.zio"                %%% "zio-streams"             % ZioVersion,
+      "dev.zio"                %%% "zio-schema"              % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-json"         % ZioSchemaVersion,
+      "dev.zio"                %%% "zio-schema-protobuf"     % ZioSchemaVersion,
+    ),
+  )
+  .dependsOn(zioHttpCore)
+
+lazy val zioHttpEndpointJS  = zioHttpEndpoint.js
+lazy val zioHttpEndpointJVM = zioHttpEndpoint.jvm
+
+/**
+ * zio-http-netty
+ *
+ * Netty-based backend providing concrete implementations of Server and ZClient:
+ *   - netty/server/: NettyDriver, request/response handlers, SSL, event loops
+ *   - netty/client/: NettyClientDriver, connection pools, request encoder
+ *   - netty/: shared Netty utilities (NettyBody, NettyRuntime, NettyConfig, …)
+ *
+ * This is a JVM-only module. Depends on zio-http-core.
+ * Native transports (epoll / kqueue / io_uring) are optional/provided.
+ */
+lazy val zioHttpNetty = (project in file("zio-http-netty"))
+  .settings(stdSettings("zio-http-netty"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= netty ++ Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `scala-compat-collection`,
+    ),
+    // ── Phase-1: pull netty sources from the original zio-http/jvm tree ───────
+    Compile / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala",
+    ),
+    Compile / includeFilter := {
+      val nettyDir = baseDirectory.value / ".." / "zio-http" / "jvm" / "src" / "main" / "scala" / "zio" / "http" / "netty"
+      new SimpleFileFilter(f =>
+        f.getCanonicalPath.startsWith(nettyDir.getCanonicalPath) || f.isDirectory,
+      )
+    },
+  )
+  .dependsOn(zioHttpCoreJVM)
 
 /**
  * Special subproject to sanity test the shaded version of zio-http. Run using
