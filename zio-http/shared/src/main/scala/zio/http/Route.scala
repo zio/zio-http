@@ -18,6 +18,7 @@ package zio.http
 import zio._
 
 import zio.http.Route.CheckResponse
+import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
 /*
@@ -413,6 +414,53 @@ sealed trait Route[-Env, +Err] { self =>
       ZIO.logErrorCause("Unhandled exception in request handler", cause) *>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(cause, cfg)))
     }
+
+  /**
+   * Applies a middleware aspect to this route.
+   */
+  final def @@[Env1 <: Env](aspect: Middleware[Env1]): Route[Env1, Err] =
+    aspect(self.toRoutes).routes.head.asInstanceOf[Route[Env1, Err]]
+
+  /**
+   * Applies a handler aspect that does not provide context to this route.
+   */
+  final def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Route[Env with Env0, Err] =
+    self.transform[Env with Env0](handler => handler @@ aspect)
+
+  /**
+   * Applies a handler aspect that provides context to this route. The aspect is
+   * applied after path parameters are decoded, so the handler receives a plain
+   * Request rather than a tuple of (params, request).
+   */
+  final def @@[Env0, Ctx <: Env](aspect: HandlerAspect[Env0, Ctx])(implicit
+    tag: Tag[Ctx],
+  ): Route[Env0, Err] =
+    self.transform[Env0](handler => handler @@ aspect)
+
+  /**
+   * Applies a context-providing handler aspect to this route at the `Routes`
+   * level.
+   *
+   * Unlike the other `@@` overloads on `Route`, which all return a `Route`,
+   * this overload returns an `ApplyContextAspect`. When you later apply a
+   * context aspect to the returned value (via `.apply(aspect)`), it will
+   * produce a `Routes` rather than a single `Route`.
+   *
+   * This overload is intended for use when you need to construct or modify a
+   * `Routes` value while applying context-aware handler aspects derived from a
+   * `Route`.
+   */
+  // This overload exists only to build an ApplyContextAspect (e.g. `route @@ [Env0] { ... }`).
+  // The two DummyImplicit parameters are required to disambiguate this overload from the
+  // other `@@` methods above, especially in the presence of type inference / partial
+  // application. Removing them reintroduces an ambiguous overload compile error.
+  // Minimal sketch:
+  //   trait R {
+  //     def @@(a: HandlerAspect[Any, Unit]): R
+  //     def @@[Env0](implicit d1: DummyImplicit, d2: DummyImplicit): Builder[Env0]
+  //   }
+  final def @@[Env0](implicit dummy: DummyImplicit, dummy2: DummyImplicit): ApplyContextAspect[Env, Err, Env0] =
+    new ApplyContextAspect[Env, Err, Env0](self.toRoutes)
 
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
