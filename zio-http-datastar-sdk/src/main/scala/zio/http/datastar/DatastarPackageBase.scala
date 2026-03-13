@@ -962,9 +962,8 @@ trait DatastarPackageBase extends Attributes {
     if (request.method == Method.GET) {
       ZIO.fromEither {
         request
-          .header[String]("datastar")
-          .left
-          .map(_.getMessage())
+          .queryParam("datastar")
+          .toRight("Missing 'datastar' query parameter")
           .flatMap(_.fromJson[T](zio.schema.codec.JsonCodec.jsonDecoder(Schema[T])))
       }
     } else {
