@@ -204,13 +204,13 @@ object DatastarRequestCancellation {
 
   implicit val schema: Schema[DatastarRequestCancellation] = Schema[String].transform[DatastarRequestCancellation](
     {
-      case "Auto"     => Auto
-      case "Disabled" => Disabled
+      case "auto"     => Auto
+      case "disabled" => Disabled
       case other      => Custom(Js(other))
     },
     {
-      case Auto          => "Auto"
-      case Disabled      => "Disabled"
+      case Auto          => "auto"
+      case Disabled      => "disabled"
       case Custom(value) => value.value
     },
   )
