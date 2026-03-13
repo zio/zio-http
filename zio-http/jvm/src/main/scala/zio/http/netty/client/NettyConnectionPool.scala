@@ -167,22 +167,23 @@ private[netty] object NettyConnectionPool {
     connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress],
   )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
-    ZIO.suspend {
-      val bootstrap = new Bootstrap()
-        .channelFactory(channelFactory)
-        .group(eventLoopGroup)
-        .remoteAddress(new InetSocketAddress(host, location.port))
-        .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
-        .handler(initializer)
-      localAddress.foreach(bootstrap.localAddress)
+    ZIO.uninterruptibleMask { restore =>
+      ZIO.suspend {
+        val bootstrap = new Bootstrap()
+          .channelFactory(channelFactory)
+          .group(eventLoopGroup)
+          .remoteAddress(new InetSocketAddress(host, location.port))
+          .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
+          .handler(initializer)
+        localAddress.foreach(bootstrap.localAddress)
 
-      val channelFuture = bootstrap.connect()
-      val ch            = channelFuture.channel()
+        val channelFuture = bootstrap.connect()
+        val ch            = channelFuture.channel()
 
-      NettyFutureExecutor
-        .executed(channelFuture)
-        .onInterrupt(ZIO.ignore { channelFuture.cancel(true); ch.close() })
-        .as(ch)
+        restore(NettyFutureExecutor.executed(channelFuture))
+          .onInterrupt(ZIO.ignore { channelFuture.cancel(true); ch.close() })
+          .as(ch)
+      }
     }
   }
 
