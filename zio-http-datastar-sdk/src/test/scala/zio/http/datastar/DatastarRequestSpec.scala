@@ -553,7 +553,7 @@ object DatastarRequestSpec extends ZIOSpecDefault {
         assertTrue(
           request.render.contains("@delete"),
           request.render.contains("/api/delete/123"),
-          request.render.contains("Disabled"),
+          request.render.contains("disabled"),
         )
       },
       test("should render request with multiple custom options") {

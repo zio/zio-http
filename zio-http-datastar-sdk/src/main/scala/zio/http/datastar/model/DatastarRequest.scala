@@ -204,13 +204,13 @@ object DatastarRequestCancellation {
 
   implicit val schema: Schema[DatastarRequestCancellation] = Schema[String].transform[DatastarRequestCancellation](
     {
-      case "Auto"     => Auto
-      case "Disabled" => Disabled
+      case "auto"     => Auto
+      case "disabled" => Disabled
       case other      => Custom(Js(other))
     },
     {
-      case Auto          => "Auto"
-      case Disabled      => "Disabled"
+      case Auto          => "auto"
+      case Disabled      => "disabled"
       case Custom(value) => value.value
     },
   )
@@ -218,18 +218,24 @@ object DatastarRequestCancellation {
 
 sealed trait DatastarRetry
 object DatastarRetry {
-  case object Auto  extends DatastarRetry
-  case object Error extends DatastarRetry
+  case object Auto   extends DatastarRetry
+  case object Error  extends DatastarRetry
+  case object Always extends DatastarRetry
+  case object Never  extends DatastarRetry
 
   implicit val schema: Schema[DatastarRetry] = Schema[String].transformOrFail[DatastarRetry](
     {
-      case "auto"  => Right(Auto)
-      case "error" => Right(Error)
-      case other   => Left(s"Invalid DatastarRetry value: '$other'. Expected 'auto' or 'error'.")
+      case "auto"   => Right(Auto)
+      case "error"  => Right(Error)
+      case "always" => Right(Always)
+      case "never"  => Right(Never)
+      case other    => Left(s"Invalid DatastarRetry value: '$other'. Expected 'auto', 'error', 'always', or 'never'.")
     },
     {
-      case Auto  => Right("auto")
-      case Error => Right("error")
+      case Auto   => Right("auto")
+      case Error  => Right("error")
+      case Always => Right("always")
+      case Never  => Right("never")
     },
   )
 }
