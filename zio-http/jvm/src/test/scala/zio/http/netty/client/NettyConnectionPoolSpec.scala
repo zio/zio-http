@@ -16,8 +16,9 @@
 
 package zio.http.netty.client
 
-import scala.annotation.nowarn
 import java.net.{Inet4Address, Inet6Address, InetAddress}
+
+import scala.annotation.nowarn
 
 import zio._
 import zio.test.Assertion.{equalTo, hasSize}
