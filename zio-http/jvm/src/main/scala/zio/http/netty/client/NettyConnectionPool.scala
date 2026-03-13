@@ -257,27 +257,22 @@ private[netty] object NettyConnectionPool {
         )
 
       for {
-        failedHub  <- Hub.dropping[Unit](requestedCapacity = 1)
+        failed     <- Promise.make[Nothing, Unit]
         successful <- Ref.make(List.empty[JChannel])
 
         attemptConnect = (host: InetAddress) =>
           connect0(host).onExit {
             case Exit.Success(ch) => successful.update(_ :+ ch)
-            case Exit.Failure(_)  => failedHub.publish(()).unit
+            case Exit.Failure(_)  => failed.succeed(()).unit
           }
 
-        _ <- ZIO.scoped {
-          for {
-            failedSub <- failedHub.subscribe
-            _         <- ZIO.raceAll(
-              attemptConnect(addresses.head),
-              addresses.tail.zipWithIndex.map { case (address, index) =>
-                ZIO.sleep(HappyEyeballsDelay * (index + 1).toDouble).raceFirst(failedSub.take).ignore *>
-                  attemptConnect(address)
-              },
-            )
-          } yield ()
-        }
+        _ <- ZIO.raceAll(
+          attemptConnect(addresses.head),
+          addresses.tail.zipWithIndex.map { case (address, index) =>
+            ZIO.sleep(HappyEyeballsDelay * (index + 1).toDouble).raceFirst(failed.await).ignore *>
+              attemptConnect(address)
+          },
+        )
 
         channels <- successful.get
 
