@@ -181,7 +181,7 @@ private[netty] object NettyConnectionPool {
 
       NettyFutureExecutor
         .executed(channelFuture)
-        .onInterrupt(ZIO.succeed(channelFuture.cancel(true)) *> ZIO.succeed(ch.close()).ignore)
+        .onInterrupt(ZIO.ignore { channelFuture.cancel(true); ch.close() })
         .as(ch)
     }
   }
@@ -287,7 +287,7 @@ private[netty] object NettyConnectionPool {
         }
 
         _ <- ZIO.foreachDiscard(channels.filterNot(_ eq channel)) { ch =>
-          ZIO.succeed(ch.close()).ignore
+          ZIO.ignore(ch.close())
         }
 
         _ <- Scope.addFinalizer {
