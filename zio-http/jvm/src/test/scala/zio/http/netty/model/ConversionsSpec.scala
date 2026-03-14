@@ -70,10 +70,13 @@ object ConversionsSpec extends ZIOHttpSpec {
             result.get("content-type") == "application/json",
           )
         },
-        test("should preserve duplicate list-based Accept headers") {
+        test("should deduplicate Accept headers (last wins)") {
           val headers = Headers("accept", "text/html") ++ Headers("accept", "application/json")
           val result  = Conversions.headersToNetty(headers)
-          assertTrue(result.entries().size() == 2)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("accept") == "application/json",
+          )
         },
         test("should preserve duplicate Set-Cookie headers") {
           val headers = Headers("set-cookie", "a=1") ++ Headers("set-cookie", "b=2")
@@ -101,10 +104,32 @@ object ConversionsSpec extends ZIOHttpSpec {
             result.get("authorization") == "Bearer token2",
           )
         },
-        test("should preserve duplicate unknown custom headers") {
+        test("should deduplicate custom headers (last wins)") {
           val headers = Headers("x-custom", "value1") ++ Headers("x-custom", "value2")
           val result  = Conversions.headersToNetty(headers)
-          assertTrue(result.entries().size() == 2)
+          assertTrue(
+            result.entries().size() == 1,
+            result.get("x-custom") == "value2",
+          )
+        },
+        test("should preserve duplicate Via headers") {
+          val headers = Headers("via", "1.0 proxy1") ++ Headers("via", "1.1 proxy2")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 2,
+            result.getAll("via").get(0) == "1.0 proxy1",
+            result.getAll("via").get(1) == "1.1 proxy2",
+          )
+        },
+        test("should preserve duplicate Proxy-Authenticate headers") {
+          val headers =
+            Headers("proxy-authenticate", "Bearer") ++ Headers("proxy-authenticate", "Basic")
+          val result  = Conversions.headersToNetty(headers)
+          assertTrue(
+            result.entries().size() == 2,
+            result.getAll("proxy-authenticate").get(0) == "Bearer",
+            result.getAll("proxy-authenticate").get(1) == "Basic",
+          )
         },
       ),
       suite("scheme")(
