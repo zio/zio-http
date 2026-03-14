@@ -43,6 +43,6 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
   override val run =
-    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized)
+    Server.serve(routes).provide(configLayer, nettyConfigLayer, NettyServer.customized)
 
 }

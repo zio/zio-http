@@ -21,7 +21,7 @@ object ClientServerExample extends ZIOAppDefault {
       _    <- ZIO.debug("Received response: " + body)
     } yield ()
 
-  val run = clientApp.provide(Client.default)
+  val run = clientApp.provide(NettyClient.default)
 }
 
 import zio._

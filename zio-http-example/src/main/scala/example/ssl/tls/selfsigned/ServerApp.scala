@@ -35,5 +35,5 @@ object ServerApp extends ZIOAppDefault {
 
   val run =
     Console.printLine("Self-Signed TLS Server starting on https://localhost:8443/") *>
-      Server.serve(routes).provide(serverConfig, Server.live)
+      Server.serve(routes).provide(serverConfig, NettyServer.live)
 }

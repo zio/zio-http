@@ -24,7 +24,7 @@ object LoadServerConfigFromHoconFile extends ZIOAppDefault {
       )
       .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
       .provide(
-        Server.live,
+        NettyServer.live,
         ZLayer.fromZIO(
           ZIO.config(Server.Config.config.nested("zio.http.server").mapKey(_.replace('-', '_'))),
         ),

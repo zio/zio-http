@@ -37,6 +37,6 @@ object WebSocketSimpleClient extends ZIOAppDefault {
     ZIO.scoped(socketApp.connect(url) *> ZIO.never)
 
   val run: ZIO[Any, Throwable, Any] =
-    app.provide(Client.default)
+    app.provide(NettyClient.default)
 
 }

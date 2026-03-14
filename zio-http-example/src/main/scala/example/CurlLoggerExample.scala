@@ -30,5 +30,5 @@ object CurlLoggerExample extends ZIOAppDefault {
       _        <- response.body.asString.debug
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(NettyClient.default, Scope.default)
 }

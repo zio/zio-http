@@ -32,7 +32,7 @@ object ClientApp extends ZIOAppDefault {
       ZLayer.succeed(config),
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
-      ZClient.live,
+      NettyClient.live,
     )
 
 }

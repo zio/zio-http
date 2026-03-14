@@ -52,5 +52,5 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
       } yield ()
-    ).provideSome[Scope](ZClient.default)
+    ).provideSome[Scope](NettyClient.default)
 }

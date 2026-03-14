@@ -556,7 +556,7 @@ object Server extends ServerPlatformSpecific {
   def defaultWith(f: Config => Config)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     ZLayer.succeed(f(Config.default)) >>> live
 
-  val default: ZLayer[Any, Throwable, Server] = {
+  lazy val default: ZLayer[Any, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }

@@ -44,6 +44,6 @@ object HttpsHelloWorld extends ZIOAppDefault {
   private val configLayer = ZLayer.succeed(config)
 
   override val run =
-    Server.serve(routes).provide(configLayer, Server.live)
+    Server.serve(routes).provide(configLayer, NettyServer.live)
 
 }

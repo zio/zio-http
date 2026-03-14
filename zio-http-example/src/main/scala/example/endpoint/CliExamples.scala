@@ -112,7 +112,7 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
     clientExample
       .provide(
         EndpointExecutor.make(serviceName = "test"),
-        Client.default,
+        NettyClient.default,
       )
 
   def clientExample: URIO[EndpointExecutor[Any, Unit, Scope], Unit] =

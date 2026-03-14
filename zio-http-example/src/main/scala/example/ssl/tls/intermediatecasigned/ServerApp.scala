@@ -46,7 +46,7 @@ object ServerApp extends ZIOAppDefault {
         _ <- Console.printLine("\nPress Ctrl+C to stop...")
       } yield ()
     } *>
-      Server.serve(routes).provide(serverConfig, Server.live)
+      Server.serve(routes).provide(serverConfig, NettyServer.live)
   }
 
 }

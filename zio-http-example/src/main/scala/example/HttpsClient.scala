@@ -27,7 +27,7 @@ object HttpsClient extends ZIOAppDefault {
   val run =
     program.provide(
       ZLayer.succeed(clientConfig),
-      Client.customized,
+      NettyClient.customized,
       NettyClientDriver.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),

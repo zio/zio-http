@@ -17,5 +17,5 @@ object ServerResponseCompression extends ZIOAppDefault {
     ),
   )
 
-  def run = Server.serve(routes).provide(Server.live, config)
+  def run = Server.serve(routes).provide(NettyServer.live, config)
 }

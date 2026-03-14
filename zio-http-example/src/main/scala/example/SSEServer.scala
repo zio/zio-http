@@ -48,5 +48,5 @@ object SSEClient extends ZIOAppDefault {
               }
             }
       } yield ()
-    ).provide(ZClient.default)
+    ).provide(NettyClient.default)
 }

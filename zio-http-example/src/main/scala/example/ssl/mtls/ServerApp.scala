@@ -40,6 +40,6 @@ object ServerApp extends ZIOAppDefault {
     }
 
   override val run =
-    Server.serve(routes).provide(serverConfig, Server.live)
+    Server.serve(routes).provide(serverConfig, NettyServer.live)
 
 }

@@ -80,6 +80,6 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
     program
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
-        Server.live,
+        NettyServer.live,
       )
 }

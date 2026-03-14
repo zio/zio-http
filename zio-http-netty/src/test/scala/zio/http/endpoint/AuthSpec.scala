@@ -1,0 +1,332 @@
+package zio.http.endpoint
+
+import zio.Config.Secret
+import zio.test._
+import zio.{Scope, ZIO, durationInt}
+
+import zio.http._
+import zio.http.codec.HttpCodec
+import zio.http.internal.middlewares.AuthSpec.AuthContext
+
+object AuthSpec extends ZIOSpecDefault {
+
+  private val basicAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    {
+      r.headers.get(Header.Authorization).flatMap {
+        case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
+          Some(AuthContext(uname))
+        case _                                                                                =>
+          None
+      }
+
+    }
+  }
+
+  private val basicOrBearerAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    {
+      r.headers.get(Header.Authorization).flatMap {
+        case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
+          Some(AuthContext(uname))
+        case Header.Authorization.Bearer(token) if token == Secret("admin")                   =>
+          Some(AuthContext("bearer-admin"))
+        case _                                                                                =>
+          None
+      }
+
+    }
+  }
+
+  private val queryParamAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    r.queryParam("token").filter(_ == "admin").map(AuthContext.apply)
+  }
+
+  override def spec: Spec[TestEnvironment with Scope, Any] =
+    suite("AuthSpec")(
+      test("Auth with context") {
+        val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+          ) @@ basicAuthContext
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test",
+            headers = Headers(
+              Header.Authorization.Basic("admin", "admin".reverse),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          body     <- response.body.asString
+        } yield assertTrue(body == "admin")
+      },
+      test("Auth basic or bearer with context") {
+        val endpoint      =
+          Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic | AuthType.Bearer)
+        val routes        =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+          ) @@ basicOrBearerAuthContext
+        val responseBasic = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test",
+            headers = Headers(
+              Header.Authorization.Basic("admin", "admin".reverse),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+
+        val responseBearer = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test",
+            headers = Headers(
+              Header.Authorization
+                .Bearer("admin"),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          responseBasic <- responseBasic
+          bodyBasic     <- responseBasic.body.asString
+          statusBasic = responseBasic.status
+          responseBearer <- responseBearer
+          bodyBearer     <- responseBearer.body.asString
+          statusBearer = responseBearer.status
+        } yield assertTrue(
+          statusBasic.isSuccess,
+          bodyBasic == "admin",
+          statusBearer.isSuccess,
+          bodyBearer == "bearer-admin",
+        )
+      },
+      test("Auth from query parameter") {
+        val endpoint = Endpoint(Method.GET / "test")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Custom(HttpCodec.query[String]("token")))
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+          ) @@ queryParamAuthContext
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test?token=admin",
+            headers = Headers(
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          body     <- response.body.asString
+        } yield assertTrue(body == "admin")
+      },
+      suite("With server")(
+        test("Auth with context and endpoint client") {
+          val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
+          val routes   =
+            Routes(
+              endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+            ) @@ basicAuthContext
+
+          val response = for {
+            client <- ZIO.service[Client]
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Header.Authorization.Basic("admin", "admin".reverse),
+            )
+            invocation = endpoint(())
+            response <- ZIO.scoped(executor(invocation))
+          } yield response
+
+          for {
+            _        <- Server
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .forkDaemon
+              .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
+            response <- response
+          } yield assertTrue(response == "admin")
+        },
+        test("Auth basic or bearer with context and endpoint client") {
+          val endpoint =
+            Endpoint(Method.GET / "multiAuth")
+              .out[String](MediaType.text.`plain`)
+              .auth(AuthType.Basic | AuthType.Bearer)
+          val routes   =
+            Routes(
+              endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+            ) @@ basicOrBearerAuthContext
+
+          val responseBasic = for {
+            client <- ZIO.service[Client]
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Left(Header.Authorization.Basic("admin", "admin".reverse)),
+            )
+            invocation = endpoint(())
+            response <- ZIO.scoped(executor(invocation))
+          } yield response
+
+          val responseBearer = for {
+            client <- ZIO.service[Client]
+            executor = EndpointExecutor(client, url"http://localhost:8080", Right(Header.Authorization.Bearer("admin")))
+            invocation = endpoint(())
+            response <- ZIO.scoped(executor(invocation))
+          } yield response
+
+          for {
+            _              <- Server
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .forkDaemon
+              .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
+            responseBasic  <- responseBasic
+            responseBearer <- responseBearer
+          } yield assertTrue(responseBasic == "admin" && responseBearer == "bearer-admin")
+        },
+        test("Auth from query parameter with context and endpoint client") {
+          val endpoint = Endpoint(Method.GET / "query")
+            .out[String](MediaType.text.`plain`)
+            .auth(AuthType.Custom(HttpCodec.query[String]("token")))
+          val routes   =
+            Routes(
+              endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+            ) @@ queryParamAuthContext
+
+          val response = for {
+            client <- ZIO.service[Client]
+            executor   = EndpointExecutor(client, url"http://localhost:8080", "admin")
+            invocation = endpoint(())
+            response <- ZIO.scoped(executor(invocation))
+          } yield response
+
+          for {
+            _        <- Server
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .forkDaemon
+              .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
+            response <- response
+          } yield assertTrue(response == "admin")
+        },
+        test("Auth with context and endpoint client with path parameter") {
+          val endpoint =
+            Endpoint(Method.GET / int("a")).out[String](MediaType.text.`plain`).auth(AuthType.Basic)
+          val routes   =
+            Routes(
+              endpoint.implementHandler(handler((_: Int) => withContext((ctx: AuthContext) => ctx.value))),
+            ) @@ basicAuthContext
+
+          val response = for {
+            client <- ZIO.service[Client]
+            executor   = EndpointExecutor(
+              client,
+              url"http://localhost:8080",
+              Header.Authorization.Basic("admin", "admin".reverse),
+            )
+            invocation = endpoint(1)
+            response <- ZIO.scoped(executor(invocation))
+          } yield response
+
+          for {
+            _        <- Server
+              .serveRoutes(routes.handleErrorCauseZIO(c => ZIO.logInfoCause("yes!", c).as(Response.text(""))))
+              .forkDaemon
+              .catchAllCause(c => ZIO.logInfoCause(c)) <* ZIO.sleep(1.seconds)
+            response <- response
+          } yield assertTrue(response == "admin")
+        },
+      ).provideShared(NettyClient.default, NettyServer.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky,
+      test("Require Basic Auth, but get Bearer Auth") {
+        val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test",
+            headers = Headers(
+              Header.Authorization.Bearer("admin"),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.NotFound)
+      },
+      test("Missing Authorization header returns 404 by default") {
+        val endpoint =
+          Endpoint(Method.GET / "test-missing-auth").out[String](MediaType.text.`plain`).auth(AuthType.Bearer)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-missing-auth",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.NotFound)
+      },
+      test("Missing Authorization header returns 401 when configured") {
+        val endpoint = Endpoint(Method.GET / "test-auth-401")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer)
+          .unauthorizedStatus(Status.Unauthorized)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-auth-401",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status     = response.status
+          hasWwwAuth = response.headers.contains("www-authenticate")
+        } yield assertTrue(status == Status.Unauthorized, hasWwwAuth)
+      },
+      test("Missing Authorization header returns custom status") {
+        val endpoint = Endpoint(Method.GET / "test-auth-custom")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer)
+          .unauthorizedStatus(Status.BadRequest)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-auth-custom",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.BadRequest)
+      },
+    )
+
+}

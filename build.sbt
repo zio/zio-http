@@ -149,12 +149,14 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     Seq(
       zioHttpJVM,
       zioHttpJS,
+      zioHttpNetty,
       zioHttpTestkit,
     )
   } else {
     Seq[ProjectReference](
       zioHttpJVM,
       zioHttpJS,
+      zioHttpNetty,
       zioHttpBenchmarks,
       zioHttpCli,
       zioHttpDatastarSdk,
@@ -210,7 +212,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
-    ) ++ netty,
+    ),
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
@@ -233,6 +235,23 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
 
 lazy val zioHttpJS = zioHttp.js
   .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioHttpNetty = (project in file("zio-http-netty"))
+  .settings(stdSettings("zio-http-netty"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= netty ++ Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `scala-compat-collection`,
+    ),
+  )
+  .settings(MimaSettings.mimaSettings(failOnProblem = false))
+  .dependsOn(zioHttp.jvm)
 
 lazy val zioHttpJVM = zioHttp.jvm
 
@@ -287,7 +306,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
       "org.slf4j"                      % "slf4j-simple"        % "2.0.17",
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpNetty)
 
 lazy val zioHttpCli = (project in file("zio-http-cli"))
   .settings(stdSettings("zio-http-cli"))
@@ -369,7 +388,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
     ),
   )
-  .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
+  .dependsOn(zioHttpJVM, zioHttpNetty, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
 
 lazy val zioHttpExampleDatastarChat = (project in file("zio-http-example-datastar-chat"))
   .disablePlugins(ScalafixPlugin)
@@ -472,13 +491,13 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= netty ++ Seq(
+    libraryDependencies ++= Seq(
       `zio`,
       "dev.zio" %% "zio-test" % ZioVersion,
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpJVM)
+  .dependsOn(zioHttpJVM, zioHttpNetty)
 
 lazy val docs = project
   .in(file("zio-http-docs"))

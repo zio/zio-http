@@ -1,33 +1,24 @@
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.http.Server.Config
-import zio.http.netty.NettyConfig
-import zio.http.netty.server._
 
+@nowarn("msg=dead code")
 trait ServerPlatformSpecific {
 
   private[http] def base: ZLayer[Driver & Config, Throwable, Server]
 
-  val customized: ZLayer[Config & NettyConfig, Throwable, Driver with Server] = {
-    // tmp val Needed for Scala2
-    val tmp: ZLayer[Driver & Config, Throwable, Server] = ZLayer.suspend(base)
-
-    ZLayer.makeSome[Config & NettyConfig, Driver with Server](
-      NettyDriver.customized,
-      tmp,
+  def customized: ZLayer[Config, Throwable, Driver with Server] =
+    throw new UnsupportedOperationException(
+      "No Server implementation available. Add zio-http-netty to your dependencies.",
     )
-  }
 
-  val live: ZLayer[Config, Throwable, Server with Driver] = {
-    // tmp val Needed for Scala2
-    val tmp: ZLayer[Driver & Config, Throwable, Server] = ZLayer.suspend(base)
-
-    ZLayer.makeSome[Config, Server with Driver](
-      NettyDriver.live,
-      tmp,
+  def live: ZLayer[Config, Throwable, Server with Driver] =
+    throw new UnsupportedOperationException(
+      "No Server implementation available. Add zio-http-netty to your dependencies.",
     )
-  }
 
 }

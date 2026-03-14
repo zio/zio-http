@@ -36,7 +36,7 @@ object WebSocketSimpleClientAdvanced extends ZIOAppDefault {
       Console.readLine.flatMap(sendChatMessage).forever.forkDaemon *>
       ZIO.never
   }.provide(
-    Client.default,
+    NettyClient.default,
     ZLayer(Queue.bounded[String](100)),
   )
 

@@ -1,10 +1,13 @@
 package zio.http
 
+import scala.annotation.nowarn
+
 import zio.ZLayer
 
-import zio.http.netty.server.NettyDriver
-
+@nowarn("msg=dead code")
 trait DriverPlatformSpecific {
-  val default: ZLayer[Server.Config, Throwable, Driver] =
-    NettyDriver.live
+  def default: ZLayer[Server.Config, Throwable, Driver] =
+    throw new UnsupportedOperationException(
+      "No Driver implementation available. Add zio-http-netty to your dependencies.",
+    )
 }

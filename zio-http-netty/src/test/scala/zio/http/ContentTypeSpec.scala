@@ -1,0 +1,81 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package zio.http
+
+import zio._
+import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.TestAspect.{sequential, withLiveClock}
+import zio.test._
+
+import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
+
+object ContentTypeSpec extends RoutesRunnableSpec {
+
+  val contentSpec = suite("Content type header on file response")(
+    test("mp4") {
+      val res =
+        Handler.fromResource("TestFile2.mp4").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.video.`mp4`))))
+    },
+    test("js") {
+      val res =
+        Handler.fromResource("TestFile3.js").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(
+        isSome(equalTo(Header.ContentType(MediaType.text.`javascript`, charset = Some(Charsets.Utf8)))),
+      )
+    },
+    test("no extension") {
+      val res = Handler.fromResource("TestFile4").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isNone)
+    },
+    test("css") {
+      val res =
+        Handler.fromResource("TestFile5.css").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`, charset = Some(Charsets.Utf8)))))
+    },
+    test("mp3") {
+      val res =
+        Handler.fromResource("TestFile6.mp3").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mp3`))))
+    },
+    test("unidentified extension") {
+      val res =
+        Handler.fromResource("truststore.jks").sandbox.toRoutes.deploy(Request()).map(_.header(Header.ContentType))
+      assertZIO(res)(isNone)
+    },
+    test("already set content-type") {
+      val expected = MediaType.application.`json`
+      val res      =
+        Handler
+          .fromResource("TestFile6.mp3")
+          .map(_.removeHeader(Header.ContentType).addHeader(Header.ContentType(expected)))
+          .sandbox
+          .toRoutes
+          .deploy(Request())
+          .map(
+            _.header(Header.ContentType),
+          )
+      assertZIO(res)(isSome(equalTo(Header.ContentType(expected))))
+    },
+  )
+
+  override def spec = {
+    suite("Content-type") {
+      serve.as(List(contentSpec))
+    }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
+  }
+}

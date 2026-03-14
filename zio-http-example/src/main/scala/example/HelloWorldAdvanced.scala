@@ -39,6 +39,6 @@ object HelloWorldAdvanced extends ZIOAppDefault {
 
     (fooBar ++ app)
       .serve[Any]
-      .provide(configLayer, nettyConfigLayer, Server.customized)
+      .provide(configLayer, nettyConfigLayer, NettyServer.customized)
   }
 }

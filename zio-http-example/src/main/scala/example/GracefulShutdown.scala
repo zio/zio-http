@@ -39,7 +39,7 @@ object GracefulShutdown extends ZIOAppDefault {
         .zipRight(started.succeed(()))
         .zipRight(ZIO.never)
         .provide(
-          Server.live,
+          NettyServer.live,
           ZLayer.succeed(Server.Config.default.port(8080)),
         )
         .fork
@@ -49,5 +49,5 @@ object GracefulShutdown extends ZIOAppDefault {
       body     <- response.body.asString
       _        <- Console.printLine(response.status)
       _        <- Console.printLine(body)
-    } yield ()).provide(Client.default)
+    } yield ()).provide(NettyClient.default)
 }

@@ -21,7 +21,7 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
   override val run =
     program.provide(
       ZLayer.succeed(config),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )
