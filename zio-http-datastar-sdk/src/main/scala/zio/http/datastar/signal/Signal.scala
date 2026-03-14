@@ -144,7 +144,8 @@ object SignalUpdate {
     case zio.json.ast.Json.Arr(items)  =>
       val itemStrs = items.map(astToExpression)
       s"[${itemStrs.mkString(", ")}]"
-    case zio.json.ast.Json.Str(value)  => s"'$value'"
+    case s: zio.json.ast.Json.Str      =>
+      s"'${s.value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")}'"
     case zio.json.ast.Json.Num(value)  => value.toString
     case zio.json.ast.Json.Bool(value) => value.toString
     case zio.json.ast.Json.Null        => "null"
