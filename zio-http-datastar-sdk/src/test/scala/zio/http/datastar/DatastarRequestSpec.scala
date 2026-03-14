@@ -945,6 +945,26 @@ object DatastarRequestSpec extends ZIOSpecDefault {
           request.render == """@get('/api/data', {"retry":"error"})""",
         )
       },
+      test("DatastarRetry.Always serializes as always in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          retry = Some(DatastarRetry.Always),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render == """@get('/api/data', {"retry":"always"})""",
+        )
+      },
+      test("DatastarRetry.Never serializes as never in JSON") {
+        val options = DatastarRequestOptions.default.copy(
+          retry = Some(DatastarRetry.Never),
+        )
+        val request = DatastarRequest(Method.GET, url"/api/data", options)
+
+        assertTrue(
+          request.render == """@get('/api/data', {"retry":"never"})""",
+        )
+      },
       test("retry None is excluded from JSON output") {
         val options = DatastarRequestOptions.default.copy(
           retry = None,
