@@ -27,6 +27,7 @@ import zio.stream.ZStream
 import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
 
+import zio.http.internal.{ErrorConstructor, StringSchemaCodec}
 import zio.http.multipart.mixed.MultipartMixed
 
 /**
@@ -181,6 +182,26 @@ trait Body { self =>
    */
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
     asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
+
+  /**
+   * Decodes the content of the body as a URL-encoded form and maps it to a case
+   * class using a zio-schema [[zio.schema.Schema]].
+   *
+   * Example:
+   * {{{
+   * case class Login(username: String, password: String)
+   * implicit val schema: Schema[Login] = DeriveSchema.gen[Login]
+   * val body = Body.fromString("username=john&password=secret")
+   *   .contentType(MediaType.application.`x-www-form-urlencoded`)
+   * val login: Task[Login] = body.asForm[Login]
+   * }}}
+   */
+  def asForm[A](implicit schema: Schema[A], trace: Trace): Task[A] =
+    asURLEncodedForm.flatMap { form =>
+      val queryParams = form.toQueryParams
+      val codec       = StringSchemaCodec.queryFromSchema[A](schema, ErrorConstructor.query, "body")
+      ZIO.attempt(codec.decode(queryParams))
+    }
 
   def contentType: Option[Body.ContentType]
 
