@@ -76,5 +76,5 @@ object MultipartFormData extends ZIOAppDefault {
     } yield ()
 
   override def run =
-    program.provide(Server.default, NettyClient.default)
+    program.provide(NettyServer.default, NettyClient.default)
 }

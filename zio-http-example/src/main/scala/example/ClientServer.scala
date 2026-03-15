@@ -16,5 +16,5 @@ object ClientServer extends ZIOAppDefault {
     ).sandbox
 
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(app).provide(Server.default, NettyClient.default)
+    Server.serve(app).provide(NettyServer.default, NettyClient.default)
 }

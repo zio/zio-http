@@ -27,7 +27,7 @@ import zio.http.netty.server.NettyDriver
  *
  * Use these layers when building a JVM server backed by Netty. Example:
  * {{{
- * Server.serve(app).provide(NettyServer.live, Server.defaultConfig)
+ * Server.serve(app).provide(NettyServer.live, ZLayer.succeed(Server.Config.default))
  * }}}
  */
 object NettyServer {

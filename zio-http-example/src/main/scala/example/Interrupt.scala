@@ -21,7 +21,7 @@ object MyServer extends ZIOAppDefault {
   )
 
   def run =
-    Server.serve(app).provide(Server.default)
+    Server.serve(app).provide(NettyServer.default)
 }
 
 object MyClient extends ZIOAppDefault {

@@ -30,7 +30,7 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
     sseRoute.toRoutes @@ Middleware.requestLogging(logRequestBody = true) @@ Middleware.debug
 
   override def run = {
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
   }
 
 }

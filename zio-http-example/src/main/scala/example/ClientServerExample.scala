@@ -36,5 +36,5 @@ object GreetingServer extends ZIOAppDefault {
       },
     )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

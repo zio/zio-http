@@ -36,7 +36,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
   private val routes: Routes[Any, Response] = sseRoute.toRoutes
 
   override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 
 }
 
