@@ -391,6 +391,50 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == expected)
       },
+      suite("HandlerAspect with path parameters")(
+        test("HandlerAspect should work with routes containing path parameters (#3141)") {
+          val authAspect: HandlerAspect[Any, Int] =
+            HandlerAspect.interceptIncomingHandler(Handler.fromFunction[Request] { request =>
+              (request, 42)
+            })
+
+          val route = (Method.GET / "base" / string("id") ->
+            handler { (id: String, _: Request) =>
+              withContext((ctx: Int) => Response.text(s"id=$id\nctx=$ctx"))
+            }) @@ authAspect
+
+          val routes = Routes(route)
+
+          for {
+            response <- routes.runZIO(Request.get(url"/base/test123"))
+            body     <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            body == "id=test123\nctx=42",
+          )
+        },
+        test("HandlerAspect should work when applying ApplyContextAspect overload") {
+          val authAspect: HandlerAspect[Any, Int] =
+            HandlerAspect.interceptIncomingHandler(Handler.fromFunction[Request] { request =>
+              (request, 42)
+            })
+
+          val route = Method.GET / "base" / string("id") ->
+            handler { (id: String, _: Request) =>
+              withContext((ctx: Int) => Response.text(s"id=$id\nctx=$ctx"))
+            }
+
+          val routes = route.@@[Any].apply(authAspect)
+
+          for {
+            response <- routes.runZIO(Request.get(url"/base/test123"))
+            body     <- response.body.asString
+          } yield assertTrue(
+            response.status == Status.Ok,
+            body == "id=test123\nctx=42",
+          )
+        },
+      ),
       test("handleErrorCause should catch defects after handleErrorZIO (#3432)") {
         val route = Method.GET / "endpoint" -> handler { (_: Request) =>
           ZIO
