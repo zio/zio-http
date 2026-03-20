@@ -34,32 +34,45 @@ import zio.http.template._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
-  def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: Handler.IsRequest[In1],
+  def @@[Env1 <: R](aspect: HandlerAspect[Env1, Unit])(implicit
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
+  ): Handler[Env1, Response, In, Response] =
+    new Handler[Env1, Response, In, Response] {
+      override def apply(input: In): ZIO[Scope & Env1, Response, Response] = {
+        val requestHandler = new Handler[Env1, Response, Request, Response] {
+          override def apply(request: Request): ZIO[Scope & Env1, Response, Response] =
+            self
+              .asErrorType[Response]
+              .asOutType[Response]
+              .apply(Handler.updateInputRequest(input, request).asInstanceOf[In])
+        }
 
-    aspect.applyHandler(convert(self))
-  }
+        aspect.applyHandler(requestHandler)(Handler.requestFromInput(input))
+      }
+    }
 
-  def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
-    in: Handler.IsRequest[In1],
+  def @@[Env0, Ctx <: R](aspect: HandlerAspect[Env0, Ctx])(implicit
     out: Out <:< Response,
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
+  ): Handler[Env0, Response, In, Response] =
+    new Handler[Env0, Response, In, Response] {
+      override def apply(input: In): ZIO[Scope & Env0, Response, Response] = {
+        val requestHandler = new Handler[Env0, Response, (Ctx, Request), Response] {
+          override def apply(tuple: (Ctx, Request)): ZIO[Scope & Env0, Response, Response] = {
+            val (ctx, request) = tuple
+
             self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+              .asErrorType[Response]
+              .asOutType[Response]
+              .apply(Handler.updateInputRequest(input, request).asInstanceOf[In])
+              .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+          }
         }
+
+        aspect.applyHandlerContext(requestHandler)(Handler.requestFromInput(input))
       }
     }
 
@@ -708,6 +721,38 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   object IsRequest {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
   }
+
+  private[http] def requestFromInput(input: Any): Request =
+    input match {
+      case request: Request               => request
+      case (_, request: Request)          => request
+      case (_, _, request: Request)       => request
+      case (_, _, _, request: Request)    => request
+      case (_, _, _, _, request: Request) => request
+      case (_, _, _, _, _, request: Request) =>
+        request
+      case (_, _, _, _, _, _, request: Request) =>
+        request
+      case (_, _, _, _, _, _, _, request: Request) =>
+        request
+      case _ =>
+        throw new IllegalArgumentException("Handler aspects require a Request input or a tuple ending with Request")
+    }
+
+  private[http] def updateInputRequest(input: Any, request: Request): Any =
+    input match {
+      case _: Request                     => request
+      case (a, _: Request)                => (a, request)
+      case (a, b, _: Request)             => (a, b, request)
+      case (a, b, c, _: Request)          => (a, b, c, request)
+      case (a, b, c, d, _: Request)       => (a, b, c, d, request)
+      case (a, b, c, d, e, _: Request)    => (a, b, c, d, e, request)
+      case (a, b, c, d, e, f, _: Request) => (a, b, c, d, e, f, request)
+      case (a, b, c, d, e, f, g, _: Request) =>
+        (a, b, c, d, e, f, g, request)
+      case _ =>
+        throw new IllegalArgumentException("Handler aspects require a Request input or a tuple ending with Request")
+    }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(

@@ -45,6 +45,40 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1 test")
       },
+      test("HandlerAspect with context works for routes with a path parameter") {
+        case class WebSession(id: Int)
+
+        val sessionAspect: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            handler((req: Request) => (req, Some(WebSession(7)))),
+          )
+
+        val route =
+          Method.GET / "base" / string("id") -> (handler((id: String, _: Request) =>
+            withContext((session: Option[WebSession]) => Response.text(s"$id:${session.map(_.id)}")),
+          ) @@ sessionAspect)
+
+        for {
+          response   <- route.toRoutes.runZIO(Request.get(URL(Path.root / "base" / "alpha")))
+          bodyString <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, bodyString == "alpha:Some(7)")
+      },
+      test("HandlerAspect with context works for routes with multiple path parameters") {
+        val authAspect: HandlerAspect[Any, Int] =
+          HandlerAspect.interceptIncomingHandler(
+            handler((req: Request) => (req, 7)),
+          )
+
+        val route =
+          Method.DELETE / string("message") / int("id") -> (handler((message: String, id: Int, _: Request) =>
+            withContext((auth: Int) => Response.text(s"$message $id $auth")),
+          ) @@ authAspect)
+
+        for {
+          response   <- route.toRoutes.runZIO(Request.delete(URL(Path.root / "twenty" / "3")))
+          bodyString <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, bodyString == "twenty 3 7")
+      },
       // format: on
     )
 }
