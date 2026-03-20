@@ -14,7 +14,7 @@ trait HandlerVersionSpecific {
         Handler.fromFunctionZIO[In] { input =>
           val requestHandler = Handler.scoped[Env0 with Env1] {
             Handler.fromFunctionZIO[(Ctx, Request)] { tuple =>
-              val (ctx, req)                                  = tuple
+              val (ctx, req)                                       = tuple
               val handler: ZIO[Scope with Env, Response, Response] =
                 self
                   .asErrorType[Response]

@@ -724,33 +724,33 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private[http] def requestFromInput(input: Any): Request =
     input match {
-      case request: Request               => request
-      case (_, request: Request)          => request
-      case (_, _, request: Request)       => request
-      case (_, _, _, request: Request)    => request
-      case (_, _, _, _, request: Request) => request
-      case (_, _, _, _, _, request: Request) =>
+      case request: Request                        => request
+      case (_, request: Request)                   => request
+      case (_, _, request: Request)                => request
+      case (_, _, _, request: Request)             => request
+      case (_, _, _, _, request: Request)          => request
+      case (_, _, _, _, _, request: Request)       =>
         request
-      case (_, _, _, _, _, _, request: Request) =>
+      case (_, _, _, _, _, _, request: Request)    =>
         request
       case (_, _, _, _, _, _, _, request: Request) =>
         request
-      case _ =>
+      case _                                       =>
         throw new IllegalArgumentException("Handler aspects require a Request input or a tuple ending with Request")
     }
 
   private[http] def updateInputRequest(input: Any, request: Request): Any =
     input match {
-      case _: Request                     => request
-      case (a, _: Request)                => (a, request)
-      case (a, b, _: Request)             => (a, b, request)
-      case (a, b, c, _: Request)          => (a, b, c, request)
-      case (a, b, c, d, _: Request)       => (a, b, c, d, request)
-      case (a, b, c, d, e, _: Request)    => (a, b, c, d, e, request)
-      case (a, b, c, d, e, f, _: Request) => (a, b, c, d, e, f, request)
+      case _: Request                        => request
+      case (a, _: Request)                   => (a, request)
+      case (a, b, _: Request)                => (a, b, request)
+      case (a, b, c, _: Request)             => (a, b, c, request)
+      case (a, b, c, d, _: Request)          => (a, b, c, d, request)
+      case (a, b, c, d, e, _: Request)       => (a, b, c, d, e, request)
+      case (a, b, c, d, e, f, _: Request)    => (a, b, c, d, e, f, request)
       case (a, b, c, d, e, f, g, _: Request) =>
         (a, b, c, d, e, f, g, request)
-      case _ =>
+      case _                                 =>
         throw new IllegalArgumentException("Handler aspects require a Request input or a tuple ending with Request")
     }
 
