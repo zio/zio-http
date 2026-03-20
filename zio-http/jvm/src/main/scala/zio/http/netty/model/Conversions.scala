@@ -62,7 +62,7 @@ private[netty] object Conversions {
       case Headers.FromIterable(_)           => encodeHeaderListToNetty(headers)
       case Headers.Native(value, _, _, _, _) => value.asInstanceOf[HttpHeaders]
       case Headers.Concat(_, _)              => encodeHeaderListToNetty(headers)
-      case Headers.Empty                     => new DefaultHttpHeaders()
+      case Headers.Empty                     => noValidationHeadersFactory.newHeaders()
     }
 
   def urlToNetty(url: URL): String = {
@@ -94,6 +94,8 @@ private[netty] object Conversions {
       (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
     )
 
+  private val noValidationHeadersFactory = DefaultHttpHeadersFactory.headersFactory().withValidation(false)
+
   private val multiValueHeaders: java.util.HashSet[String] = {
     val set = new java.util.HashSet[String](8)
     set.add("set-cookie")
@@ -104,7 +106,7 @@ private[netty] object Conversions {
   }
 
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
-    val nettyHeaders = new DefaultHttpHeaders()
+    val nettyHeaders = noValidationHeadersFactory.newHeaders()
     val iter         = headers.iterator
     while (iter.hasNext) {
       val header = iter.next()
