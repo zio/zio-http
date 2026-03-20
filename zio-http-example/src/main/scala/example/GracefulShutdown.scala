@@ -22,32 +22,35 @@ import zio._
 
 import zio.http._
 
+/**
+ * Demonstrates graceful shutdown: the server waits for in-flight requests to
+ * complete before stopping.
+ *
+ * Run this app, then in another terminal execute:
+ *
+ * curl http://localhost:8080/slow
+ *
+ * While the request is in progress, press Ctrl+C in the app's terminal — the
+ * response will still be delivered before the server shuts down.
+ */
 object GracefulShutdown extends ZIOAppDefault {
 
-  val routes: Routes[Any, Response] = Handler
-    .fromFunctionZIO[Request] { _ =>
-      ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
-    }
-    .sandbox
-    .toRoutes
+  val routes = Routes(
+    Method.GET / "hello" -> handler(Response.text("Hello, World!")),
+    Method.GET / "slow"  -> handler {
+      ZIO.sleep(5.seconds).as(Response.text("Done after 5 seconds!"))
+    },
+  )
 
-  override def run: ZIO[Any, Throwable, Unit] =
-    (for {
-      started  <- Promise.make[Nothing, Unit]
-      fiber    <- Server
-        .install(routes)
-        .zipRight(started.succeed(()))
-        .zipRight(ZIO.never)
-        .provide(
-          Server.live,
-          ZLayer.succeed(Server.Config.default.port(8080)),
-        )
-        .fork
-      _        <- started.await
-      _        <- fiber.interrupt.delay(2.seconds).fork
-      response <- ZClient.batched(Request.get(url"http://localhost:8080/test"))
-      body     <- response.body.asString
-      _        <- Console.printLine(response.status)
-      _        <- Console.printLine(body)
-    } yield ()).provide(Client.default)
+  override def run =
+    Server
+      .serve(routes)
+      .provide(
+        Server.live,
+        ZLayer.succeed(
+          Server.Config.default
+            .port(8080)
+            .gracefulShutdownTimeout(10.seconds),
+        ),
+      )
 }
