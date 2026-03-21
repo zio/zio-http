@@ -14,6 +14,7 @@ Assuming we have written a `Routes`:
 ```scala mdoc:silent
 import zio.http._
 import zio._
+import zio.http.netty.server.NettyServer
 
 val routes: Routes[Any, Response] =
   Routes(
@@ -25,20 +26,20 @@ val routes: Routes[Any, Response] =
 We can serve it using the `Server.serve` method:
 
 ```scala mdoc:silent
-Server.serve(routes).provide(Server.default)
+Server.serve(routes).provide(NettyServer.default)
 ```
 
-By default, it will start the server on port `8080`. A quick shortcut to only customize the port is `Server.defaultWithPort`:
+By default, it will start the server on port `8080`. A quick shortcut to only customize the port is `NettyServer.defaultWithPort`:
 
 ```scala mdoc:compile-only
-Server.serve(routes).provide(Server.defaultWithPort(8081))
+Server.serve(routes).provide(NettyServer.defaultWithPort(8081))
 ```
 
 Or to customize more properties of the _default configuration_:
 
 ```scala mdoc:compile-only
 Server.serve(routes).provide(
-  Server.defaultWith(
+  NettyServer.defaultWith(
     _.port(8081).enableRequestStreaming
   )
 )
@@ -57,7 +58,7 @@ Server
   .serve(routes)
   .provide(
     ZLayer.succeed(Server.Config.default.port(8081)),
-    Server.live
+    NettyServer.live
   )
 ```
 
@@ -251,7 +252,7 @@ object KeepAliveExample extends ZIOAppDefault {
   val routes = handler(Response.text("Hello World!")).toRoutes
 
   override val run =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -315,7 +316,7 @@ The `configured` layer loads the server configuration using the application's _Z
 Server
   .serve(routes)
   .provide(
-    Server.configured()
+    NettyServer.configured()
   )
 ```
 
@@ -369,7 +370,7 @@ object EchoServerWithDecompression extends ZIOAppDefault {
           req.body.asString.map(Response.text)
         }.sandbox.toRoutes,
       )
-      .provide(Server.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
+      .provide(NettyServer.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
 }
 ```
 
@@ -534,7 +535,7 @@ object RequestStreamingServerExample extends ZIOAppDefault {
       .serve(routes)
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
-        Server.live,
+        NettyServer.live,
       )
 }
 ```

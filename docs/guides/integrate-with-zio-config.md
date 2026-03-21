@@ -171,7 +171,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ServerResponseCompression.scala")
 ```
 
-In the above example, we updated the default server configuration to enable the response compression. Finally, we provided the `Server.live` and our customized config layer to the `Server.serve` method.
+In the above example, we updated the default server configuration to enable the response compression. Finally, we provided the `NettyServer.live` and our customized config layer to the `Server.serve` method.
 
 ### Predefined Configuration Schemas
 
@@ -265,7 +265,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/config/LoadServerConfigFromHoconFile.scala")
 ```
 
-Instead of providing two layers (`Server.live` and `ZLayer.fromZIO(ZIO.config(Server.Config.config))`) to the `Server.serve` method, we can combine them into a single layer using the `Server.configured` layer:
+Instead of providing two layers (`NettyServer.live` and `ZLayer.fromZIO(ZIO.config(Server.Config.config))`) to the `Server.serve` method, we can combine them into a single layer using the `NettyServer.configured` layer:
 
 ```scala mdoc:passthrough
 import utils._

@@ -19,6 +19,7 @@ Let's see each of these concepts inside a simple example:
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ExampleServer extends ZIOAppDefault {
 
@@ -53,7 +54,7 @@ object ExampleServer extends ZIOAppDefault {
             .handleError(e => Response.internalServerError(e.getMessage))
 
   // Serving the routes using the default server layer on port 8080
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -149,6 +150,7 @@ ZIO HTTP is built on top of ZIO, which means that we can access services from th
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object CounterExample extends ZIOAppDefault {
   val routes: Routes[Ref[Int], Response] =
@@ -162,7 +164,7 @@ object CounterExample extends ZIOAppDefault {
               },
       )
 
-  def run = Server.serve(routes).provide(Server.default, ZLayer.fromZIO(Ref.make(0)))
+  def run = Server.serve(routes).provide(NettyServer.default, ZLayer.fromZIO(Ref.make(0)))
 }
 ```
 
@@ -179,12 +181,13 @@ To launch our app, we need to start the server on a port. The below example show
 ```scala mdoc:silent:reset
 import zio.http._
 import zio._
+import zio.http.netty.server.NettyServer
 
 object HelloWorld extends ZIOAppDefault {
   val routes = Handler.ok.toRoutes
 
   override def run =
-    Server.serve(routes).provide(Server.defaultWithPort(8090))
+    Server.serve(routes).provide(NettyServer.defaultWithPort(8090))
 }
 ```
 
@@ -197,6 +200,8 @@ Besides creating HTTP apps, ZIO HTTP also provides a way to create HTTP clients.
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object ClientExample extends ZIOAppDefault {
 
@@ -207,7 +212,7 @@ object ClientExample extends ZIOAppDefault {
       _        <- ZIO.debug("Response Status: " + response.status)
     } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```
 

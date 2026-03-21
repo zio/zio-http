@@ -591,12 +591,13 @@ The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldServer extends ZIOAppDefault {
   def run =
     Server
       .serve(Handler.fromResponse(Response.text("Hello, world!")).toRoutes)
-      .provide(Server.default)
+      .provide(NettyServer.default)
 }
 ```
 

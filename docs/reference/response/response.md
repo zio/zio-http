@@ -17,6 +17,7 @@ In the server-side context, a `Response` is created and returned by a `Handler`:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldExample extends ZIOAppDefault {
   val routes: Routes[Any, Response] =
@@ -27,7 +28,7 @@ object HelloWorldExample extends ZIOAppDefault {
         },
       )
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -293,6 +294,7 @@ Let's try a complete example:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 import zio.stream._
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
@@ -311,7 +313,7 @@ object ServerSentExample extends ZIOAppDefault {
         Response.fromServerSentEvents(stream)
       },
     )
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(app).provide(NettyServer.default)
 }
 ```
 
