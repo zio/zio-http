@@ -23,8 +23,7 @@ import zio._
 
 import zio.http.Driver.StartResult
 import zio.http.netty._
-import zio.http.netty.client.NettyClientDriver
-import zio.http.{ClientDriver, Driver, Response, Routes, Server}
+import zio.http.{Driver, Response, Routes, Server}
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
@@ -78,13 +77,6 @@ private[zio] final case class NettyDriver(
       }
       serverInboundHandler.refreshApp()
     }
-
-  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
-    for {
-      channelFactory <- ChannelFactories.Client.live.build
-        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
-      nettyRuntime   <- NettyRuntime.live.build
-    } yield NettyClientDriver(channelFactory.get, eventLoopGroups.worker, nettyRuntime.get)
 
   override def toString: String = s"NettyDriver($serverConfig)"
 }

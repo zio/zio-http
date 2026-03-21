@@ -1,10 +1,12 @@
 package zio.http
 
-import zio.{Trace, ZIO, ZLayer}
+import zio.{Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ZClient.Config
 
 trait ZClientPlatformSpecific {
+
+  type Client = ZClient[Any, Scope, Body, Throwable, Response]
 
   def customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty

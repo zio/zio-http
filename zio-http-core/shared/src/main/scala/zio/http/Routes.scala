@@ -245,17 +245,6 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes.map(_.sandbox))
 
   /**
-   * A shortcut for `Server.install(routes) *> ZIO.never`
-   */
-  def serve[Env1 <: Env](implicit
-    ev: Err <:< Response,
-    trace: Trace,
-    tag: EnvironmentTag[Env1],
-  ): URIO[Env1 with Server, Nothing] = {
-    Server.serveRoutes[Env1](self.handleError(_.asInstanceOf[Response]))
-  }
-
-  /**
    * Returns a new HTTP application whose requests will be timed out after the
    * specified duration elapses.
    */

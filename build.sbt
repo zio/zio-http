@@ -149,6 +149,11 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     Seq(
       zioHttpCoreJVM,
       zioHttpCoreJS,
+      zioHttpServerJVM,
+      zioHttpServerJS,
+      zioHttpClientJVM,
+      zioHttpClientJS,
+      zioHttpFetchClientJS,
       zioHttpEndpointJVM,
       zioHttpEndpointJS,
       zioHttpNettyCore,
@@ -160,6 +165,11 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
     Seq[ProjectReference](
       zioHttpCoreJVM,
       zioHttpCoreJS,
+      zioHttpServerJVM,
+      zioHttpServerJS,
+      zioHttpClientJVM,
+      zioHttpClientJS,
+      zioHttpFetchClientJS,
       zioHttpEndpointJVM,
       zioHttpEndpointJS,
       zioHttpNettyCore,
@@ -205,7 +215,7 @@ val sharedCrossProjectSettings = Seq(
 
 // ---------------------------------------------------------------------------
 // Module 1: zio-http-core (crossProject)
-// Core HTTP abstractions: Request, Response, Handler, Route, Server, Client,
+// Core HTTP abstractions: Request, Response, Handler, Route,
 // Headers, Status, Body, codec package, etc.
 // ---------------------------------------------------------------------------
 
@@ -279,7 +289,7 @@ lazy val zioHttpEndpoint = crossProject(JSPlatform, JVMPlatform)
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
   )
-  .dependsOn(zioHttpCore)
+  .dependsOn(zioHttpCore, zioHttpClient)
 
 lazy val zioHttpEndpointJS  = zioHttpEndpoint.js
 lazy val zioHttpEndpointJVM = zioHttpEndpoint.jvm
@@ -322,7 +332,7 @@ lazy val zioHttpNettyServer = (project in file("zio-http-netty-server"))
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpCoreJVM, zioHttpNettyCore, zioHttpNettyClient)
+  .dependsOn(zioHttpServerJVM, zioHttpNettyCore, zioHttpNettyClient)
 
 // ---------------------------------------------------------------------------
 // Module 5: zio-http-netty-client (JVM only)
@@ -342,7 +352,90 @@ lazy val zioHttpNettyClient = (project in file("zio-http-netty-client"))
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpCoreJVM, zioHttpNettyCore)
+  .dependsOn(zioHttpClientJVM, zioHttpNettyCore)
+
+// ---------------------------------------------------------------------------
+// Module 6: zio-http-server (crossProject)
+// Server trait, server Driver trait
+// ---------------------------------------------------------------------------
+
+lazy val zioHttpServer = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-http-server"))
+  .settings(stdSettings("zio-http-server"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(meta)
+  .settings(crossProjectSettings)
+  .settings(sharedCrossProjectSettings)
+  .jvmSettings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .jsSettings(
+    ThisProject / fork := false,
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+  )
+  .dependsOn(zioHttpCore)
+
+lazy val zioHttpServerJS  = zioHttpServer.js
+lazy val zioHttpServerJVM = zioHttpServer.jvm
+
+// ---------------------------------------------------------------------------
+// Module 7: zio-http-client (crossProject)
+// ZClient, ClientDriver, DnsResolver, ConnectionPool, etc.
+// ---------------------------------------------------------------------------
+
+lazy val zioHttpClient = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-http-client"))
+  .settings(stdSettings("zio-http-client"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(meta)
+  .settings(crossProjectSettings)
+  .settings(sharedCrossProjectSettings)
+  .jvmSettings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .jsSettings(
+    ThisProject / fork := false,
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+  )
+  .dependsOn(zioHttpCore)
+
+lazy val zioHttpClientJS  = zioHttpClient.js
+lazy val zioHttpClientJVM = zioHttpClient.jvm
+
+// ---------------------------------------------------------------------------
+// Module 8: zio-http-fetch-client (crossProject, JS only has sources)
+// FetchDriver - JS platform HTTP client using browser Fetch API
+// ---------------------------------------------------------------------------
+
+lazy val zioHttpFetchClient = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-http-fetch-client"))
+  .settings(stdSettings("zio-http-fetch-client"))
+  .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
+  .settings(meta)
+  .settings(crossProjectSettings)
+  .settings(sharedCrossProjectSettings)
+  .jsSettings(
+    ThisProject / fork := false,
+    testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom" % "2.8.1",
+    ),
+  )
+  .dependsOn(zioHttpClient)
+
+lazy val zioHttpFetchClientJS  = zioHttpFetchClient.js
+lazy val zioHttpFetchClientJVM = zioHttpFetchClient.jvm
 
 // ---------------------------------------------------------------------------
 // Aggregate: zio-http (backward-compatible zioHttpJVM / zioHttpJS)
@@ -358,6 +451,8 @@ lazy val zioHttpJVM = (project in file("zio-http-jvm-agg"))
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
   .dependsOn(
     zioHttpCoreJVM,
+    zioHttpServerJVM,
+    zioHttpClientJVM,
     zioHttpEndpointJVM,
     zioHttpNettyCore,
     zioHttpNettyServer,
@@ -365,6 +460,8 @@ lazy val zioHttpJVM = (project in file("zio-http-jvm-agg"))
   )
   .aggregate(
     zioHttpCoreJVM,
+    zioHttpServerJVM,
+    zioHttpClientJVM,
     zioHttpEndpointJVM,
     zioHttpNettyCore,
     zioHttpNettyServer,
@@ -378,10 +475,16 @@ lazy val zioHttpJS = (project in file("zio-http-js-agg"))
   .settings(meta)
   .dependsOn(
     zioHttpCoreJS,
+    zioHttpServerJS,
+    zioHttpClientJS,
+    zioHttpFetchClientJS,
     zioHttpEndpointJS,
   )
   .aggregate(
     zioHttpCoreJS,
+    zioHttpServerJS,
+    zioHttpClientJS,
+    zioHttpFetchClientJS,
     zioHttpEndpointJS,
   )
 

@@ -157,10 +157,10 @@ object EndpointExecutor {
   @nowarn("msg=deprecated")
   def make[R: Tag, Auth: Tag](serviceName: String, authProvider: URIO[R, Auth])(implicit
     trace: Trace,
-  ): ZLayer[Client, zio.Config.Error, EndpointExecutor[R, Auth, Scope]] =
+  ): ZLayer[ZClient.Client, zio.Config.Error, EndpointExecutor[R, Auth, Scope]] =
     ZLayer {
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         config <- ZIO.config(Config.config.nested(serviceName))
       } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), authProvider)
     }
@@ -168,10 +168,10 @@ object EndpointExecutor {
   @nowarn("msg=deprecated")
   def make(
     serviceName: String,
-  )(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Any, Unit, Scope]] =
+  )(implicit trace: Trace): ZLayer[ZClient.Client, zio.Config.Error, EndpointExecutor[Any, Unit, Scope]] =
     ZLayer {
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         config <- ZIO.config(Config.config.nested(serviceName))
       } yield EndpointExecutor(client, config.url)
     }

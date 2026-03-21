@@ -50,7 +50,4 @@ package object http extends UrlInterpolator with MdInterpolator {
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
-  type Client = ZClient[Any, Scope, Body, Throwable, Response]
-  def Client: ZClient.type = ZClient
-
 }

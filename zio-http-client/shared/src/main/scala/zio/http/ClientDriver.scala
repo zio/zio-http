@@ -19,7 +19,7 @@ package zio.http
 import scala.annotation.unroll
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+import zio.{Promise, Scope, Trace, ZIO}
 
 import zio.http.ClientDriver.{ChannelInterface, ChannelState}
 
@@ -63,15 +63,5 @@ object ClientDriver {
   trait ChannelInterface {
     def resetChannel: ZIO[Any, Throwable, ChannelState]
     def interrupt: ZIO[Any, Throwable, Unit]
-  }
-
-  val shared: ZLayer[Driver, Throwable, ClientDriver] = {
-    implicit val trace: Trace = Trace.empty
-    ZLayer.scoped {
-      for {
-        driver       <- ZIO.service[Driver]
-        clientDriver <- driver.createClientDriver()
-      } yield clientDriver
-    }
   }
 }
