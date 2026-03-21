@@ -269,7 +269,8 @@ object Article {
 }
 
 case class Course(title: String, price: Double)
-case class Course {
+
+object Course {
   implicit val schema = DeriveSchema.gen[Course]
 }
 
@@ -277,27 +278,31 @@ case class Quiz(question: String, level: Int)
 object Quiz {
   implicit val schema = DeriveSchema.gen[Quiz]
 }
+```
 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
 import zio.http.netty.server.NettyServer
+import zio.http.endpoint.Endpoint
+import zio.schema._
+import zio.schema.DeriveSchema.gen
 
-case class Quiz(question: String, score: Int)
-case class Course(name: String, price: Double)
+case class Quiz2(question: String, score: Int)
+case class Course2(name: String, price: Double)
 
 object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
-  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], AuthType.None] =
+  val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz2, Course2], AuthType.None] =
     Endpoint(RoutePattern.GET / "resources")
-      .out[Course]
-      .out[Quiz]
+      .out[Course2]
+      .out[Quiz2]
 
   def run = Server.serve(
     endpoint.implement(_ =>
       ZIO.randomWith(_.nextBoolean)
         .map(r =>
-          if (r) Right(Course("Introduction to Programming", 49.99))
-          else Left(Quiz("What is the boiling point of water in Celsius?", 2)),
+          if (r) Right(Course2("Introduction to Programming", 49.99))
+          else Left(Quiz2("What is the boiling point of water in Celsius?", 2)),
         )
     )
     .toRoutes).provide(NettyServer.default)
