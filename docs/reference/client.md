@@ -44,11 +44,13 @@ When making a request in the `streaming` mode, we need to explicitly close the `
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.ZClient.Client
 
 // OK
 val good =
   ZIO.scoped {
-    Client
+    ZClient
       .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
       .flatMap(_.body.asString)
   }.flatMap(???)
@@ -56,7 +58,7 @@ val good =
 // BAD: The server might be streaming the response body, and we've forcefully closed the connection before it finishes
 val bad1 =
   ZIO.scoped {
-    Client
+    ZClient
       .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
       .map(_.headers)
   }
@@ -65,7 +67,7 @@ val bad1 =
 // BAD: We're closing the scope before collecting the response body
 val bad2 =
   ZIO.scoped {
-      Client
+      ZClient
         .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
     }
     .flatMap(_.body.asString)
@@ -73,7 +75,7 @@ val bad2 =
 
 // VERY BAD: The connection will not be closed until the application exits, which will lead to resource leaks!
 val bad3 =
-  Client
+  ZClient
     .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
     .flatMap(_.body.asString)
     .flatMap(???)
@@ -96,9 +98,10 @@ Executing a request via the `batched` method can be done as simply as:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
 
 val good =
-  Client
+  ZClient
     .batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
     .flatMap(_.body.asString)
     .flatMap(???)
@@ -114,6 +117,7 @@ We can similarly use the `batched` method on an instance of `Client` to return a
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.schema.DeriveSchema
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
@@ -158,6 +162,7 @@ For example, to add a custom header, we can use the `Client#addHeader` method:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.Header.Authorization
 
 val program = for {
@@ -179,6 +184,7 @@ In ZIO HTTP, URLs are composable. This means that if we have two URLs, we can co
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.schema.DeriveSchema
 import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 
@@ -233,6 +239,8 @@ To debug the client, we can use the `ZClientAspect.debug` aspect, which logs the
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object ClientWithDebugAspect extends ZIOAppDefault {
   val program =
@@ -241,7 +249,7 @@ object ClientWithDebugAspect extends ZIOAppDefault {
       _      <- client.batched(Request.get("http://jsonplaceholder.typicode.com/todos"))
     } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 }
 ```
 
@@ -266,6 +274,7 @@ Let's try an example:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 
 val loggingAspect =
   ZClientAspect.requestLogging(
@@ -287,6 +296,7 @@ To follow redirects, we can apply the `ZClientAspect.followRedirects` aspect, wh
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 
 val followRedirects = ZClientAspect.followRedirects(3)((resp, message) => ZIO.logInfo(message).as(resp))
 
@@ -411,7 +421,10 @@ object OrderDetails {
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.codec.TextBinaryCodec.fromSchema
+import zio.http.netty.server.NettyServer
+import zio.http.netty.client.NettyClient
 
 object ApiGateway extends ZIOAppDefault {
   val userServiceUrl      = "http://user-service:8081"
@@ -445,7 +458,7 @@ object ApiGateway extends ZIOAppDefault {
       },
   ).sandbox @@ Middleware.forwardHeaders(Header.Authorization)
 
-  def run = Server.serve(routes).provide(Server.default, Client.default)
+  def run = Server.serve(routes).provide(NettyServer.default, NettyClient.default)
 }
 ```
 
@@ -609,6 +622,7 @@ To configure a proxy for the client, we can use the `Client#proxy` method. This 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 
 val program = for {
   proxyUrl <- ZIO.fromEither(URL.decode("http://localhost:8123"))

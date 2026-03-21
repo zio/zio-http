@@ -63,6 +63,7 @@ based on the query parameter `name`.
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object GreetingServer extends ZIOAppDefault {
   val routes =
@@ -74,7 +75,7 @@ object GreetingServer extends ZIOAppDefault {
       }
     )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -85,6 +86,8 @@ The following example demonstrates how to call the greeting server using the ZIO
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object GreetingClient extends ZIOAppDefault {
 
@@ -96,6 +99,6 @@ object GreetingClient extends ZIOAppDefault {
       _        <- response.body.asString.debug("Response")
     } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```

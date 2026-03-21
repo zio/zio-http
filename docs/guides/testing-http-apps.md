@@ -53,6 +53,7 @@ After defining the behavior of the test client, we can use the `TestClient.layer
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.test.{test, _}
 
 object TestUsingTestClient extends ZIOSpecDefault {
@@ -87,8 +88,10 @@ After defining the behavior of the test server, we can use the `TestServer.layer
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
+import zio.http.netty.client.NettyClient
 import zio.test._
 
 object TestServerExampleSpec extends ZIOSpecDefault {
@@ -119,7 +122,7 @@ object TestServerExampleSpec extends ZIOSpecDefault {
     }
   }.provide(
     TestServer.default,
-    Client.default,
+    NettyClient.default,
   )
 }
 ```

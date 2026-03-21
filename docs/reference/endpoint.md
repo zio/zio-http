@@ -269,7 +269,7 @@ object Article {
 }
 
 case class Course(title: String, price: Double)
-object Course {
+case class Course {
   implicit val schema = DeriveSchema.gen[Course]
 }
 
@@ -277,6 +277,14 @@ case class Quiz(question: String, level: Int)
 object Quiz {
   implicit val schema = DeriveSchema.gen[Quiz]
 }
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.netty.server.NettyServer
+
+case class Quiz(question: String, score: Int)
+case class Course(name: String, price: Double)
 
 object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
   val endpoint: Endpoint[Unit, Unit, ZNothing, Either[Quiz, Course], AuthType.None] =
@@ -292,7 +300,7 @@ object EndpointWithMultipleOutputTypes extends ZIOAppDefault {
           else Left(Quiz("What is the boiling point of water in Celsius?", 2)),
         )
     )
-    .toRoutes).provide(Server.default)
+    .toRoutes).provide(NettyServer.default)
 }
 ```
 
@@ -761,8 +769,10 @@ object MyApp extends ZIOAppDefault {
 To change the config per set of `Routes`, we can use middleware:
 
 ```scala mdoc:compile-only
+import zio._
 import zio.http._
 import zio.http.codec._
+import zio.http.netty.server.NettyServer
 
 object MyApp extends ZIOAppDefault {
   override def run: ZIO[Any, Throwable, Unit] = {
@@ -771,7 +781,7 @@ object MyApp extends ZIOAppDefault {
     val customConfig = CodecConfig(rejectExtraFields = true)
     val customRoutes = routes @@ CodecConfig.withConfig(customConfig)
 
-    Server.serve(customRoutes).provide(Server.default)
+    Server.serve(customRoutes).provide(NettyServer.default)
   }
 }
 ```
