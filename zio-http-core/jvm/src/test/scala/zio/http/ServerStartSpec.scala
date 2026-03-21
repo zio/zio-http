@@ -35,7 +35,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(
         ZLayer.succeed(config),
-        DynamicNettyServer.live,
+        DynamicServer.live,
         NettyServer.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )
@@ -47,7 +47,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(
         ZLayer.succeed(config),
-        DynamicNettyServer.live,
+        DynamicServer.live,
         NettyServer.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )

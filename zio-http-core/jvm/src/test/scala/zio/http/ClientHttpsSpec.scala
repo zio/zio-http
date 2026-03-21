@@ -37,7 +37,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
   def trustedClientSSLConfig: ClientSSLConfig
   def untrustedClientSSLConfig: ClientSSLConfig
 
-  private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
+  private val partialClientLayer = ZLayer.makeSome[ZClient.Config, ZClient.Client](
     ZClient.customized,
     NettyClientDriver.live,
     DnsResolver.default,

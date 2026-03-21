@@ -121,7 +121,7 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
     }
       .provide(
         Scope.default,
-        DynamicNettyServer.live,
+        DynamicServer.live,
         NettyServer.customized,
         ZLayer.succeed(Server.Config.default),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

@@ -104,7 +104,7 @@ object StaticServerSpec extends RoutesRunnableSpec {
         )
     }
       .provideShared(
-        DynamicNettyServer.live,
+        DynamicServer.live,
         serverTestLayer,
         testClientLayer,
       ) @@ withLiveClock

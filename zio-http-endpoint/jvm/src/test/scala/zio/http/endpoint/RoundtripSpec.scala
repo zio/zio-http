@@ -36,6 +36,7 @@ import zio.http.codec._
 import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.endpoint.openapi.OpenAPIGen
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClientDriver
 import zio.http.netty.server.NettyServer
 
 object RoundtripSpec extends ZIOHttpSpec {
@@ -44,7 +45,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       ZClient.customized.map(env => ZEnvironment(env.get)),
-      ClientDriver.shared,
+      NettyClientDriver.live,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
@@ -830,7 +831,7 @@ object RoundtripSpec extends ZIOHttpSpec {
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       ZClient.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>
         ZLayer(ZIO.serviceWith[ZClient.Client](_.batched)),
-      ClientDriver.shared,
+      NettyClientDriver.live,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),

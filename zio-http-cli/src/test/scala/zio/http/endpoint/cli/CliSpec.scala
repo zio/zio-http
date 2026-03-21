@@ -46,7 +46,7 @@ object CliSpec extends ZIOSpecDefault {
 
   val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint, pathParamEndpoint)
 
-  val testClient: ZLayer[Any, Nothing, TestClient.Client & ZClient.Client] =
+  val testClient: ZLayer[Any, Nothing, TestClient & ZClient.Client] =
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
@@ -109,7 +109,7 @@ object CliSpec extends ZIOSpecDefault {
             Method.ANY / trailing  -> handler(Response.text("not received")),
           )
         }
-      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
+      } yield ZEnvironment[TestClient, ZClient.Client](driver, ZClient.fromDriver(driver))
     }
 
   val cliApp: CliApp[Any, Throwable, Response] =

@@ -68,7 +68,7 @@ object KeepAliveSpec extends RoutesRunnableSpec {
   override def spec: Spec[Any, Throwable] = {
     suite("KeepAliveSpec") {
       keepAliveSpec
-    }.provide(Scope.default, DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
+    }.provide(Scope.default, DynamicServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
   }
 
 }

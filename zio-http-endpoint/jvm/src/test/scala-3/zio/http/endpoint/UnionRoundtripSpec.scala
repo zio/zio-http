@@ -35,15 +35,16 @@ import zio.http._
 import zio.http.codec.HttpContentCodec.protobuf
 import zio.http.codec._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClientDriver
 import zio.http.netty.server.NettyServer
 
 object UnionRoundtripSpec extends ZIOHttpSpec {
-  val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
-    ZLayer.make[Server & Client & Scope](
+  val testLayer: ZLayer[Any, Throwable, Server & ZClient.Client & Scope] =
+    ZLayer.make[Server & ZClient.Client & Scope](
       NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get)),
-      ClientDriver.shared,
+      ZClient.customized.map(env => ZEnvironment(env.get)),
+      NettyClientDriver.live,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),
@@ -78,7 +79,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
 
   implicit val outsSchema: Schema[Outs] = DeriveSchema.gen[Outs]
 
-  def makeExecutor(client: Client, port: Int) =
+  def makeExecutor(client: ZClient.Client, port: Int) =
     EndpointExecutor(client, url"http://localhost:$port")
 
   def testEndpoint[P, In, Err, Out](
@@ -86,7 +87,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     out: Out,
-  ): ZIO[Client with Server with Scope, Err, TestResult] =
+  ): ZIO[ZClient.Client with Server with Scope, Err, TestResult] =
     testEndpointZIO(endpoint, route, in, outF = { (value: Out) => assert(out)(equalTo(value)) })
 
   def testEndpointZIO[P, In, Err, Out](
@@ -94,10 +95,10 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     outF: Out => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
+  ): zio.ZIO[Server with ZClient.Client with Scope, Err, TestResult] =
     for {
       port   <- Server.installRoutes(route @@ Middleware.requestLogging())
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
       result <- outF(out)
@@ -107,10 +108,10 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: Request,
     outF: Response => ZIO[Any, Err, TestResult],
-  ): zio.ZIO[Server with Client with Scope, Err, TestResult] = {
+  ): zio.ZIO[Server with ZClient.Client with Scope, Err, TestResult] = {
     for {
       port   <- Server.installRoutes(route @@ Middleware.requestLogging())
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       out    <- client.batched(in.updateURL(_.host("localhost").port(port))).orDie
       result <- outF(out)
     } yield result
@@ -121,7 +122,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     err: Err,
-  ): ZIO[Client with Server with Scope, Out, TestResult] =
+  ): ZIO[ZClient.Client with Server with Scope, Out, TestResult] =
     testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assert(err)(equalTo(value)) })
 
   def testEndpointErrorZIO[P, In, Err, Out](
@@ -129,16 +130,16 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     route: Routes[Any, Nothing],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
-  ): ZIO[Client with Server with Scope, Out, TestResult] =
+  ): ZIO[ZClient.Client with Server with Scope, Out, TestResult] =
     for {
       port <- Server.installRoutes(route)
-      executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
+      executorLayer = ZLayer(ZIO.service[ZClient.Client].map(makeExecutor(_, port)))
       out    <- ZIO
         .service[EndpointExecutor[Any, Unit, Scope]]
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
-        .provideSome[Client with Scope](executorLayer)
+        .provideSome[ZClient.Client with Scope](executorLayer)
         .flip
       result <- errorF(out)
     } yield result
@@ -316,8 +317,8 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     ).provide(
       NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
-      ClientDriver.shared,
+      ZClient.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
+      NettyClientDriver.live,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(ZClient.Config.default),

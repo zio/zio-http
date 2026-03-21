@@ -119,5 +119,5 @@ object ClientProxySpec extends RoutesRunnableSpec {
 
   override def spec: Spec[TestEnvironment, Any] = suite("ClientProxy") {
     serve.as(List(clientProxySpec))
-  }.provideShared(DynamicNettyServer.live, serverTestLayer) @@ sequential @@ withLiveClock
+  }.provideShared(DynamicServer.live, serverTestLayer) @@ sequential @@ withLiveClock
 }

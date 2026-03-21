@@ -748,15 +748,19 @@ lazy val zioHttpIntegrationTests = (project in file("zio-http-integration-tests"
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / unmanagedSourceDirectories ++= Seq(
+      (ThisBuild / baseDirectory).value / "zio-http-core" / "shared" / "src" / "test" / "scala",
       (ThisBuild / baseDirectory).value / "zio-http-core" / "jvm" / "src" / "test" / "scala",
       (ThisBuild / baseDirectory).value / "zio-http-netty-client" / "src" / "test" / "scala",
       (ThisBuild / baseDirectory).value / "zio-http-netty-core" / "src" / "test" / "scala",
       (ThisBuild / baseDirectory).value / "zio-http-netty-server" / "src" / "test" / "scala",
       (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "scala",
+      (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "shared" / "src" / "test" / "scala",
     ),
     Test / unmanagedResourceDirectories ++= Seq(
       (ThisBuild / baseDirectory).value / "zio-http-core" / "jvm" / "src" / "test" / "resources",
       (ThisBuild / baseDirectory).value / "zio-http-netty-core" / "src" / "test" / "resources",
+      (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "resources",
+      (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "resources",
     ),
     libraryDependencies ++= Seq(
       `zio-test`,

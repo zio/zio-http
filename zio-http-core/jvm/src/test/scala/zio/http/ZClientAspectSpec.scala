@@ -90,7 +90,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
               "status_code"   -> "200",
               "method"        -> "GET",
               "url"           -> s"http://localhost:$port/hello",
-              "user-agent"    -> Client.defaultUAHeader.renderedValue,
+              "user-agent"    -> ZClient.defaultUAHeader.renderedValue,
               "response"      -> "hello",
             ),
           annotations.head.contains("duration_ms"),
@@ -129,7 +129,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
                 s"""curl \\
                    |  --verbose \\
                    |  --request GET \\
-                   |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+                   |  --header 'user-agent:${ZClient.defaultUAHeader.renderedValue}' \\
                    |  'http://localhost:${port}/hello'
                    |""".stripMargin,
               extractStatus(response) == Status.Ok,
@@ -153,7 +153,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
               s"""curl \\
                  |  --verbose \\
                  |  --request POST \\
-                 |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+                 |  --header 'user-agent:${ZClient.defaultUAHeader.renderedValue}' \\
                  |  --data 'world' \\
                  |  'http://localhost:${port}/hello'
                  |""".stripMargin,
@@ -179,7 +179,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
               s"""curl \\
                  |  --verbose \\
                  |  --request POST \\
-                 |  --header 'user-agent:${Client.defaultUAHeader.renderedValue}' \\
+                 |  --header 'user-agent:${ZClient.defaultUAHeader.renderedValue}' \\
                  |  'http://localhost:${port}/hello'
                  |""".stripMargin,
             extractStatus(response) == Status.Ok,

@@ -76,7 +76,7 @@ object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
       }
     }.provideShared(
       Scope.default,
-      DynamicNettyServer.live,
+      DynamicServer.live,
       ZLayer.succeed(configAppWithHybridRequestStreaming),
       NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

@@ -37,7 +37,7 @@ object StaticFileRoutesSpec extends RoutesRunnableSpec {
     serve.as(List(staticSpec))
   }
     .provideSome[DynamicServer & Server & Server.Config & ZClient.Client](Scope.default)
-    .provideShared(DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
+    .provideShared(DynamicServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("serveDirectory")(

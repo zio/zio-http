@@ -126,7 +126,7 @@ object MethodAnyHeadSpec extends RoutesRunnableSpec {
       app.as(List(methodAnyHeadSpec))
     }.provideShared(
       Scope.default,
-      DynamicNettyServer.live,
+      DynamicServer.live,
       ZLayer.succeed(configApp),
       NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

@@ -44,7 +44,7 @@ object ClientConnectionSpec extends RoutesRunnableSpec {
     }
       .provideShared(
         Scope.default,
-        DynamicNettyServer.live,
+        DynamicServer.live,
         serverTestLayer,
         NettyClient.live,
         ZLayer.succeed(ZClient.Config.default.connectionTimeout(10.millis)),

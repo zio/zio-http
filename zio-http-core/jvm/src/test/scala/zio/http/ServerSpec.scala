@@ -593,7 +593,7 @@ object ServerSpec extends RoutesRunnableSpec {
       suite("app without request streaming") { app.as(List(spec)) }
     }.provideShared(
       Scope.default,
-      DynamicNettyServer.live,
+      DynamicServer.live,
       ZLayer.succeed(configApp),
       NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

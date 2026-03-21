@@ -200,7 +200,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     }.provideSome[ZClient.Client](
       Scope.default,
       ZLayer(appKeepAliveEnabled.unit),
-      DynamicNettyServer.live,
+      DynamicServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
       NettyServer.customized,
@@ -217,7 +217,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   }.provide(
     Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
-    DynamicNettyServer.live,
+    DynamicServer.live,
     ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
     testNettyServerConfig,
     NettyServer.customized,
@@ -249,7 +249,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         } yield conn1)
         .map(conn => assertTrue(!conn.isOpen))
     }.provideSome[ZClient.Config](
-      DynamicNettyServer.live,
+      DynamicServer.live,
       NettyClientDriver.live.asInstanceOf[ZLayer[NettyConfig, Throwable, NettyClientDriver]],
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
@@ -276,7 +276,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   }.provide(
     Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
-    DynamicNettyServer.live,
+    DynamicServer.live,
     serverTestLayer,
     ZClient.customized,
     ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(1, 512, 60.seconds)),
@@ -307,7 +307,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       ).provide(
         Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
-        DynamicNettyServer.live,
+        DynamicServer.live,
         serverTestLayer,
         ZClient.customized,
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(10)),
@@ -335,7 +335,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       ).provide(
         Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
-        DynamicNettyServer.live,
+        DynamicServer.live,
         serverTestLayer,
         ZClient.customized,
         ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(10, 100, 100.millis)),
