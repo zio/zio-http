@@ -12,6 +12,6 @@ import zio.http.netty.client.NettyClient
  */
 private[cli] sealed trait CliClient
 
-private[cli] final case class CliZIOClient(client: Client)                            extends CliClient
-private[cli] final case class CliZLayerClient(client: ZLayer[Any, Throwable, Client]) extends CliClient
+private[cli] final case class CliZIOClient(client: ZClient.Client)                            extends CliClient
+private[cli] final case class CliZLayerClient(client: ZLayer[Any, Throwable, ZClient.Client]) extends CliClient
 private[cli] final case class DefaultClient()                                         extends CliClient

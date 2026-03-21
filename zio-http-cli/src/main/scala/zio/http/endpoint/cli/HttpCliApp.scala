@@ -68,8 +68,8 @@ object HttpCliApp {
           request  <- req.toRequest(host, port, client)
           response <- client match {
             case CliZIOClient(client)    => client.batched.apply(request)
-            case CliZLayerClient(client) => Client.batched(request).provide(client)
-            case DefaultClient()         => Client.batched(request).provide(NettyClient.default)
+            case CliZLayerClient(client) => ZClient.batched(request).provide(client)
+            case DefaultClient()         => ZClient.batched(request).provide(NettyClient.default)
           }
 
           _ <- Console.printLine(s"Got response")

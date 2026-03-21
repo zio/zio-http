@@ -16,7 +16,7 @@ import zio.http._
 
 private[cli] sealed trait Retriever {
 
-  def retrieve(): ZIO[Client, Throwable, FormField]
+  def retrieve(): ZIO[ZClient.Client, Throwable, FormField]
 
 }
 
@@ -30,8 +30,8 @@ private[cli] object Retriever {
 
     val request                                                = Request.get(http.URL(http.Path.decode(url)))
     @nowarn("msg=deprecated")
-    override def retrieve(): ZIO[Client, Throwable, FormField] = for {
-      client <- ZIO.serviceWith[Client](_.batched)
+    override def retrieve(): ZIO[ZClient.Client, Throwable, FormField] = for {
+      client <- ZIO.serviceWith[ZClient.Client](_.batched)
       chunk  <- client.request(request).flatMap(_.body.asChunk)
     } yield FormField.binaryField(name, chunk, mediaType)
   }

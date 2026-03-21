@@ -8,7 +8,7 @@ import zio.http.netty.client.NettyClient
 
 object ClientApp extends ZIOAppDefault {
 
-  val app: ZIO[Client, Throwable, Unit] = for {
+  val app: ZIO[ZClient.Client, Throwable, Unit] = for {
     _             <- Console.printLine("\nMaking HTTPS request to /hello")
     helloResponse <- ZClient.batched(Request.get("https://localhost:8443/hello"))
     helloBody     <- helloResponse.body.asString

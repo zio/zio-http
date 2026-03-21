@@ -13,7 +13,7 @@ object ClientWithDecompression extends ZIOAppDefault {
 
   val program = for {
     url    <- ZIO.fromEither(URL.decode("https://jsonplaceholder.typicode.com"))
-    client <- ZIO.serviceWith[Client](_.addUrl(url))
+    client <- ZIO.serviceWith[ZClient.Client](_.addUrl(url))
     res    <-
       client
         .addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate()))

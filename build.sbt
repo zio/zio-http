@@ -312,7 +312,7 @@ lazy val zioHttpNettyCore = (project in file("zio-http-netty-core"))
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpCoreJVM)
+  .dependsOn(zioHttpCoreJVM, zioHttpServerJVM, zioHttpClientJVM)
 
 // ---------------------------------------------------------------------------
 // Module 4: zio-http-netty-server (JVM only)

@@ -242,7 +242,7 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.setFallbackHandler(fallbackHandler))
 
-  val layer: ZLayer[Any, Nothing, TestClient & Client] =
+  val layer: ZLayer[Any, Nothing, TestClient & ZClient.Client] =
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
@@ -250,11 +250,11 @@ object TestClient {
           handler((req: Request) => ZIO.logWarning(s"Unexpected request route: ${req}").as(Response.notFound)),
         )
         driver = TestClient(behavior, fallbackBehavior)
-      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
+      } yield ZEnvironment[TestClient, ZClient.Client](driver, ZClient.fromDriver(driver))
     }
 
   def withFallbackHandler[R](
     fallbackHandler: Request => ZIO[R, Response, Response],
-  ): ZLayer[R, Nothing, TestClient & Client] =
+  ): ZLayer[R, Nothing, TestClient & ZClient.Client] =
     ZLayer.environment[R] ++ layer >+> ZLayer.fromZIO(setFallbackHandler(fallbackHandler))
 }

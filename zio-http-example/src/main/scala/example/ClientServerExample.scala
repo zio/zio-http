@@ -9,7 +9,7 @@ import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
 
 object ClientServerExample extends ZIOAppDefault {
-  val clientApp: ZIO[Client, Throwable, Unit] =
+  val clientApp: ZIO[ZClient.Client, Throwable, Unit] =
     for {
       url  <- ZIO.fromEither(URL.decode("http://localhost:8080/greet"))
       res  <- ZClient.batched(

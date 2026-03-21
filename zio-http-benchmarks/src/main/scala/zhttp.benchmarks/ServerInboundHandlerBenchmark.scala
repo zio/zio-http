@@ -72,7 +72,7 @@ class ServerInboundHandlerBenchmark {
     } yield ()).provideLayer(NettyServer.default)
 
     val waitForServerStarted: Task[Unit] = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(Request(url = URL.decode(testUrl).toOption.get))
     } yield ()).provide(NettyClient.default)
 
@@ -85,7 +85,7 @@ class ServerInboundHandlerBenchmark {
   @TearDown(Level.Trial)
   def tearDown(): Unit = {
     val stopServer = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(Request(url = URL.decode(shutdownUrl).toOption.get))
     } yield ()).provide(NettyClient.default)
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(stopServer).getOrThrow())

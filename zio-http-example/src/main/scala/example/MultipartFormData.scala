@@ -48,11 +48,11 @@ object MultipartFormData extends ZIOAppDefault {
     ).sandbox
 
   @nowarn("msg=dead code")
-  private def program: ZIO[Client & Server, Throwable, Unit] =
+  private def program: ZIO[ZClient.Client & Server, Throwable, Unit] =
     for {
       port         <- Server.install(routes)
       _            <- ZIO.logInfo(s"Server started on port $port")
-      client       <- ZIO.service[Client]
+      client       <- ZIO.service[ZClient.Client]
       response     <- client
         .host("localhost")
         .port(port)

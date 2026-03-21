@@ -20,7 +20,7 @@ object AuthenticationClient extends ZIOAppDefault {
   val greetUrl = URL.decode(s"${url}/profile/me").toOption.get
 
   val program = for {
-    client   <- ZIO.service[Client]
+    client   <- ZIO.service[ZClient.Client]
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
     token    <- client
       .batched(

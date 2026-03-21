@@ -42,7 +42,7 @@ object EndpointExamples extends ZIOAppDefault {
   val run = Server.serve(app).provide(NettyServer.default)
 
   object ClientExample {
-    def example(client: Client) = {
+    def example(client: ZClient.Client) = {
 
       val executor: EndpointExecutor[Any, Unit, Scope] =
         EndpointExecutor(client, url"http://localhost:8080")

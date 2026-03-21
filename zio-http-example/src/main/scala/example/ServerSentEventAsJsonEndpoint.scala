@@ -49,7 +49,7 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
   override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
     (
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         executor = EndpointExecutor(client, url"http://localhost:8080")
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))

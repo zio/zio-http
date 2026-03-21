@@ -15,17 +15,17 @@ object SecureHttpsClient extends ZIOAppDefault {
       DeriveJsonDecoder.gen[Greeting]
   }
 
-  val app: ZIO[Client, Throwable, Unit] =
+  val app: ZIO[ZClient.Client, Throwable, Unit] =
     for {
       _ <- Console.printLine("Making secure HTTPS requests...")
 
-      textResponse <- Client.batched(
+      textResponse <- ZClient.batched(
         Request.get("https://localhost:8090/text"),
       )
       textBody     <- textResponse.body.asString
       _            <- Console.printLine(s"Text response: $textBody")
 
-      jsonResponse <- Client.batched(
+      jsonResponse <- ZClient.batched(
         Request.get("https://localhost:8090/json"),
       )
       jsonBody     <- jsonResponse.body.asString

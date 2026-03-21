@@ -36,7 +36,7 @@ object SSEClient extends ZIOAppDefault {
   override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
     (
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         _      <-
           client
             .url(url"http://localhost:8080")
