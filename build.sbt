@@ -209,7 +209,6 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
-      `scala-compat-collection`,
     ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
@@ -405,15 +404,6 @@ lazy val zioHttpGen = (project in file("zio-http-gen"))
       `zio-json-yaml` % Test,
     ),
   )
-  .settings(
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compat-collection`)
-        case _                       => Seq.empty
-      }
-    },
-  )
   .dependsOn(zioHttpJVM)
 
 lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
@@ -426,15 +416,6 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
       "com.google.protobuf"   % "protobuf-java"   % "4.34.0"  % "protobuf",
     ),
   )
-  .settings(
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 =>
-          Seq(`scala-compat-collection`)
-        case _                       => Seq.empty
-      }
-    },
-  )
   .dependsOn(zioHttpJVM, zioHttpGen)
 
 lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
@@ -442,8 +423,8 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
   .settings(stdSettings("sbt-zio-http-grpc-tests"))
   .settings(publishSetting(false))
   .settings(
-    Test / skip          := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
-    ideSkipProject       := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 12))),
+    Test / skip          := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 13))),
+    ideSkipProject       := (CrossVersion.partialVersion(scalaVersion.value) != Some((2, 13))),
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
@@ -453,7 +434,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     Compile / run / fork := true,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Compile / PB.targets := {
-      if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 12)))
+      if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 13)))
         Seq(
           scalapb.gen(grpc = false)                  -> (Compile / sourceManaged).value,
           genModule("zio.http.grpc.ZIOHttpGRPCGen$") -> (Compile / sourceManaged).value,

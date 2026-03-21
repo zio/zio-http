@@ -69,15 +69,4 @@ trait ScalaSettings {
     "-Ywarn-unused:params,-implicits",
   )
 
-  val scala212Settings: Seq[String] = baseSettings ++ Seq(
-    "-explaintypes",
-    "-Yrangepos",
-    "-Xlint:_,-missing-interpolator,-type-parameter-shadow,-infer-any",
-    "-Ywarn-numeric-widen",
-    "-Ywarn-macros:after",
-    "-Ywarn-extra-implicit",
-    "-Ywarn-unused:_,imports",
-    "-Ywarn-unused:imports",
-    "-Ywarn-unused:params,-implicits",
-  )
 }
