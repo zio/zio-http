@@ -24,6 +24,7 @@ import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http.internal.{DynamicServer, HttpGen, RoutesRunnableSpec, serverTestLayer, testClientLayer}
+import zio.http.netty.server.NettyServer
 
 object StaticServerSpec extends RoutesRunnableSpec {
 
@@ -103,7 +104,7 @@ object StaticServerSpec extends RoutesRunnableSpec {
         )
     }
       .provideShared(
-        DynamicServer.live,
+        DynamicNettyServer.live,
         serverTestLayer,
         testClientLayer,
       ) @@ withLiveClock

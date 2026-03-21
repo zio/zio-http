@@ -10,6 +10,7 @@ import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ImperativeProgrammingExample extends ZIOAppDefault {
 
@@ -38,5 +39,5 @@ object ImperativeProgrammingExample extends ZIOAppDefault {
       } yield Response.ok.copy(body = Body.from(books))
     }
 
-  def run = Server.serve(route.toRoutes).provide(Server.default)
+  def run = Server.serve(route.toRoutes).provide(NettyServer.default)
 }

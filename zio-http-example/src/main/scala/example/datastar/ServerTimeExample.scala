@@ -8,6 +8,7 @@ import zio.http._
 import zio.http.datastar._
 import zio.http.endpoint.Endpoint
 import zio.http.template2._
+import zio.http.netty.server.NettyServer
 
 object ServerTimeExample extends ZIOAppDefault {
 
@@ -116,5 +117,5 @@ object ServerTimeExample extends ZIOAppDefault {
 
   override def run =
     ZIO.logInfo("Starting server on http://localhost:8080") *>
-      Server.serve(routes).provide(Server.default)
+      Server.serve(routes).provide(NettyServer.default)
 }

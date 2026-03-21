@@ -7,6 +7,7 @@ import zio.ZIOAppDefault
 import zio.http._
 import zio.http.codec.PathCodec.trailing
 import zio.http.template._
+import zio.http.netty.server.NettyServer
 
 object StaticServer extends ZIOAppDefault {
 
@@ -53,6 +54,6 @@ object StaticServer extends ZIOAppDefault {
     },
   ).sandbox
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(NettyServer.default)
 
 }

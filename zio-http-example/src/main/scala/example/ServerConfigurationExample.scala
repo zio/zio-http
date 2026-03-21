@@ -8,6 +8,7 @@ import zio._
 import zio.config.typesafe._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServerConfigurationExample extends ZIOAppDefault {
   val routes = Routes(
@@ -17,5 +18,5 @@ object ServerConfigurationExample extends ZIOAppDefault {
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
     Runtime.setConfigProvider(ConfigProvider.fromResourcePath())
 
-  def run = Server.serve(routes).provide(Server.configured())
+  def run = Server.serve(routes).provide(NettyServer.configured())
 }

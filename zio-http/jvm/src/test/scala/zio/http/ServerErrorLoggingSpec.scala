@@ -20,6 +20,8 @@ import zio._
 import zio.test._
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /**
  * Integration tests for server error logging behavior.
@@ -121,9 +123,9 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         } yield assertTrue(response.status == Status.InternalServerError)
       },
     ).provide(
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(Server.Config.default),
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.default,
+      NettyClient.default,
     ) @@ TestAspect.sequential
 }

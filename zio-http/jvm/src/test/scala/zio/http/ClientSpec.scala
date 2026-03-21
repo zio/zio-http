@@ -28,6 +28,8 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ClientSpec extends RoutesRunnableSpec {
 
@@ -250,6 +252,6 @@ object ClientSpec extends RoutesRunnableSpec {
   override def spec = {
     suite("Client") {
       serve.as(List(clientSpec))
-    }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
+    }.provideShared(Scope.default, DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ sequential @@ withLiveClock
   }
 }

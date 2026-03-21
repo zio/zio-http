@@ -9,6 +9,7 @@ import zio._
 import zio.http._
 
 import org.openjdk.jmh.annotations._
+import zio.http.netty.server.NettyServer
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))
@@ -21,7 +22,7 @@ class RoundtripBenchmark {
     url = url"http://localhost:8080/test",
   )
 
-  val server = Server.serve(routes).provide(Server.defaultWithPort(8080), ErrorResponseConfig.debugLayer)
+  val server = Server.serve(routes).provide(NettyServer.defaultWithPort(8080), ErrorResponseConfig.debugLayer)
 
   unsafeRun(server.forkDaemon)
 

@@ -27,6 +27,8 @@ import zio.{ZIO, ZLayer}
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ClientProxySpec extends RoutesRunnableSpec {
 
@@ -61,7 +63,7 @@ object ClientProxySpec extends RoutesRunnableSpec {
         } yield out
       assertZIO(res.either)(isRight)
     }.provideSome[DynamicServer](
-      Client.default,
+      NettyClient.default,
     ),
     test("proxy respond Ok") {
       val res =
@@ -117,5 +119,5 @@ object ClientProxySpec extends RoutesRunnableSpec {
 
   override def spec: Spec[TestEnvironment, Any] = suite("ClientProxy") {
     serve.as(List(clientProxySpec))
-  }.provideShared(DynamicServer.live, serverTestLayer) @@ sequential @@ withLiveClock
+  }.provideShared(DynamicNettyServer.live, serverTestLayer) @@ sequential @@ withLiveClock
 }

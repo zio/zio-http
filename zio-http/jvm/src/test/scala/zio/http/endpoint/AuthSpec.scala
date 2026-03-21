@@ -7,6 +7,8 @@ import zio.{Scope, ZIO, durationInt}
 import zio.http._
 import zio.http.codec.HttpCodec
 import zio.http.internal.middlewares.AuthSpec.AuthContext
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object AuthSpec extends ZIOSpecDefault {
 
@@ -243,7 +245,7 @@ object AuthSpec extends ZIOSpecDefault {
             response <- response
           } yield assertTrue(response == "admin")
         },
-      ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky,
+      ).provideShared(NettyClient.default, NettyServer.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky,
       test("Require Basic Auth, but get Bearer Auth") {
         val endpoint = Endpoint(Method.GET / "test").out[String](MediaType.text.`plain`).auth(AuthType.Basic)
         val routes   =

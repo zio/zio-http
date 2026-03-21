@@ -14,6 +14,8 @@ import zio.http.internal.RoutesRunnableSpec
 import zio.http.multipart.mixed.MultipartMixed
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 import zio.http.netty.NettyStreamBodySpec.app
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 @nowarn("msg=deprecated")
 object NettyStreamBodySpec extends RoutesRunnableSpec {
@@ -42,7 +44,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
         .provide(
           ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-          Server.customized,
+          NettyServer.customized,
         )
         .fork
       port        <- portPromise.await
@@ -53,7 +55,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
     (ZLayer.succeed(Config.default.copy(connectionPool = ConnectionPoolConfig.Fixed(1))) ++ ZLayer.succeed(
       NettyConfig.defaultWithFastShutdown,
     ) ++
-      DnsResolver.default) >>> Client.live
+      DnsResolver.default) >>> NettyClient.live
   }
 
   def makeRequest(client: Client, port: Int) = client
@@ -141,7 +143,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
               .provide(
                 ZLayer.succeed(NettyConfig.defaultWithFastShutdown.leakDetection(LeakDetectionLevel.PARANOID)),
                 ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-                Server.customized,
+                NettyServer.customized,
               )
               .fork
             port        <- portPromise.await

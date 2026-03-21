@@ -14,6 +14,7 @@ import zio.http.codec.PathCodec._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi._
+import zio.http.netty.server.NettyServer
 
 object BooksEndpointExample extends ZIOAppDefault {
   case class Book(
@@ -53,5 +54,5 @@ object BooksEndpointExample extends ZIOAppDefault {
   val swaggerRoutes = SwaggerUI.routes("docs" / "openapi", openAPI)
   val routes        = Routes(booksRoute) ++ swaggerRoutes
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

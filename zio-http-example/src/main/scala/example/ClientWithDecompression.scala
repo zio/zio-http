@@ -7,6 +7,7 @@ import zio._
 import zio.http.Header.AcceptEncoding
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientWithDecompression extends ZIOAppDefault {
 
@@ -25,7 +26,7 @@ object ClientWithDecompression extends ZIOAppDefault {
   override val run =
     program.provide(
       ZLayer.succeed(config),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )

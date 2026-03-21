@@ -29,6 +29,8 @@ import zio.http._
 import zio.http.codec.PathCodec.trailing
 import zio.http.internal._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 @nowarn("msg=deprecated")
 object NettyConnectionPoolSpec extends RoutesRunnableSpec {
@@ -198,10 +200,10 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     }.provideSome[Client](
       Scope.default,
       ZLayer(appKeepAliveEnabled.unit),
-      DynamicServer.live,
+      DynamicNettyServer.live,
       ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
       testNettyServerConfig,
-      Server.customized,
+      NettyServer.customized,
     ) @@ withLiveClock
   } + test("idle timeout is refreshed on each request") {
     val f = Handler
@@ -215,11 +217,11 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   }.provide(
     Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
-    DynamicServer.live,
+    DynamicNettyServer.live,
     ZLayer.succeed(Server.Config.default.idleTimeout(500.millis).onAnyOpenPort.logWarningOnFatalError(false)),
     testNettyServerConfig,
-    Server.customized,
-    Client.live,
+    NettyServer.customized,
+    NettyClient.live,
     ZLayer.succeed(Client.Config.default.idleTimeout(500.millis)),
     DnsResolver.default,
   ) @@ withLiveClock
@@ -247,7 +249,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         } yield conn1)
         .map(conn => assertTrue(!conn.isOpen))
     }.provideSome[ZClient.Config](
-      DynamicServer.live,
+      DynamicNettyServer.live,
       NettyClientDriver.live.asInstanceOf[ZLayer[NettyConfig, Throwable, NettyClientDriver]],
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
@@ -274,7 +276,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   }.provide(
     Scope.default,
     ZLayer(appKeepAliveEnabled.unit),
-    DynamicServer.live,
+    DynamicNettyServer.live,
     serverTestLayer,
     Client.customized,
     ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(1, 512, 60.seconds)),
@@ -305,7 +307,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       ).provide(
         Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
-        DynamicServer.live,
+        DynamicNettyServer.live,
         serverTestLayer,
         Client.customized,
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(10)),
@@ -333,7 +335,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
       ).provide(
         Scope.default,
         ZLayer(appKeepAliveEnabled.unit),
-        DynamicServer.live,
+        DynamicNettyServer.live,
         serverTestLayer,
         Client.customized,
         ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(10, 100, 100.millis)),

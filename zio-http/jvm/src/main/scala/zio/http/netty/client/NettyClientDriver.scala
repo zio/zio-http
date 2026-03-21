@@ -23,7 +23,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
-import zio.http.internal.ChannelState
+import zio.http.ClientDriver.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 

@@ -7,6 +7,7 @@ import zio._
 import zio.http.Middleware.basicAuth
 import zio.http._
 import zio.http.codec.PathCodec.string
+import zio.http.netty.server.NettyServer
 
 object BasicAuth extends ZIOAppDefault {
 
@@ -21,5 +22,5 @@ object BasicAuth extends ZIOAppDefault {
   // Add basic auth middleware
   val routes: Routes[Any, Response] = user @@ basicAuth("admin", "admin")
 
-  val run = Server.serve(routes).provide(Server.default)
+  val run = Server.serve(routes).provide(NettyServer.default)
 }

@@ -26,6 +26,8 @@ import zio.test.{assertTrue, assertZIO}
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 @nowarn("msg=deprecated")
 object RequestStreamingServerSpec extends RoutesRunnableSpec {
@@ -112,11 +114,11 @@ object RequestStreamingServerSpec extends RoutesRunnableSpec {
       }
     }.provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
       .provideShared(
-        DynamicServer.live,
+        DynamicNettyServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),
-        Server.customized,
+        NettyServer.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.default,
+        NettyClient.default,
       ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 
 }

@@ -25,6 +25,8 @@ import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object StaticFileServerSpec extends RoutesRunnableSpec {
 
@@ -47,7 +49,7 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
 
   override def spec = suite("StaticFileServerSpec") {
     serve.as(List(staticSpec, rangeSpec, concurrentSpec))
-  }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
+  }.provideShared(Scope.default, DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(

@@ -22,6 +22,8 @@ import zio.test.TestAspect.{sequential, withLiveClock}
 import zio.test.{Spec, assert}
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object KeepAliveSpec extends RoutesRunnableSpec {
 
@@ -66,7 +68,7 @@ object KeepAliveSpec extends RoutesRunnableSpec {
   override def spec: Spec[Any, Throwable] = {
     suite("KeepAliveSpec") {
       keepAliveSpec
-    }.provide(Scope.default, DynamicServer.live, serverTestLayer, Client.default) @@ withLiveClock @@ sequential
+    }.provide(Scope.default, DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
   }
 
 }

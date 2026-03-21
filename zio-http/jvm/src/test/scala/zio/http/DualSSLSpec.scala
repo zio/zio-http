@@ -25,6 +25,7 @@ import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.http.SSLConfig.HttpBehaviour
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 object DualSSLSpec extends ZIOHttpSpec {
 
@@ -126,7 +127,7 @@ object DualSSLSpec extends ZIOHttpSpec {
         ),
       ),
   ).provideShared(
-    Server.customized,
+    NettyServer.customized,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     ZLayer.succeed(config),
   )

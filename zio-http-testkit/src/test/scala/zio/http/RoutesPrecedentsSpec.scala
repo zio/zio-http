@@ -7,6 +7,7 @@ import zio.test._
 import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
+import zio.http.netty.client.NettyClient
 
 object RoutesPrecedentsSpec extends ZIOSpecDefault {
 
@@ -47,7 +48,7 @@ object RoutesPrecedentsSpec extends ZIOSpecDefault {
       }.provide(
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),
         TestServer.layer,
-        Client.default,
+        NettyClient.default,
         NettyDriver.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )

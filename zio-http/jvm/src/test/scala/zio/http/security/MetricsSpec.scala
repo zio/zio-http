@@ -11,6 +11,8 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /*
   Tests `Middleware.metrics` interaction with limits on request size.
@@ -112,10 +114,10 @@ object MetricsSpec extends ZIOHttpSpec {
       port => form => Request.post(s"http://localhost:$port", Body.fromMultipartForm(form, Boundary("-"))),
     ),
   ).provide(
-    Server.customized,
+    NettyServer.customized,
     ZLayer.succeed(Server.Config.default),
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-    Client.live,
+    NettyClient.live,
     ZLayer.succeed(ZClient.Config.default.maxHeaderSize(15000).maxInitialLineLength(15000).disabledConnectionPool),
     DnsResolver.default,
   ) @@ TestAspect.sequential @@ TestAspect.withLiveClock

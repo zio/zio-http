@@ -509,7 +509,7 @@ object Server extends ServerPlatformSpecific {
     ZIO.serviceWithZIO[Server](_.installInternal[R](routes)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
-  private[http] val base: ZLayer[Driver & Config, Throwable, Server] = {
+  val base: ZLayer[Driver & Config, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
@@ -547,24 +547,6 @@ object Server extends ServerPlatformSpecific {
             .forkScoped
       } yield ServerLive(driver, initialInstall, serverStarted)
     }
-  }
-
-  def configured(
-    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server"),
-  )(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
-    ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))).mapError(error =>
-      new RuntimeException(s"Configuration error: $error"),
-    ) >>> live
-
-  def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
-    defaultWith(_.port(port))
-
-  def defaultWith(f: Config => Config)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
-    ZLayer.succeed(f(Config.default)) >>> live
-
-  val default: ZLayer[Any, Throwable, Server] = {
-    implicit val trace: Trace = Trace.empty
-    ZLayer.succeed(Config.default) >>> live
   }
 
   private final case class ServerLive(

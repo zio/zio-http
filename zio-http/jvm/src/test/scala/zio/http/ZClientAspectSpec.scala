@@ -26,6 +26,8 @@ import zio.stream.ZStream
 
 import zio.http.URL.Location
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 @nowarn("msg=deprecated")
 object ZClientAspectSpec extends ZIOHttpSpec {
@@ -186,8 +188,8 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       ),
     ).provide(
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.default,
+      NettyClient.default,
     ) @@ withLiveClock
 }

@@ -8,6 +8,8 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.netty.NettyConfig
 import zio.http.template.Dom
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object UserDataSpec extends ZIOSpecDefault {
   /*
@@ -158,12 +160,12 @@ object UserDataSpec extends ZIOSpecDefault {
     },
   ).provide(
     Scope.default,
-    Server.customized,
+    NettyServer.customized,
     ZLayer.succeed(
       Server.Config.default,
     ),
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-    Client.default,
+    NettyClient.default,
   ) @@ TestAspect.sequential
 
 }

@@ -12,6 +12,7 @@ import zio._
 import zio.http._
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+import zio.http.netty.server.NettyServer
 
 /**
  * This is an example to demonstrate bearer Authentication middleware. The
@@ -74,5 +75,5 @@ object AuthenticationServer extends ZIOAppDefault {
         },
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 }

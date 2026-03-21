@@ -13,6 +13,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.{AuthType, Endpoint}
+import zio.http.netty.server.NettyServer
 
 object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
 
@@ -67,5 +68,5 @@ object EndpointWithMultipleUnifiedErrors extends ZIOAppDefault {
 
   val routes = endpoint.implementHandler(getBookHandler).toRoutes @@ Middleware.debug
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

@@ -23,6 +23,7 @@ import zio.{Scope, ZIO, ZLayer}
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyServer
 
 object ServerStartSpec extends RoutesRunnableSpec {
 
@@ -34,8 +35,8 @@ object ServerStartSpec extends RoutesRunnableSpec {
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(
         ZLayer.succeed(config),
-        DynamicServer.live,
-        Server.customized,
+        DynamicNettyServer.live,
+        NettyServer.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )
     },
@@ -46,8 +47,8 @@ object ServerStartSpec extends RoutesRunnableSpec {
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(
         ZLayer.succeed(config),
-        DynamicServer.live,
-        Server.customized,
+        DynamicNettyServer.live,
+        NettyServer.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )
     },
@@ -55,7 +56,7 @@ object ServerStartSpec extends RoutesRunnableSpec {
       ZIO
         .succeed(assertCompletes)
         .provide(
-          Server.customized.unit,
+          NettyServer.customized.unit,
           ZLayer.succeed(Server.Config.default.port(8089)),
           ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         )

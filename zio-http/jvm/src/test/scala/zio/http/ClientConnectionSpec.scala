@@ -25,6 +25,8 @@ import zio.test._
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ClientConnectionSpec extends RoutesRunnableSpec {
 
@@ -42,9 +44,9 @@ object ClientConnectionSpec extends RoutesRunnableSpec {
     }
       .provideShared(
         Scope.default,
-        DynamicServer.live,
+        DynamicNettyServer.live,
         serverTestLayer,
-        Client.live,
+        NettyClient.live,
         ZLayer.succeed(Client.Config.default.connectionTimeout(10.millis)),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         ZLayer.succeed(TestResolver),

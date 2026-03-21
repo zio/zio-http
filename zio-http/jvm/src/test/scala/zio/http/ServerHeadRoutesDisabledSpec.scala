@@ -5,6 +5,8 @@ import zio.test.TestAspect._
 import zio.test._
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /**
  * Tests for behaviour when automatic HEAD route generation is disabled via
@@ -50,8 +52,8 @@ object ServerHeadRoutesDisabledSpec extends ZIOSpecDefault {
       },
     ).provideShared(
       disabledConfigLayer,
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.default,
+      NettyClient.default,
     ) @@ sequential @@ withLiveClock
 }

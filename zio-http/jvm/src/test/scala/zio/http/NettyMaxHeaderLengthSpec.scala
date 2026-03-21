@@ -23,6 +23,8 @@ import zio.{Scope, ZLayer}
 import zio.http.Header.UserAgent
 import zio.http.Header.UserAgent.ProductOrComment
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -52,8 +54,8 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
         data <- res.body.asString
       } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
     }.provide(
-      Client.default,
-      Server.customized,
+      NettyClient.default,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(serverConfig),
     ) @@ withLiveClock

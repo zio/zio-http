@@ -25,6 +25,8 @@ import zio.stream.ZStream
 import zio.http.codec.HttpContentCodec._
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ServerRuntimeSpec extends RoutesRunnableSpec {
 
@@ -119,11 +121,11 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
     }
       .provide(
         Scope.default,
-        DynamicServer.live,
-        Server.customized,
+        DynamicNettyServer.live,
+        NettyServer.customized,
         ZLayer.succeed(Server.Config.default),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        Client.default,
+        NettyClient.default,
         ZLayer.succeed(new Foo),
       ) @@ sequential @@ withLiveClock
 }

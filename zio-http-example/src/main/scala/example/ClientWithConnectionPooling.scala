@@ -6,6 +6,7 @@ import zio._
 
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientWithConnectionPooling extends ZIOAppDefault {
   val program = for {
@@ -21,7 +22,7 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
   override val run =
     program.provide(
       ZLayer.succeed(config),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )

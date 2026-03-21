@@ -21,6 +21,8 @@ import zio.test._
 import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object NettyMaxInitialLineLength extends ZIOHttpSpec {
   val minimalInitialLineLength: Int = "GET / HTTP/1.1".getBytes.length
@@ -54,8 +56,8 @@ object NettyMaxInitialLineLength extends ZIOHttpSpec {
         data <- res.body.asString
       } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
     }.provide(
-      Client.default,
-      Server.customized,
+      NettyClient.default,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(serverConfig),
     ) @@ withLiveClock

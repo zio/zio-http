@@ -6,6 +6,7 @@ import zio.cli.figlet.FigFont
 
 import zio.http._
 import zio.http.endpoint._
+import zio.http.netty.client.NettyClient
 
 /**
  * Command-line interface for an HTTP application.
@@ -68,7 +69,7 @@ object HttpCliApp {
           response <- client match {
             case CliZIOClient(client)    => client.batched.apply(request)
             case CliZLayerClient(client) => Client.batched(request).provide(client)
-            case DefaultClient()         => Client.batched(request).provide(Client.default)
+            case DefaultClient()         => Client.batched(request).provide(NettyClient.default)
           }
 
           _ <- Console.printLine(s"Got response")

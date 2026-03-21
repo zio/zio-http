@@ -5,6 +5,7 @@ import zio._
 import zio.http._
 import zio.http.datastar._
 import zio.http.template2._
+import zio.http.netty.server.NettyServer
 
 object FruitExplorerExample extends ZIOAppDefault {
 
@@ -216,5 +217,5 @@ object FruitExplorerExample extends ZIOAppDefault {
   override def run: ZIO[Any, Throwable, Unit] =
     Server
       .serve(routes)
-      .provide(Server.default)
+      .provide(NettyServer.default)
 }

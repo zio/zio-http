@@ -10,6 +10,7 @@ import zio.config._
 import zio.config.typesafe._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object LoadServerConfigFromHoconFile extends ZIOAppDefault {
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
@@ -24,7 +25,7 @@ object LoadServerConfigFromHoconFile extends ZIOAppDefault {
       )
       .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
       .provide(
-        Server.live,
+        NettyServer.live,
         ZLayer.fromZIO(
           ZIO.config(Server.Config.config.nested("zio.http.server").mapKey(_.replace('-', '_'))),
         ),

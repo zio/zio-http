@@ -4,6 +4,7 @@ import zio._
 
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientApp extends ZIOAppDefault {
 
@@ -36,7 +37,7 @@ object ClientApp extends ZIOAppDefault {
       ZLayer.succeed(sslConfig),
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
-      ZClient.live,
+      NettyClient.live,
     )
 
 }

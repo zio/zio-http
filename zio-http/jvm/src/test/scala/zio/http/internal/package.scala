@@ -21,6 +21,7 @@ import zio.{ULayer, ZLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 package object internal {
 
@@ -38,7 +39,7 @@ package object internal {
     ZLayer.make[Server.Config with Server](
       testServerConfig,
       testNettyServerConfig,
-      Server.customized,
+      NettyServer.customized,
     )
 
   val testClientConfig: ULayer[ZClient.Config] =

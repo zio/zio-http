@@ -35,11 +35,12 @@ import zio.http._
 import zio.http.codec.HttpContentCodec.protobuf
 import zio.http.codec._
 import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyServer
 
 object UnionRoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get)),
       ClientDriver.shared,
@@ -313,7 +314,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
         )
       },
     ).provide(
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
       ClientDriver.shared,

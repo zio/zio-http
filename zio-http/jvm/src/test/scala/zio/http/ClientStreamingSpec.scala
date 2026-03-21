@@ -30,6 +30,8 @@ import zio.http.forms.Fixtures.formField
 import zio.http.internal.RoutesRunnableSpec
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 @nowarn("msg=deprecated")
 object ClientStreamingSpec extends RoutesRunnableSpec {
@@ -315,7 +317,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
-        Client.live,
+        NettyClient.live,
       ) @@ withLiveClock @@ sequential @@ ignore
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
@@ -334,7 +336,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
               )
               .idleTimeout(100.seconds),
           ),
-          Server.customized,
+          NettyServer.customized,
         )
         .fork
       port        <- portPromise.await

@@ -20,7 +20,7 @@ import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Status
-import zio.http.internal.ChannelState
+import zio.http.ClientDriver.ChannelState
 import zio.http.netty.AsyncBodyReader
 
 import io.netty.channel._

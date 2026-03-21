@@ -7,6 +7,7 @@ import zio.test.{TestAspect, assertZIO}
 import zio.{Clock, ZIO, ZLayer, durationInt}
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientLayerSpec extends ZIOHttpSpec {
 
@@ -14,7 +15,7 @@ object ClientLayerSpec extends ZIOHttpSpec {
     test("default client should shutdown within 250 ms") {
       val timeDifference = for {
         startTime <- ZIO.scoped {
-          Client.default.build *>
+          NettyClient.default.build *>
             Clock.currentTime(TimeUnit.MILLISECONDS)
         }
         endTime   <- Clock.currentTime(TimeUnit.MILLISECONDS)
@@ -27,7 +28,7 @@ object ClientLayerSpec extends ZIOHttpSpec {
           .copy(shutdownQuietPeriodDuration = 2900.millis, shutdownTimeoutDuration = 3100.millis)
       val customClientLayer =
         (ZLayer.succeed(Client.Config.default) ++ ZLayer.succeed(customNettyConfig) ++
-          DnsResolver.default) >>> Client.live
+          DnsResolver.default) >>> NettyClient.live
 
       val timeDifference = for {
         startTime <- ZIO.scoped {

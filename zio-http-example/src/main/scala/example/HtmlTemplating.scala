@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HtmlTemplating extends ZIOAppDefault {
   // Importing everything from `zio.html`
@@ -49,5 +50,5 @@ object HtmlTemplating extends ZIOAppDefault {
     }
   }.toRoutes
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

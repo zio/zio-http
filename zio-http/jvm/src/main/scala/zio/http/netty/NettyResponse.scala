@@ -19,7 +19,7 @@ package zio.http.netty
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.internal.ChannelState
+import zio.http.ClientDriver.ChannelState
 import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}

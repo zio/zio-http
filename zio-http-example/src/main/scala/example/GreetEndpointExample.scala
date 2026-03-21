@@ -10,6 +10,7 @@ import zio.http.codec.PathCodec._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.openapi._
+import zio.http.netty.server.NettyServer
 
 object GreetEndpointExample extends ZIOAppDefault {
   // Endpoint Definition
@@ -31,5 +32,5 @@ object GreetEndpointExample extends ZIOAppDefault {
   def run =
     Server
       .serve(Routes(greetRoute) ++ openApiRoutes)
-      .provide(Server.default)
+      .provide(NettyServer.default)
 }

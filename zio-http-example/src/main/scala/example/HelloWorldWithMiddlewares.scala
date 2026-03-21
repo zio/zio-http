@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
@@ -34,5 +35,5 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       serverTime
 
   // Run it like any simple app
-  val run = Server.serve(routes @@ middlewares).provide(Server.default)
+  val run = Server.serve(routes @@ middlewares).provide(NettyServer.default)
 }

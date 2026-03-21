@@ -24,6 +24,8 @@ import zio.stream.ZStream
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /**
  * Tests for Method.ANY routes with HEAD requests to verify that response bodies
@@ -124,11 +126,11 @@ object MethodAnyHeadSpec extends RoutesRunnableSpec {
       app.as(List(methodAnyHeadSpec))
     }.provideShared(
       Scope.default,
-      DynamicServer.live,
+      DynamicNettyServer.live,
       ZLayer.succeed(configApp),
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.default,
+      NettyClient.default,
     ) @@ TestAspect.sequential @@ TestAspect.withLiveClock
 
 }

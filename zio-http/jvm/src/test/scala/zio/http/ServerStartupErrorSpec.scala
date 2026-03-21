@@ -22,6 +22,7 @@ import zio._
 import zio.test._
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyServer
 
 object ServerStartupErrorSpec extends ZIOSpecDefault {
 
@@ -39,7 +40,7 @@ object ServerStartupErrorSpec extends ZIOSpecDefault {
             Server
               .installRoutes(routes)
               .provide(
-                Server.customized,
+                NettyServer.customized,
                 ZLayer.succeed(Server.Config.default.port(port)),
                 ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
               )

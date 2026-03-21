@@ -23,6 +23,8 @@ import zio.test.{assert, suite, test}
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
   def extractStatus(res: Response): Status = res.status
@@ -74,11 +76,11 @@ object HybridRequestStreamingServerSpec extends RoutesRunnableSpec {
       }
     }.provideShared(
       Scope.default,
-      DynamicServer.live,
+      DynamicNettyServer.live,
       ZLayer.succeed(configAppWithHybridRequestStreaming),
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(ZClient.Config.default.maxHeaderSize(15000).maxInitialLineLength(15000).disabledConnectionPool),
       DnsResolver.default,
     ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock

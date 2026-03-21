@@ -8,13 +8,14 @@ import zio.{http, _}
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 /**
  * Example to encode content using a ZStream
  */
 object StreamingResponse extends ZIOAppDefault {
   // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 
   // Create a message as a Chunk[Byte]
   def message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))

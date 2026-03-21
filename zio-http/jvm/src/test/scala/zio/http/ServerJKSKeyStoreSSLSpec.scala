@@ -24,6 +24,7 @@ import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 object ServerJKSKeyStoreSSLSpec extends ZIOHttpSpec {
   val serverKeyStoreJKSWithPass = "jks_keystore_truststore/server_keystore_with_pass.jks"
@@ -127,7 +128,7 @@ object ServerJKSKeyStoreSSLSpec extends ZIOHttpSpec {
           ),
         ),
     ).provideShared(
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(config),
     )

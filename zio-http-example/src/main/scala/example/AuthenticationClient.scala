@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -42,6 +43,6 @@ object AuthenticationClient extends ZIOAppDefault {
     _        <- Console.printLine(body)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 
 }

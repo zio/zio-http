@@ -11,6 +11,8 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /*
   Exposed limits through:
@@ -156,7 +158,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
         )
       },
     ).provide(
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(
         Server.Config.default
           .maxHeaderSize(CUSTOM_HEADER_SIZE)
@@ -164,7 +166,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           .disableRequestStreaming(CUSTOM_CONTENT_SIZE),
       ),
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(ZClient.Config.default.maxHeaderSize(15000).maxInitialLineLength(15000).disabledConnectionPool),
       DnsResolver.default,
     ),
@@ -233,9 +235,9 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       },
     ).provide(
       ZLayer.succeed(Server.Config.default),
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(ZClient.Config.default.maxHeaderSize(15000).maxInitialLineLength(15000).disabledConnectionPool),
       DnsResolver.default,
     ),

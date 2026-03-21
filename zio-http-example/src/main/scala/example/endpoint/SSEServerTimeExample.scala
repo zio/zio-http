@@ -14,6 +14,7 @@ import zio.http._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.template2._
+import zio.http.netty.server.NettyServer
 
 object SSEServerTimeExample extends ZIOAppDefault {
 
@@ -114,5 +115,5 @@ object SSEServerTimeExample extends ZIOAppDefault {
 
   val routes: Routes[Any, Response] = Routes(pageRoute, sseRoute)
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

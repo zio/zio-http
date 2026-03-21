@@ -26,6 +26,8 @@ import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 import zio.stream.ZStream
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
@@ -125,9 +127,9 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       },
     ).provide(
       ZLayer.succeed(serverConfig),
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Client.default,
+      NettyClient.default,
     ) @@ withLiveClock
 
   def streamTest(endpoint: String) =

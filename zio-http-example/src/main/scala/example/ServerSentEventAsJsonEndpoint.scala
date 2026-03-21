@@ -15,6 +15,8 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
 
@@ -36,7 +38,7 @@ object ServerSentEventAsJsonEndpoint extends ZIOAppDefault {
   private val routes: Routes[Any, Response] = sseRoute.toRoutes
 
   override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 
 }
 
@@ -52,5 +54,5 @@ object ServerSentEventAsJsonEndpointClient extends ZIOAppDefault {
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data.toString))
       } yield ()
-    ).provideSome[Scope](ZClient.default)
+    ).provideSome[Scope](NettyClient.default)
 }

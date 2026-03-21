@@ -11,6 +11,7 @@ import zio.schema.codec.JsonCodec.schemaBasedBinaryCodec
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ResponseBodyJsonSerializationExample extends ZIOAppDefault {
 
@@ -30,5 +31,5 @@ object ResponseBodyJsonSerializationExample extends ZIOAppDefault {
         handler(Response(body = Body.from(List(book1, book2, book3)))),
     )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

@@ -13,6 +13,8 @@ import zio.stream.ZStream
 import zio.schema.codec.BinaryCodec
 
 import zio.http.codec.HttpContentCodec
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ServerSentEventSpec extends ZIOHttpSpec {
   implicit val stringCodec: BinaryCodec[String] = HttpContentCodec.text.only[String].defaultCodec
@@ -243,5 +245,5 @@ object ServerSentEventSpec extends ZIOHttpSpec {
           events.forall(_.retry.contains(10.milliseconds)),
         )
       },
-    ).provideShared(Server.defaultWithPort(0), ZClient.default) @@ TestAspect.withLiveClock
+    ).provideShared(NettyServer.defaultWithPort(0), NettyClient.default) @@ TestAspect.withLiveClock
 }

@@ -7,6 +7,7 @@ import zio.http._
 import zio.http.datastar._
 import zio.http.endpoint.Endpoint
 import zio.http.template2._
+import zio.http.netty.server.NettyServer
 
 case class Delay(delay: Int)
 
@@ -82,7 +83,7 @@ object HelloWorldWithCustomDelayExample extends ZIOAppDefault {
   override def run: ZIO[Any, Throwable, Unit] =
     Server
       .serve(routes)
-      .provide(Server.default)
+      .provide(NettyServer.default)
 
   val css = css"""
     body {

@@ -4,6 +4,8 @@ import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.test._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ForwardHeaderSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -48,6 +50,6 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
           )
         } yield assertTrue(response.headers(Header.Accept).contains(Header.Accept(MediaType.application.json)))
       },
-    ).provideShared(Client.default, Server.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky
+    ).provideShared(NettyClient.default, NettyServer.default) @@ TestAspect.withLiveClock @@ TestAspect.flaky
 
 }

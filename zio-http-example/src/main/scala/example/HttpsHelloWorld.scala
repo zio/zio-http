@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
@@ -44,6 +45,6 @@ object HttpsHelloWorld extends ZIOAppDefault {
   private val configLayer = ZLayer.succeed(config)
 
   override val run =
-    Server.serve(routes).provide(configLayer, Server.live)
+    Server.serve(routes).provide(configLayer, NettyServer.live)
 
 }

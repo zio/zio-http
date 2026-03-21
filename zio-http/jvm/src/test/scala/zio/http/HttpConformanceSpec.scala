@@ -11,6 +11,8 @@ import zio.test._
 import zio.http.Header.ETag._
 import zio.http.Header.{IfModifiedSince, IfNoneMatch, LastModified}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object HttpConformanceSpec extends ZIOSpecDefault {
 
@@ -1311,7 +1313,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
     ).provideShared(
       ZLayer.succeed(Server.Config.default.port(0)),
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-      Server.customized,
-      Client.default,
+      NettyServer.customized,
+      NettyClient.default,
     ) @@ TestAspect.sequential @@ TestAspect.withLiveClock @@ TestAspect.timeout(30.seconds)
 }

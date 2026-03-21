@@ -22,6 +22,7 @@ import zio.test._
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 object DynamicAppTest extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
@@ -42,7 +43,7 @@ object DynamicAppTest extends ZIOHttpSpec {
       NettyClientDriver.live,
       Client.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-      Server.customized,
+      NettyServer.customized,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       Scope.default,

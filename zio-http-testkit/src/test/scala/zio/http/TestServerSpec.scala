@@ -5,6 +5,7 @@ import zio.test._
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
+import zio.http.netty.client.NettyClient
 
 object TestServerSpec extends ZIOHttpSpec {
   def status(response: Response): Status = response.status
@@ -107,7 +108,7 @@ object TestServerSpec extends ZIOHttpSpec {
       Scope.default,
     ),
   ).provide(
-    Client.default,
+    NettyClient.default,
   )
 
   private def requestToCorrectPort =

@@ -21,8 +21,8 @@ import scala.annotation.unroll
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
-import zio.http.ClientDriver.ChannelInterface
-import zio.http.internal.ChannelState
+import zio.http.ClientDriver.{ChannelInterface, ChannelState}
+
 trait ClientDriver {
   type Connection
 
@@ -43,6 +43,23 @@ trait ClientDriver {
 }
 
 object ClientDriver {
+
+  sealed trait ChannelState { self =>
+    def &&(other: ChannelState): ChannelState =
+      (self, other) match {
+        case (ChannelState.Reusable, ChannelState.Reusable) => ChannelState.Reusable
+        case _                                              => ChannelState.Invalid
+      }
+  }
+
+  object ChannelState {
+    case object Invalid  extends ChannelState
+    case object Reusable extends ChannelState
+
+    def forStatus(status: Status): ChannelState =
+      if (status == Status.SwitchingProtocols) Invalid else Reusable
+  }
+
   trait ChannelInterface {
     def resetChannel: ZIO[Any, Throwable, ChannelState]
     def interrupt: ZIO[Any, Throwable, Unit]

@@ -3,7 +3,7 @@ package zio.http.netty.client
 import zio.{Exit, Promise, Unsafe}
 
 import zio.http.Response
-import zio.http.internal.ChannelState
+import zio.http.ClientDriver.ChannelState
 
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 

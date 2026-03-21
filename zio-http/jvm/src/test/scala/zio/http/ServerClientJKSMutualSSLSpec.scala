@@ -24,6 +24,7 @@ import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
 import zio.http.SSLConfig.Data.TrustManagerKeyStore
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
 
@@ -145,7 +146,7 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
           ),
         ),
     ).provideShared(
-      Server.customized,
+      NettyServer.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       ZLayer.succeed(config),
     )

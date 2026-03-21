@@ -9,6 +9,7 @@ import zio._
 import zio.http._
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
+import zio.http.netty.server.NettyServer
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
@@ -39,6 +40,6 @@ object HelloWorldAdvanced extends ZIOAppDefault {
 
     (fooBar ++ app)
       .serve[Any]
-      .provide(configLayer, nettyConfigLayer, Server.customized)
+      .provide(configLayer, nettyConfigLayer, NettyServer.customized)
   }
 }

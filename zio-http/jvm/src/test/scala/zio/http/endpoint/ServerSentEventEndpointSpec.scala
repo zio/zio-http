@@ -16,6 +16,8 @@ import zio.http._
 import zio.http.codec.HttpCodec
 import zio.http.endpoint.AuthType.None
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ServerSentEventEndpointSpec extends ZIOHttpSpec {
 
@@ -138,9 +140,9 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
         } yield assertTrue(event.data == "Hello World")
       },
     )
-      .provideSomeLayer[Client & Server.Config & NettyConfig](Server.customized)
+      .provideSomeLayer[Client & Server.Config & NettyConfig](NettyServer.customized)
       .provideShared(
-        Client.live,
+        NettyClient.live,
         ZLayer.succeed(Server.Config.default.port(0)),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         ZLayer.succeed(ZClient.Config.default),

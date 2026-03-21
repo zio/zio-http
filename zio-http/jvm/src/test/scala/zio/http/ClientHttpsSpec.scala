@@ -22,6 +22,7 @@ import zio.test.{Spec, TestAspect, TestEnvironment, assertZIO}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
 
@@ -86,7 +87,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
         )
       },
   ).provideShared(
-    Server.customized,
+    NettyServer.customized,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     ZLayer.succeed(config),
   ) @@ TestAspect.withLiveClock

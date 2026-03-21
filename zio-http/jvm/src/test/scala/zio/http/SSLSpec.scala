@@ -23,6 +23,7 @@ import zio.{Scope, ZLayer}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.server.NettyServer
 
 object SSLSpec extends ZIOHttpSpec {
 
@@ -118,7 +119,7 @@ object SSLSpec extends ZIOHttpSpec {
         ),
       ),
   ).provideShared(
-    Server.customized,
+    NettyServer.customized,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
     ZLayer.succeed(config),
   )
