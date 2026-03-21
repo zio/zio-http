@@ -7,9 +7,9 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 import org.openjdk.jmh.annotations._
-import zio.http.netty.server.NettyServer
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))

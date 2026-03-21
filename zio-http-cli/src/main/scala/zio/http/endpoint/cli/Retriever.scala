@@ -28,7 +28,7 @@ private[cli] object Retriever {
 
   final case class URL(name: String, url: String, mediaType: MediaType) extends Retriever {
 
-    val request                                                = Request.get(http.URL(http.Path.decode(url)))
+    val request                                                        = Request.get(http.URL(http.Path.decode(url)))
     @nowarn("msg=deprecated")
     override def retrieve(): ZIO[ZClient.Client, Throwable, FormField] = for {
       client <- ZIO.serviceWith[ZClient.Client](_.batched)

@@ -7,10 +7,10 @@ import scala.annotation.nowarn
 import zio._
 
 import zio.http._
-
-import org.openjdk.jmh.annotations._
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
+
+import org.openjdk.jmh.annotations._
 
 @nowarn
 @State(org.openjdk.jmh.annotations.Scope.Benchmark)

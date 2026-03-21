@@ -8,7 +8,7 @@ import zio.http.netty.NettyConfig
 object NettyServer {
 
   val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver with Server] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: Trace                                  = Trace.empty
     val tmp: ZLayer[Driver & Server.Config, Throwable, Server] = ZLayer.suspend(Server.base)
 
     ZLayer.makeSome[Server.Config & NettyConfig, Driver with Server](
@@ -18,7 +18,7 @@ object NettyServer {
   }
 
   val live: ZLayer[Server.Config, Throwable, Server with Driver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: Trace                                  = Trace.empty
     val tmp: ZLayer[Driver & Server.Config, Throwable, Server] = ZLayer.suspend(Server.base)
 
     ZLayer.makeSome[Server.Config, Server with Driver](

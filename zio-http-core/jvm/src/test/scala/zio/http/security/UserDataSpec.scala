@@ -7,9 +7,9 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.netty.NettyConfig
-import zio.http.template.Dom
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
+import zio.http.template.Dom
 
 object UserDataSpec extends ZIOSpecDefault {
   /*

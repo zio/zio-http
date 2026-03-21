@@ -7,8 +7,8 @@ import zio.http.Header.{AccessControlAllowOrigin, Origin}
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
 import zio.http.codec.PathCodec
-import zio.http.template._
 import zio.http.netty.server.NettyServer
+import zio.http.template._
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 

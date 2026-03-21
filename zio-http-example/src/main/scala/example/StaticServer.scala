@@ -6,8 +6,8 @@ import zio.ZIOAppDefault
 
 import zio.http._
 import zio.http.codec.PathCodec.trailing
-import zio.http.template._
 import zio.http.netty.server.NettyServer
+import zio.http.template._
 
 object StaticServer extends ZIOAppDefault {
 

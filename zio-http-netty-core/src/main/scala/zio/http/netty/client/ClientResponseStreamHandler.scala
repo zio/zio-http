@@ -19,8 +19,8 @@ package zio.http.netty.client
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Status
 import zio.http.ClientDriver.ChannelState
+import zio.http.Status
 import zio.http.netty.AsyncBodyReader
 
 import io.netty.channel._

@@ -444,7 +444,7 @@ lazy val zioHttpClientJVM: Project = zioHttpClient.jvm
 // FetchDriver - JS platform HTTP client using browser Fetch API
 // ---------------------------------------------------------------------------
 
-lazy val zioHttpFetchClient = crossProject(JSPlatform, JVMPlatform)
+lazy val zioHttpFetchClient = crossProject(JSPlatform)
   .in(file("zio-http-fetch-client"))
   .settings(stdSettings("zio-http-fetch-client"))
   .settings(publishSetting(true))
@@ -461,8 +461,7 @@ lazy val zioHttpFetchClient = crossProject(JSPlatform, JVMPlatform)
   )
   .dependsOn(zioHttpClient)
 
-lazy val zioHttpFetchClientJS  = zioHttpFetchClient.js
-lazy val zioHttpFetchClientJVM = zioHttpFetchClient.jvm
+lazy val zioHttpFetchClientJS = zioHttpFetchClient.js
 
 // ---------------------------------------------------------------------------
 // Aggregate: zio-http (backward-compatible zioHttpJVM / zioHttpJS)

@@ -4,6 +4,7 @@ import scala.util.chaining.scalaUtilChainingOps
 
 import zio._
 import zio.test._
+
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
 

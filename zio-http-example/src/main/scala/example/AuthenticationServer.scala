@@ -10,9 +10,9 @@ import scala.util.Try
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zio.http.netty.server.NettyServer
 
 /**
  * This is an example to demonstrate bearer Authentication middleware. The

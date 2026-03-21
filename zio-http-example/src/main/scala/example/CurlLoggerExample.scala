@@ -11,7 +11,7 @@ import zio.http.netty.client.NettyClient
 object CurlLoggerExample extends ZIOAppDefault {
   val program =
     for {
-      client   <- ZIO.service[ZClient.Client].map(_ @@ ZClientAspect.curlLogger(logEffect = s => ZIO.debug("CURL: " + s)))
+      client <- ZIO.service[ZClient.Client].map(_ @@ ZClientAspect.curlLogger(logEffect = s => ZIO.debug("CURL: " + s)))
       response <- client.request(
         Request
           .post(

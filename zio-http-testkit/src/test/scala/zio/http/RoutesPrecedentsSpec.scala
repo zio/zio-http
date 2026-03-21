@@ -6,8 +6,8 @@ import zio.test._
 
 import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.netty.NettyConfig
-import zio.http.netty.server.NettyDriver
 import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyDriver
 
 object RoutesPrecedentsSpec extends ZIOSpecDefault {
 

@@ -13,8 +13,8 @@ import zio.stream._
 import zio.http._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
-import zio.http.template2._
 import zio.http.netty.server.NettyServer
+import zio.http.template2._
 
 object SSEServerTimeExample extends ZIOAppDefault {
 

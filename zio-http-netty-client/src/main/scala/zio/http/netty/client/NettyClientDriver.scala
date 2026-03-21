@@ -21,9 +21,8 @@ import scala.annotation.unroll
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ClientDriver.ChannelInterface
+import zio.http.ClientDriver.{ChannelInterface, ChannelState}
 import zio.http._
-import zio.http.ClientDriver.ChannelState
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 

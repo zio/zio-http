@@ -26,8 +26,7 @@ import zio.{ZIO, ZLayer}
 
 import zio.http.internal.{DynamicServer, RoutesRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
-import zio.http.netty.client.NettyClient
+import zio.http.netty.client.{NettyClient, NettyClientDriver}
 import zio.http.netty.server.NettyServer
 
 object ClientProxySpec extends RoutesRunnableSpec {

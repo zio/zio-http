@@ -25,10 +25,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
+import zio.http.ClientDriver.ChannelState
 import zio.http.Header.UserAgent
 import zio.http.URL.Location
 import zio.http.internal._
-import zio.http.ClientDriver.ChannelState
 
 final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   version: Version,

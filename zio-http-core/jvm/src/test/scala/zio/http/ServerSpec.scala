@@ -28,9 +28,9 @@ import zio.stream.{ZPipeline, ZStream}
 
 import zio.http.internal.{DynamicServer, HttpGen, RoutesRunnableSpec}
 import zio.http.netty.NettyConfig
-import zio.http.template.{body, div, id}
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
+import zio.http.template.{body, div, id}
 
 object ServerSpec extends RoutesRunnableSpec {
 

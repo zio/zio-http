@@ -5,11 +5,11 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 import org.openjdk.jmh.annotations._
 import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
-import zio.http.netty.client.NettyClient
-import zio.http.netty.server.NettyServer
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(org.openjdk.jmh.annotations.Mode.Throughput))

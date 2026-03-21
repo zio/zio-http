@@ -11,10 +11,10 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-
-import example.SSEServer.Environment
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
+
+import example.SSEServer.Environment
 
 object SSEServer extends ZIOAppDefault {
 

@@ -49,7 +49,12 @@ object StaticFileServerSpec extends RoutesRunnableSpec {
 
   override def spec = suite("StaticFileServerSpec") {
     serve.as(List(staticSpec, rangeSpec, concurrentSpec))
-  }.provideShared(Scope.default, DynamicServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
+  }.provideShared(
+    Scope.default,
+    DynamicServer.live,
+    serverTestLayer,
+    NettyClient.default,
+  ) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(

@@ -3,7 +3,6 @@ package zio.http
 import zio._
 import zio.test._
 
-
 object TestClientSpec extends ZIOHttpSpec {
 
   def spec =
