@@ -760,7 +760,6 @@ lazy val zioHttpIntegrationTests = (project in file("zio-http-integration-tests"
       (ThisBuild / baseDirectory).value / "zio-http-core" / "jvm" / "src" / "test" / "resources",
       (ThisBuild / baseDirectory).value / "zio-http-netty-core" / "src" / "test" / "resources",
       (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "resources",
-      (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "resources",
     ),
     libraryDependencies ++= Seq(
       `zio-test`,
