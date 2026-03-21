@@ -25,8 +25,6 @@ Some of the key features of ZIO HTTP are:
 
 **Error Handling**: Built-in support exists for handling errors at the HTTP layer, distinguishing between handled and unhandled errors.
 
-**WebSockets**: Built-in support for WebSockets allows for the creation of real-time applications using ZIO HTTP.
-
 **Testkit**: ZIO HTTP provides first-class testing utilities that facilitate test writing without requiring a live server instance.
 
 **Interoperability**: Interoperability with existing Scala/Java libraries is provided, enabling seamless integration with functionality from the Scala/Java ecosystem through the importation of blocking and non-blocking operations.

@@ -17,8 +17,6 @@ title: Client
 
 **Flexible Configuration**: ZClient offers flexible configuration options, allowing us to fine-tune its behavior according to our needs. We can configure settings such as SSL, proxy, connection pooling, timeouts, and more to optimize the client's performance and behavior.
 
-**WebSocket Support**: In addition to traditional HTTP requests, ZClient also supports WebSocket communication, enabling bidirectional, full-duplex communication between client and server over a single, long-lived connection.
-
 **SSL Support**: ZClient provides built-in support for SSL (Secure Sockets Layer) connections, allowing secure communication over the network. Users can configure SSL settings such as certificates, trust stores, and encryption protocols to ensure data confidentiality and integrity.
 
 ## Making HTTP Requests
@@ -151,73 +149,6 @@ ZIO HTTP has several utility methods to create different types of requests, such
 | `def put(suffix: String)(body: In)`  | Performs a PUT request with the given path suffix and provided body.  |
 | `def delete(suffix: String)`         | Performs a DELETE request with the given path suffix.                 |
 
-## Performing WebSocket Connections
-
-We can also think of a client as a function that takes a `WebSocketApp` and returns a `ZIO` effect that performs the WebSocket operations and returns a response:
-
-```scala
-object ZClient {
-  def socket[R](socketApp: WebSocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] = ???
-}
-```
-
-:::note
-The `socket` method is not available on the "Batched" client!
-:::
-
-Here is a simple example of how to use the `ZClient#socket` method to perform a WebSocket connection:
-
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-import zio.http.ChannelEvent._
-
-object WebSocketSimpleClient extends ZIOAppDefault {
-
-  val url = "ws://ws.vi-server.org/mirror"
-
-  val socketApp: WebSocketApp[Any] =
-    Handler
-
-      // Listen for all websocket channel events
-      .webSocket { channel =>
-        channel.receiveAll {
-
-          // Send a "foo" message to the server once the connection is established
-          case UserEventTriggered(UserEvent.HandshakeComplete) =>
-            channel.send(Read(WebSocketFrame.text("foo"))) *>
-              ZIO.debug("Connection established and the foo message sent to the server")
-
-          // Send a "bar" if the server sends a "foo"
-          case Read(WebSocketFrame.Text("foo")) =>
-            channel.send(Read(WebSocketFrame.text("bar"))) *>
-              ZIO.debug("Received the foo message from the server and the bar message sent to the server")
-
-          // Close the connection if the server sends a "bar"
-          case Read(WebSocketFrame.Text("bar")) =>
-            ZIO.debug("Received the bar message from the server and Goodbye!") *>
-              channel.send(Read(WebSocketFrame.close(1000)))
-
-          case _ =>
-            ZIO.unit
-        }
-      }
-
-  val app: ZIO[Client, Throwable, Unit] =
-    for {
-      url    <- ZIO.fromEither(URL.decode("ws://ws.vi-server.org/mirror"))
-      client <- ZIO.serviceWith[Client](_.url(url))
-      _      <- ZIO.scoped(client.socket(socketApp) *> ZIO.never)
-    } yield ()
-
-  val run: ZIO[Any, Throwable, Any] =
-    app.provide(Client.default)
-
-}
-```
-
-In the above example, we defined a WebSocket client that connects to a mirror server and sends and receives messages. When the connection is established, it receives the `UserEvent.HandshakeComplete` event and then it sends a "foo" message to the server. Consequently, the server sends a "foo" message, and the client responds with a "bar" message. Finally, the server sends a "bar" message, and the client closes the connection.
-
 ## Configuring Headers
 
 As the `ZClient` extends the `HeaderOps` trait, we have access to all operations that can be performed on headers inside the client.
@@ -277,7 +208,7 @@ The following methods are available for setting the base URL:
 | `Client#port(port: Int)`        | Sets the port of the URL.                      |
 | `Client#scheme(scheme: Scheme)` | Sets the scheme (protocol) for the URL.        |
 
-The `Scheme` is a sealed trait that represents the different schemes (protocols) that can be used in a request. The available schemes are `HTTP` and `HTTPS` for HTTP requests, and `WS` and `WSS` for WebSockets.
+The `Scheme` is a sealed trait that represents the different schemes (protocols) that can be used in a request. The available schemes are `HTTP` and `HTTPS` for HTTP requests.
 
 Here is the list of methods that are available for adding URL, Path, and QueryParams to the client's configuration:
 
@@ -654,7 +585,6 @@ Let's take a look at the available configuration options:
 - **Request Decompression**: Specifies whether the client should decompress the response body if it's compressed.
 - **Local Address**: Specifies the local network interface or address to use for outgoing connections. It's set to None, indicating that the client will use the default local address.
 - **Add User-Agent Header**: Indicates whether the client should automatically add a User-Agent header to outgoing requests. It's set to true in the default configuration.
-- **WebSocket Configuration**: Configures settings specific to WebSocket connections. In this example, the default WebSocket configuration is used.
 - **Idle Timeout**: Specifies the maximum idle time for persistent connections in seconds. The default is set to 50 seconds.
 - **Connection Timeout**: Specifies the maximum time to wait for establishing a connection in seconds. By default, the client has no connection timeout.
 
@@ -778,14 +708,4 @@ This example code demonstrates accessing a protected route in an [authentication
 import utils._
 
 printSource("zio-http-example/src/main/scala/example/AuthenticationClient.scala")
-```
-
-### Reconnecting WebSocket Client Example
-
-This example represents a WebSocket client application that automatically attempts to reconnect upon encountering errors or disconnections. It uses the `Promise` to notify about WebSocket errors:
-
-```scala mdoc:passthrough
-import utils._
-
-printSource("zio-http-example/src/main/scala/example/websocket/WebSocketReconnectingClient.scala")
 ```

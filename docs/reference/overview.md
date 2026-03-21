@@ -168,38 +168,6 @@ object CounterExample extends ZIOAppDefault {
 
 Finally, we should provide the required services to the server using the `provide` method. In the above example, we provided the `Ref[Int]` service using the `ZLayer.fromZIO` method.
 
-## WebSocket Connection
-
-To handle WebSocket connections, we can use `Handler.webSocket` to create a socket app. To create a socket app, we need to create a socket that accepts `WebSocketChannel` and produces `ZIO`. Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP app.
-
-The below example shows a simple socket app, which sends `WebsSocketTextFrame` "BAR" on receiving `WebsSocketTextFrame` "FOO":
-
-```scala mdoc:silent:reset
-import zio.http._
-import zio.stream._
-import zio._
-
-val socket =
-  Handler.webSocket { channel =>
-    channel.receiveAll {
-      case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
-        channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
-      case _ =>
-        ZIO.unit
-    }
-  }
-
-val routes = 
-  Routes(
-    Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) => 
-      Response.text(s"Greetings {$name}!")
-    },
-    Method.GET / "ws" -> handler(socket.toResponse)
-  )
-```
-
-We have a more detailed explanation of the WebSocket connection on the [Socket](socket/socket.md) page.
-
 ## Server
 
 As we have seen how to create HTTP apps, the only thing left is to run an HTTP server and serve requests.
