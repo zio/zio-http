@@ -20,7 +20,6 @@ import scala.collection.AbstractIterator
 
 import zio.Chunk
 
-import zio.http.Server.Config.CompressionOptions
 import zio.http._
 
 import io.netty.handler.codec.compression.{BrotliMode, StandardCompressionOptions}
