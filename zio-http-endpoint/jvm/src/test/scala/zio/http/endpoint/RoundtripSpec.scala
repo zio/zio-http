@@ -39,11 +39,11 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyServer
 
 object RoundtripSpec extends ZIOHttpSpec {
-  val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
-    ZLayer.make[Server & Client & Scope](
+  val testLayer: ZLayer[Any, Throwable, Server & ZClient.Client & Scope] =
+    ZLayer.make[Server & ZClient.Client & Scope](
       NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get)),
+      ZClient.customized.map(env => ZEnvironment(env.get)),
       ClientDriver.shared,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
@@ -828,8 +828,8 @@ object RoundtripSpec extends ZIOHttpSpec {
     }.provide(
       NettyServer.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>
-        ZLayer(ZIO.serviceWith[Client](_.batched)),
+      ZClient.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)) >>>
+        ZLayer(ZIO.serviceWith[ZClient.Client](_.batched)),
       ClientDriver.shared,
       // NettyDriver.customized,
       ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

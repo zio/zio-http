@@ -36,7 +36,7 @@ object StaticFileRoutesSpec extends RoutesRunnableSpec {
   override def spec = suite("StaticFileRoutesSpec") {
     serve.as(List(staticSpec))
   }
-    .provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
+    .provideSome[DynamicServer & Server & Server.Config & ZClient.Client](Scope.default)
     .provideShared(DynamicNettyServer.live, serverTestLayer, NettyClient.default) @@ withLiveClock @@ sequential
 
   private def staticSpec = suite("Static RandomAccessFile Server")(

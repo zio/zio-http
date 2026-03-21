@@ -56,11 +56,11 @@ object SizeLimitsSpec extends ZIOHttpSpec {
       content: A,
       f: A => Request,
       expected: Status,
-    ): ZIO[Client, Throwable, ((Int, Status), Option[A])] = if (size >= lstTestSize)
+    ): ZIO[ZClient.Client, Throwable, ((Int, Status), Option[A])] = if (size >= lstTestSize)
       ZIO.succeed(((lstTestSize, expected), Some(content)))
     else
       for {
-        status <- ZIO.scoped { Client.streaming(f(content)).flatMap(v => v.ignoreBody.as(v.status)) }.catchAll {
+        status <- ZIO.scoped { ZClient.streaming(f(content)).flatMap(v => v.ignoreBody.as(v.status)) }.catchAll {
           case _: Throwable =>
             ZIO.succeed(Status.RequestEntityTooLarge)
         }

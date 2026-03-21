@@ -43,14 +43,14 @@ package object internal {
     )
 
   val testClientConfig: ULayer[ZClient.Config] =
-    ZLayer.succeed(Client.Config.default.disabledConnectionPool)
+    ZLayer.succeed(ZClient.Config.default.disabledConnectionPool)
 
-  val testClientLayer: ZLayer[Any, Throwable, Client] =
-    ZLayer.make[Client](
+  val testClientLayer: ZLayer[Any, Throwable, ZClient.Client] =
+    ZLayer.make[ZClient.Client](
       testNettyServerConfig,
       NettyClientDriver.live,
       DnsResolver.default,
       testClientConfig,
-      Client.customized,
+      ZClient.customized,
     )
 }

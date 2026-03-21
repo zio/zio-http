@@ -50,7 +50,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       test("debug") {
         for {
           port       <- Server.installRoutes(routes)
-          baseClient <- ZIO.service[Client]
+          baseClient <- ZIO.service[ZClient.Client]
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
           ) @@ ZClientAspect.debug
@@ -66,7 +66,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       test("requestLogging")(
         for {
           port       <- Server.installRoutes(routes)
-          baseClient <- ZIO.service[Client]
+          baseClient <- ZIO.service[ZClient.Client]
           client = baseClient
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -99,7 +99,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
       test("followRedirects")(
         for {
           port       <- Server.installRoutes(redir ++ routes)
-          baseClient <- ZIO.service[Client]
+          baseClient <- ZIO.service[ZClient.Client]
           client = baseClient
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -115,7 +115,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
 
           for {
             port       <- Server.installRoutes(routes)
-            baseClient <- ZIO.service[Client]
+            baseClient <- ZIO.service[ZClient.Client]
             client = baseClient
               .url(
                 URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -140,7 +140,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
 
           for {
             port       <- Server.installRoutes(routes)
-            baseClient <- ZIO.service[Client]
+            baseClient <- ZIO.service[ZClient.Client]
             client = baseClient
               .url(
                 URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
@@ -164,7 +164,7 @@ object ZClientAspectSpec extends ZIOHttpSpec {
 
           for {
             port       <- Server.installRoutes(routes)
-            baseClient <- ZIO.service[Client]
+            baseClient <- ZIO.service[ZClient.Client]
             client = baseClient
               .url(
                 URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", Some(port))),

@@ -42,9 +42,9 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None] =
       sseEndpoint(())
 
-    def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[String]]] = ZIO.scoped {
+    def client(port: Int): ZIO[ZClient.Client, Throwable, Chunk[ServerSentEvent[String]]] = ZIO.scoped {
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         executor = EndpointExecutor(client, url"http://localhost:$port")
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
@@ -78,9 +78,9 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
       : Invocation[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent[Payload]], AuthType.None] =
       sseEndpoint(())
 
-    def client(port: Int): ZIO[Client, Throwable, Chunk[ServerSentEvent[Payload]]] = ZIO.scoped {
+    def client(port: Int): ZIO[ZClient.Client, Throwable, Chunk[ServerSentEvent[Payload]]] = ZIO.scoped {
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         executor = EndpointExecutor(client, url"http://localhost:$port")
         stream <- executor(invocation)
         events <- stream.take(5).runCollect
@@ -104,9 +104,9 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
     private val invocation: Invocation[Unit, Unit, ZNothing, ServerSentEvent[String], AuthType.None] =
       sseEndpoint(())
 
-    def client(port: Int): ZIO[Client, Nothing, ServerSentEvent[String]] = ZIO.scoped {
+    def client(port: Int): ZIO[ZClient.Client, Nothing, ServerSentEvent[String]] = ZIO.scoped {
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         executor = EndpointExecutor(client, url"http://localhost:$port")
         event <- executor(invocation)
       } yield event
@@ -140,7 +140,7 @@ object ServerSentEventEndpointSpec extends ZIOHttpSpec {
         } yield assertTrue(event.data == "Hello World")
       },
     )
-      .provideSomeLayer[Client & Server.Config & NettyConfig](NettyServer.customized)
+      .provideSomeLayer[ZClient.Client & Server.Config & NettyConfig](NettyServer.customized)
       .provideShared(
         NettyClient.live,
         ZLayer.succeed(Server.Config.default.port(0)),

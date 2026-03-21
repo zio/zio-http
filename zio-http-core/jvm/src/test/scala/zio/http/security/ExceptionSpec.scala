@@ -57,7 +57,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       for {
         port     <- Server.installRoutes(routesError)
         response <- ZIO.scoped {
-          Client.streaming(Request.get(s"http://localhost:$port/error")).flatMap(_.ignoreBody).map(_.headers.toString)
+          ZClient.streaming(Request.get(s"http://localhost:$port/error")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
@@ -65,7 +65,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       for {
         port     <- Server.installRoutes(routesDie)
         response <- ZIO.scoped {
-          Client.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody).map(_.headers.toString)
+          ZClient.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
@@ -73,7 +73,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       for {
         port     <- Server.installRoutes(routesFail)
         response <- ZIO.scoped {
-          Client.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody).map(_.headers.toString)
+          ZClient.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
       } yield assertTrue(!response.contains("Exception in thread"))
     },
@@ -81,7 +81,7 @@ object ExceptionSpec extends ZIOSpecDefault {
       for {
         port     <- Server.installRoutes(queryRoutes)
         response <- ZIO.scoped {
-          Client.streaming(Request.get(s"http://localhost:$port/search")).flatMap(_.ignoreBody).map(_.headers.toString)
+          ZClient.streaming(Request.get(s"http://localhost:$port/search")).flatMap(_.ignoreBody).map(_.headers.toString)
         }
       } yield assertTrue(!response.contains("Exception in thread"))
     },

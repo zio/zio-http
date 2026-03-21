@@ -185,6 +185,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpExample,
       zioHttpExampleDatastarChat,
       zioHttpTestkit,
+      zioHttpIntegrationTests,
       zioHttpTools,
       docs,
     ) ++ exampleProjects
@@ -260,10 +261,20 @@ lazy val zioHttpCore = crossProject(JSPlatform, JVMPlatform)
     ),
   )
 
-lazy val zioHttpCoreJS = zioHttpCore.js
-  .settings(scalaJSUseMainModuleInitializer := true)
+lazy val zioHttpCoreJS: Project = zioHttpCore.js
+  .settings(
+    scalaJSUseMainModuleInitializer := true,
+    Test / unmanagedSourceDirectories := {
+      (Test / unmanagedSourceDirectories).value.filterNot(_.getAbsolutePath.contains("js"))
+    },
+  )
 
-lazy val zioHttpCoreJVM = zioHttpCore.jvm
+lazy val zioHttpCoreJVM: Project = zioHttpCore.jvm
+  .settings(
+    Test / unmanagedSourceDirectories := {
+      (Test / unmanagedSourceDirectories).value.filterNot(_.getAbsolutePath.contains("jvm"))
+    },
+  )
 
 // ---------------------------------------------------------------------------
 // Module 2: zio-http-endpoint (crossProject)
@@ -288,18 +299,28 @@ lazy val zioHttpEndpoint = crossProject(JSPlatform, JVMPlatform)
   .jsSettings(
     ThisProject / fork := false,
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-test"     % ZioVersion % "test",
+      "dev.zio" %%% "zio-test-sbt" % ZioVersion % "test",
+    ),
   )
   .dependsOn(zioHttpCore, zioHttpClient)
 
 lazy val zioHttpEndpointJS  = zioHttpEndpoint.js
-lazy val zioHttpEndpointJVM = zioHttpEndpoint.jvm
+
+lazy val zioHttpEndpointJVM: Project = zioHttpEndpoint.jvm
+  .settings(
+    Test / unmanagedSourceDirectories := {
+      (Test / unmanagedSourceDirectories).value.filterNot(_.getAbsolutePath.contains("jvm"))
+    },
+  )
 
 // ---------------------------------------------------------------------------
 // Module 3: zio-http-netty-core (JVM only)
 // Shared Netty utilities: NettyBody, NettyConfig, Conversions, etc.
 // ---------------------------------------------------------------------------
 
-lazy val zioHttpNettyCore = (project in file("zio-http-netty-core"))
+lazy val zioHttpNettyCore: Project = (project in file("zio-http-netty-core"))
   .settings(stdSettings("zio-http-netty-core"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -307,6 +328,7 @@ lazy val zioHttpNettyCore = (project in file("zio-http-netty-core"))
   .settings(sharedCrossProjectSettings)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    Test / sources := Nil,
     libraryDependencies ++= netty ++ Seq(
       `zio-test`,
       `zio-test-sbt`,
@@ -319,7 +341,7 @@ lazy val zioHttpNettyCore = (project in file("zio-http-netty-core"))
 // Netty-based Server implementation
 // ---------------------------------------------------------------------------
 
-lazy val zioHttpNettyServer = (project in file("zio-http-netty-server"))
+lazy val zioHttpNettyServer: Project = (project in file("zio-http-netty-server"))
   .settings(stdSettings("zio-http-netty-server"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -327,6 +349,7 @@ lazy val zioHttpNettyServer = (project in file("zio-http-netty-server"))
   .settings(sharedCrossProjectSettings)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    Test / sources := Nil,
     libraryDependencies ++= Seq(
       `zio-test`,
       `zio-test-sbt`,
@@ -339,7 +362,7 @@ lazy val zioHttpNettyServer = (project in file("zio-http-netty-server"))
 // Netty-based Client implementation
 // ---------------------------------------------------------------------------
 
-lazy val zioHttpNettyClient = (project in file("zio-http-netty-client"))
+lazy val zioHttpNettyClient: Project = (project in file("zio-http-netty-client"))
   .settings(stdSettings("zio-http-netty-client"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -347,12 +370,16 @@ lazy val zioHttpNettyClient = (project in file("zio-http-netty-client"))
   .settings(sharedCrossProjectSettings)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    Test / sources := Nil,
     libraryDependencies ++= Seq(
       `zio-test`,
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttpClientJVM, zioHttpNettyCore)
+  .dependsOn(
+    zioHttpClientJVM,
+    zioHttpNettyCore,
+  )
 
 // ---------------------------------------------------------------------------
 // Module 6: zio-http-server (crossProject)
@@ -381,7 +408,7 @@ lazy val zioHttpServer = crossProject(JSPlatform, JVMPlatform)
   .dependsOn(zioHttpCore)
 
 lazy val zioHttpServerJS  = zioHttpServer.js
-lazy val zioHttpServerJVM = zioHttpServer.jvm
+lazy val zioHttpServerJVM: Project = zioHttpServer.jvm
 
 // ---------------------------------------------------------------------------
 // Module 7: zio-http-client (crossProject)
@@ -410,7 +437,7 @@ lazy val zioHttpClient = crossProject(JSPlatform, JVMPlatform)
   .dependsOn(zioHttpCore)
 
 lazy val zioHttpClientJS  = zioHttpClient.js
-lazy val zioHttpClientJVM = zioHttpClient.jvm
+lazy val zioHttpClientJVM: Project = zioHttpClient.jvm
 
 // ---------------------------------------------------------------------------
 // Module 8: zio-http-fetch-client (crossProject, JS only has sources)
@@ -714,6 +741,29 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
     ),
   )
   .dependsOn(zioHttpJVM)
+
+lazy val zioHttpIntegrationTests = (project in file("zio-http-integration-tests"))
+  .settings(stdSettings("zio-http-integration-tests"))
+  .settings(publishSetting(false))
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    Test / unmanagedSourceDirectories ++= Seq(
+      (ThisBuild / baseDirectory).value / "zio-http-core" / "jvm" / "src" / "test" / "scala",
+      (ThisBuild / baseDirectory).value / "zio-http-netty-client" / "src" / "test" / "scala",
+      (ThisBuild / baseDirectory).value / "zio-http-netty-core" / "src" / "test" / "scala",
+      (ThisBuild / baseDirectory).value / "zio-http-netty-server" / "src" / "test" / "scala",
+      (ThisBuild / baseDirectory).value / "zio-http-endpoint" / "jvm" / "src" / "test" / "scala",
+    ),
+    Test / unmanagedResourceDirectories ++= Seq(
+      (ThisBuild / baseDirectory).value / "zio-http-core" / "jvm" / "src" / "test" / "resources",
+      (ThisBuild / baseDirectory).value / "zio-http-netty-core" / "src" / "test" / "resources",
+    ),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .dependsOn(zioHttpJVM, zioHttpTestkit)
 
 lazy val docs = project
   .in(file("zio-http-docs"))

@@ -42,7 +42,7 @@ object ClientProxySpec extends RoutesRunnableSpec {
           out             <- ZClient
             .batched(Request.get(url = serverUrl))
             .provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
               NettyClientDriver.live,
               DnsResolver.default,
@@ -58,7 +58,7 @@ object ClientProxySpec extends RoutesRunnableSpec {
           url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
-          zclient <- ZIO.serviceWith[Client](_.proxy(proxy))
+          zclient <- ZIO.serviceWith[ZClient.Client](_.proxy(proxy))
           out     <- zclient.batched(Request.get(url = url))
         } yield out
       assertZIO(res.either)(isRight)
@@ -72,10 +72,10 @@ object ClientProxySpec extends RoutesRunnableSpec {
           url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(Handler.ok.toRoutes)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
-          out <- Client
+          out <- ZClient
             .batched(Request.get(url = url))
             .provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
@@ -103,10 +103,10 @@ object ClientProxySpec extends RoutesRunnableSpec {
             .url(url)
             .headers(Headers(DynamicServer.APP_ID, id))
             .credentials(Credentials("test", Secret("test")))
-          out <- Client
+          out <- ZClient
             .batched(Request.get(url = url))
             .provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,

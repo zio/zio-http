@@ -46,7 +46,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
         val ifNone = Headers(IfNoneMatch.ETags(NonEmptyChunk(etagToken)))
         for {
           port    <- Server.installRoutes(routes)
-          res     <- Client.batched(Request(method = Method.GET, url = urlFor(port, "etag"), headers = ifNone))
+          res     <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "etag"), headers = ifNone))
           bodyStr <- res.body.asString
         } yield assertTrue(
           res.status == Status.NotModified || res.status == Status.Ok,
@@ -61,7 +61,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
         val ifNone = Headers(IfNoneMatch.ETags(NonEmptyChunk(etagReq)))
         for {
           port    <- Server.installRoutes(routes)
-          res     <- Client.batched(Request(method = Method.GET, url = urlFor(port, "etag2"), headers = ifNone))
+          res     <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "etag2"), headers = ifNone))
           bodyStr <- res.body.asString
         } yield assertTrue(res.status == Status.Ok, bodyStr == "payload")
       },
@@ -75,7 +75,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
         val ifMod        = Headers(IfModifiedSince(lastModified))
         for {
           port    <- Server.installRoutes(routes)
-          res     <- Client.batched(Request(method = Method.GET, url = urlFor(port, "ims"), headers = ifMod))
+          res     <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "ims"), headers = ifMod))
           bodyStr <- res.body.asString
         } yield assertTrue(
           res.status == Status.NotModified || res.status == Status.Ok,
@@ -91,7 +91,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
         val ifMod        = Headers(IfModifiedSince(earlier))
         for {
           port    <- Server.installRoutes(routes)
-          res     <- Client.batched(Request(method = Method.GET, url = urlFor(port, "ims2"), headers = ifMod))
+          res     <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "ims2"), headers = ifMod))
           bodyStr <- res.body.asString
         } yield assertTrue(res.status == Status.Ok, bodyStr == "fresh")
       },
@@ -103,7 +103,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
         val ifNone = Headers(IfNoneMatch.ETags(NonEmptyChunk(etagToken)))
         for {
           port    <- Server.installRoutes(routes)
-          res     <- Client.batched(Request(method = Method.GET, url = urlFor(port, "etag304"), headers = ifNone))
+          res     <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "etag304"), headers = ifNone))
           bodyStr <- res.body.asString
         } yield assertTrue(bodyStr.isEmpty || bodyStr == "cacheable")
       },
@@ -141,11 +141,11 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                 Header.Accept.MediaTypeWithQFactor(MediaType.application.xml, Some(0.9)),
               ),
             )
-            jsonRes  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "content"), headers = jsonReq))
+            jsonRes  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "content"), headers = jsonReq))
             jsonBody <- jsonRes.body.asString
             // Request with XML preferred
             xmlReq = Headers(Header.Accept(MediaType.application.xml))
-            xmlRes  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "content"), headers = xmlReq))
+            xmlRes  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "content"), headers = xmlReq))
             xmlBody <- xmlRes.body.asString
           } yield assertTrue(
             jsonBody.contains("json"),
@@ -179,7 +179,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
                 Header.Accept.MediaTypeWithQFactor(MediaType.application.json, None),
               ),
             )
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "qvalue"), headers = req))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "qvalue"), headers = req))
             body <- res.body.asString
           } yield assertTrue(body.contains("json"))
         },
@@ -202,7 +202,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             req = Headers(Header.AcceptEncoding(Header.AcceptEncoding.GZip()))
-            res <- Client.batched(Request(method = Method.GET, url = urlFor(port, "encoding"), headers = req))
+            res <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "encoding"), headers = req))
             ce = res.header(Header.ContentEncoding)
           } yield assertTrue(ce.isDefined)
         },
@@ -228,10 +228,10 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             reqEn = Headers(Header.AcceptLanguage.Single("en", None))
-            resEn  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "language"), headers = reqEn))
+            resEn  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "language"), headers = reqEn))
             bodyEn <- resEn.body.asString
             reqDe = Headers(Header.AcceptLanguage.Single("de", None))
-            resDe  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "language"), headers = reqDe))
+            resDe  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "language"), headers = reqDe))
             bodyDe <- resDe.body.asString
           } yield assertTrue(
             bodyEn == "Hello",
@@ -259,13 +259,13 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             port <- Server.installRoutes(routes)
             // Request XML but server only has JSON
             xmlReq = Headers(Header.Accept(MediaType.application.xml))
-            xmlRes <- Client.batched(Request(method = Method.GET, url = urlFor(port, "strict"), headers = xmlReq))
+            xmlRes <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "strict"), headers = xmlReq))
             // Request JSON - should succeed
             jsonReq = Headers(Header.Accept(MediaType.application.json))
-            jsonRes <- Client.batched(Request(method = Method.GET, url = urlFor(port, "strict"), headers = jsonReq))
+            jsonRes <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "strict"), headers = jsonReq))
             // Request with */* - should succeed
             wildcardReq = Headers(Header.Accept(MediaType.any))
-            wildcardRes <- Client.batched(
+            wildcardRes <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "strict"), headers = wildcardReq),
             )
           } yield assertTrue(
@@ -290,7 +290,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             req = Headers(Header.Accept(MediaType.application.json))
-            res <- Client.batched(Request(method = Method.GET, url = urlFor(port, "vary"), headers = req))
+            res <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "vary"), headers = req))
             vary = res.header(Header.Vary)
           } yield assertTrue(vary.isDefined)
         },
@@ -308,7 +308,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "headers"))
                 .addHeader(Header.ContentType(MediaType.application.json)),
             )
@@ -327,7 +327,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port     <- Server.installRoutes(routes)
             // Standard GET
-            resUpper <- Client.batched(Request(method = Method.GET, url = urlFor(port, "method")))
+            resUpper <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "method")))
             // Note: zio-http normalizes methods internally, so we test that GET works
             // The HTTP spec requires servers to treat methods case-sensitively for registered methods
             // but case-insensitively for comparison purposes in routing
@@ -345,7 +345,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             port <- Server.installRoutes(routes)
             // HTTP/1.1 spec (RFC 9110) prohibits leading/trailing whitespace in field values
             // Test that valid header values (without leading/trailing whitespace) work correctly
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "whitespace"))
                 .addHeader("X-Custom-Header", "value-without-spaces"),
             )
@@ -363,7 +363,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port     <- Server.installRoutes(routes)
             // Valid request should succeed
-            validRes <- Client.batched(Request(method = Method.GET, url = urlFor(port, "normal")))
+            validRes <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "normal")))
             // Note: It's difficult to send truly malformed requests through the Client API
             // since it constructs valid HTTP messages. This test validates the valid case.
             // Malformed request testing would require raw socket connections.
@@ -381,10 +381,10 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port     <- Server.installRoutes(routes)
             // Normal request should succeed
-            shortRes <- Client.batched(Request(method = Method.GET, url = urlFor(port, "short")))
+            shortRes <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "short")))
             // Very long URI - server may reject with 414, 500, or connection error
             longUrl = url"http://localhost:$port/$longSegment"
-            longRes <- Client
+            longRes <- ZClient
               .batched(Request(method = Method.GET, url = longUrl))
               .catchAll(_ => ZIO.succeed(Response.status(Status.RequestUriTooLong)))
           } yield assertTrue(
@@ -405,7 +405,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "multi-header"))
                 .addHeader("X-Custom", "value1")
                 .addHeader("X-Custom", "value2"),
@@ -429,7 +429,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "host-check")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "host-check")))
             body <- res.body.asString
           } yield assertTrue(
             res.status == Status.Ok,
@@ -452,7 +452,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           val testBody = "test body content"
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.POST, url = urlFor(port, "content-length"), body = Body.fromString(testBody)),
             )
             body <- res.body.asString
@@ -472,7 +472,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // ZIO HTTP client handles chunking automatically for streams
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.POST, url = urlFor(port, "chunked"), body = Body.fromString("chunked test data")),
             )
             body <- res.body.asString
@@ -533,9 +533,9 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             // Request bytes 0-9 (first 10 bytes)
             rangeReq = Request(method = Method.GET, url = urlFor(port, "range-test"))
               .addHeader(Header.Range.Single("bytes", 0, Some(9)))
-            res     <- Client.batched(rangeReq)
+            res     <- ZClient.batched(rangeReq)
             body    <- res.body.asString
-            fullRes <- Client.batched(Request(method = Method.GET, url = urlFor(port, "range-test")))
+            fullRes <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "range-test")))
           } yield assertTrue(
             res.status == Status.PartialContent,
             body == "0123456789",
@@ -571,7 +571,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Request range beyond content length
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "range-invalid"))
                 .addHeader(Header.Range.Single("bytes", 1000, Some(2000))),
             )
@@ -590,7 +590,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "connection-close")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "connection-close")))
           } yield assertTrue(
             res.status == Status.Ok,
             res.headers.get(Header.Connection).exists(_.toString.toLowerCase.contains("close")),
@@ -603,7 +603,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "keep-alive")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "keep-alive")))
           } yield assertTrue(
             res.status == Status.Ok,
             // Keep-alive is default in HTTP/1.1, may or may not be explicit
@@ -620,7 +620,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Valid request should work
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "valid")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "valid")))
           } yield assertTrue(
             res.status == Status.Ok,
             // Note: Testing truly malformed requests requires lower-level socket access
@@ -635,7 +635,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Normal request with reasonable headers
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "large-headers"))
                 .addHeader("X-Test", "value"),
             )
@@ -653,7 +653,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // HTTP/1.1 should work
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "version")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "version")))
           } yield assertTrue(
             res.status == Status.Ok,
             // Note: Testing 505 requires HTTP/2.0 or invalid version strings
@@ -677,7 +677,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port      <- Server.installRoutes(routes)
             // Normal POST with body (client adds Content-Length automatically)
-            normalRes <- Client.batched(
+            normalRes <- ZClient.batched(
               Request(method = Method.POST, url = urlFor(port, "length-required"), body = Body.fromString("data")),
             )
           } yield assertTrue(
@@ -693,7 +693,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Standard method works
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "standard")))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "standard")))
             // Note: Custom methods like PATCH, LINK are now common; true 501 is rare
           } yield assertTrue(
             res.status == Status.Ok,
@@ -718,7 +718,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Client will typically send one or the other, but test verifies proper handling
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.POST, url = urlFor(port, "te-cl-conflict"), body = Body.fromString(testBody)),
             )
             body <- res.body.asString
@@ -750,7 +750,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             )
               .addHeader("Content-Length", testBody.length.toString)
               .addHeader("Content-Length", testBody.length.toString)
-            res  <- Client
+            res  <- ZClient
               .batched(req)
               .catchAll(_ =>
                 // May be rejected at client level or server level - both acceptable
@@ -790,7 +790,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             )
               .addHeader("Content-Length", "5")
               .addHeader("Content-Length", "10")
-            res <- Client
+            res <- ZClient
               .batched(req)
               .catchAll(_ =>
                 // Expected by spec: client or server rejects
@@ -835,7 +835,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.DELETE, url = urlFor(port, "delete-resource")))
+            res  <- ZClient.batched(Request(method = Method.DELETE, url = urlFor(port, "delete-resource")))
             body <- res.body.asString
           } yield assertTrue(
             res.status == Status.NoContent,
@@ -854,7 +854,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
 
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "not-modified"), headers = ifNone))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "not-modified"), headers = ifNone))
             body <- res.body.asString
           } yield assertTrue(
             // May return 304 or 200 depending on implementation
@@ -1082,7 +1082,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "range-suffix")).addHeader(
                 Header.Range.Suffix("bytes", 10),
               ),
@@ -1119,7 +1119,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "range-prefix")).addHeader(
                 Header.Range.Prefix("bytes", 10),
               ),
@@ -1135,7 +1135,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             // Construct raw Range header with unsupported unit via addHeader string
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "range-unit")).addHeader("Range", "items=0-5"),
             )
             body <- res.body.asString
@@ -1145,7 +1145,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           val routes = (Method.POST / "range-post" -> handler { (_: Request) => Response.text("posted") }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.POST, url = urlFor(port, "range-post"), body = Body.fromString("data"))
                 .addHeader("Range", "bytes=0-2"),
             )
@@ -1176,7 +1176,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "if-range-etag"))
                 .addHeader(Header.IfRange.ETag(etag))
                 .addHeader(Header.Range.Single("bytes", 0, Some(9))),
@@ -1195,7 +1195,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "if-range-etag-full"))
                 .addHeader(Header.IfRange.ETag("\"other\""))
                 .addHeader(Header.Range.Single("bytes", 0, Some(9))),
@@ -1212,7 +1212,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.PUT, url = urlFor(port, "if-match")).addHeader(Header.IfMatch.Any),
             )
             body <- res.body.asString
@@ -1228,7 +1228,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.PUT, url = urlFor(port, "if-match-etag")).addHeader(
                 Header.IfMatch.ETags(NonEmptyChunk("other")),
               ),
@@ -1245,7 +1245,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.PUT, url = urlFor(port, "iunmod")).addHeader(
                 Header.IfUnmodifiedSince(lastMod.plusHours(1)),
               ),
@@ -1263,7 +1263,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           }).toRoutes
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.PUT, url = urlFor(port, "iunmod-fail")).addHeader(
                 Header.IfUnmodifiedSince(lastMod.minusDays(2)),
               ),
@@ -1278,7 +1278,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           val headers   = Headers(Header.IfNoneMatch.ETags(NonEmptyChunk(weakToken)))
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "weak-etag"), headers = headers))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "weak-etag"), headers = headers))
           } yield assertTrue(res.status == Status.Ok)
         },
         test("If-None-Match * wildcard prevents serving when any current representation exists") {
@@ -1288,7 +1288,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           val headers = Headers(Header.IfNoneMatch.Any)
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(Request(method = Method.GET, url = urlFor(port, "star-none"), headers = headers))
+            res  <- ZClient.batched(Request(method = Method.GET, url = urlFor(port, "star-none"), headers = headers))
             body <- res.body.asString
           } yield assertTrue(res.status == Status.NotModified || body == "live")
         },
@@ -1304,7 +1304,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           )
           for {
             port <- Server.installRoutes(routes)
-            res  <- Client.batched(
+            res  <- ZClient.batched(
               Request(method = Method.GET, url = urlFor(port, "etag-precedence"), headers = headers),
             )
           } yield assertTrue(res.status == Status.NotModified || res.status == Status.Ok)

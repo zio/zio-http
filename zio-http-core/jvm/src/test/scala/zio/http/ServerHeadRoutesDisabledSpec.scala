@@ -24,8 +24,8 @@ object ServerHeadRoutesDisabledSpec extends ZIOSpecDefault {
         )
         for {
           port     <- Server.installRoutes(routes)
-          headResp <- Client.batched(Request.head(URL.root.port(port) / "users"))
-          getResp  <- Client.batched(Request.get(URL.root.port(port) / "users"))
+          headResp <- ZClient.batched(Request.head(URL.root.port(port) / "users"))
+          getResp  <- ZClient.batched(Request.get(URL.root.port(port) / "users"))
         } yield assertTrue(headResp.status == Status.NotFound, getResp.status == Status.Ok)
       },
       test("Explicit HEAD route still works when disabled") {
@@ -35,7 +35,7 @@ object ServerHeadRoutesDisabledSpec extends ZIOSpecDefault {
         )
         for {
           port     <- Server.installRoutes(routes)
-          headResp <- Client.batched(Request.head(URL.root.port(port) / "users"))
+          headResp <- ZClient.batched(Request.head(URL.root.port(port) / "users"))
         } yield assertTrue(
           headResp.status == Status.Ok,
           headResp.headers.get("X-Head-Handler").isDefined,
@@ -47,7 +47,7 @@ object ServerHeadRoutesDisabledSpec extends ZIOSpecDefault {
         )
         for {
           port     <- Server.installRoutes(routes)
-          headResp <- Client.batched(Request.head(URL.root.port(port) / "users" / "123"))
+          headResp <- ZClient.batched(Request.head(URL.root.port(port) / "users" / "123"))
         } yield assertTrue(headResp.status == Status.NotFound)
       },
     ).provideShared(

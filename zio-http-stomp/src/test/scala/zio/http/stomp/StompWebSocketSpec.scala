@@ -58,7 +58,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 
@@ -143,7 +143,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 
@@ -236,7 +236,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 

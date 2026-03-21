@@ -48,9 +48,9 @@ object ServerSentEventSpec extends ZIOHttpSpec {
   val server =
     Server.installRoutes(routes)
 
-  def eventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
+  def eventStream(port: Int): ZStream[ZClient.Client, Throwable, ServerSentEvent[String]] =
     for {
-      client <- ZStream.service[Client]
+      client <- ZStream.service[ZClient.Client]
       event  <-
         client
           .url(url"http://localhost:$port")
@@ -60,9 +60,9 @@ object ServerSentEventSpec extends ZIOHttpSpec {
           )(_.body.asServerSentEvents[String])
     } yield event
 
-  def nonStreamingEventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
+  def nonStreamingEventStream(port: Int): ZStream[ZClient.Client, Throwable, ServerSentEvent[String]] =
     for {
-      client <- ZStream.service[Client]
+      client <- ZStream.service[ZClient.Client]
       event  <-
         client
           .url(url"http://localhost:$port")
@@ -72,9 +72,9 @@ object ServerSentEventSpec extends ZIOHttpSpec {
           )(_.body.asServerSentEvents[String])
     } yield event
 
-  def collectionEventStream(port: Int): ZStream[Client, Throwable, ServerSentEvent[String]] =
+  def collectionEventStream(port: Int): ZStream[ZClient.Client, Throwable, ServerSentEvent[String]] =
     for {
-      client <- ZStream.service[Client]
+      client <- ZStream.service[ZClient.Client]
       event  <-
         client
           .url(url"http://localhost:$port")

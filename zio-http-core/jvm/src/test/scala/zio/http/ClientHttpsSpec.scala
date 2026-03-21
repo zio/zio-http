@@ -38,7 +38,7 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
   def untrustedClientSSLConfig: ClientSSLConfig
 
   private val partialClientLayer = ZLayer.makeSome[ZClient.Config, Client](
-    Client.customized,
+    ZClient.customized,
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
@@ -54,21 +54,21 @@ abstract class ClientHttpsSpecBase extends ZIOHttpSpec {
         ZIO.succeed(
           List(
             test("respond Ok") {
-              val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
+              val actual = ZClient.batched(Request.get(httpsUrl)).map(_.status)
               assertZIO(actual)(equalTo(Status.Ok))
             }.provide(
               ZLayer.succeed(ZClient.Config.default.ssl(trustedClientSSLConfig)),
               partialClientLayer,
             ),
             test("should respond as Bad Request") {
-              val actual = Client.batched(Request.get(badUrl)).map(_.status)
+              val actual = ZClient.batched(Request.get(badUrl)).map(_.status)
               assertZIO(actual)(equalTo(Status.BadRequest))
             }.provide(
               ZLayer.succeed(ZClient.Config.default.ssl(trustedClientSSLConfig)),
               partialClientLayer,
             ),
             test("should throw DecoderException for handshake failure") {
-              Client
+              ZClient
                 .batched(Request.get(httpsUrl))
                 .fold(
                   { e =>

@@ -41,7 +41,7 @@ object JSClientSpec extends ZIOSpecDefault {
           for {
             port <- ZIO.service[Int]
             res  <- (for {
-              response <- ZIO.serviceWithZIO[Client] {
+              response <- ZIO.serviceWithZIO[ZClient.Client] {
                 _.url(url"http://localhost/").port(port).batched.get("")
               }
               string   <- response.body.asString
@@ -58,7 +58,7 @@ object JSClientSpec extends ZIOSpecDefault {
           for {
             port <- ZIO.service[Int]
             res  <- (for {
-              response <- ZIO.serviceWithZIO[Client] {
+              response <- ZIO.serviceWithZIO[ZClient.Client] {
                 _.url(url"http://localhost/").port(port).batched.get("")
               }
               string   <- response.body.asString
@@ -100,7 +100,7 @@ object JSClientSpec extends ZIOSpecDefault {
 //            _     <- webSocketHandler
 //            consoleMessages <- TestConsole.output
 //          } yield assertTrue(consoleMessages.contains("Server: Hello, World!"))
-//        }.provideSome[Scope & Client](ZLayer(Queue.bounded[String](100))),
+//        }.provideSome[Scope & ZClient.Client](ZLayer(Queue.bounded[String](100))),
 //      ),
     ).provideShared(portLayer) @@ TestAspect.ifEnvSet("CI")
 }

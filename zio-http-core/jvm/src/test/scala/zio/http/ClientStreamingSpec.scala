@@ -61,12 +61,12 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
 
   // TODO: test failure cases
 
-  private def tests(streamingServer: Boolean): Seq[Spec[Client with Scope, Throwable]] =
+  private def tests(streamingServer: Boolean): Seq[Spec[ZClient.Client with Scope, Throwable]] =
     Seq(
       test("simple get") {
         for {
           port     <- server(streamingServer)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           response <- client.request(
             Request.get(URL.decode(s"http://localhost:$port/simple-get").toOption.get),
           )
@@ -76,7 +76,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("streaming get") {
         for {
           port     <- server(streamingServer)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           response <- client.request(
             Request.get(URL.decode(s"http://localhost:$port/streaming-get").toOption.get),
           )
@@ -97,7 +97,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("simple post") {
         for {
           port     <- server(streamingServer)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           response <- client
             .request(
               Request.post(
@@ -113,7 +113,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("echo") {
         for {
           port     <- server(streamingServer)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           response <- client
             .request(
               Request.post(
@@ -145,7 +145,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("decoding random form") {
         for {
           port   <- server(streamingServer)
-          client <- ZIO.service[Client]
+          client <- ZIO.service[ZClient.Client]
 
           result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
             for {
@@ -177,7 +177,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
-          client <- ZIO.service[Client]
+          client <- ZIO.service[ZClient.Client]
           result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
             for {
               boundary <- Boundary.randomUUID
@@ -211,7 +211,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
         val N = 1024 * 1024
         for {
           port   <- server(streamingServer)
-          client <- ZIO.service[Client]
+          client <- ZIO.service[ZClient.Client]
           result <- check(Gen.int(1, N)) { chunkSize =>
             for {
               bytes <- Random.nextBytes(N)
@@ -245,7 +245,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("failed stream") {
         for {
           port     <- server(streamingServer)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           response <- client
             .request(
               Request.post(
@@ -263,7 +263,7 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
       test("echo with sync point") {
         for {
           port     <- server(streaming = true)
-          client   <- ZIO.service[Client]
+          client   <- ZIO.service[ZClient.Client]
           sync     <- Promise.make[Nothing, Unit]
           response <- client
             .request(
@@ -312,11 +312,11 @@ object ClientStreamingSpec extends RoutesRunnableSpec {
         tests(streamingServer = false): _*,
       ),
     )
-      .provideSome[Client](Scope.default)
+      .provideSome[ZClient.Client](Scope.default)
       .provideShared(
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
-        ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
+        ZLayer.succeed(ZClient.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
         NettyClient.live,
       ) @@ withLiveClock @@ sequential @@ ignore
 

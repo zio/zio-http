@@ -81,10 +81,10 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
         .as(
           List(
             test("succeed when client has the server certificate and trusted by the server - mutual tls") {
-              val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
+              val actual = ZClient.batched(Request.get(httpsUrl)).map(_.status)
               assertZIO(actual)(equalTo(Status.Ok))
             }.provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
               NettyClientDriver.live,
               DnsResolver.default,
@@ -93,7 +93,7 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
             test(
               "fail with DecoderException or PrematureChannelClosureException with Default clients not in server's truststore",
             ) {
-              Client
+              ZClient
                 .batched(Request.get(httpsUrl))
                 .fold(
                   { e =>
@@ -105,7 +105,7 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
                   _ => assertNever("expected request to fail"),
                 )
             }.provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
               NettyClientDriver.live,
               DnsResolver.default,
@@ -115,7 +115,7 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
             test(
               "fail with DecoderException or PrematureChannelClosureException when client doesn't have the server certificate",
             ) {
-              Client
+              ZClient
                 .batched(Request.get(httpsUrl))
                 .fold(
                   { e =>
@@ -127,17 +127,17 @@ object ServerClientJKSMutualSSLSpec extends ZIOHttpSpec {
                   _ => assertNever("expected request to fail"),
                 )
             }.provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
             ),
             test("Https Redirect when client makes http request") {
-              val actual = Client.batched(Request.get(httpUrl)).map(_.status)
+              val actual = ZClient.batched(Request.get(httpUrl)).map(_.status)
               assertZIO(actual)(equalTo(Status.PermanentRedirect))
             }.provide(
-              Client.customized,
+              ZClient.customized,
               ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
               NettyClientDriver.live,
               DnsResolver.default,

@@ -27,7 +27,7 @@ object ClientLayerSpec extends ZIOHttpSpec {
         NettyConfig.default
           .copy(shutdownQuietPeriodDuration = 2900.millis, shutdownTimeoutDuration = 3100.millis)
       val customClientLayer =
-        (ZLayer.succeed(Client.Config.default) ++ ZLayer.succeed(customNettyConfig) ++
+        (ZLayer.succeed(ZClient.Config.default) ++ ZLayer.succeed(customNettyConfig) ++
           DnsResolver.default) >>> NettyClient.live
 
       val timeDifference = for {

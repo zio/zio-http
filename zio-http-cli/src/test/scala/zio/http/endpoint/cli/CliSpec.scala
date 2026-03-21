@@ -46,7 +46,7 @@ object CliSpec extends ZIOSpecDefault {
 
   val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint, pathParamEndpoint)
 
-  val testClient: ZLayer[Any, Nothing, TestClient & Client] =
+  val testClient: ZLayer[Any, Nothing, TestClient.Client & ZClient.Client] =
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)

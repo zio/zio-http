@@ -38,10 +38,10 @@ object DynamicAppTest extends ZIOHttpSpec {
     ).sandbox
 
   val layer =
-    ZLayer.make[Client & Server & Scope](
+    ZLayer.make[ZClient.Client & Server & Scope](
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
-      Client.customized,
+      ZClient.customized,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       NettyServer.customized,
       DnsResolver.default,
@@ -55,9 +55,9 @@ object DynamicAppTest extends ZIOHttpSpec {
         port <- Server.installRoutes(routes1)
         good   = URL.decode(s"http://localhost:$port/good").toOption.get
         better = URL.decode(s"http://localhost:$port/better").toOption.get
-        okResponse      <- Client.batched(Request.get(good))
+        okResponse      <- ZClient.batched(Request.get(good))
         _               <- Server.installRoutes(routes2)
-        createdResponse <- Client.batched(Request.get(better))
+        createdResponse <- ZClient.batched(Request.get(better))
       } yield assertTrue(
         extractStatus(okResponse) == Status.Ok &&
           extractStatus(createdResponse) == Status.Created,

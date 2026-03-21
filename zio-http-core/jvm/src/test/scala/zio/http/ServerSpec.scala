@@ -243,7 +243,7 @@ object ServerSpec extends RoutesRunnableSpec {
 
               for {
                 res <-
-                  Client.batched(
+                  ZClient.batched(
                     Request(method = req.method, headers = req.headers, body = req.body, url = url),
                   )
               } yield res

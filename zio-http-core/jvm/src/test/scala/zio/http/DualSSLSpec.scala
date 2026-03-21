@@ -76,10 +76,10 @@ object DualSSLSpec extends ZIOHttpSpec {
         List(
           test("succeed when client has the server certificate and client certificate is configured") {
             val actual =
-              Client.batched(Request.get(httpsUrl)).flatMap(r => r.body.asString.map(body => (r.status, body)))
+              ZClient.batched(Request.get(httpsUrl)).flatMap(r => r.body.asString.map(body => (r.status, body)))
             assertZIO(actual)(equalTo((Status.Ok, "O=client1,ST=Some-State,C=AU")))
           }.provide(
-            Client.customized,
+            ZClient.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCert)),
             NettyClientDriver.live,
             DnsResolver.default,
@@ -87,7 +87,7 @@ object DualSSLSpec extends ZIOHttpSpec {
           ),
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
           test("fail when client has the server certificate but no client certificate is configured") {
-            Client
+            ZClient
               .batched(Request.get(httpsUrl))
               .fold(
                 { e =>
@@ -99,14 +99,14 @@ object DualSSLSpec extends ZIOHttpSpec {
                 _ => assertNever("expected request to fail"),
               )
           }.provide(
-            Client.customized,
+            ZClient.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
           test("fail when client has the server certificate but wrong client certificate is configured") {
-            Client
+            ZClient
               .batched(Request.get(httpsUrl))
               .fold(
                 { e =>
@@ -118,7 +118,7 @@ object DualSSLSpec extends ZIOHttpSpec {
                 _ => assertNever("expected request to fail"),
               )
           }.provide(
-            Client.customized,
+            ZClient.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCert2)),
             NettyClientDriver.live,
             DnsResolver.default,

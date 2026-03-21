@@ -14,7 +14,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
         val routes = Routes(
           Method.GET / "get"   -> handler((_: Request) =>
             for {
-              client   <- ZIO.service[Client]
+              client   <- ZIO.service[ZClient.Client]
               response <- (client @@ ZClientAspect.forwardHeaders)
                 .batched(Request.post(url"http://localhost:8080/post", Body.empty))
             } yield response,
@@ -24,7 +24,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
 
         for {
           _        <- Server.installRoutes(routes)
-          response <- Client.batched(
+          response <- ZClient.batched(
             Request.get(url"http://localhost:8080/get").addHeader(Header.Accept(MediaType.application.json)),
           )
         } yield assertTrue(response.headers(Header.Accept).contains(Header.Accept(MediaType.application.json)))
@@ -33,7 +33,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
         val routes = Routes(
           Method.GET / "get2"   -> handler((_: Request) =>
             for {
-              client   <- ZIO.service[Client]
+              client   <- ZIO.service[ZClient.Client]
               response <- (client @@ ZClientAspect.forwardHeaders)
                 .batched(Request.post(url"http://localhost:8080/post", Body.empty))
             } yield response,
@@ -45,7 +45,7 @@ object ForwardHeaderSpec extends ZIOSpecDefault {
 
         for {
           _        <- Server.installRoutes(routes)
-          response <- Client.batched(
+          response <- ZClient.batched(
             Request.get(url"http://localhost:8080/get2").addHeader(Header.Accept(MediaType.application.json)),
           )
         } yield assertTrue(response.headers(Header.Accept).contains(Header.Accept(MediaType.application.json)))

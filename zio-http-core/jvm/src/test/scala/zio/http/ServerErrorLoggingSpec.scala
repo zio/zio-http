@@ -62,7 +62,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port    <- Server.installRoutes(routesDie)
           _       <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody)
           }
           entries <- ZTestLogger.logOutput
           errorLog = entries.find(_.message() == "Unhandled exception in request handler")
@@ -75,7 +75,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port    <- Server.installRoutes(routesFail)
           _       <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/fail")).flatMap(_.ignoreBody)
           }
           entries <- ZTestLogger.logOutput
           errorLog = entries.find(_.message() == "Unhandled exception in request handler")
@@ -88,7 +88,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port    <- Server.installRoutes(routesFailResponse)
           _       <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/fail-response")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/fail-response")).flatMap(_.ignoreBody)
           }
           entries <- ZTestLogger.logOutput
           errorLog = entries.find(_.message() == "Unhandled exception in request handler")
@@ -98,7 +98,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port    <- Server.installRoutes(routesFailMiddlewareResponse)
           _       <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/fail-middleware-response")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/fail-middleware-response")).flatMap(_.ignoreBody)
           }
           entries <- ZTestLogger.logOutput
           errorLog = entries.find(_.message() == "Unhandled exception in request handler")
@@ -108,7 +108,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port    <- Server.installRoutes(routesOk)
           _       <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/ok")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/ok")).flatMap(_.ignoreBody)
           }
           entries <- ZTestLogger.logOutput
           errorLog = entries.find(_.message() == "Unhandled exception in request handler")
@@ -118,7 +118,7 @@ object ServerErrorLoggingSpec extends ZIOSpecDefault {
         for {
           port     <- Server.installRoutes(routesDie)
           response <- ZIO.scoped {
-            Client.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody)
+            ZClient.streaming(Request.get(s"http://localhost:$port/die")).flatMap(_.ignoreBody)
           }
         } yield assertTrue(response.status == Status.InternalServerError)
       },

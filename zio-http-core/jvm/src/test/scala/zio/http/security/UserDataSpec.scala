@@ -150,7 +150,7 @@ object UserDataSpec extends ZIOSpecDefault {
           val request = Request.post("/test", body).addHeader(Header.Accept(mediaType))
           for {
             response <- ZIO.scoped {
-              Client
+              ZClient
                 .batched(request.updateURL(_ => URL.decode(s"http://localhost:$port/test").toOption.get))
             }
             body     <- response.body.asString

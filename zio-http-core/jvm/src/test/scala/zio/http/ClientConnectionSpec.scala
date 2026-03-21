@@ -47,7 +47,7 @@ object ClientConnectionSpec extends RoutesRunnableSpec {
         DynamicNettyServer.live,
         serverTestLayer,
         NettyClient.live,
-        ZLayer.succeed(Client.Config.default.connectionTimeout(10.millis)),
+        ZLayer.succeed(ZClient.Config.default.connectionTimeout(10.millis)),
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
         ZLayer.succeed(TestResolver),
       ) @@ sequential @@ withLiveClock @@ withLiveRandom

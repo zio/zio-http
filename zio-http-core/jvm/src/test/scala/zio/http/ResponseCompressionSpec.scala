@@ -88,7 +88,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       test("with Response.text") {
         for {
           server       <- ZIO.service[Server]
-          client       <- ZIO.service[Client]
+          client       <- ZIO.service[ZClient.Client]
           _            <- server.installInternal(app)
           port         <- server.port
           response     <- client.batched(
@@ -111,7 +111,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
       test("with files") {
         for {
           server       <- ZIO.service[Server]
-          client       <- ZIO.service[Client]
+          client       <- ZIO.service[ZClient.Client]
           _            <- server.installInternal(app)
           port         <- server.port
           response     <- client.batched(
@@ -135,7 +135,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
   def streamTest(endpoint: String) =
     for {
       server       <- ZIO.service[Server]
-      client       <- ZIO.service[Client]
+      client       <- ZIO.service[ZClient.Client]
       _            <- server.installInternal(app)
       port         <- server.port
       response     <- client.batched(

@@ -139,7 +139,7 @@ object AuthSpec extends ZIOSpecDefault {
             ) @@ basicAuthContext
 
           val response = for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             executor   = EndpointExecutor(
               client,
               url"http://localhost:8080",
@@ -168,7 +168,7 @@ object AuthSpec extends ZIOSpecDefault {
             ) @@ basicOrBearerAuthContext
 
           val responseBasic = for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             executor   = EndpointExecutor(
               client,
               url"http://localhost:8080",
@@ -179,7 +179,7 @@ object AuthSpec extends ZIOSpecDefault {
           } yield response
 
           val responseBearer = for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             executor = EndpointExecutor(client, url"http://localhost:8080", Right(Header.Authorization.Bearer("admin")))
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
@@ -204,7 +204,7 @@ object AuthSpec extends ZIOSpecDefault {
             ) @@ queryParamAuthContext
 
           val response = for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             executor   = EndpointExecutor(client, url"http://localhost:8080", "admin")
             invocation = endpoint(())
             response <- ZIO.scoped(executor(invocation))
@@ -227,7 +227,7 @@ object AuthSpec extends ZIOSpecDefault {
             ) @@ basicAuthContext
 
           val response = for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             executor   = EndpointExecutor(
               client,
               url"http://localhost:8080",

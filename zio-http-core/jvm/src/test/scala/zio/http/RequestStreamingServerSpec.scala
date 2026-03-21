@@ -83,7 +83,7 @@ object RequestStreamingServerSpec extends RoutesRunnableSpec {
           val host       = req.headers.get(Header.Host).get
           val newRequest =
             req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-          ZIO.serviceWithZIO[Client](_.request(newRequest))
+          ZIO.serviceWithZIO[ZClient.Client](_.request(newRequest))
         },
         Method.POST / "2" -> handler { (req: Request) =>
           req.body.asChunk.map { body =>
@@ -112,7 +112,7 @@ object RequestStreamingServerSpec extends RoutesRunnableSpec {
       suite("app with request streaming") {
         appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
-    }.provideSome[DynamicServer & Server & Server.Config & Client](Scope.default)
+    }.provideSome[DynamicServer & Server & Server.Config & ZClient.Client](Scope.default)
       .provideShared(
         DynamicNettyServer.live,
         ZLayer.succeed(configAppWithRequestStreaming),

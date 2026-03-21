@@ -92,7 +92,7 @@ object ClientSpec extends RoutesRunnableSpec {
     },
     test("reading of unfinished body must fail") {
       val app         = Handler.fromStreamChunked(ZStream.never).sandbox.toRoutes
-      val requestCode = (client: Client) =>
+      val requestCode = (client: ZClient.Client) =>
         (for {
           response <- ZIO.scoped(client(Request()))
           _        <- response.body.asStream.runForeach { _ => ZIO.succeed(0) }
@@ -171,7 +171,7 @@ object ClientSpec extends RoutesRunnableSpec {
         port = channel.localAddress().asInstanceOf[java.net.InetSocketAddress].getPort
 
         // Create a client with shorter timeout for testing
-        client <- ZIO.service[Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
+        client <- ZIO.service[ZClient.Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
 
         // Try to make a request and read the body - should timeout
         result <- (for {
@@ -227,7 +227,7 @@ object ClientSpec extends RoutesRunnableSpec {
 
         channel <- ZIO.attemptBlocking(bootstrap.bind(0).sync().channel())
         port = channel.localAddress().asInstanceOf[java.net.InetSocketAddress].getPort
-        client <- ZIO.service[Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
+        client <- ZIO.service[ZClient.Client].map(_.url(URL.decode(s"http://localhost:$port").toOption.get))
 
         // Make multiple concurrent requests - they should all timeout, not hang forever
         results <- ZIO.foreachPar((1 to 3).toList) { _ =>

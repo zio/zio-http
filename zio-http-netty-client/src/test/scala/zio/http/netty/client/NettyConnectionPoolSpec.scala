@@ -50,7 +50,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
   def connectionPoolTests(
     version: Version,
     casesByHeaders: Map[String, Headers],
-  ): Spec[Scope & Client with DynamicServer, Throwable] =
+  ): Spec[Scope & ZClient.Client with DynamicServer, Throwable] =
     suite(version.toString)(
       casesByHeaders.map { case (name, extraHeaders) =>
         suite(name)(
@@ -197,7 +197,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
           (1 to N).map(_.toString).toList,
         ),
       )
-    }.provideSome[Client](
+    }.provideSome[ZClient.Client](
       Scope.default,
       ZLayer(appKeepAliveEnabled.unit),
       DynamicNettyServer.live,
@@ -222,7 +222,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     testNettyServerConfig,
     NettyServer.customized,
     NettyClient.live,
-    ZLayer.succeed(Client.Config.default.idleTimeout(500.millis)),
+    ZLayer.succeed(ZClient.Config.default.idleTimeout(500.millis)),
     DnsResolver.default,
   ) @@ withLiveClock
 
@@ -278,7 +278,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
     ZLayer(appKeepAliveEnabled.unit),
     DynamicNettyServer.live,
     serverTestLayer,
-    Client.customized,
+    ZClient.customized,
     ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(1, 512, 60.seconds)),
     NettyClientDriver.live,
     DnsResolver.default,
@@ -309,7 +309,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         ZLayer(appKeepAliveEnabled.unit),
         DynamicNettyServer.live,
         serverTestLayer,
-        Client.customized,
+        ZClient.customized,
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(10)),
         NettyClientDriver.live,
         DnsResolver.default,
@@ -337,7 +337,7 @@ object NettyConnectionPoolSpec extends RoutesRunnableSpec {
         ZLayer(appKeepAliveEnabled.unit),
         DynamicNettyServer.live,
         serverTestLayer,
-        Client.customized,
+        ZClient.customized,
         ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(10, 100, 100.millis)),
         NettyClientDriver.live,
         DnsResolver.default,

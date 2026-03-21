@@ -50,7 +50,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
       port        <- portPromise.await
     } yield port
 
-  val singleConnectionClient: ZLayer[Any, Throwable, Client] = {
+  val singleConnectionClient: ZLayer[Any, Throwable, ZClient.Client] = {
     implicit val trace: Trace = Trace.empty
     (ZLayer.succeed(Config.default.copy(connectionPool = ConnectionPoolConfig.Fixed(1))) ++ ZLayer.succeed(
       NettyConfig.defaultWithFastShutdown,
@@ -58,7 +58,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
       DnsResolver.default) >>> NettyClient.live
   }
 
-  def makeRequest(client: Client, port: Int) = client
+  def makeRequest(client: ZClient.Client, port: Int) = client
     .request(
       Request.get(URL.decode(s"http://localhost:$port/with-content-length").toOption.get),
     )
@@ -78,7 +78,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
             ).iterator,
             message.length.toLong,
           )
-          client                   <- ZIO.service[Client]
+          client                   <- ZIO.service[ZClient.Client]
           firstResponse            <- makeRequest(client, port)
           firstResponseBodyReceive <- firstResponse.body.asStream.chunks.mapZIO { chunk =>
             atLeastOneChunkReceived.succeed(()).as(chunk.asString)
@@ -161,7 +161,7 @@ object NettyStreamBodySpec extends RoutesRunnableSpec {
           )
             .addHeader(Header.ContentType(MediaType.multipart.`mixed`, Some(mpm.boundary)))
           port   <- serve(resp)
-          client <- ZIO.service[Client]
+          client <- ZIO.service[ZClient.Client]
           req = Request.get(s"http://localhost:$port/it")
           actualResp   <- client(req)
           actualMpm    <- actualResp.body.asMultipartMixed
