@@ -25,16 +25,13 @@ import scala.util.control.NonFatal
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
 import io.netty.util.ReferenceCountUtil
@@ -177,9 +174,7 @@ private[zio] final case class ServerInboundHandler(
     request: Request,
   ): Task[Option[Task[Unit]]] = {
     response.body match {
-      case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
-        upgradeToWebSocket(ctx, request, socketApp, runtime).as(None)
-      case _                                                                        =>
+      case _ =>
         ZIO.attempt {
           val jResponse = NettyResponseEncoder.encode(request.method, response)
 
@@ -281,49 +276,6 @@ private[zio] final case class ServerInboundHandler(
     }
 
   }
-
-  /*
-   * Checks if the response requires to switch protocol to websocket. Returns
-   * true if it can, otherwise returns false
-   */
-  private def upgradeToWebSocket(
-    ctx: ChannelHandlerContext,
-    request: Request,
-    webSocketApp: WebSocketApp[Any],
-    runtime: NettyRuntime,
-  ): Task[Unit] = for {
-    handshakeCompleted <- Promise.make[Nothing, Boolean]
-    queue              <- Queue
-      .unbounded[WebSocketChannelEvent]
-      .tap { queue =>
-        ZIO.suspend {
-          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
-          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
-          ZIO.scoped(webSocketApp.handler.runZIO(webSocketChannel)).ignoreLogged.forkDaemon
-        }
-      }
-    _                  <- ZIO.attempt {
-      ctx
-        .channel()
-        .pipeline()
-        .addLast(
-          new WebSocketServerProtocolHandler(
-            NettySocketProtocol
-              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
-              .build(),
-          ),
-        )
-        .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
-
-      val jReq = new DefaultFullHttpRequest(
-        Conversions.versionToNetty(request.version),
-        Conversions.methodToNetty(request.method),
-        Conversions.urlToNetty(request.url),
-      )
-      jReq.headers().setAll(Conversions.headersToNetty(request.allHeaders))
-      ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(jReq) }
-    }
-  } yield ()
 
   private def writeResponse(
     ctx: ChannelHandlerContext,

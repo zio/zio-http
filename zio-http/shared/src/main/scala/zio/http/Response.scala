@@ -264,19 +264,6 @@ object Response {
     )
   }
 
-  /**
-   * Creates a new response for the provided socket app
-   */
-  def fromSocketApp[R](app: WebSocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
-    ZIO.environment[R].map { env =>
-      Response(
-        Status.SwitchingProtocols,
-        Headers.empty,
-        Body.fromSocketApp(app.provideEnvironment(env)),
-      )
-    }
-  }
-
   def fromThrowable(throwable: Throwable): Response =
     fromThrowable(throwable, ErrorResponseConfig.default)
 

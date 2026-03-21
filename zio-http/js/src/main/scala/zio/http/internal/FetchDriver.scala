@@ -49,12 +49,6 @@ final case class FetchDriver() extends ZClient.Driver[Any, Scope, Throwable] {
   override def disableStreaming(implicit ev1: Scope =:= Scope): ZClient.Driver[Any, Any, Throwable] =
     FetchDriverBatched()
 
-  override def socket[Env1](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
-    trace: Trace,
-    ev: Scope =:= Scope,
-  ): ZIO[Env1 & Scope, Throwable, Response] =
-    ZIO.die(new UnsupportedOperationException("WebSockets are not supported in the js client yet."))
-
 }
 
 object FetchDriver {
@@ -141,9 +135,4 @@ private[http] final case class FetchDriverBatched() extends ZClient.Driver[Any, 
       )
     }
 
-  override def socket[Env1 <: Any](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
-    trace: Trace,
-    ev: Any =:= Scope,
-  ): ZIO[Env1 & Any, Throwable, Response] =
-    ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
 }

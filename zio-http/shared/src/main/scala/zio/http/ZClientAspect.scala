@@ -166,12 +166,6 @@ object ZClientAspect {
               .flatMap(_._2)
               .unsandbox
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-            implicit
-            trace: Trace,
-            ev: ReqEnv =:= Scope,
-          ): ZIO[Env1 & ReqEnv, Err, Response] =
-            client.driver.socket(version, url, headers, app)
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
@@ -315,12 +309,6 @@ object ZClientAspect {
               .unsandbox
           }
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-            implicit
-            trace: Trace,
-            ev: ReqEnv =:= Scope,
-          ): ZIO[Env1 & ReqEnv, Err, Response] =
-            client.driver.socket(version, url, headers, app)
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
@@ -397,50 +385,6 @@ object ZClientAspect {
             req(0, version, method, url, headers, body, sslConfig, proxy)
           }
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-            implicit
-            trace: Trace,
-            ev: ReqEnv =:= Scope,
-          ): ZIO[Env1 & ReqEnv, Err, Response] = {
-            def sock(
-              attempt: Int,
-              version: Version,
-              url: URL,
-              headers: Headers,
-              app: WebSocketApp[Env1],
-            ): ZIO[Env1 & ReqEnv, Err, Response] = {
-              oldDriver.socket(version, url, headers, app).flatMap { resp =>
-                if (resp.status.isRedirection) {
-                  if (attempt < max) {
-                    resp.headerOrFail(Header.Location) match {
-                      case Some(locOrError) =>
-                        locOrError match {
-                          case Left(locHeaderErr) =>
-                            scopedRedirectErr(resp, locHeaderErr)
-
-                          case Right(loc) =>
-                            url.resolve(loc.url) match {
-                              case Left(relativeResolveErr) =>
-                                scopedRedirectErr(resp, relativeResolveErr)
-
-                              case Right(resolved) =>
-                                sock(attempt + 1, version, resolved, headers, app)
-                            }
-                        }
-                      case None             =>
-                        scopedRedirectErr(resp, "no location header to resolve redirect")
-                    }
-                  } else {
-                    scopedRedirectErr(resp, "followed maximum redirects")
-                  }
-                } else {
-                  ZIO.succeed(resp)
-                }
-              }
-            }
-
-            sock(0, version, url, headers, app)
-          }
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
@@ -478,17 +422,6 @@ object ZClientAspect {
                   client.driver.request(version, method, url, headers, body, sslConfig, proxy)
               }
 
-            override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-              implicit
-              trace: Trace,
-              ev: ReqEnv =:= Scope,
-            ): ZIO[Env1 & ReqEnv, Err, Response] =
-              RequestStore.get[Middleware.ForwardedHeaders].flatMap {
-                case Some(forwardedHeaders) =>
-                  client.driver.socket(version, url, headers ++ forwardedHeaders.headers, app)
-                case None                   =>
-                  client.driver.socket(version, url, headers, app)
-              }
           },
         )
     }
@@ -531,12 +464,6 @@ object ZClientAspect {
                 oldDriver.request(version, method, url, headers, body, sslConfig, proxy)
             }
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
-            implicit
-            trace: Trace,
-            ev: ReqEnv =:= Scope,
-          ): ZIO[Env1 & ReqEnv, Throwable, Response] =
-            client.driver.socket(version, url, headers, app)
         }
 
         client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)

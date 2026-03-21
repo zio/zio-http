@@ -69,7 +69,6 @@ object Server extends ServerPlatformSpecific {
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
-    webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     avoidContextSwitching: Boolean,
     soBacklog: Int,
@@ -211,8 +210,6 @@ object Server extends ServerPlatformSpecific {
     def tcpNoDelay(value: Boolean): Config =
       self.copy(tcpNoDelay = value)
 
-    def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
-      self.copy(webSocketConfig = webSocketConfig)
   }
 
   object Config {
@@ -284,7 +281,6 @@ object Server extends ServerPlatformSpecific {
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
-      webSocketConfig = WebSocketConfig.default,
       idleTimeout = None,
       avoidContextSwitching = false,
       soBacklog = 100,

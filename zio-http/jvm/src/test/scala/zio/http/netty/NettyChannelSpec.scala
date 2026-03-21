@@ -22,7 +22,7 @@ import zio.test.TestAspect.timeout
 import zio.test.{TestClock, assertTrue}
 import zio.{UIO, ZIO, durationInt}
 
-import zio.http.{Channel, ZIOHttpSpec}
+import zio.http.ZIOHttpSpec
 
 import io.netty.channel.embedded.EmbeddedChannel
 

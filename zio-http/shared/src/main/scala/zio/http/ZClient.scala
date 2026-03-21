@@ -219,18 +219,6 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def scheme(scheme: Scheme): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.scheme(scheme))
 
-  def socket[Env1 <: Env](
-    app: WebSocketApp[Env1],
-  )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err, Out] =
-    driver
-      .socket(
-        Version.Default,
-        url,
-        headers,
-        app,
-      )
-      .flatMap(bodyDecoder.decode)
-
   /**
    * Executes an HTTP request and transforms the response into a `ZStream` using
    * the provided function
@@ -355,9 +343,6 @@ object ZClient extends ZClientPlatformSpecific {
   ): ZStream[R & Client, Throwable, A] =
     ZStream.serviceWithStream[Client](_.stream(request)(f))
 
-  def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
-    ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
-
   trait BodyDecoder[-Env, +Err, +Out] { self =>
     def decode(response: Response)(implicit trace: Trace): ZIO[Env, Err, Out]
 
@@ -434,12 +419,6 @@ object ZClient extends ZClientPlatformSpecific {
             self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap(_.collect)
           }
 
-        // This should never be possible to invoke unless the user unsafely casted the Driver environment
-        override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(implicit
-          trace: Trace,
-          ev: Any =:= Scope,
-        ): ZIO[Env1 & Any, Err, Response] =
-          ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
       }
 
     final def mapError[Err2](f: Err => Err2): Driver[Env, ReqEnv, Err2] =
@@ -454,14 +433,6 @@ object ZClient extends ZClientPlatformSpecific {
           proxy: Option[Proxy],
         )(implicit trace: Trace): ZIO[Env & ReqEnv, Err2, Response] =
           self.request(version, method, url, headers, body, sslConfig, proxy).mapError(f)
-
-        override def socket[Env1 <: Env](
-          version: Version,
-          url: URL,
-          headers: Headers,
-          app: WebSocketApp[Env1],
-        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err2, Response] =
-          self.socket(version, url, headers, app).mapError(f)
       }
 
     final def refineOrDie[Err2](
@@ -478,14 +449,6 @@ object ZClient extends ZClientPlatformSpecific {
           proxy: Option[Proxy],
         )(implicit trace: Trace): ZIO[Env & ReqEnv, Err2, Response] =
           self.request(version, method, url, headers, body, sslConfig, proxy).refineOrDie(pf)
-
-        override def socket[Env1 <: Env](
-          version: Version,
-          url: URL,
-          headers: Headers,
-          app: WebSocketApp[Env1],
-        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err2, Response] =
-          self.socket(version, url, headers, app).refineOrDie(pf)
       }
 
     def request(
@@ -513,22 +476,7 @@ object ZClient extends ZClientPlatformSpecific {
           proxy: Option[Proxy],
         )(implicit trace: Trace): ZIO[Env1 & ReqEnv, Err1, Response] =
           self.request(version, method, url, headers, body, sslConfig, proxy).retry(policy)
-
-        override def socket[Env2 <: Env1](
-          version: Version,
-          url: URL,
-          headers: Headers,
-          app: WebSocketApp[Env2],
-        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env2 & ReqEnv, Err1, Response] =
-          self.socket(version, url, headers, app).retry(policy)
       }
-
-    def socket[Env1 <: Env](
-      version: Version,
-      url: URL,
-      headers: Headers,
-      app: WebSocketApp[Env1],
-    )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err, Response]
 
   }
 
@@ -541,7 +489,6 @@ object ZClient extends ZClientPlatformSpecific {
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
     addUserAgentHeader: Boolean,
-    webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
     @unroll
@@ -603,8 +550,6 @@ object ZClient extends ZClientPlatformSpecific {
     def dynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
-    def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
-      self.copy(webSocketConfig = webSocketConfig)
   }
 
   private[http] final class DriverLive private (
@@ -636,35 +581,12 @@ object ZClient extends ZClientPlatformSpecific {
           config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
         else config
 
-      requestAsync(request, cfg, () => WebSocketApp.unit, None)
+      requestAsync(request, cfg, None)
     }
-
-    def socket[Env1](
-      version: Version,
-      url: URL,
-      headers: Headers,
-      app: WebSocketApp[Env1],
-    )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] =
-      for {
-        env          <- ZIO.environment[Env1]
-        webSocketUrl <- url.scheme match {
-          case Some(Scheme.HTTP) | Some(Scheme.WS) | None => ZIO.succeed(url.scheme(Scheme.WS))
-          case Some(Scheme.WSS) | Some(Scheme.HTTPS)      => ZIO.succeed(url.scheme(Scheme.WSS))
-          case _ => ZIO.fail(new IllegalArgumentException("URL's scheme MUST be WS(S) or HTTP(S)"))
-        }
-        scope        <- ZIO.scope
-        res          <- requestAsync(
-          Request(version = version, method = Method.GET, url = webSocketUrl, headers = headers),
-          config,
-          () => app.provideEnvironment(env),
-          Some(scope),
-        )
-      } yield res
 
     private def requestAsync(
       request: Request,
       clientConfig: Config,
-      createSocketApp: () => WebSocketApp[Any],
       outerScope: Option[Scope],
     )(implicit
       trace: Trace,
@@ -708,8 +630,6 @@ object ZClient extends ZClientPlatformSpecific {
                         onResponse,
                         onComplete,
                         connectionPool.enableKeepAlive,
-                        createSocketApp,
-                        clientConfig.webSocketConfig,
                         clientConfig.bodyReadTimeout.map(_.toMillis),
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
@@ -779,7 +699,6 @@ object ZClient extends ZClientPlatformSpecific {
       requestDecompression = Decompression.No,
       localAddress = None,
       addUserAgentHeader = true,
-      webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
       bodyReadTimeout = None, // Defaults to idleTimeout when None

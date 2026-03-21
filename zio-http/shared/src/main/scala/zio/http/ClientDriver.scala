@@ -23,7 +23,6 @@ import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.internal.ChannelState
-
 trait ClientDriver {
   type Connection
 
@@ -34,8 +33,6 @@ trait ClientDriver {
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-    createSocketApp: () => WebSocketApp[Any],
-    webSocketConfig: WebSocketConfig,
     @unroll
     bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]

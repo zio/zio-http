@@ -84,22 +84,6 @@ abstract class RoutesRunnableSpec extends ZIOHttpSpec { self =>
         }
       } yield response
 
-    def deployWS
-      : Handler[R with Client with DynamicServer with Scope, Throwable, WebSocketApp[Client with Scope], Response] =
-      for {
-        id       <- Handler.fromZIO(DynamicServer.deploy[R](routes))
-        rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
-        url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
-        client   <- Handler.fromZIO(ZIO.service[Client])
-        response <- Handler.fromFunctionZIO[WebSocketApp[Client with Scope]] { app =>
-          ZIO.scoped[Client with Scope](
-            client
-              .url(url)
-              .addHeaders(Headers(DynamicServer.APP_ID, id))
-              .socket(app),
-          )
-        }
-      } yield response
   }
 
   def serve: ZIO[DynamicServer with Server with Server.Config, Nothing, Int] =

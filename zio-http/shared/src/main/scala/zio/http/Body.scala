@@ -579,9 +579,6 @@ object Body {
   ): RIO[R, Body] =
     fromStreamChunkedEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
-  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
-    WebsocketBody(app)
-
   /**
    * Helper to create Body from String
    */
@@ -865,30 +862,6 @@ object Body {
     override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
 
     override def materializedContent: Option[Chunk[Byte]] = None
-  }
-
-  private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
-    def asArray(implicit trace: Trace): Task[Array[Byte]] =
-      zioEmptyArray
-
-    def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      zioEmptyChunk
-
-    def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream.empty
-
-    def isComplete: Boolean = true
-
-    def isEmpty: Boolean = true
-
-    def contentType: Option[Body.ContentType] = None
-
-    def contentType(newContentType: Body.ContentType): zio.http.Body = this
-
-    override def knownContentLength: Option[Long] = Some(0L)
-
-    override def materializedContent: Option[Chunk[Byte]] = None
-
   }
 
   private val zioEmptyArray = Exit.succeed(Array.emptyByteArray)

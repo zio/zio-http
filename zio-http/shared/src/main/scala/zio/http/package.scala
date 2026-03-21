@@ -53,13 +53,4 @@ package object http extends UrlInterpolator with MdInterpolator {
   type Client = ZClient[Any, Scope, Body, Throwable, Response]
   def Client: ZClient.type = ZClient
 
-  /**
-   * A channel that allows websocket frames to be written to it.
-   */
-  type WebSocketChannel = Channel[WebSocketChannelEvent, WebSocketChannelEvent]
-
-  /**
-   * A channel that allows websocket frames to be read and write to it.
-   */
-  type WebSocketChannelEvent = ChannelEvent[WebSocketFrame]
 }

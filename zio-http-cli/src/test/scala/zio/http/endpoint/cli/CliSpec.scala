@@ -50,11 +50,10 @@ object CliSpec extends ZIOSpecDefault {
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
-        socketBehavior   <- Ref.make[WebSocketApp[Any]](WebSocketApp(Handler.unit))
         fallbackBehavior <- Ref.make[Handler[Any, Response, Request, Response]](
           handler((req: Request) => ZIO.logWarning(s"Unexpected request route: ${req}").as(Response.notFound)),
         )
-        driver = TestClient(behavior, socketBehavior, fallbackBehavior)
+        driver = TestClient(behavior, fallbackBehavior)
         _ <- driver.addRoutes {
           Routes(
             Method.GET / "fromURL" -> handler(Response.text("342.76")),

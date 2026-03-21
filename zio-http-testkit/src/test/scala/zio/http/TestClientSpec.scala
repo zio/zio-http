@@ -3,7 +3,6 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.ChannelEvent.Read
 
 object TestClientSpec extends ZIOHttpSpec {
 
@@ -99,35 +98,6 @@ object TestClientSpec extends ZIOHttpSpec {
             response <- client(Request.get(URL.root))
           } yield assertTrue(response.status == Status.NotFound),
         ),
-      ),
-      suite("socket ops")(
-        test("happy path") {
-          val socketClient: WebSocketApp[Any] =
-            Handler.webSocket { channel =>
-              channel.receiveAll {
-                case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
-                  channel.send(Read(WebSocketFrame.text("Hi Server")))
-
-                case _ =>
-                  ZIO.unit
-              }
-            }
-
-          val socketServer: WebSocketApp[Any] =
-            Handler.webSocket { channel =>
-              channel.receiveAll {
-                case ChannelEvent.Read(WebSocketFrame.Text("Hi Server")) =>
-                  channel.send(Read(WebSocketFrame.text("Hi Client")))
-
-                case _ => ZIO.unit
-              }
-            }
-
-          for {
-            _        <- TestClient.installSocketApp(socketServer)
-            response <- ZIO.serviceWithZIO[Client](_.socket(socketClient))
-          } yield assertTrue(response.status == Status.SwitchingProtocols)
-        },
       ),
     ).provide(TestClient.layer, Scope.default)
 

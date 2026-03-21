@@ -162,7 +162,6 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpc,
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
-      zioHttpStomp,
       zioHttpExample,
       zioHttpExampleDatastarChat,
       zioHttpTestkit,
