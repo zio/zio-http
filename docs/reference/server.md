@@ -398,6 +398,10 @@ import zio._
 import zio.http._
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
+import zio._
+import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientWithRequestCompression extends ZIOAppDefault {
   def compressStringToGzip(input: String): Chunk[Byte] = {
@@ -412,7 +416,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
     for {
       url <- ZIO.from(URL.decode("http://localhost:8080"))
       res <-
-        Client.batched(
+        ZClient.batched(
           Request
             .post(url, Body.fromChunk(compressStringToGzip("Hello, World!")))
             .addHeader(Header.ContentEncoding.GZip),
@@ -420,7 +424,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
       _   <- res.body.asString.debug("response: ")
     } yield ()
 
-  override val run = app.provide(Client.default)
+  override val run = app.provide(NettyClient.default)
 }
 ```
 
@@ -545,6 +549,9 @@ To test the 'upload-stream/simple' endpoint, let's run the following client code
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 import zio.stream.ZStream
 
 object SimpleStreamingClientExample extends ZIOAppDefault {
@@ -563,7 +570,7 @@ object SimpleStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```
 
@@ -574,6 +581,9 @@ The `upload-stream/form-field` endpoint is designed to handle multipart form dat
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 import zio.stream.ZStream
 
 object FormFieldStreamingClientExample extends ZIOAppDefault {
@@ -604,7 +614,7 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```
 

@@ -240,6 +240,8 @@ When we are working with the ZIO HTTP Client, we need to create a new `Request` 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 import zio.schema._
 
 case class AuthorQueryParams(age: Int, name: String)
@@ -250,14 +252,14 @@ object AuthorQueryParams {
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
-    Client.batched(
+    ZClient.batched(
       Request
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")
         .addQueryParam("q", "How to Write HTTP App")
         .addQueryParam(AuthorQueryParams(42, "John"))
         .addQueryParams("tag", Chunk("zio", "http", "scala")),
-    ).provide(Client.default)
+    ).provide(NettyClient.default)
 }
 ```
 
@@ -341,13 +343,15 @@ In the below example, we are creating a `Request` using the `Request.get` method
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientExample extends ZIOAppDefault {
-  def run = Client
+  def run = ZClient
     .batched(Request.get("http://localhost:8080/users/2"))
     .flatMap(_.body.asString)
     .debug("Response Body: ")
-    .provide(Client.default)
+    .provide(NettyClient.default)
 
 }
 ```

@@ -40,10 +40,12 @@ In the client-side context, a `Response` is received from the client after makin
 import zio._
 import zio.http.Header.ContentType.render
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientExample extends ZIOAppDefault {
   val program = for {
-    res         <- Client.batched(Request.get("https://zio.dev/"))
+    res         <- ZClient.batched(Request.get("https://zio.dev/"))
     contentType <- ZIO.from(res.header(Header.ContentType))
     _           <- Console.printLine("------Content Type------")
     _           <- Console.printLine(render(contentType))
@@ -52,7 +54,7 @@ object ClientExample extends ZIOAppDefault {
     _           <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 }
 ```
 
