@@ -217,6 +217,7 @@ lazy val zioHttpNettyCore: Project = (project in file("zio-http-netty-core"))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / sources := Nil,
+    Test / scalafix / skip := true,
     libraryDependencies ++= netty ++ Seq(
       `zio-test`,
       `zio-test-sbt`,
@@ -238,6 +239,7 @@ lazy val zioHttpNettyServer: Project = (project in file("zio-http-netty-server")
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / sources := Nil,
+    Test / scalafix / skip := true,
     libraryDependencies ++= Seq(
       `zio-test`,
       `zio-test-sbt`,
@@ -259,6 +261,7 @@ lazy val zioHttpNettyClient: Project = (project in file("zio-http-netty-client")
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / sources := Nil,
+    Test / scalafix / skip := true,
     libraryDependencies ++= Seq(
       `zio-test`,
       `zio-test-sbt`,

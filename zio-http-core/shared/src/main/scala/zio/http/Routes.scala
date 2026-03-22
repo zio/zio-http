@@ -28,8 +28,8 @@ import zio.http.codec.PathCodec
  * An HTTP application is a collection of routes, all of whose errors have been
  * handled through conversion into HTTP responses.
  *
- * HTTP applications can be installed into a [[zio.http.Server]], which is
- * capable of using them to serve requests.
+ * HTTP applications can be installed into a Server, which is capable of using
+ * them to serve requests.
  */
 final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
   private var _tree: Routes.Tree[_] =
