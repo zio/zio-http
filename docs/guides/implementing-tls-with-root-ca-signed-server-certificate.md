@@ -207,7 +207,7 @@ object ClientApp extends ZIOAppDefault {
 
   override val run =
     app.provide(
-      NettyClient.live,
+      NettyClient.default,
     )
 
 }

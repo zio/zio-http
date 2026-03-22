@@ -25,14 +25,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           jvm: temurin:17
           apps: sbt
       - name: Cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
       - name: Check formatting
         run: sbt "++2.13.18; fmtCheck"
 
@@ -47,14 +47,14 @@ jobs:
         scala: ['2.13.18', '3.3.7']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           jvm: temurin:${{ matrix.java }}
           apps: sbt
       - name: Cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
       - name: Set JDK 25 flags
         if: matrix.java == '25'
         run: echo "JAVA_TOOL_OPTIONS=-XX:+UseCompactObjectHeaders" >> "$GITHUB_ENV"
@@ -71,14 +71,14 @@ jobs:
         scala: ['2.13.18', '3.3.7']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           jvm: temurin:17
           apps: sbt
       - name: Cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -92,14 +92,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           jvm: temurin:17
           apps: sbt
       - name: Cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
       - name: Generate Scaladoc
         run: sbt "++2.13.18; doc"
 
@@ -128,16 +128,16 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Setup JDK
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           jvm: temurin:17
           apps: sbt
       - name: Cache
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
       - name: Release
         run: sbt ci-release
         env:
