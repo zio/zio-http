@@ -56,6 +56,20 @@ sealed trait Header {
 
 object Header {
 
+  private[http] def validateHeaderCharSequence(cs: CharSequence, kind: String): Unit = {
+    var i   = 0
+    val len = cs.length()
+    while (i < len) {
+      val c = cs.charAt(i)
+      if (c == '\r' || c == '\n') {
+        throw new IllegalArgumentException(
+          s"$kind contains prohibited character at index $i: 0x${c.toInt.toHexString}",
+        )
+      }
+      i += 1
+    }
+  }
+
   sealed trait HeaderTypeBase {
     type HeaderValue
 
@@ -218,8 +232,14 @@ object Header {
       ht
     }
 
-    private[http] override def headerNameAsCharSequence: CharSequence    = customName
-    private[http] override def renderedValueAsCharSequence: CharSequence = value
+    private[http] override def headerNameAsCharSequence: CharSequence    = {
+      Header.validateHeaderCharSequence(customName, "Header name")
+      customName
+    }
+    private[http] override def renderedValueAsCharSequence: CharSequence = {
+      Header.validateHeaderCharSequence(value, "Header value")
+      value
+    }
 
     override def hashCode(): Int = {
       var h       = 0
