@@ -9,10 +9,10 @@ name: Continuous Integration
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, v4.x]
     types: [opened, synchronize, reopened, edited, labeled]
   push:
-    branches: [main]
+    branches: [main, v4.x]
     tags: [v*]
 
 env:
