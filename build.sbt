@@ -67,8 +67,8 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       zioHttpCli,
       zioHttpDatastarSdk,
       zioHttpGen,
-      sbtZioHttpGrpc,
-      sbtZioHttpGrpcTests,
+      // sbtZioHttpGrpc,      // disabled for 4.x, needs rework
+      // sbtZioHttpGrpcTests, // disabled for 4.x, needs rework
       zioHttpHtmx,
       zioHttpExample,
       zioHttpExampleDatastarChat,
@@ -695,7 +695,6 @@ lazy val docs = project
   .dependsOn(zioHttpTestkit)
 
 Global / excludeLintKeys ++= Set(
-  sbtZioHttpGrpcTests / autoAPIMappings,
   ideSkipProject,
 )
 
