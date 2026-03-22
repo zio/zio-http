@@ -23,14 +23,10 @@ final case class Signal[A](
   /** Create a signal update assignment */
   def :=(value: A): SignalUpdate[A] = SignalUpdate(self, value)
 
-  private var ref0: String = null
-
-  /** Render the signal as a datastar expression reference */
-  def ref: String = {
-    if (ref0 == null && schema.isInstanceOf[Schema.Primitive[_]]) ref0 = name.ref
-    else if (!schema.isInstanceOf[Schema.Primitive[_]])
+  lazy val ref: String = {
+    if (!schema.isInstanceOf[Schema.Primitive[_]])
       throw new RuntimeException(s"Signal.ref is only supported for primitive types, got: $schema")
-    ref0
+    name.ref
   }
 
   override def toString: String = ref
@@ -148,7 +144,8 @@ object SignalUpdate {
     case zio.json.ast.Json.Arr(items)  =>
       val itemStrs = items.map(astToExpression)
       s"[${itemStrs.mkString(", ")}]"
-    case zio.json.ast.Json.Str(value)  => s"'$value'"
+    case s: zio.json.ast.Json.Str      =>
+      s"'${s.value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")}'"
     case zio.json.ast.Json.Num(value)  => value.toString
     case zio.json.ast.Json.Bool(value) => value.toString
     case zio.json.ast.Json.Null        => "null"

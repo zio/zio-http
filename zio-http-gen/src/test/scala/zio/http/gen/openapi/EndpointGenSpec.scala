@@ -105,7 +105,7 @@ object EndpointGenSpec extends ZIOSpecDefault {
                     headersCode = Code.HeadersCode.empty,
                     inCode = Code.InCode("Unit"),
                     outCodes = Nil,
-                    errorsCode = Nil,
+                    errorsCode = List(Code.OutCode("Unit", Status.NotFound, Some("application/json"), None, false)),
                     authTypeCode = Some(Code.AuthTypeCode("Bearer")),
                   ),
                 ),

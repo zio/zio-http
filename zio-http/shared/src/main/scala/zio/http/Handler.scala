@@ -449,17 +449,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
-        (self(in), that(in)) match {
-          case (s @ Exit.Success(_), _)                        =>
-            s
-          case (Exit.Failure(cause), _) if cause.isDie         =>
-            Exit.die(cause.dieOption.get)
-          case (Exit.Failure(cause), other) if cause.isFailure =>
-            other
-          case (self, other)                                   =>
-            self.orElse(other)
+      override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] = {
+        val s = self(in)
+        s match {
+          case s @ Exit.Success(_)                    => s
+          case Exit.Failure(cause) if cause.isDie     => Exit.die(cause.dieOption.get)
+          case Exit.Failure(cause) if cause.isFailure => that(in)
+          case _                                      => s.orElse(that(in))
         }
+      }
     }
 
   /**
@@ -552,8 +550,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCauseZIO { cause =>
-      ZIO.logErrorCause("Unhandled exception in request handler", cause) *>
+      logUnhandledError(cause) *>
         ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(cause, cfg)))
+    }
+
+  /**
+   * Log an unhandled error unless the cause is already a response
+   */
+  private def logUnhandledError(cause: Cause[Any]): UIO[Unit] =
+    cause.failureOrCause match {
+      case Left(_: Response) => ZIO.unit
+      case _                 => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =

@@ -79,6 +79,31 @@ object Middleware extends HandlerAspects {
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
   def cors(config: CorsConfig): Middleware[Any] = {
+    // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
+    val allowedHeadersSet: Set[String] =
+      config.allowedHeaders match {
+        case s: Header.AccessControlAllowHeaders.Some => s.values.toSet
+        case _                                        => Set.empty
+      }
+
+    // Pre-build fixed headers at construction time to avoid per-request allocation.
+    // The repetition of config fields across branches is intentional: each call to
+    // Headers(...) produces a flat FromIterable, avoiding any Concat wrapper that
+    // Headers#++ would introduce.
+    val (nonPreflightHeaders, preflightBaseHeaders): (Headers, Headers) =
+      config.maxAge match {
+        case Some(maxAge) =>
+          (
+            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders, maxAge),
+            Headers(config.allowedMethods, config.allowCredentials, maxAge),
+          )
+        case None         =>
+          (
+            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders),
+            Headers(config.allowedMethods, config.allowCredentials),
+          )
+      }
+
     def allowedHeaders(
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       allowedHeaders: Header.AccessControlAllowHeaders,
@@ -86,22 +111,22 @@ object Middleware extends HandlerAspects {
       // Returning an intersection of requested headers and allowed headers
       // if there are no requested headers, we return the configured allowed headers without modification
       allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(values) =>
+        case _: Header.AccessControlAllowHeaders.Some =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(values.toSet)
+              val intersection = headers.toSet.intersect(allowedHeadersSet)
               NonEmptyChunk.fromIterableOption(intersection) match {
                 case Some(values) => Header.AccessControlAllowHeaders.Some(values)
                 case None         => Header.AccessControlAllowHeaders.None
               }
             case None                                              => allowedHeaders
           }
-        case Header.AccessControlAllowHeaders.All          =>
+        case Header.AccessControlAllowHeaders.All     =>
           requestedHeaders match {
             case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
             case _                                                 => Header.AccessControlAllowHeaders.All
           }
-        case Header.AccessControlAllowHeaders.None         => Header.AccessControlAllowHeaders.None
+        case Header.AccessControlAllowHeaders.None    => Header.AccessControlAllowHeaders.None
       }
 
     def corsHeaders(
@@ -109,15 +134,10 @@ object Middleware extends HandlerAspects {
       requestedHeaders: Option[Header.AccessControlRequestHeaders],
       isPreflight: Boolean,
     ): Headers =
-      Headers(
-        allowOrigin,
-        config.allowedMethods,
-        config.allowCredentials,
-      ) ++
-        Headers.ifThenElse(isPreflight)(
-          onTrue = Headers(allowedHeaders(requestedHeaders, config.allowedHeaders)),
-          onFalse = Headers(config.exposedHeaders),
-        ) ++ config.maxAge.fold(Headers.empty)(Headers(_))
+      if (isPreflight)
+        Headers(allowOrigin, allowedHeaders(requestedHeaders, config.allowedHeaders)) ++ preflightBaseHeaders
+      else
+        Headers(allowOrigin) ++ nonPreflightHeaders
 
     // HandlerAspect:
     val aspect =
@@ -213,7 +233,6 @@ object Middleware extends HandlerAspects {
           Handler.scoped[Env1] {
             handler { (req: Request) =>
               val headerValues = f(req.headers)
-              println(s"Forwarding headers: $headerValues")
               RequestStore.update[ForwardedHeaders] { old =>
                 ForwardedHeaders {
                   old.map(_.headers).getOrElse(Headers.empty) ++
@@ -411,17 +430,18 @@ object Middleware extends HandlerAspects {
       for {
         _   <- requestsTotal.tagged(labels).increment
         _   <- concurrentRequests.tagged(requestLabels).decrement
-        end <- Clock.nanoTime
+        end <- ZIO.succeed(java.lang.System.nanoTime())
         took = end - start
         _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
       } yield ()
 
-    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] =
-      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
-        val requestLabels = labelsForRequest(routePattern)
+    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] = {
+      // Computed once at route registration time, not per request
+      val requestLabels = labelsForRequest(routePattern)
 
+      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
         for {
-          start <- Clock.nanoTime
+          start <- ZIO.succeed(java.lang.System.nanoTime())
           _     <- concurrentRequests.tagged(requestLabels).increment
         } yield ((start, requestLabels), (req, ()))
       })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
@@ -429,6 +449,7 @@ object Middleware extends HandlerAspects {
 
         report(start, requestLabels, allLabels).as(response)
       })
+    }
 
     new Middleware[Any] {
       def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -437,6 +458,151 @@ object Middleware extends HandlerAspects {
         )
     }
   }
+
+  /**
+   * Creates middleware that will track metrics, with additional labels derived
+   * from the response.
+   *
+   * @param responseLabels
+   *   A pure function that derives additional metric labels from the response
+   *   (e.g. status class, specific headers). Invoked once per response.
+   * @param concurrentRequestsName
+   *   Concurrent HTTP requests metric name.
+   * @param totalRequestsName
+   *   Total HTTP requests metric name.
+   * @param requestDurationName
+   *   HTTP request duration metric name.
+   * @param requestDurationBoundaries
+   *   Boundaries for the HTTP request duration metric.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   */
+  def metrics(
+    responseLabels: Response => Set[MetricLabel],
+    pathLabelMapper: String => String,
+    concurrentRequestsName: String,
+    totalRequestsName: String,
+    requestDurationName: String,
+    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries,
+    extraLabels: Set[MetricLabel],
+  )(implicit trace: Trace): Middleware[Any] = {
+    val requestsTotal: Metric.Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+    val concurrentRequests: Metric.Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+    val requestDuration: Metric.Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+    val nanosToSeconds: Double                      = 1e9d
+
+    def labelsForRequest(routePattern: RoutePattern[_]): Set[MetricLabel] =
+      Set(
+        MetricLabel("method", routePattern.method.render),
+        MetricLabel("path", pathLabelMapper(routePattern.pathCodec.render)),
+      ) ++ extraLabels
+
+    def labelsForResponse(res: Response): Set[MetricLabel] =
+      Set(
+        MetricLabel("status", res.status.code.toString),
+      ) ++ responseLabels(res)
+
+    def report(
+      start: Long,
+      requestLabels: Set[MetricLabel],
+      labels: Set[MetricLabel],
+    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      for {
+        _   <- requestsTotal.tagged(labels).increment
+        _   <- concurrentRequests.tagged(requestLabels).decrement
+        end <- ZIO.succeed(java.lang.System.nanoTime())
+        took = end - start
+        _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+      } yield ()
+
+    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] = {
+      val requestLabels = labelsForRequest(routePattern)
+
+      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
+        for {
+          start <- ZIO.succeed(java.lang.System.nanoTime())
+          _     <- concurrentRequests.tagged(requestLabels).increment
+        } yield ((start, requestLabels), (req, ()))
+      })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
+        val allLabels = requestLabels ++ labelsForResponse(response)
+
+        report(start, requestLabels, allLabels).as(response)
+      })
+    }
+
+    new Middleware[Any] {
+      def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(
+          routes.routes.map(route => route.transform[Env1](handler => handler.sandbox @@ aspect(route.routePattern))),
+        )
+    }
+  }
+
+  /**
+   * Creates middleware that will track metrics, with additional labels derived
+   * from the response. Uses default metric names and boundaries.
+   *
+   * @param responseLabels
+   *   A pure function that derives additional metric labels from the response
+   *   (e.g. status class, specific headers). Invoked once per response.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   */
+  def metrics(
+    responseLabels: Response => Set[MetricLabel],
+    pathLabelMapper: String => String,
+    extraLabels: Set[MetricLabel],
+  )(implicit trace: Trace): Middleware[Any] =
+    metrics(
+      responseLabels = responseLabels,
+      pathLabelMapper = pathLabelMapper,
+      concurrentRequestsName = "http_concurrent_requests_total",
+      totalRequestsName = "http_requests_total",
+      requestDurationName = "http_request_duration_seconds",
+      requestDurationBoundaries = defaultBoundaries,
+      extraLabels = extraLabels,
+    )
+
+  /**
+   * Creates middleware for HTTP request tracing using ZIO's built-in log spans
+   * and annotations. When used with a ZIO OpenTelemetry backend, spans are
+   * automatically exported as OpenTelemetry traces.
+   *
+   * @param spanName
+   *   Derives the span name from the route pattern and request. Defaults to
+   *   "{METHOD} {route}" per OpenTelemetry semantic conventions.
+   * @param additionalAttributes
+   *   Derives additional log annotations from the request.
+   */
+  def tracing(
+    spanName: (RoutePattern[_], Request) => String = (routePattern, request) =>
+      s"${request.method.render} ${routePattern.pathCodec.render}",
+    additionalAttributes: Request => Set[LogAnnotation] = _ => Set.empty,
+  )(implicit trace: Trace): Middleware[Any] =
+    new Middleware[Any] {
+      def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(
+          routes.routes.map { route =>
+            val routePattern = route.routePattern
+            route.transform[Env1] { h =>
+              Handler.scoped[Env1](handler { (request: Request) =>
+                val name        = spanName(routePattern, request)
+                val annotations = Set(
+                  LogAnnotation("http.method", request.method.render),
+                  LogAnnotation("http.route", routePattern.pathCodec.render),
+                  LogAnnotation("http.target", request.url.path.encode + request.url.queryParams.encode),
+                ) ++ additionalAttributes(request)
+
+                ZIO.logSpan(name) {
+                  ZIO.logAnnotate(annotations) {
+                    h(request)
+                  }
+                }
+              })
+            }
+          },
+        )
+    }
 
   private sealed trait StaticServe[-R, +E] { self =>
     def run(path: Path, req: Request): Handler[R, E, Request, Response]

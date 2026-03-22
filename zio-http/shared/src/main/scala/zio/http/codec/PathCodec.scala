@@ -682,6 +682,18 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
 
   final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
+
+  /**
+   * Converts this PathCodec[Unit] to a Path using the encode method. Useful for
+   * round-trip conversion.
+   *
+   * @param ev
+   *   evidence that A =:= Unit
+   * @return
+   *   the encoded Path, or Path.root if encoding fails
+   */
+  def toPath(implicit ev: A =:= Unit): Path =
+    encode(().asInstanceOf[A]).getOrElse(Path.root)
 }
 object PathCodec {
 
@@ -829,8 +841,9 @@ object PathCodec {
         val segment = segments(i)
 
         // Fast path, jump down the tree:
+        val literalChild = subtree.literals.getOrElse(segment, null)
         if (
-          subtree.literals.contains(segment)
+          (literalChild ne null)
           && (subtree.literalsWithCollisions.eq(Set.empty) || !skipLiteralsFor.contains(i))
         ) {
 
@@ -840,7 +853,7 @@ object PathCodec {
             trySkipLiteralIdx = i +: trySkipLiteralIdx
           }
 
-          subtree = subtree.literals(segment)
+          subtree = literalChild
 
           result = subtree.value
           i += 1

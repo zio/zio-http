@@ -4,6 +4,7 @@ import scala.language.implicitConversions
 
 import zio._
 import zio.json._
+import zio.json.ast.Json
 
 import zio.schema._
 import zio.schema.annotation.fieldName
@@ -129,6 +130,9 @@ final case class DatastarRequestOptions(
   retryMaxWaitMs: Int = 30000,
   retryMaxCount: Int = 10,
   requestCancellation: DatastarRequestCancellation = DatastarRequestCancellation.Auto,
+  retry: Option[DatastarRetry] = None,
+  payload: Option[Js] = None,
+  cleanup: Option[Js] = None,
 ) extends HeaderOps[DatastarRequestOptions] {
 
   /**
@@ -145,15 +149,42 @@ final case class DatastarRequestOptions(
 }
 
 object DatastarRequestOptions {
-  val default: DatastarRequestOptions                 = DatastarRequestOptions()
-  implicit val headersSchema: Schema[Headers]         =
+  val default: DatastarRequestOptions = DatastarRequestOptions()
+
+  implicit val headersSchema: Schema[Headers] =
     Schema[Map[String, String]].transform[Headers](
       map => Headers.fromIterable(map.map { case (k, v) => Header.Custom(k, v) }),
       headers => headers.map(h => h.headerName -> h.renderedValue).toMap,
     )
+
+  implicit val jsSchema: Schema[Js] = Schema[String].transform[Js](
+    Js(_),
+    _.value,
+  )
+
   implicit val schema: Schema[DatastarRequestOptions] = DeriveSchema.gen
 
-  implicit val json: JsonCodec[DatastarRequestOptions] = jsonCodec(schema)
+  private val fullCodec: JsonCodec[DatastarRequestOptions] = jsonCodec(schema)
+
+  private lazy val defaultFields: Map[String, Json] =
+    fullCodec.encoder.toJsonAST(default) match {
+      case Right(Json.Obj(fields)) => fields.toMap
+      case _                       => Map.empty
+    }
+
+  implicit val jsonEncoder: JsonEncoder[DatastarRequestOptions] =
+    JsonEncoder[Json].contramap[DatastarRequestOptions] { a =>
+      fullCodec.encoder.toJsonAST(a) match {
+        case Right(Json.Obj(fields)) =>
+          Json.Obj(Chunk.fromIterable(fields.filter { case (k, v) => !defaultFields.get(k).contains(v) }))
+        case Right(other)            => other
+        case Left(_)                 => Json.Obj()
+      }
+    }
+
+  implicit val jsonDecoder: JsonDecoder[DatastarRequestOptions] = fullCodec.decoder
+
+  implicit val json: JsonCodec[DatastarRequestOptions] = JsonCodec(jsonEncoder, jsonDecoder)
 }
 
 final case class DatastarSignalFilter(
@@ -173,14 +204,38 @@ object DatastarRequestCancellation {
 
   implicit val schema: Schema[DatastarRequestCancellation] = Schema[String].transform[DatastarRequestCancellation](
     {
-      case "Auto"     => Auto
-      case "Disabled" => Disabled
+      case "auto"     => Auto
+      case "disabled" => Disabled
       case other      => Custom(Js(other))
     },
     {
-      case Auto          => "Auto"
-      case Disabled      => "Disabled"
+      case Auto          => "auto"
+      case Disabled      => "disabled"
       case Custom(value) => value.value
+    },
+  )
+}
+
+sealed trait DatastarRetry
+object DatastarRetry {
+  case object Auto   extends DatastarRetry
+  case object Error  extends DatastarRetry
+  case object Always extends DatastarRetry
+  case object Never  extends DatastarRetry
+
+  implicit val schema: Schema[DatastarRetry] = Schema[String].transformOrFail[DatastarRetry](
+    {
+      case "auto"   => Right(Auto)
+      case "error"  => Right(Error)
+      case "always" => Right(Always)
+      case "never"  => Right(Never)
+      case other    => Left(s"Invalid DatastarRetry value: '$other'. Expected 'auto', 'error', 'always', or 'never'.")
+    },
+    {
+      case Auto   => Right("auto")
+      case Error  => Right("error")
+      case Always => Right("always")
+      case Never  => Right("never")
     },
   )
 }

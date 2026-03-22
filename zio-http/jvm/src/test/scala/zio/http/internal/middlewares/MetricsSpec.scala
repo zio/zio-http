@@ -116,5 +116,76 @@ object MetricsSpec extends ZIOHttpSpec with TestExtensions {
           after  <- gauge.value
         } yield assertTrue(before == MetricState.Gauge(0), before == after, during == MetricState.Gauge(1))
       },
+      test("metrics labels are consistent across multiple requests to the same route") {
+        val total = Metric
+          .counterInt("http_requests_total")
+          .tagged("test", "label_consistency")
+          .tagged("path", "/items")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+
+        val routes = (Method.GET / "items" -> Handler.ok).toRoutes @@ metrics(
+          extraLabels = Set(MetricLabel("test", "label_consistency")),
+        )
+
+        for {
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          _     <- routes.runZIO(Request.get(url = URL(Path.root / "items")))
+          count <- total.value
+        } yield assertTrue(count == MetricState.Counter(3))
+      },
+      test("http_requests_total with response-derived labels") {
+        val responseLabels: Response => Set[MetricLabel] =
+          response => Set(MetricLabel("status_class", (response.status.code / 100).toString + "xx"))
+
+        val routes = Routes(
+          Method.GET / "ok"    -> Handler.ok,
+          Method.GET / "error" -> Handler.internalServerError,
+        ) @@ metrics(
+          responseLabels = responseLabels,
+          pathLabelMapper = Predef.identity[String],
+          extraLabels = Set(MetricLabel("test", "response_labels")),
+        )
+
+        val total      = Metric.counterInt("http_requests_total").tagged("test", "response_labels")
+        val totalOk    = total
+          .tagged("path", "/ok")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+          .tagged("status_class", "2xx")
+        val totalError = total
+          .tagged("path", "/error")
+          .tagged("method", "GET")
+          .tagged("status", "500")
+          .tagged("status_class", "5xx")
+
+        for {
+          _          <- routes.runZIO(Request.get("/ok"))
+          _          <- routes.runZIO(Request.get("/error"))
+          okCount    <- totalOk.value
+          errorCount <- totalError.value
+        } yield assertTrue(
+          okCount == MetricState.Counter(1),
+          errorCount == MetricState.Counter(1),
+        )
+      },
+      test("metrics with response labels does not affect existing overload") {
+        val routes = (Method.GET / "simple" -> Handler.ok).toRoutes @@ metrics(
+          extraLabels = Set(MetricLabel("test", "existing_overload")),
+        )
+
+        val total = Metric
+          .counterInt("http_requests_total")
+          .tagged("test", "existing_overload")
+          .tagged("path", "/simple")
+          .tagged("method", "GET")
+          .tagged("status", "200")
+
+        for {
+          _     <- routes.runZIO(Request.get("/simple"))
+          count <- total.value
+        } yield assertTrue(count == MetricState.Counter(1))
+      },
     )
 }

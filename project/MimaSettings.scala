@@ -44,7 +44,15 @@ object MimaSettings {
         ProblemFilters.exclude[MissingClassProblem]("zio.http.netty.NettyHeaderEncoding$"),
         exclude[Problem]("zio.http.template2.*"),
         ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.Route.toHandlerUnsandboxed"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.RichTextCodec.|")
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.codec.RichTextCodec.|"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.DnsResolver#CachingResolver.this"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.http.DnsResolver#CachingResolver.make"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.endpoint.AuthType.unauthorizedStatus"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.http.endpoint.AuthType.withUnauthorizedStatus"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicy$Combined"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicy$Combined$"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicyReportOnly"),
+        ProblemFilters.exclude[MissingClassProblem]("zio.http.Header$ContentSecurityPolicyReportOnly$"),
       ),
       mimaFailOnProblem := failOnProblem,
     )

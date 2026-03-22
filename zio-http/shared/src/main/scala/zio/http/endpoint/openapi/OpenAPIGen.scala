@@ -728,13 +728,64 @@ object OpenAPIGen {
     ): List[SecurityRequirement] =
       endpointSecurity(endpoint)
 
+    def customAuthSchemes(codec: HttpCodec[_, _]): List[(String, SecurityScheme.ApiKey)] = {
+      val atoms         = AtomizedMetaCodecs.flatten(codec)
+      val headerSchemes = atoms.header.map { meta =>
+        val headerAtom = meta.codec.asInstanceOf[HttpCodec.Header[_]]
+        val name       = headerAtom.headerType.names.head
+        val in         =
+          if (name.equalsIgnoreCase("cookie")) SecurityScheme.ApiKey.In.Cookie
+          else SecurityScheme.ApiKey.In.Header
+        (name, SecurityScheme.ApiKey(description = None, name = name, in = in))
+      }.toList
+      val querySchemes  = atoms.query.map { meta =>
+        val queryAtom = meta.codec.asInstanceOf[HttpCodec.Query[_]]
+        val name      = queryAtom.codec.recordFields.head._1.fieldName
+        (name, SecurityScheme.ApiKey(description = None, name = name, in = SecurityScheme.ApiKey.In.Query))
+      }.toList
+      headerSchemes ++ querySchemes
+    }
+
     def endpointSecurity(endpoint: Endpoint[_, _, _, _, _]): List[SecurityRequirement] = {
-      endpoint.authType match {
+      def loop(authType: AuthType): List[SecurityRequirement] = authType match {
         case AuthType.ScopedAuth(auth, scopes)                  =>
-          List(SecurityRequirement(Map(auth.toString() -> scopes)))
+          loop(auth).map { req =>
+            SecurityRequirement(req.securitySchemes.map { case (k, _) => k -> scopes })
+          }
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-          List(SecurityRequirement(Map(endpoint.authType.toString() -> Nil)))
+          List(SecurityRequirement(Map(authType.toString() -> Nil)))
+        case custom: AuthType.Custom[_]                         =>
+          val schemes = customAuthSchemes(custom.codec)
+          List(SecurityRequirement(schemes.map { case (name, _) => name -> Nil }.toMap))
+        case or: AuthType.Or[_, _, _]                           =>
+          loop(or.auth1) ++ loop(or.auth2)
+        case AuthType.WithStatus(auth, _)                       =>
+          loop(auth)
         case _                                                  => Nil
+      }
+      loop(endpoint.authType.asInstanceOf[AuthType])
+    }
+
+    def authResponse(endpoint: Endpoint[_, _, _, _, _]): OpenAPI.Responses = {
+      val authType                      = endpoint.authType.asInstanceOf[AuthType]
+      def isNone(at: AuthType): Boolean = at match {
+        case AuthType.None             => true
+        case AuthType.WithStatus(a, _) => isNone(a)
+        case AuthType.ScopedAuth(a, _) => isNone(a)
+        case _                         => false
+      }
+      if (isNone(authType)) Map.empty
+      else {
+        val status      = authType.unauthorizedStatus
+        val statusKey   = OpenAPI.StatusOrDefault.StatusValue(status)
+        val description = status match {
+          case Status.Unauthorized => "Unauthorized"
+          case Status.NotFound     => "Not Found"
+          case Status.Forbidden    => "Forbidden"
+          case Status.BadRequest   => "Bad Request"
+          case other               => other.text
+        }
+        Map(statusKey -> OpenAPI.ReferenceOr.Or(OpenAPI.Response(description = Some(Doc.p(description)))))
       }
     }
 
@@ -748,7 +799,7 @@ object OpenAPIGen {
         operationId = None,
         parameters = parameters,
         requestBody = requestBody,
-        responses = responses,
+        responses = authResponse(endpoint) ++ responses,
         callbacks = Map.empty,
         security = getSecurity(endpoint),
         servers = Nil,
@@ -881,28 +932,32 @@ object OpenAPIGen {
     def genDiscriminator(schema: Schema[_]): Option[OpenAPI.Discriminator] = {
       schema match {
         case enumSchema: Schema.Enum[_] =>
-          val discriminatorName =
-            enumSchema.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
-          val noDiscriminator   = enumSchema.annotations.contains(zio.schema.annotation.noDiscriminator())
-          val typeMapping       = enumSchema.cases.map { case_ =>
-            val caseName =
-              case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }.getOrElse(case_.id)
-            // There should be no enums with cases that are not records with a nominal id
-            // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
-            val typeId   =
-              (case_.schema match {
-                case lzy: Schema.Lazy[_]                  => lzy.schema
-                case transform: Schema.Transform[_, _, _] => transform.schema
-                case _                                    => case_.schema
-              })
-                .asInstanceOf[Schema.Record[_]]
-                .id
-                .asInstanceOf[TypeId.Nominal]
-            caseName -> schemaReferencePath(typeId, referenceType)
-          }
-
+          val noDiscriminator = enumSchema.annotations.contains(zio.schema.annotation.noDiscriminator())
           if (noDiscriminator) None
-          else discriminatorName.map(name => OpenAPI.Discriminator(name, typeMapping.toMap))
+          else {
+            val discriminatorName =
+              enumSchema.annotations.collectFirst { case zio.schema.annotation.discriminatorName(name) => name }
+            discriminatorName.map { name =>
+              val typeMapping = enumSchema.cases.map { case_ =>
+                val caseName =
+                  case_.annotations.collectFirst { case zio.schema.annotation.caseName(name) => name }
+                    .getOrElse(case_.id)
+                // There should be no enums with cases that are not records with a nominal id
+                // TODO: not true. Since one could build a schema with a enum with a case that is a primitive
+                val typeId   =
+                  (case_.schema match {
+                    case lzy: Schema.Lazy[_]                  => lzy.schema
+                    case transform: Schema.Transform[_, _, _] => transform.schema
+                    case _                                    => case_.schema
+                  })
+                    .asInstanceOf[Schema.Record[_]]
+                    .id
+                    .asInstanceOf[TypeId.Nominal]
+                caseName -> schemaReferencePath(typeId, referenceType)
+              }
+              OpenAPI.Discriminator(name, typeMapping.toMap)
+            }
+          }
 
         case _ => None
       }
@@ -994,32 +1049,34 @@ object OpenAPIGen {
     def httpSecuritySchemes(
       endpoint: Endpoint[_, _, _, _, _],
       params: Set[OpenAPI.ReferenceOr[OpenAPI.Parameter]],
-    ): ListMap[Key, ReferenceOr[SecurityScheme]] =
-      endpoint.authType match {
-        case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
-          ListMap(
-            OpenAPI.Key.fromString(endpoint.authType.toString()).get ->
-              ReferenceOr.Or[SecurityScheme.Http](
-                SecurityScheme.Http(
-                  scheme = endpoint.authType.toString(),
-                  bearerFormat = None,
-                  description = None,
+    ): ListMap[Key, ReferenceOr[SecurityScheme]] = {
+      def loop(authType: AuthType): ListMap[Key, ReferenceOr[SecurityScheme]] =
+        authType match {
+          case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
+            ListMap(
+              OpenAPI.Key.fromString(authType.toString()).get ->
+                ReferenceOr.Or[SecurityScheme.Http](
+                  SecurityScheme.Http(
+                    scheme = authType.toString(),
+                    bearerFormat = None,
+                    description = None,
+                  ),
                 ),
-              ),
-          )
-        case AuthType.ScopedAuth(auth, _)                       =>
-          ListMap(
-            OpenAPI.Key.fromString(auth.toString()).get ->
-              ReferenceOr.Or[SecurityScheme.Http](
-                SecurityScheme.Http(
-                  scheme = auth.toString(),
-                  bearerFormat = None,
-                  description = None,
-                ),
-              ),
-          )
-        case _                                                  => ListMap.empty
-      }
+            )
+          case AuthType.ScopedAuth(auth, _)                       =>
+            loop(auth)
+          case custom: AuthType.Custom[_]                         =>
+            ListMap(customAuthSchemes(custom.codec).map { case (name, scheme) =>
+              OpenAPI.Key.fromString(name).get -> ReferenceOr.Or(scheme)
+            }: _*)
+          case or: AuthType.Or[_, _, _]                           =>
+            loop(or.auth1) ++ loop(or.auth2)
+          case AuthType.WithStatus(auth, _)                       =>
+            loop(auth)
+          case _                                                  => ListMap.empty
+        }
+      loop(endpoint.authType.asInstanceOf[AuthType])
+    }
 
     def getSecuritySchemes(
       endpoint: Endpoint[_, _, _, _, _],

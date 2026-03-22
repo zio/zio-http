@@ -239,5 +239,33 @@ object PathCodecSpec extends ZIOHttpSpec {
           )
         },
       ),
+      suite("toPath and toPathCodec conversion")(
+        test("toPath converts PathCodec[Unit] to Path") {
+          val codec = PathCodec.empty / PathCodec.literal("foo") / PathCodec.literal("bar")
+          val path  = codec.toPath
+          assertTrue(path == Path("/foo/bar"))
+        },
+        test("toPath with empty codec returns Path.root") {
+          val codec = PathCodec.empty
+          val path  = codec.toPath
+          assertTrue(path == Path.root)
+        },
+        test("toPathCodec creates codec from path") {
+          val path  = Path("/foo/bar")
+          val codec = Path.toPathCodec(path)
+          assertTrue(codec.decode(path) == Right(()))
+        },
+        test("toPathCodec creates codec from root path") {
+          val path  = Path.root
+          val codec = Path.toPathCodec(path)
+          assertTrue(codec.decode(path) == Right(()))
+        },
+        test("round-trip: toPath and toPathCodec") {
+          val codec          = PathCodec.empty / PathCodec.literal("api") / PathCodec.literal("users")
+          val path           = codec.toPath
+          val roundTripCodec = Path.toPathCodec(path)
+          assertTrue(roundTripCodec.decode(path) == Right(()))
+        },
+      ),
     )
 }

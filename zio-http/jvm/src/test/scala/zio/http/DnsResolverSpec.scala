@@ -165,6 +165,29 @@ object DnsResolverSpec extends ZIOHttpSpec {
           result.map(_.toString) == Chunk("/127.0.0.1"),
         )
       },
+      test("Permanently failing hosts are dropped after maxRetries in Refresh mode") {
+        for {
+          _        <- DnsResolver.resolve("unknown").exit
+          entries1 <- DnsResolver.snapshot()
+          _        <- TestClock.adjust(6.seconds)
+          entries2 <- DnsResolver.snapshot()
+          _        <- TestClock.adjust(6.seconds)
+          entries3 <- DnsResolver.snapshot()
+        } yield assertTrue(
+          entries1.contains("unknown"),
+          entries2.contains("unknown"),
+          !entries3.contains("unknown"),
+        )
+      }.provide(
+        DnsResolver.explicit(
+          maxCount = 10,
+          refreshRate = 1.second,
+          unknownHostTtl = 5.seconds,
+          expireAction = ExpireAction.Refresh,
+          maxRetries = 2,
+          implementation = TestResolver(),
+        ),
+      ),
     )
 
   private def stringSnapshot(): ZIO[DnsResolver, Nothing, Set[String]] =

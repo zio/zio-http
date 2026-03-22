@@ -3,9 +3,15 @@ package zio.http.datastar
 import zio._
 import zio.test._
 
+import zio.schema.{DeriveSchema, Schema}
+
 import zio.http.template2._
 
 object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
+  case class Payload(name: String, value: Int)
+  implicit val payloadSchema: Schema[Payload] = DeriveSchema.gen[Payload]
+  case class Info(msg: String)
+  implicit val infoSchema: Schema[Info]       = DeriveSchema.gen[Info]
 
   override def spec = suite("ServerSentEventGeneratorSpec")(
     suite("EventType")(
@@ -319,7 +325,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
           event.eventType.contains("datastar-patch-elements"),
           event.data.contains("elements <script"),
           event.data.contains("console.log('Here')"),
-          event.data.contains("data-effect=\"el.remove\""),
+          event.data.contains("data-effect=\"el.remove()\""),
           event.id.isEmpty,
           event.retry.isEmpty,
         )
@@ -548,7 +554,7 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
         } yield assertTrue(
           event.data.contains("selector body\n"),
           event.data.contains("mode append\n"),
-          event.data.contains("elements <script data-effect=\"el.remove\">const x = 1;\n"),
+          event.data.contains("elements <script data-effect=\"el.remove()\">const x = 1;\n"),
           event.data.contains("elements const y = 2;\n"),
           event.data.contains("elements console.log(x + y);</script>\n"),
         )
@@ -589,6 +595,32 @@ object ServerSentEventGeneratorSpec extends ZIOSpecDefault {
             event.data.contains("Line 2"),
           )
         }
+      },
+    ),
+    suite("dispatchEvent")(
+      test("should send dispatchEvent with typed payload") {
+        for {
+          datastar <- Datastar.make
+          queue = datastar.queue
+          _     <- ServerSentEventGenerator
+            .dispatchEvent("test-event", Payload("foo", 42))
+            .provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.eventType.contains("datastar-patch-elements"),
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('test-event',{detail:{\"name\":\"foo\",\"value\":42},bubbles:true,cancelable:false,composed:false}))</script>\n",
+        )
+      },
+      test("should send dispatchEvent with options") {
+        for {
+          datastar <- Datastar.make
+          queue   = datastar.queue
+          options = DispatchEventOptions(source = Some(selector"#target"), bubbles = false, cancelable = true)
+          _ <- ServerSentEventGenerator.dispatchEvent("custom", Info("hi"), options).provide(ZLayer.succeed(datastar))
+          event <- queue.take
+        } yield assertTrue(
+          event.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('#target');if(el)el.dispatchEvent(new CustomEvent('custom',{detail:{\"msg\":\"hi\"},bubbles:false,cancelable:true,composed:false}))})()</script>\n",
+        )
       },
     ),
   )

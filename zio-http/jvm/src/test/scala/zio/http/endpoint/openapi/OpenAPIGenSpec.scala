@@ -117,6 +117,23 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     case class NestedThree(name: String) extends SimpleNestedSealedTrait
   }
 
+  @noDiscriminator
+  sealed trait NestedAnimal
+
+  object NestedAnimal    {
+    implicit val schema: Schema[NestedAnimal] = DeriveSchema.gen[NestedAnimal]
+
+    sealed trait Dog extends NestedAnimal
+    object Dog {
+      case class GoldenRetriever(name: String) extends Dog
+    }
+
+    sealed trait Fish extends NestedAnimal
+    object Fish {
+      case class Bass(color: String) extends Fish
+    }
+  }
+
   @description("A recursive structure")
   case class Recursive(
     nestedOption: Option[Recursive],
@@ -127,11 +144,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     nestedTuple: (Recursive, Recursive),
     nestedOverAnother: NestedRecursive,
   )
-  object Recursive               {
+  object Recursive       {
     implicit val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
   }
   case class NestedRecursive(next: Recursive)
-  object NestedRecursive         {
+  object NestedRecursive {
     implicit val schema: Schema[NestedRecursive] = DeriveSchema.gen[NestedRecursive]
   }
 
@@ -281,6 +298,26 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
   private val endpointWithAuth = Endpoint(GET / "withAuth").auth(AuthType.Bearer)
 
+  private val endpointWithCustomHeaderAuth =
+    Endpoint(GET / "withCustomHeaderAuth")
+      .auth(AuthType.Custom(HttpCodec.headerAs[String]("x-Api-Token")))
+
+  private val endpointWithCustomQueryAuth =
+    Endpoint(GET / "withCustomQueryAuth")
+      .auth(AuthType.Custom(HttpCodec.query[String]("api_key")))
+
+  private val endpointWithMultiHeaderAuth =
+    Endpoint(GET / "withMultiHeaderAuth")
+      .auth(AuthType.Custom(HttpCodec.headerAs[String]("x-Api-Key") ++ HttpCodec.headerAs[String]("x-Tenant-Id")))
+
+  private val endpointWithCookieAuth =
+    Endpoint(GET / "withCookieAuth")
+      .auth(AuthType.Custom(HttpCodec.headerAs[String]("cookie")))
+
+  private val endpointWithOrAuth =
+    Endpoint(GET / "withOrAuth")
+      .auth(AuthType.Bearer | AuthType.Custom(HttpCodec.headerAs[String]("x-Api-Token")))
+
   def toJsonAst(str: String): Json =
     Json.decoder.decodeJson(str).toOption.get
 
@@ -320,6 +357,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withAuth": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "Bearer": []
@@ -356,6 +398,11 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "paths": {
                              |    "/withAuthScopes": {
                              |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
                              |        "security": [
                              |          {
                              |            "Bearer": ["read", "write"]
@@ -3350,6 +3397,81 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("nested sealed trait hierarchy flattened to leaf types") {
+        val endpoint     = Endpoint(GET / "static").in[NestedAnimal]
+        val generated    = OpenAPIGen.fromEndpoints("Simple Endpoint", "1.0", endpoint)
+        val json         = toJsonAst(generated)
+        val expectedJson =
+          """{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "Simple Endpoint",
+            |    "version" : "1.0"
+            |  },
+            |  "paths" : {
+            |    "/static" : {
+            |      "get" : {
+            |        "requestBody" :
+            |          {
+            |          "content" : {
+            |            "application/json" : {
+            |              "schema" :
+            |                {
+            |                "$ref" : "#/components/schemas/NestedAnimal"
+            |              }
+            |            }
+            |          },
+            |          "required" : true
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |    "schemas" : {
+            |      "Bass" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "color" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "color"
+            |        ]
+            |      },
+            |      "GoldenRetriever" :
+            |        {
+            |        "type" :
+            |          "object",
+            |        "properties" : {
+            |          "name" : {
+            |            "type" :
+            |              "string"
+            |          }
+            |        },
+            |        "required" : [
+            |          "name"
+            |        ]
+            |      },
+            |      "NestedAnimal" :
+            |        {
+            |        "oneOf" : [
+            |          {
+            |            "$ref" : "#/components/schemas/GoldenRetriever"
+            |          },
+            |          {
+            |            "$ref" : "#/components/schemas/Bass"
+            |          }
+            |        ]
+            |      }
+            |    }
+            |  }
+            |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("multiple methods on same path") {
         val getEndpoint  = Endpoint(GET / "test")
           .out[String](MediaType.text.`plain`)
@@ -4795,6 +4917,275 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |    }
             |  }
             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("custom header auth to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Custom Header Auth", "1.0", endpointWithCustomHeaderAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Custom Header Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withCustomHeaderAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "x-Api-Token": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "x-Api-Token": {
+                             |        "type": "apiKey",
+                             |        "name": "x-Api-Token",
+                             |        "in": "header"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "x-Api-Token": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("custom query auth to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Custom Query Auth", "1.0", endpointWithCustomQueryAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Custom Query Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withCustomQueryAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "api_key": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "api_key": {
+                             |        "type": "apiKey",
+                             |        "name": "api_key",
+                             |        "in": "query"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "api_key": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("custom cookie auth to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Cookie Auth", "1.0", endpointWithCookieAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Cookie Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withCookieAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "cookie": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "cookie": {
+                             |        "type": "apiKey",
+                             |        "name": "cookie",
+                             |        "in": "cookie"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "cookie": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("or auth to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Or Auth", "1.0", endpointWithOrAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Or Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withOrAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "Bearer": []
+                             |          },
+                             |          {
+                             |            "x-Api-Token": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      },
+                             |      "x-Api-Token": {
+                             |        "type": "apiKey",
+                             |        "name": "x-Api-Token",
+                             |        "in": "header"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": []
+                             |    },
+                             |    {
+                             |      "x-Api-Token": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("custom multi-header auth to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Multi Header Auth", "1.0", endpointWithMultiHeaderAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Multi Header Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withMultiHeaderAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "x-Api-Key": [],
+                             |            "x-Tenant-Id": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "x-Api-Key": {
+                             |        "type": "apiKey",
+                             |        "name": "x-Api-Key",
+                             |        "in": "header"
+                             |      },
+                             |      "x-Tenant-Id": {
+                             |        "type": "apiKey",
+                             |        "name": "x-Tenant-Id",
+                             |        "in": "header"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "x-Api-Key": [],
+                             |      "x-Tenant-Id": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("auth with custom 401 status to OpenAPI") {
+        val endpoint401  = Endpoint(GET / "withAuth401").auth(AuthType.Bearer).unauthorizedStatus(Status.Unauthorized)
+        val generated    = OpenAPIGen.fromEndpoints("Endpoint with Auth 401", "1.0", endpoint401)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Endpoint with Auth 401",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withAuth401": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "401": {
+                             |            "description": "Unauthorized\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "Bearer": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "Bearer": {
+                             |        "type": "http",
+                             |        "scheme": "Bearer"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "Bearer": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
     )

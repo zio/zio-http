@@ -23,34 +23,23 @@ import zio._
 import zio.http._
 
 /**
- * Demonstrates graceful shutdown: the server waits for in-flight requests to
- * complete before stopping.
+ * Serves static files from resources with response compression enabled. The
+ * default configuration supports gzip and deflate (see
+ * `Server.Config.ResponseCompressionConfig.default`).
  *
- * Run this app, then in another terminal execute:
+ * Place files under `src/main/resources/static/` to serve them at `/static/`.
  *
- * curl http://localhost:8080/slow
- *
- * While the request is in progress, press Ctrl+C in the app's terminal — the
- * response will still be delivered before the server shuts down.
+ * Test with: curl -H "Accept-Encoding: gzip" http://localhost:8080/hello -v
  */
-object GracefulShutdown extends ZIOAppDefault {
+object StaticFilesWithCompression extends ZIOAppDefault {
 
   val routes = Routes(
     Method.GET / "hello" -> handler(Response.text("Hello, World!")),
-    Method.GET / "slow"  -> handler {
-      ZIO.sleep(5.seconds).as(Response.text("Done after 5 seconds!"))
-    },
+  ) @@ Middleware.serveResources(Path.empty / "static")
+
+  val config = ZLayer.succeed(
+    Server.Config.default.responseCompression(),
   )
 
-  override def run =
-    Server
-      .serve(routes)
-      .provide(
-        Server.live,
-        ZLayer.succeed(
-          Server.Config.default
-            .port(8080)
-            .gracefulShutdownTimeout(10.seconds),
-        ),
-      )
+  override def run = Server.serve(routes).provide(Server.live, config)
 }
