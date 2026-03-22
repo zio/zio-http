@@ -47,13 +47,13 @@ The `TestClient` allows us to write tests for our HTTP applications by defining 
 
 - `TestClient.addRequestResponse` - Adds an 1-1 mapping from a `Request` to a `Response` to the `TestClient`. 
 - `TestClient.addRoute` and `addRoutes` - Add one or more `Route` or a single `Routes` instance to the `TestClient`.
-- `TestClient.installSocketApp` - Installs a `WebSocketApp` to the `TestClient`.
 
 After defining the behavior of the test client, we can use the `TestClient.layer` to provide the `TestClient` and `Client` to the test cases:
 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.test.{test, _}
 
 object TestUsingTestClient extends ZIOSpecDefault {
@@ -88,8 +88,10 @@ After defining the behavior of the test server, we can use the `TestServer.layer
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
+import zio.http.netty.client.NettyClient
 import zio.test._
 
 object TestServerExampleSpec extends ZIOSpecDefault {
@@ -120,7 +122,7 @@ object TestServerExampleSpec extends ZIOSpecDefault {
     }
   }.provide(
     TestServer.default,
-    Client.default,
+    NettyClient.default,
   )
 }
 ```

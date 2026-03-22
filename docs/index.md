@@ -25,8 +25,6 @@ Some of the key features of ZIO HTTP are:
 
 **Error Handling**: Built-in support exists for handling errors at the HTTP layer, distinguishing between handled and unhandled errors.
 
-**WebSockets**: Built-in support for WebSockets allows for the creation of real-time applications using ZIO HTTP.
-
 **Testkit**: ZIO HTTP provides first-class testing utilities that facilitate test writing without requiring a live server instance.
 
 **Interoperability**: Interoperability with existing Scala/Java libraries is provided, enabling seamless integration with functionality from the Scala/Java ecosystem through the importation of blocking and non-blocking operations.
@@ -65,6 +63,7 @@ based on the query parameter `name`.
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object GreetingServer extends ZIOAppDefault {
   val routes =
@@ -76,7 +75,7 @@ object GreetingServer extends ZIOAppDefault {
       }
     )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -87,6 +86,8 @@ The following example demonstrates how to call the greeting server using the ZIO
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object GreetingClient extends ZIOAppDefault {
 
@@ -98,6 +99,6 @@ object GreetingClient extends ZIOAppDefault {
       _        <- response.body.asString.debug("Response")
     } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```

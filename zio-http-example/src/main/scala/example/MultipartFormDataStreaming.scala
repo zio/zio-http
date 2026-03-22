@@ -10,6 +10,7 @@ import zio._
 import zio.stream.{ZSink, ZStream}
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
 
@@ -80,6 +81,6 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
     program
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
-        Server.live,
+        NettyServer.live,
       )
 }

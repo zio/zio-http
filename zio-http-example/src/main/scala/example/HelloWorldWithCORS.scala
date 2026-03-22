@@ -7,6 +7,7 @@ import zio.http.Header.{AccessControlAllowOrigin, Origin}
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
 import zio.http.codec.PathCodec
+import zio.http.netty.server.NettyServer
 import zio.http.template._
 
 object HelloWorldWithCORS extends ZIOAppDefault {
@@ -42,8 +43,8 @@ object HelloWorldWithCORS extends ZIOAppDefault {
       ),
     )
 
-  val frontEndServer = Server.serve(frontend).provide(Server.defaultWithPort(3000))
-  val backendServer  = Server.serve(backend).provide(Server.defaultWithPort(8080))
+  val frontEndServer = Server.serve(frontend).provide(NettyServer.defaultWithPort(3000))
+  val backendServer  = Server.serve(backend).provide(NettyServer.defaultWithPort(8080))
 
   val run = frontEndServer.zipPar(backendServer)
 }

@@ -3,6 +3,7 @@ package example.template2
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 import zio.http.template2._
 
 object HelloWorldExample extends ZIOAppDefault {
@@ -22,5 +23,5 @@ object HelloWorldExample extends ZIOAppDefault {
         Response.html(page)
       },
     )
-    .provide(Server.default)
+    .provide(NettyServer.default)
 }

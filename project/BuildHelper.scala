@@ -5,7 +5,6 @@ import scalafix.sbt.ScalafixPlugin.autoImport.*
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.21"
   val Scala213         = "2.13.18"
   val Scala3           = "3.3.7"
   val ScoverageVersion = "2.3.0"
@@ -29,7 +28,6 @@ object BuildHelper extends ScalaSettings {
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, _))  => scala3Settings
-      case Some((2, 12)) => scala212Settings
       case Some((2, 13)) => scala213Settings
       case _             => Seq.empty
     }
@@ -63,7 +61,7 @@ object BuildHelper extends ScalaSettings {
 
   def stdSettings(prjName: String) = Seq(
     name                           := s"$prjName$shadedSuffix",
-    ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
+    ThisBuild / crossScalaVersions := Seq(Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
@@ -84,20 +82,7 @@ object BuildHelper extends ScalaSettings {
       if (scalaVersion.value == Scala3) semanticdbVersion.value
       else scalafixSemanticdb.revision
     },
-    // Fix for Scala 2.12 scaladoc "pickler" phase error
-    Compile / doc / scalacOptions ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, 12)) => Seq("-no-java-comments", "-skip-packages", "akka.pattern")
-        case _             => Seq.empty
-      }
-    },
-    // Skip doc generation entirely for Scala 2.12 to avoid pickler phase issues
-    Compile / doc / sources        := {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, 12)) => Seq.empty
-        case _             => (Compile / doc / sources).value
-      }
-    },
+
   )
 
   private def shadedSuffix = {
@@ -147,10 +132,8 @@ object BuildHelper extends ScalaSettings {
 
   def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File): Seq[sbt.File] = {
     val versions = CrossVersion.partialVersion(scalaVer) match {
-      case Some((2, 12)) =>
-        List("2.12", "2.12+", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
-        List("2.13", "2.12+", "2.13+", "2.12-2.13", "2.x")
+        List("2.13", "2.13+", "2.x")
       case Some((3, _))  =>
         List("3")
       case _             =>

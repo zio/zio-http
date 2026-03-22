@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 /**
  * Example to make app using cookies
@@ -26,5 +27,5 @@ object CookieServerSide extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(app).provide(Server.default)
+    Server.serve(app).provide(NettyServer.default)
 }

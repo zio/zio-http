@@ -17,6 +17,7 @@ In the server-side context, a `Response` is created and returned by a `Handler`:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldExample extends ZIOAppDefault {
   val routes: Routes[Any, Response] =
@@ -27,7 +28,7 @@ object HelloWorldExample extends ZIOAppDefault {
         },
       )
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -39,10 +40,12 @@ In the client-side context, a `Response` is received from the client after makin
 import zio._
 import zio.http.Header.ContentType.render
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientExample extends ZIOAppDefault {
   val program = for {
-    res         <- Client.batched(Request.get("https://zio.dev/"))
+    res         <- ZClient.batched(Request.get("https://zio.dev/"))
     contentType <- ZIO.from(res.header(Header.ContentType))
     _           <- Console.printLine("------Content Type------")
     _           <- Console.printLine(render(contentType))
@@ -51,7 +54,7 @@ object ClientExample extends ZIOAppDefault {
     _           <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 }
 ```
 
@@ -293,6 +296,7 @@ Let's try a complete example:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 import zio.stream._
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter.ISO_LOCAL_TIME
@@ -311,7 +315,7 @@ object ServerSentExample extends ZIOAppDefault {
         Response.fromServerSentEvents(stream)
       },
     )
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(app).provide(NettyServer.default)
 }
 ```
 
@@ -335,58 +339,6 @@ data: 13:51:33.039565
 data: 13:51:34.041464
 
 ...
-```
-
-### Creating a Response from a WebSocketApp
-
-The `Response.fromWebSocketApp` constructor takes a `WebSocketApp` and creates a `Response` with a WebSocket connection:
-
-```scala
-object Response {
-  def fromWebSocketApp[R](app: WebSocketApp[R]): ZIO[R, Nothing, Response] = ???
-}
-```
-
-Let's try an echo server which sends back the received messages:
-
-```scala mdoc:compile-only
-import zio._
-import zio.http._
-
-object WebsocketExample extends ZIOAppDefault {
-
-  val routes: Routes[Any, Response] = {
-    Routes(
-      Method.GET / "echo" -> handler {
-        Response.fromSocketApp(
-          WebSocketApp(
-            handler { (channel: WebSocketChannel) =>
-              channel.receiveAll {
-                case ChannelEvent.Read(message) =>
-                  channel.send(ChannelEvent.read(message))
-                case other =>
-                  ZIO.debug(other)
-              }
-            },
-            ),
-          )
-      },
-      )
-  }
-
-  def run =
-    Server.serve(routes).provide(Server.default)
-}
-```
-
-To test this example, we can use the `websocat` command-line tool:
-
-```bash
-> websocat ws://localhost:8080/echo
-hello
-hello
-bye
-bye
 ```
 
 ## Operations

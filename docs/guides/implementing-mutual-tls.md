@@ -157,6 +157,7 @@ import zio.Config.Secret
 import zio._
 import zio.http.SSLConfig.Data.FromJavaxNetSsl
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServerApp extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
@@ -193,7 +194,7 @@ object ServerApp extends ZIOAppDefault {
     }
 
   override val run =
-    Server.serve(routes).provide(serverConfig, Server.live)
+    Server.serve(routes).provide(serverConfig, NettyServer.default)
 
 }
 ```
@@ -212,13 +213,13 @@ Similarly, the client implementation for mTLS requires both a keystore (containi
 import zio.Config.Secret
 import zio._
 import zio.http._
-import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientApp extends ZIOAppDefault {
-  val app: ZIO[Client, Throwable, Unit] =
+  val app: ZIO[ZClient.Client, Throwable, Unit] =
     for {
       _            <- Console.printLine("Making secure HTTPS requests...")
-      textResponse <- Client.batched(
+      textResponse <- ZClient.batched(
         Request.get("https://localhost:8443/hello"),
       )
       textBody     <- textResponse.body.asString
@@ -237,10 +238,7 @@ object ClientApp extends ZIOAppDefault {
 
   override val run =
     app.provide(
-      ZLayer.succeed(config),
-      ZLayer.succeed(NettyConfig.default),
-      DnsResolver.default,
-      ZClient.live,
+      NettyClient.default,
     )
 
 }

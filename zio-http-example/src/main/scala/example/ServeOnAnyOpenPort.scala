@@ -7,6 +7,7 @@ import scala.annotation.nowarn
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServeOnAnyOpenPort extends ZIOAppDefault {
   val routes =
@@ -21,5 +22,5 @@ object ServeOnAnyOpenPort extends ZIOAppDefault {
     _    <- ZIO.never
   } yield ()
 
-  def run = app.provide(Server.defaultWith(_.onAnyOpenPort))
+  def run = app.provide(NettyServer.defaultWith(_.onAnyOpenPort))
 }

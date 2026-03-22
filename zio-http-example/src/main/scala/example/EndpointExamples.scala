@@ -10,6 +10,7 @@ import zio.http.codec._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
 import zio.http.endpoint.openapi.{OpenAPIGen, SwaggerUI}
+import zio.http.netty.server.NettyServer
 
 object EndpointExamples extends ZIOAppDefault {
 
@@ -38,10 +39,10 @@ object EndpointExamples extends ZIOAppDefault {
 
   val request = Request.get(url = URL.decode("/users/1").toOption.get)
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(NettyServer.default)
 
   object ClientExample {
-    def example(client: Client) = {
+    def example(client: ZClient.Client) = {
 
       val executor: EndpointExecutor[Any, Unit, Scope] =
         EndpointExecutor(client, url"http://localhost:8080")

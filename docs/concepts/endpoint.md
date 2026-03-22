@@ -7,6 +7,7 @@ Endpoints can be used to implement not only servers but also clients.
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.codec.PathCodec.path
 import zio.http.codec._
 import zio.http.endpoint._

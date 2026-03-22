@@ -8,6 +8,7 @@ import zio.http.template2._
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
+import zio.http.netty.server.NettyServer
 
 object ChatServer extends ZIOAppDefault {
 
@@ -137,7 +138,7 @@ object ChatServer extends ZIOAppDefault {
     Server
       .serve(routes)
       .provide(
-        Server.default,
+        NettyServer.default,
         ChatRoom.layer,
       )
 }

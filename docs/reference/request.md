@@ -144,9 +144,9 @@ To get a single query parameter, we can use the `Request#queryParam` method that
 // curl -X GET https://localhost:8080/search?q=value -i
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object QueryParamExample extends ZIOAppDefault {
-
   val app =
     Routes(
       Method.GET / "search" -> handler { (req: Request) =>
@@ -160,7 +160,7 @@ object QueryParamExample extends ZIOAppDefault {
       },
     )
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(app).provide(NettyServer.default)
 }
 ```
 
@@ -170,6 +170,7 @@ The typed version of `Request#queryParam` is `Request#query[T](key: String)` whi
 // curl -X GET https://localhost:8080/search?age=42 -i
 import zio.http._
 import zio.http.codec._
+import zio.http.netty.server.NettyServer
 object TypedQueryParamExample extends ZIOAppDefault {
   val app =
     Routes(
@@ -189,7 +190,7 @@ object TypedQueryParamExample extends ZIOAppDefault {
       },
     )
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(app).provide(NettyServer.default)
 }
 ```
 
@@ -204,6 +205,7 @@ To retrieve all query parameter values for a key, we can use the `req.query[Chun
 
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object QueryParamsExample extends ZIOAppDefault {
   val app =
@@ -219,7 +221,7 @@ object QueryParamsExample extends ZIOAppDefault {
       },
     )
 
-  def run = Server.serve(app).provide(Server.default)
+  def run = Server.serve(app).provide(NettyServer.default)
 }
 ```
 
@@ -238,6 +240,8 @@ When we are working with the ZIO HTTP Client, we need to create a new `Request` 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 import zio.schema._
 
 case class AuthorQueryParams(age: Int, name: String)
@@ -248,14 +252,14 @@ object AuthorQueryParams {
 
 object QueryParamClientExample extends ZIOAppDefault {
   def run =
-    Client.batched(
+    ZClient.batched(
       Request
         .get("http://localhost:8080/search")
         .addQueryParam("language", "scala")
         .addQueryParam("q", "How to Write HTTP App")
         .addQueryParam(AuthorQueryParams(42, "John"))
         .addQueryParams("tag", Chunk("zio", "http", "scala")),
-    ).provide(Client.default)
+    ).provide(NettyClient.default)
 }
 ```
 
@@ -339,13 +343,15 @@ In the below example, we are creating a `Request` using the `Request.get` method
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientExample extends ZIOAppDefault {
-  def run = Client
+  def run = ZClient
     .batched(Request.get("http://localhost:8080/users/2"))
     .flatMap(_.body.asString)
     .debug("Response Body: ")
-    .provide(Client.default)
+    .provide(NettyClient.default)
 
 }
 ```

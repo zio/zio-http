@@ -14,6 +14,7 @@ Assuming we have written a `Routes`:
 ```scala mdoc:silent
 import zio.http._
 import zio._
+import zio.http.netty.server.NettyServer
 
 val routes: Routes[Any, Response] =
   Routes(
@@ -25,20 +26,20 @@ val routes: Routes[Any, Response] =
 We can serve it using the `Server.serve` method:
 
 ```scala mdoc:silent
-Server.serve(routes).provide(Server.default)
+Server.serve(routes).provide(NettyServer.default)
 ```
 
-By default, it will start the server on port `8080`. A quick shortcut to only customize the port is `Server.defaultWithPort`:
+By default, it will start the server on port `8080`. A quick shortcut to only customize the port is `NettyServer.defaultWithPort`:
 
 ```scala mdoc:compile-only
-Server.serve(routes).provide(Server.defaultWithPort(8081))
+Server.serve(routes).provide(NettyServer.defaultWithPort(8081))
 ```
 
 Or to customize more properties of the _default configuration_:
 
 ```scala mdoc:compile-only
 Server.serve(routes).provide(
-  Server.defaultWith(
+  NettyServer.defaultWith(
     _.port(8081).enableRequestStreaming
   )
 )
@@ -57,7 +58,7 @@ Server
   .serve(routes)
   .provide(
     ZLayer.succeed(Server.Config.default.port(8081)),
-    Server.live
+    NettyServer.live
   )
 ```
 
@@ -76,7 +77,6 @@ final case class Config(
   maxHeaderSize: Int,
   logWarningOnFatalError: Boolean,
   gracefulShutdownTimeout: Duration,
-  webSocketConfig: WebSocketConfig,
   idleTimeout: Option[Duration],
 )
 ```
@@ -252,7 +252,7 @@ object KeepAliveExample extends ZIOAppDefault {
   val routes = handler(Response.text("Hello World!")).toRoutes
 
   override val run =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -316,7 +316,7 @@ The `configured` layer loads the server configuration using the application's _Z
 Server
   .serve(routes)
   .provide(
-    Server.configured()
+    NettyServer.configured()
   )
 ```
 
@@ -370,7 +370,7 @@ object EchoServerWithDecompression extends ZIOAppDefault {
           req.body.asString.map(Response.text)
         }.sandbox.toRoutes,
       )
-      .provide(Server.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
+      .provide(NettyServer.live, ZLayer.succeed(Server.Config.default.requestDecompression(true)))
 }
 ```
 
@@ -398,6 +398,10 @@ import zio._
 import zio.http._
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
+import zio._
+import zio.http._
+import zio.http.ZClient
+import zio.http.netty.client.NettyClient
 
 object ClientWithRequestCompression extends ZIOAppDefault {
   def compressStringToGzip(input: String): Chunk[Byte] = {
@@ -412,7 +416,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
     for {
       url <- ZIO.from(URL.decode("http://localhost:8080"))
       res <-
-        Client.batched(
+        ZClient.batched(
           Request
             .post(url, Body.fromChunk(compressStringToGzip("Hello, World!")))
             .addHeader(Header.ContentEncoding.GZip),
@@ -420,7 +424,7 @@ object ClientWithRequestCompression extends ZIOAppDefault {
       _   <- res.body.asString.debug("response: ")
     } yield ()
 
-  override val run = app.provide(Client.default)
+  override val run = app.provide(NettyClient.default)
 }
 ```
 
@@ -535,7 +539,7 @@ object RequestStreamingServerExample extends ZIOAppDefault {
       .serve(routes)
       .provide(
         ZLayer.succeed(Server.Config.default.enableRequestStreaming),
-        Server.live,
+        NettyServer.live,
       )
 }
 ```
@@ -545,6 +549,9 @@ To test the 'upload-stream/simple' endpoint, let's run the following client code
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 import zio.stream.ZStream
 
 object SimpleStreamingClientExample extends ZIOAppDefault {
@@ -563,7 +570,7 @@ object SimpleStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```
 
@@ -574,6 +581,9 @@ The `upload-stream/form-field` endpoint is designed to handle multipart form dat
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.ZClient
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 import zio.stream.ZStream
 
 object FormFieldStreamingClientExample extends ZIOAppDefault {
@@ -604,7 +614,7 @@ object FormFieldStreamingClientExample extends ZIOAppDefault {
 
   } yield ()
 
-  def run = app.provide(Client.default)
+  def run = app.provide(NettyClient.default)
 }
 ```
 
@@ -675,43 +685,6 @@ val config = Server.Config.default.idleTimeout(60.seconds)
 ```
 
 For example, if a server has an idle timeout set to 60 seconds, any connection that remains idle (i.e., without any data being sent or received) for more than 60 seconds will be automatically terminated by the server.
-
-## Websocket Configuration
-
-ZIO HTTP supports WebSockets, which is a communication protocol that provides full-duplex communication channels over a single TCP connection. To configure the WebSocket settings, we can use the `Server.Config#webSocketConfig` method. It takes a `WebSocketConfig` as an argument, and returns a new `Server.Config` with the specified WebSocket configuration.
-
-Let's break down the structure of the `WebSocketConfig` case class:
-
-```scala
-case class WebSocketConfig(
-  subprotocols: Option[String] = None,
-  handshakeTimeoutMillis: Long = 10000L,
-  forceCloseTimeoutMillis: Long = -1L,
-  handleCloseFrames: Boolean = true,
-  sendCloseFrame: WebSocketConfig.CloseStatus = WebSocketConfig.CloseStatus.NormalClosure,
-  dropPongFrames: Boolean = true,
-  decoderConfig: SocketDecoder = SocketDecoder.default,
-)
-```
-
-- **subprotocols**: Optional sub-protocol for WebSocket communication. This is an optional feature in WebSocket communication that allows the client and server to negotiate and agree upon a specific sub-protocol during the WebSocket handshake process.
-- **handshakeTimeoutMillis**: Timeout for the WebSocket handshake process, defaulting to 10 seconds (10,000 milliseconds). This parameter sets the maximum duration, in milliseconds, for completing the WebSocket handshake process. If the handshake exceeds this limit, the server aborts the connection attempt, ensuring timely resource management and handling of potential issues like unresponsive clients or network delays.
-- **forceCloseTimeoutMillis**: When a WebSocket connection is established, it remains open until either the client or the server explicitly closes it or until it times out due to inactivity. This parameter allows the server to set a timeout period after which it will forcibly close the WebSocket connection if no activity is detected within that time frame.
-- **handleCloseFrames**: When set to `true`, indicates that close frames in WebSocket communication are solely handled by ZIO HTTP. If set to `false`, it signifies that close frames should be forwarded instead of being solely managed by ZIO HTTP, which means that they're handled by the WebSocket application itself. This parameter allows for flexibility in how WebSocket close frames are managed, giving control over whether ZIO HTTP or the application handles them.
-- **sendCloseFrame**: This parameter which is type of `WebSocketConfig.CloseStatus`, defines the close status to be sent when a close frame is not manually transmitted. This parameter allows the WebSocket server to specify the reason for closing the connection, such as indicating a normal closure or providing a custom close status code and reason. By default, if no close frame is sent manually, the server sends a close frame indicating a normal closure.
-- **dropPongFrames**: Determines whether the WebSocket server drops pong frames. If set to `true`, pong frames are dropped, meaning the server does not respond to ping frames with pong frames. Conversely, setting it to `false` means pong frames are not dropped, and the server responds to ping frames with pong frames, adhering to the WebSocket protocol's requirement for maintaining the connection's liveliness.
-- **decoderConfig**: This parameter allows for fine-grained control over the WebSocket frame decoding process, including settings such as the maximum frame payload length, whether to expect masked frames, whether to allow mask mismatch and so on. The `SocketDecoder` case class contains all the configuration options for the WebSocket frame decoder:
-
-```scala
-final case class SocketDecoder(
-  maxFramePayloadLength: Int = 65536,
-  expectMaskedFrames: Boolean = true,
-  allowMaskMismatch: Boolean = false,
-  allowExtensions: Boolean = false,
-  closeOnProtocolViolation: Boolean = true,
-  withUTF8Validator: Boolean = true,
-)
-```
 
 ## Netty Configuration
 

@@ -597,7 +597,7 @@ private def startCallbackServer(tokenPromise: Promise[Throwable, Token]): ZIO[An
     },
   )
 
-  Server.serve(callbackRoutes).provide(Server.defaultWithPort(callbackPort))
+  Server.serve(callbackRoutes).provide(NettyServer.defaultWithPort(callbackPort))
 }
 ```
 

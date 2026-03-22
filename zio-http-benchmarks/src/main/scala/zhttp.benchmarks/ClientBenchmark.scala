@@ -7,6 +7,8 @@ import scala.annotation.nowarn
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 import org.openjdk.jmh.annotations._
 
@@ -46,10 +48,10 @@ class ClientBenchmark {
   private def http(shutdownSignal: Promise[Nothing, Unit]) =
     Routes(smallRoute, largeRoute, shutdownRoute(shutdownSignal))
 
-  private val rtm     = Runtime.unsafe.fromLayer(ZClient.default)
+  private val rtm     = Runtime.unsafe.fromLayer(NettyClient.default)
   private val runtime = rtm.unsafe
 
-  private def run(f: RIO[Client, Any]): Any = runtime.run(f).getOrThrow()
+  private def run(f: RIO[ZClient.Client, Any]): Any = runtime.run(f).getOrThrow()
 
   @Setup(Level.Trial)
   def setup(): Unit = {
@@ -57,12 +59,12 @@ class ClientBenchmark {
       shutdownSignal <- Promise.make[Nothing, Unit]
       fiber          <- Server.serve(http(shutdownSignal)).fork
       _              <- shutdownSignal.await *> fiber.interrupt
-    } yield ()).provideLayer(Server.default)
+    } yield ()).provideLayer(NettyServer.default)
 
     val waitForServerStarted: Task[Unit] = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(smallRequest)
-    } yield ()).provide(ZClient.default)
+    } yield ()).provide(NettyClient.default)
 
     run(startServer.forkDaemon *> waitForServerStarted.retry(Schedule.fixed(1.second)))
   }
@@ -70,9 +72,9 @@ class ClientBenchmark {
   @TearDown(Level.Trial)
   def tearDown(): Unit = {
     val stopServer = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(Request(url = url"http://localhost:8080/shutdown"))
-    } yield ()).provide(ZClient.default)
+    } yield ()).provide(NettyClient.default)
     run(stopServer)
     rtm.shutdown0()
   }
@@ -81,7 +83,7 @@ class ClientBenchmark {
   @OperationsPerInvocation(100)
   def zhttpChunkBenchmark(): Any = run {
     val req = if (path == "small") smallRequest else largeRequest
-    ZIO.serviceWithZIO[Client] { client =>
+    ZIO.serviceWithZIO[ZClient.Client] { client =>
       client.batched(req).flatMap(_.body.asChunk).repeatN(100)
     }
   }
@@ -90,7 +92,7 @@ class ClientBenchmark {
   @OperationsPerInvocation(100)
   def zhttpStreamToChunkBenchmark(): Any = run {
     val req = if (path == "small") smallRequest else largeRequest
-    ZIO.serviceWithZIO[Client] { client =>
+    ZIO.serviceWithZIO[ZClient.Client] { client =>
       client.batched(req).flatMap(_.body.asStream.runCollect).repeatN(100)
     }
   }

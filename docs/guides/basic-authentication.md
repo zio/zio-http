@@ -132,6 +132,8 @@ Here's how we combine everything into a complete application:
 import zio.Config.Secret
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
+import zio.http.netty.client.NettyClient
 
 object AuthenticationServer extends ZIOAppDefault {
   val basicAuthWithUserContext: HandlerAspect[Any, User] =
@@ -172,7 +174,7 @@ object AuthenticationServer extends ZIOAppDefault {
       } @@ basicAuthWithUserContext,
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 
 }
 ```
@@ -230,6 +232,7 @@ We can create a simple client to test the Basic Authentication implementation:
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -244,7 +247,7 @@ object AuthenticationClient extends ZIOAppDefault {
       _         <- Console.printLine(s"Response: $body")
     } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 }
 ```
 
@@ -411,7 +414,7 @@ object AuthenticationServer extends ZIOAppDefault {
       } @@ basicAuthWithUserContext,
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default, InMemoryUserService.live)
+  override val run = Server.serve(routes).provide(NettyServer.default, InMemoryUserService.live)
   
 }
 ```

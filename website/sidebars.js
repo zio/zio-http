@@ -93,13 +93,6 @@ const sidebars = {
       ],
     },
 
-    // WebSocket subsection
-    {
-      type: "category",
-      label: "WebSocket",
-      items: ["reference/socket/socket", "reference/socket/websocketframe"],
-    },
-
     // Configs subsection
     {
       type: "category",
@@ -123,7 +116,6 @@ const sidebars = {
     "examples/https-client-server",
     "examples/serving-static-files",
     "examples/html-templating",
-    "examples/websocket",
     "examples/streaming",
     "examples/endpoint",
     "examples/endpoint-scala3",

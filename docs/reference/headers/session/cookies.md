@@ -67,6 +67,7 @@ Let's write a simple example to see how it works:
 
 ```scala mdoc:compile-only
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ResponseCookieExample extends ZIOAppDefault {
   val routes = Routes(
@@ -77,7 +78,7 @@ object ResponseCookieExample extends ZIOAppDefault {
     },
   )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -163,6 +164,7 @@ To sign all the cookies in your routes, we can use `signCookies` middleware:
 
 ```scala mdoc:silent:nest
 import Middleware.signCookies
+import zio.http.netty.server.NettyServer
 
 val app = Routes(
   Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie)),
@@ -172,7 +174,7 @@ val app = Routes(
 // Run it like any simple app
 def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
   Server.serve(app @@ signCookies("secret"))
-        .provide(Server.default)
+        .provide(NettyServer.default)
 ```
 
 ## Request Cookie

@@ -4,6 +4,7 @@ import zio._
 import zio.test._
 
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyDriver
 
 object TestServerSpec extends ZIOHttpSpec {
@@ -12,7 +13,7 @@ object TestServerSpec extends ZIOHttpSpec {
   def spec = suite("TestServerSpec")(
     test("with state") {
       for {
-        client      <- ZIO.service[Client]
+        client      <- ZIO.service[ZClient.Client]
         state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
         _           <- TestServer.addRoute {
@@ -37,14 +38,14 @@ object TestServerSpec extends ZIOHttpSpec {
           )
       } yield assertTrue(status(response1) == Status.Ok) &&
         assertTrue(status(response2) == Status.InternalServerError)
-    }.provideSome[Client](
+    }.provideSome[ZClient.Client](
       TestServer.default,
       Scope.default,
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
         for {
-          client        <- ZIO.service[Client]
+          client        <- ZIO.service[ZClient.Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <- client(testRequest)
@@ -53,7 +54,7 @@ object TestServerSpec extends ZIOHttpSpec {
       },
       test("matches, ignoring additional headers") {
         for {
-          client        <- ZIO.service[Client]
+          client        <- ZIO.service[ZClient.Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <- client(testRequest.addHeaders(Headers(Header.ContentLanguage.French)))
@@ -62,7 +63,7 @@ object TestServerSpec extends ZIOHttpSpec {
       },
       test("does not match different path") {
         for {
-          client        <- ZIO.service[Client]
+          client        <- ZIO.service[ZClient.Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
@@ -73,7 +74,7 @@ object TestServerSpec extends ZIOHttpSpec {
       },
       test("does not match different headers") {
         for {
-          client        <- ZIO.service[Client]
+          client        <- ZIO.service[ZClient.Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
@@ -83,13 +84,13 @@ object TestServerSpec extends ZIOHttpSpec {
         } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
     )
-      .provideSome[Client](
+      .provideSome[ZClient.Client](
         TestServer.default,
         Scope.default,
       ),
     test("add routes to the server") {
       for {
-        client           <- ZIO.service[Client]
+        client           <- ZIO.service[ZClient.Client]
         testRequest      <- requestToCorrectPort
         _                <- TestServer.addRoutes {
           Routes(
@@ -102,12 +103,12 @@ object TestServerSpec extends ZIOHttpSpec {
         fallbackResponse <- client(Request.get(testRequest.url / "any"))
         fallbackBody     <- fallbackResponse.body.asString
       } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
-    }.provideSome[Client](
+    }.provideSome[ZClient.Client](
       TestServer.default,
       Scope.default,
     ),
   ).provide(
-    Client.default,
+    NettyClient.default,
   )
 
   private def requestToCorrectPort =

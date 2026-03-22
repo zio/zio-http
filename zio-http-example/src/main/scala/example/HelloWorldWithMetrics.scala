@@ -9,6 +9,7 @@ import zio.metrics.connectors.prometheus.PrometheusPublisher
 import zio.metrics.connectors.{MetricsConfig, prometheus}
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldWithMetrics extends ZIOAppDefault {
 
@@ -31,7 +32,7 @@ object HelloWorldWithMetrics extends ZIOAppDefault {
     Server
       .serve(backend ++ metrics)
       .provide(
-        Server.default,
+        NettyServer.default,
         // The prometheus reporting layer
         prometheus.prometheusLayer,
         prometheus.publisherLayer,

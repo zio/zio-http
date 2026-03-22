@@ -5,9 +5,11 @@ import zio._
 
 import zio.http._
 import zio.http.codec.TextBinaryCodec.fromSchema
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ClientServerExample extends ZIOAppDefault {
-  val clientApp: ZIO[Client, Throwable, Unit] =
+  val clientApp: ZIO[ZClient.Client, Throwable, Unit] =
     for {
       url  <- ZIO.fromEither(URL.decode("http://localhost:8080/greet"))
       res  <- ZClient.batched(
@@ -21,7 +23,7 @@ object ClientServerExample extends ZIOAppDefault {
       _    <- ZIO.debug("Received response: " + body)
     } yield ()
 
-  val run = clientApp.provide(Client.default)
+  val run = clientApp.provide(NettyClient.default)
 }
 
 import zio._
@@ -36,5 +38,5 @@ object GreetingServer extends ZIOAppDefault {
       },
     )
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }

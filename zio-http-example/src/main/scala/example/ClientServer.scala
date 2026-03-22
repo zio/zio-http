@@ -5,6 +5,8 @@ package example
 import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ClientServer extends ZIOAppDefault {
   private val url = URL.decode("http://localhost:8080/hello").toOption.get
@@ -16,5 +18,5 @@ object ClientServer extends ZIOAppDefault {
     ).sandbox
 
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(app).provide(Server.default, Client.default)
+    Server.serve(app).provide(NettyServer.default, NettyClient.default)
 }

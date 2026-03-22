@@ -154,6 +154,7 @@ Here is a complete example:
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 import zio.Cause.{Die, Stackless}
 import zio.http.codec.PathCodec
 
@@ -190,7 +191,7 @@ object Main extends ZIOAppDefault {
       }
     }
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -201,6 +202,7 @@ Sometimes, there may be a need to match a path with a trailing segment, regardle
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object TrailingExample extends ZIOAppDefault {
   def staticFileHandler(path: Path): Handler[Any, Throwable, Request, Response] =
@@ -221,7 +223,7 @@ object TrailingExample extends ZIOAppDefault {
         },
       ).sandbox @@ HandlerAspect.requestLogging()
 
-  val run = Server.serve(routes).provide(Server.default)
+  val run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 

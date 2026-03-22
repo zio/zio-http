@@ -3,6 +3,7 @@ package zio.http.endpoint.cli
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 /**
  * Represents a Request. The body parameter allows implementation of multipart
@@ -40,7 +41,7 @@ private[cli] final case class CliRequest(
     val clientLayer = retrieverClient match {
       case CliZIOClient(client)    => ZLayer { ZIO.succeed(client) }
       case CliZLayerClient(client) => client
-      case DefaultClient()         => Client.default
+      case DefaultClient()         => NettyClient.default
     }
     for {
 
