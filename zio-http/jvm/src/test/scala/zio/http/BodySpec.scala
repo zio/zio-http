@@ -256,5 +256,13 @@ object BodySpec extends ZIOHttpSpec {
           assertTrue(body.materializedAsString == Some(text))
         },
       ),
+      suite("asForm schema-based form decoding")(
+        test("asForm decodes URL-encoded form body to case class") {
+          val body = Body
+            .fromString("name=John&age=30")
+            .contentType(MediaType.application.`x-www-form-urlencoded`)
+          body.asForm[Person].map(person => assertTrue(person == Person("John", 30)))
+        },
+      ),
     ) @@ timeout(10 seconds)
 }
