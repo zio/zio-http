@@ -228,7 +228,7 @@ object MainApp extends ZIOAppDefault {
       )
       .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
       .provide(
-        NettyServer.default,
+        NettyServer.live,
         ZLayer.fromZIO(
           ZIO.config(Server.Config.config.mapKey(_.replace('-', '_'))),
         ),
