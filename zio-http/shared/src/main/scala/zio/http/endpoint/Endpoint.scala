@@ -551,6 +551,36 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = input ++ (HttpCodec.content(name, mediaType) ?? doc))
 
   /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * decoded from `application/x-www-form-urlencoded` data using a zio-schema
+   * [[zio.schema.Schema]].
+   */
+  def inForm[Input2](implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input =
+      input ++ HttpCodec.content[Input2](MediaType.application.`x-www-form-urlencoded`)(
+        HttpContentCodec.form.only[Input2],
+      ),
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content is
+   * decoded from `application/x-www-form-urlencoded` data using a zio-schema
+   * [[zio.schema.Schema]] and is documented.
+   */
+  def inForm[Input2](doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
+    copy(input =
+      input ++ (HttpCodec.content[Input2](MediaType.application.`x-www-form-urlencoded`)(
+        HttpContentCodec.form.only[Input2],
+      ) ?? doc),
+    )
+
+  /**
    * Returns a new endpoint derived from this one, whose request must satisfy
    * the specified codec.
    */
