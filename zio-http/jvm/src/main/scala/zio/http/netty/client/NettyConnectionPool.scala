@@ -188,9 +188,8 @@ private[netty] object NettyConnectionPool {
   }
 
   /**
-   * Returns a sequence of connection attempts with their delays. Per RFC 8305,
-   * we start with IPv6, then after firstAddressFamilyDelay we try IPv4, then
-   * alternate between families.
+   * Sorts resolved addresses by interleaving IPv6 and IPv4 per RFC 8305, with
+   * IPv6 preferred first.
    */
   private[client] def sortAddresses(resolvedHosts: Chunk[InetAddress]): List[InetAddress] = {
     val (ipv6Addresses, ipv4Addresses) = resolvedHosts.partition(_.isInstanceOf[Inet6Address])
