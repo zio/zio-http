@@ -56,6 +56,20 @@ sealed trait Header {
 
 object Header {
 
+  private[http] def validateHeaderCharSequence(cs: CharSequence, kind: String): Unit = {
+    var i   = 0
+    val len = cs.length()
+    while (i < len) {
+      val c = cs.charAt(i)
+      if (c == '\r' || c == '\n') {
+        throw new IllegalArgumentException(
+          s"$kind contains prohibited character at index $i: 0x${c.toInt.toHexString}",
+        )
+      }
+      i += 1
+    }
+  }
+
   sealed trait HeaderTypeBase {
     type HeaderValue
 
@@ -218,8 +232,14 @@ object Header {
       ht
     }
 
-    private[http] override def headerNameAsCharSequence: CharSequence    = customName
-    private[http] override def renderedValueAsCharSequence: CharSequence = value
+    private[http] override def headerNameAsCharSequence: CharSequence    = {
+      Header.validateHeaderCharSequence(customName, "Header name")
+      customName
+    }
+    private[http] override def renderedValueAsCharSequence: CharSequence = {
+      Header.validateHeaderCharSequence(value, "Header value")
+      value
+    }
 
     override def hashCode(): Int = {
       var h       = 0
@@ -2267,6 +2287,12 @@ object Header {
 
     case object UpgradeInsecureRequests extends ContentSecurityPolicy
 
+    final case class Combined(directives: Chunk[ContentSecurityPolicy]) extends ContentSecurityPolicy
+
+    def combined(first: ContentSecurityPolicy, rest: ContentSecurityPolicy*): ContentSecurityPolicy =
+      if (rest.isEmpty) first
+      else Combined(Chunk(first) ++ Chunk.fromIterable(rest))
+
     sealed trait SourcePolicyType
 
     object SourcePolicyType {
@@ -2674,8 +2700,18 @@ object Header {
     private val SandboxRegex      = "sandbox (.*)".r
     private val PolicyRegex       = "([a-z-]+) (.*)".r
 
-    def parse(value: String): Either[String, ContentSecurityPolicy] =
-      value match {
+    def parse(value: String): Either[String, ContentSecurityPolicy] = {
+      val parts = value.split(';').map(_.trim).filter(_.nonEmpty)
+      if (parts.length > 1) {
+        val results = parts.map(parseSingle)
+        val errors  = results.collect { case Left(e) => e }
+        if (errors.nonEmpty) Left(errors.mkString("; "))
+        else Right(Combined(Chunk.fromArray(results.collect { case Right(v) => v })))
+      } else parseSingle(value)
+    }
+
+    private def parseSingle(value: String): Either[String, ContentSecurityPolicy] =
+      value.trim match {
         case "block-all-mixed-content"       => Right(ContentSecurityPolicy.BlockAllMixedContent)
         case PluginTypesRegex(types)         => Right(ContentSecurityPolicy.PluginTypes(types))
         case ReferrerRegex(referrer)         => ReferrerPolicy.parse(referrer).map(ContentSecurityPolicy.Referrer(_)).toRight("Invalid referrer policy")
@@ -2702,6 +2738,7 @@ object Header {
         case ContentSecurityPolicy.Sandbox(value)          => s"sandbox ${SandboxValue.render(value)}"
         case ContentSecurityPolicy.UpgradeInsecureRequests => "upgrade-insecure-requests"
         case SourcePolicy(policyType, policy)              => s"${SourcePolicyType.render(policyType)} ${Source.render(policy)}"
+        case ContentSecurityPolicy.Combined(directives)    => directives.map(render).mkString("; ")
       }
 
     def fromTypeAndPolicy(policyType: String, policy: String): Either[String, ContentSecurityPolicy] =
@@ -2710,6 +2747,24 @@ object Header {
         .flatMap(policyType => Source.parse(policy).map(SourcePolicy(policyType, _)))
         .toRight("Invalid Content-Security-Policy")
 
+  }
+
+  final case class ContentSecurityPolicyReportOnly(policy: ContentSecurityPolicy) extends Header {
+    override type Self = ContentSecurityPolicyReportOnly
+    override def self: Self                                                    = this
+    override def headerType: HeaderType.Typed[ContentSecurityPolicyReportOnly] = ContentSecurityPolicyReportOnly
+  }
+
+  object ContentSecurityPolicyReportOnly extends HeaderType {
+    override type HeaderValue = ContentSecurityPolicyReportOnly
+
+    override def name: String = "content-security-policy-report-only"
+
+    def parse(value: String): Either[String, ContentSecurityPolicyReportOnly] =
+      ContentSecurityPolicy.parse(value).map(ContentSecurityPolicyReportOnly(_))
+
+    def render(cspro: ContentSecurityPolicyReportOnly): String =
+      ContentSecurityPolicy.render(cspro.policy)
   }
 
   sealed trait ContentTransferEncoding extends Header {

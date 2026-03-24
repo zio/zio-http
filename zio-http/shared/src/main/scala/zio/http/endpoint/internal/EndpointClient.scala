@@ -16,6 +16,8 @@
 
 package zio.http.endpoint.internal
 
+import scala.annotation.nowarn
+
 import zio._
 
 import zio.http._
@@ -27,6 +29,7 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
   endpointRoot: URL,
   endpoint: Endpoint[P, I, E, O, A],
 ) {
+  @nowarn("msg=deprecated")
   def execute[R, ReqEnv](
     client: ZClient[Any, ReqEnv, Body, Throwable, Response],
     invocation: Invocation[P, I, E, O, A],

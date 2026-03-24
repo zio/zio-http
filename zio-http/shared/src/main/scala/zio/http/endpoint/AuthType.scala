@@ -7,6 +7,12 @@ sealed trait AuthType { self =>
   type ClientRequirement
   def codec: HttpCodec[HttpCodecType.RequestType, ClientRequirement]
 
+  def unauthorizedStatus: Status                       = Status.NotFound
+  def withUnauthorizedStatus(status: Status): AuthType =
+    AuthType
+      .WithStatus(self.asInstanceOf[AuthType { type ClientRequirement = self.ClientRequirement }], status)
+      .asInstanceOf[AuthType { type ClientRequirement = self.ClientRequirement }]
+
   def |[ClientReq2, ClientReq](that: AuthType { type ClientRequirement = ClientReq2 })(implicit
     alternator: Alternator.WithOut[ClientRequirement, ClientReq2, ClientReq],
   ): AuthType { type ClientRequirement = ClientReq } =
@@ -59,6 +65,16 @@ object AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] =
       auth1.codec.orElseEither(auth2.codec)(alternator)
+
+    override def unauthorizedStatus: Status = auth1.unauthorizedStatus
+  }
+
+  final case class WithStatus[ClientReq](
+    authType: AuthType { type ClientRequirement = ClientReq },
+    override val unauthorizedStatus: Status,
+  ) extends AuthType {
+    type ClientRequirement = ClientReq
+    override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
   }
 
   final case class ScopedAuth[ClientReq](
@@ -67,6 +83,8 @@ object AuthType {
   ) extends AuthType {
     type ClientRequirement = ClientReq
     override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq] = authType.codec
+
+    override def unauthorizedStatus: Status = authType.unauthorizedStatus
 
     def scopes: List[String] = _scopes
 

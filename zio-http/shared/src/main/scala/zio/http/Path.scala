@@ -18,6 +18,7 @@ package zio.http
 
 import zio.{Chunk, ChunkBuilder}
 
+import zio.http.codec.PathCodec
 import zio.http.internal.{QueryParamEncoding, ThreadLocals}
 
 /**
@@ -423,6 +424,22 @@ object Path {
    * Represents a slash or a root path which is equivalent to "/".
    */
   val root: Path = Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
+
+  /**
+   * Creates a PathCodec[Unit] from this path for convenient round-trip
+   * conversion. Useful for encoding paths back into PathCodec form.
+   *
+   * @return
+   *   a PathCodec[Unit] that matches this path
+   */
+  def toPathCodec(path: Path): PathCodec[Unit] = {
+    if (path.isEmpty || path.isRoot) PathCodec.empty
+    else {
+      path.segments.foldLeft[PathCodec[Unit]](PathCodec.empty) { (codec, segment) =>
+        codec / PathCodec.literal(segment)
+      }
+    }
+  }
 
   type Flags = Int
   object Flags {

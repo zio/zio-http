@@ -33,7 +33,7 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
 
 val coursierSetup =
   WorkflowStep.Use(
-    UseRef.Public("coursier", "setup-action", "v1"),
+    UseRef.Public("coursier", "setup-action", "v3"),
     params = Map("apps" -> "sbt"),
   )
 
@@ -57,7 +57,7 @@ ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.T
 ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
 ThisBuild / githubWorkflowPublish         :=
   Seq(
-    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
+    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v3"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
       List("ci-release"),
       name = Some("Release"),
@@ -163,6 +163,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] =
       sbtZioHttpGrpcTests,
       zioHttpHtmx,
       zioHttpStomp,
+      zioHttpMetrics,
       zioHttpExample,
       zioHttpExampleDatastarChat,
       zioHttpTestkit,
@@ -279,8 +280,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.10",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.10",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.13",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.13",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -347,6 +348,20 @@ lazy val zioHttpStomp = (project in file("zio-http-stomp"))
   .dependsOn(zioHttpTestkit % Test)
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
 
+
+lazy val zioHttpMetrics = (project in file("zio-http-metrics"))
+  .settings(
+    stdSettings("zio-http-metrics"),
+    publishSetting(true),
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.5",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .dependsOn(zioHttpJVM)
+  .settings(MimaSettings.mimaSettings(failOnProblem = true))
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
@@ -423,7 +438,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.34.0"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.34.1"  % "protobuf",
     ),
   )
   .settings(
@@ -447,7 +462,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.34.0"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.34.1"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,

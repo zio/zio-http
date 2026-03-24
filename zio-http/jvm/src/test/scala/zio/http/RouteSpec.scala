@@ -88,6 +88,29 @@ object RouteSpec extends ZIOHttpSpec {
           ),
         )
       },
+      test("sandbox does not log requests with failures of type Response") {
+        val route =
+          Method.GET / "foo" -> Handler.fail(Response.badRequest)
+
+        for {
+          _       <- route.sandbox.toRoutes.runZIO(Request.get(url"/foo"))
+          entries <- ZTestLogger.logOutput
+        } yield assertTrue(
+          !entries.exists(e => e.message().contains("Unhandled exception in request handler")),
+        )
+      },
+      test("sandbox does not log requests with middleware failures of type Response") {
+        val route =
+          Method.GET / "foo" -> handler(Response.ok)
+
+        val routes = route.sandbox.toRoutes @@ Middleware.fail(Response.badRequest)
+        for {
+          _       <- routes.runZIO(Request.get(url"/foo"))
+          entries <- ZTestLogger.logOutput
+        } yield assertTrue(
+          !entries.exists(e => e.message().contains("Unhandled exception in request handler")),
+        )
+      },
       test("sandbox does not log for successful requests") {
         val route =
           Method.GET / "foo" -> handler(Response.ok)

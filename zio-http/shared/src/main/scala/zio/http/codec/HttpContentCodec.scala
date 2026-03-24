@@ -374,6 +374,52 @@ object HttpContentCodec {
 
   }
 
+  object form {
+
+    private var formCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
+
+    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
+      if (formCodecCache.contains(schema)) {
+        formCodecCache(schema).asInstanceOf[HttpContentCodec[A]]
+      } else {
+        val codec = HttpContentCodec.Choices(
+          ListMap(
+            MediaType.application.`x-www-form-urlencoded` ->
+              BinaryCodecWithSchema(formBinaryCodec[A](schema), schema),
+          ),
+        )
+        formCodecCache = formCodecCache + (schema -> codec)
+        codec
+      }
+
+    private def formBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] = new BinaryCodec[A] {
+      private lazy val queryCodec =
+        zio.http.internal.StringSchemaCodec.queryFromSchema[A](schema, zio.http.internal.ErrorConstructor.query, null)
+
+      override def encode(value: A): Chunk[Byte] = {
+        val queryParams = queryCodec.encode(value, QueryParams.empty)
+        val encoded     = queryParams.encode.drop(1) // drop leading '?'
+        Chunk.fromArray(encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+      }
+
+      override def decode(bytes: Chunk[Byte]): Either[DecodeError, A] = {
+        val str         = new String(bytes.toArray, java.nio.charset.StandardCharsets.UTF_8)
+        val queryParams = QueryParams.decode(str)
+        try Right(queryCodec.decode(queryParams))
+        catch {
+          case e: HttpCodecError => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+          case e: Exception      => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+        }
+      }
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.chunks[Byte].mapZIO(bytes => ZIO.fromEither(decode(bytes)))
+
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+        ZPipeline.identity[A].map(encode).flattenChunks
+    }
+  }
+
   private[http] implicit val ByteChunkBinaryCodec: BinaryCodec[Chunk[Byte]] = new BinaryCodec[Chunk[Byte]] {
 
     override def encode(value: Chunk[Byte]): Chunk[Byte] = value

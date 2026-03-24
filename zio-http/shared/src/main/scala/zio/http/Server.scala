@@ -485,6 +485,16 @@ object Server extends ServerPlatformSpecific {
     serveRoutes(Routes(route, routes: _*))
   }
 
+  def serve[R, Err](
+    routes: Routes[R, Err],
+  )(implicit
+    trace: Trace,
+    tag: EnvironmentTag[R],
+    hasNoScope: HasNoScope[R],
+    ev: CanServe[Err],
+  ): URIO[R with Server, Nothing] =
+    serveRoutes(ev.toResponse(routes))
+
   def install[R](
     routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Int] = {

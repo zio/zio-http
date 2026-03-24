@@ -278,5 +278,31 @@ object HttpGenSpec extends ZIOSpecDefault {
           |}""".stripMargin
       assertTrue(rendered == expected1 + "\n\n" + expected2)
     },
+    test("Path with case class query parameters") {
+      val endpoint     = Endpoint(Method.GET / "api" / "users").query[User](HttpCodec.query[User])
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@name=<no value>
+          |@age=<no value>
+          |
+          |GET /api/users?name={{name}}&age={{age}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
+    test("Path with multiple individual query parameters") {
+      val endpoint     = Endpoint(Method.GET / "api" / "search")
+        .query[String](HttpCodec.query[String]("q"))
+        .query[Int](HttpCodec.query[Int]("page"))
+      val httpEndpoint = HttpGen.fromEndpoint(endpoint)
+      val rendered     = httpEndpoint.render
+      val expected     =
+        """
+          |@q=<no value>
+          |@page=<no value>
+          |
+          |GET /api/search?q={{q}}&page={{page}}""".stripMargin
+      assertTrue(rendered == expected)
+    },
   )
 }

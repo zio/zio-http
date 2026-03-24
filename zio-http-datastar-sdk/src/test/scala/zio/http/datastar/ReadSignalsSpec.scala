@@ -26,11 +26,10 @@ object ReadSignalsSpec extends ZIOSpecDefault {
 
   override def spec = suite("ReadSignalsSpec")(
     suite("readSignals with GET requests")(
-      test("should read signals from datastar header with simple data") {
+      test("should read signals from datastar query parameter with simple data") {
         val jsonData = """{"count":42}"""
         val request  = Request
-          .get(URL.root / "test")
-          .addHeader(Header.Custom("datastar", jsonData))
+          .get((URL.root / "test").addQueryParams(QueryParams("datastar" -> jsonData)))
 
         for {
           result <- readSignals[SimpleSignal](request)
@@ -38,11 +37,10 @@ object ReadSignalsSpec extends ZIOSpecDefault {
           result.count == 42,
         )
       },
-      test("should read signals from datastar header with complex data") {
+      test("should read signals from datastar query parameter with complex data") {
         val jsonData = """{"name":"John Doe","age":30,"email":"john@example.com"}"""
         val request  = Request
-          .get(URL.root / "test")
-          .addHeader(Header.Custom("datastar", jsonData))
+          .get((URL.root / "test").addQueryParams(QueryParams("datastar" -> jsonData)))
 
         for {
           result <- readSignals[User](request)
@@ -52,11 +50,10 @@ object ReadSignalsSpec extends ZIOSpecDefault {
           result.email == "john@example.com",
         )
       },
-      test("should read signals from datastar header with nested data") {
+      test("should read signals from datastar query parameter with nested data") {
         val jsonData = """{"user":{"name":"Jane","age":25,"email":"jane@test.com"},"active":true}"""
         val request  = Request
-          .get(URL.root / "test")
-          .addHeader(Header.Custom("datastar", jsonData))
+          .get((URL.root / "test").addQueryParams(QueryParams("datastar" -> jsonData)))
 
         for {
           result <- readSignals[NestedData](request)
@@ -67,7 +64,7 @@ object ReadSignalsSpec extends ZIOSpecDefault {
           result.active == true,
         )
       },
-      test("should fail when datastar header is missing in GET request") {
+      test("should fail when datastar query parameter is missing in GET request") {
         val request = Request.get(URL.root / "test")
 
         for {
@@ -76,10 +73,9 @@ object ReadSignalsSpec extends ZIOSpecDefault {
           result.isLeft,
         )
       },
-      test("should fail when datastar header contains invalid JSON") {
+      test("should fail when datastar query parameter contains invalid JSON") {
         val request = Request
-          .get(URL.root / "test")
-          .addHeader(Header.Custom("datastar", "{invalid json"))
+          .get((URL.root / "test").addQueryParams(QueryParams("datastar" -> "{invalid json")))
 
         for {
           result <- readSignals[SimpleSignal](request).either
@@ -90,8 +86,7 @@ object ReadSignalsSpec extends ZIOSpecDefault {
       test("should fail when JSON doesn't match schema") {
         val jsonData = """{"wrong":"field"}"""
         val request  = Request
-          .get(URL.root / "test")
-          .addHeader(Header.Custom("datastar", jsonData))
+          .get((URL.root / "test").addQueryParams(QueryParams("datastar" -> jsonData)))
 
         for {
           result <- readSignals[SimpleSignal](request).either

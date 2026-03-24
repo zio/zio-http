@@ -24,6 +24,7 @@ object DatastarEvent {
     selector: Option[CssSelector] = None,
     mode: ElementPatchMode = ElementPatchMode.Outer,
     useViewTransition: Boolean = false,
+    namespace: Option[String] = None,
     eventId: Option[String] = None,
     retryDuration: Duration = 1000.millis,
   ) extends DatastarEvent {
@@ -44,6 +45,8 @@ object DatastarEvent {
       if (useViewTransition) {
         sb.append("useViewTransition true\n")
       }
+
+      namespace.foreach(ns => sb.append("namespace ").append(ns).append('\n'))
 
       val rendered = elements.renderMinified
       if (rendered.contains('\n'))
@@ -90,7 +93,7 @@ object DatastarEvent {
       sb.append("selector ").append(body.render).append('\n')
       sb.append("mode append\n")
 
-      val rendered = script.render
+      val rendered = escapeScriptContent(script.render)
       if (rendered.contains('\n'))
         rendered.split('\n').foreach(line => sb.append("elements ").append(line).append('\n'))
       else
@@ -98,6 +101,18 @@ object DatastarEvent {
 
       val retry = if (retryDuration != DefaultRetryDelay) Some(retryDuration) else None
       ServerSentEvent(sb.toString(), Some(eventType.render), eventId, retry)
+    }
+  }
+
+  private val ScriptEndPattern = "(?i)</script".r
+
+  private def escapeScriptContent(rendered: String): String = {
+    val closingTagIdx = rendered.lastIndexOf("</script>")
+    if (closingTagIdx < 0) rendered
+    else {
+      val content    = rendered.substring(0, closingTagIdx)
+      val closingTag = rendered.substring(closingTagIdx)
+      ScriptEndPattern.replaceAllIn(content, "<\\\\/script") + closingTag
     }
   }
 
@@ -167,7 +182,7 @@ object DatastarEvent {
     options: ExecuteScriptOptions,
   ): ExecuteScript = {
     val removeAttr      =
-      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove")) else Dom.empty
+      if (options.autoRemove) Dom.attr("data-effect", AttributeValue.StringValue("el.remove()")) else Dom.empty
     val scriptWithAttrs =
       script0(removeAttr)(options.attributes.map(a => Dom.attr(a._1, AttributeValue.StringValue(a._2))))
 
@@ -205,6 +220,62 @@ object DatastarEvent {
   ): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions(autoRemove, attributes, eventId, retryDuration))
 
+  def dispatchEvent[T <: Product: Schema](eventName: String, payload: T): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent[T <: Product: Schema](
+    eventName: String,
+    payload: T,
+    options: DispatchEventOptions,
+  ): ExecuteScript = {
+    val escapedName  = eventName.replace("\\", "\\\\").replace("'", "\\'")
+    val jsonPayload  = zio.schema.codec.JsonCodec.jsonCodec(Schema[T]).encodeJson(payload, None).toString
+    val eventOptions =
+      s"detail:$jsonPayload,bubbles:${options.bubbles},cancelable:${options.cancelable},composed:${options.composed}"
+    val jsCode       = options.source match {
+      case None           =>
+        s"document.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))"
+      case Some(selector) =>
+        val sel = selector.render.replace("\\", "\\\\").replace("'", "\\'")
+        s"(function(){var el=document.querySelector('$sel');if(el)el.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))})()"
+    }
+    executeScript(
+      jsCode,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+      ),
+    )
+  }
+
+  def dispatchEvent[T <: Product: Schema](eventName: String, payload: T, source: Option[CssSelector]): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions(source = source))
+
+  def dispatchEvent(eventName: String, payload: Js): ExecuteScript =
+    dispatchEvent(eventName, payload, DispatchEventOptions.default)
+
+  def dispatchEvent(eventName: String, payload: Js, options: DispatchEventOptions): ExecuteScript = {
+    val escapedName  = eventName.replace("\\", "\\\\").replace("'", "\\'")
+    val eventOptions =
+      s"detail:${payload.value},bubbles:${options.bubbles},cancelable:${options.cancelable},composed:${options.composed}"
+    val jsCode       = options.source match {
+      case None           =>
+        s"document.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))"
+      case Some(selector) =>
+        val sel = selector.render.replace("\\", "\\\\").replace("'", "\\'")
+        s"(function(){var el=document.querySelector('$sel');if(el)el.dispatchEvent(new CustomEvent('$escapedName',{$eventOptions}))})()"
+    }
+    executeScript(
+      jsCode,
+      ExecuteScriptOptions(
+        autoRemove = options.autoRemove,
+        eventId = options.eventId,
+        retryDuration = options.retryDuration,
+      ),
+    )
+  }
+
   def patchElements(elements: String): PatchElements =
     patchElements(elements, PatchElementOptions.default)
 
@@ -235,7 +306,10 @@ object DatastarEvent {
     useViewTransition: Boolean,
     eventId: Option[String],
   ): PatchElements =
-    patchElements(elements, PatchElementOptions(selector, mode, useViewTransition, eventId))
+    patchElements(
+      elements,
+      PatchElementOptions(selector = selector, mode = mode, useViewTransition = useViewTransition, eventId = eventId),
+    )
 
   def patchElements(
     elements: String,
@@ -245,17 +319,27 @@ object DatastarEvent {
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchElements =
-    patchElements(elements, PatchElementOptions(selector, mode, useViewTransition, eventId, retryDuration))
+    patchElements(
+      elements,
+      PatchElementOptions(
+        selector = selector,
+        mode = mode,
+        useViewTransition = useViewTransition,
+        eventId = eventId,
+        retryDuration = retryDuration,
+      ),
+    )
 
   def patchElements(element: Dom): PatchElements =
     patchElements(element, PatchElementOptions.default)
 
   def patchElements(element: Dom, options: PatchElementOptions): PatchElements =
-    patchElements(
+    PatchElements(
       element,
       options.selector,
       options.mode,
       options.useViewTransition,
+      options.namespace,
       options.eventId,
       options.retryDuration,
     )
@@ -281,7 +365,10 @@ object DatastarEvent {
     useViewTransition: Boolean,
     eventId: Option[String],
   ): PatchElements =
-    patchElements(element, PatchElementOptions(selector, mode, useViewTransition, eventId))
+    patchElements(
+      element,
+      PatchElementOptions(selector = selector, mode = mode, useViewTransition = useViewTransition, eventId = eventId),
+    )
 
   def patchElements(
     element: Dom,
@@ -291,7 +378,18 @@ object DatastarEvent {
     eventId: Option[String],
     retryDuration: Duration,
   ): PatchElements =
-    PatchElements(element, selector, mode, useViewTransition, eventId, retryDuration)
+    PatchElements(element, selector, mode, useViewTransition, None, eventId, retryDuration)
+
+  def patchElements(
+    element: Dom,
+    selector: Option[CssSelector],
+    mode: ElementPatchMode,
+    useViewTransition: Boolean,
+    namespace: Option[String],
+    eventId: Option[String],
+    retryDuration: Duration,
+  ): PatchElements =
+    PatchElements(element, selector, mode, useViewTransition, namespace, eventId, retryDuration)
 
   def patchSignals(signal: (String, String)): PatchSignals =
     patchSignals(Seq(signal), PatchSignalOptions.default)

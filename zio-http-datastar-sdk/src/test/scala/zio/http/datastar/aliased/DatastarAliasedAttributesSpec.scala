@@ -298,6 +298,21 @@ object DatastarAliasedAttributesSpec extends ZIOSpecDefault {
       val rendered = view.render
       assertTrue(rendered == """<div data-star-on-intersect__once__half__viewtransition="handleChained()"></div>""")
     },
+    test("dataOnIntersect with exit modifier") {
+      val view     = div(dataOnIntersect.exit := js"handleExit()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-on-intersect__exit="handleExit()"></div>""")
+    },
+    test("dataOnIntersect with threshold modifier") {
+      val view     = div(dataOnIntersect.threshold(50) := js"handleThreshold()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-on-intersect__threshold.50="handleThreshold()"></div>""")
+    },
+    test("dataOnIntersect with exit and threshold modifiers combined") {
+      val view     = div(dataOnIntersect.exit.threshold(75) := js"handleExitThreshold()")
+      val rendered = view.render
+      assertTrue(rendered == """<div data-star-on-intersect__exit__threshold.75="handleExitThreshold()"></div>""")
+    },
     test("dataOnInterval basic renders correct attribute") {
       val view     = div(dataOnInterval := js"tick()")
       val rendered = view.render

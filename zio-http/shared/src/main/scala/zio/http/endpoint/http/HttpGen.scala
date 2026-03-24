@@ -1,6 +1,6 @@
 package zio.http.endpoint.http
 
-import zio.Unsafe
+import zio.{Chunk, Unsafe}
 
 import zio.schema.Schema
 import zio.schema.codec.BinaryCodec
@@ -137,23 +137,30 @@ object HttpGen {
 
   def queryVariables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(codec, _), _) =>
-      val recordSchema = (codec.schema match {
-        case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema
-        case _                                               => codec.schema
-      }).asInstanceOf[Schema.Record[Any]]
-      val examples     = mc.examples.values.headOption.map { ex =>
-        recordSchema.deconstruct(ex)(Unsafe.unsafe)
-      }
-      codec.recordFields.zipWithIndex.map { case ((field, codec), index) =>
-        HttpVariable(
-          field.name,
-          examples.map(values => {
-            val fieldValue = values(index)
-              .orElse(field.defaultValue)
-              .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
-            codec.encode(fieldValue)
-          }),
-        )
+      val fields = codec.recordFields
+      if (fields.nonEmpty && codec.recordSchema != null) {
+        val actualSchema = codec.schema match {
+          case value if value.isInstanceOf[Schema.Optional[_]] => value.asInstanceOf[Schema.Optional[Any]].schema
+          case _                                               => codec.schema
+        }
+        val recordSchema = actualSchema.asInstanceOf[Schema.Record[Any]]
+        val examples     = mc.examples.values.headOption.map { ex =>
+          recordSchema.deconstruct(ex)(Unsafe.unsafe)
+        }
+        fields.zipWithIndex.map { case ((field, codec), index) =>
+          HttpVariable(
+            field.name,
+            examples.map(values => {
+              val fieldValue = values(index)
+                .orElse(field.defaultValue)
+                .getOrElse(throw new Exception(s"No value or default value for field ${field.name}"))
+              codec.encode(fieldValue)
+            }),
+          )
+        }
+      } else {
+        val name = mc.name.getOrElse("query")
+        Chunk(HttpVariable(name, mc.examples.values.headOption.map(_.toString)))
       }
     }.flatten
   }

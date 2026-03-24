@@ -395,5 +395,32 @@ object URLSpec extends ZIOHttpSpec {
           assertTrue(result.contains(expected))
         },
       ),
+      suite("decodeOrNull")(
+        test("valid plain path returns non-null URL") {
+          val result = URL.decodeOrNull("/plaintext")
+          assertTrue(
+            result ne null,
+            result.path == Path("/plaintext"),
+          )
+        },
+        test("valid path with query params returns non-null URL") {
+          val result = URL.decodeOrNull("/api/users?id=1")
+          assertTrue(
+            result ne null,
+            result.path == Path("/api/users"),
+          )
+        },
+        test("invalid URL returns null") {
+          val result = URL.decodeOrNull("not valid %%%")
+          assertTrue(result eq null)
+        },
+        test("valid absolute URL returns non-null URL") {
+          val result = URL.decodeOrNull("http://example.com/path")
+          assertTrue(
+            result ne null,
+            result.kind.isAbsolute,
+          )
+        },
+      ),
     )
 }

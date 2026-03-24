@@ -263,7 +263,69 @@ object AuthSpec extends ZIOSpecDefault {
         for {
           response <- response
           status = response.status
-        } yield assertTrue(status == Status.Unauthorized)
+        } yield assertTrue(status == Status.NotFound)
+      },
+      test("Missing Authorization header returns 404 by default") {
+        val endpoint =
+          Endpoint(Method.GET / "test-missing-auth").out[String](MediaType.text.`plain`).auth(AuthType.Bearer)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-missing-auth",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.NotFound)
+      },
+      test("Missing Authorization header returns 401 when configured") {
+        val endpoint = Endpoint(Method.GET / "test-auth-401")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer)
+          .unauthorizedStatus(Status.Unauthorized)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-auth-401",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status     = response.status
+          hasWwwAuth = response.headers.contains("www-authenticate")
+        } yield assertTrue(status == Status.Unauthorized, hasWwwAuth)
+      },
+      test("Missing Authorization header returns custom status") {
+        val endpoint = Endpoint(Method.GET / "test-auth-custom")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer)
+          .unauthorizedStatus(Status.BadRequest)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-auth-custom",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.BadRequest)
       },
     )
 
