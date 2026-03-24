@@ -7,7 +7,7 @@ import zio.http.internal.FetchDriver
 
 trait ZClientPlatformSpecific {
 
-  def requiringConfig: ZLayer[ZClient.Config, Throwable, Client] =
+  def fromConfig: ZLayer[ZClient.Config, Throwable, Client] =
     live
 
   def customized: ZLayer[Config with ZClient.Driver[Any, Scope, Throwable], Throwable, Client] = {
@@ -38,7 +38,7 @@ trait ZClientPlatformSpecific {
 
   def default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.succeed(Config.default) >>> requiringConfig
+    ZLayer.succeed(Config.default) >>> fromConfig
   }
 
 }

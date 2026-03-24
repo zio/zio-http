@@ -8,7 +8,7 @@ import zio.http.netty.client.NettyClientDriver
 
 trait ZClientPlatformSpecific {
 
-  def requiringConfig: ZLayer[ZClient.Config, Throwable, Client] = {
+  def fromConfig: ZLayer[ZClient.Config, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (ZLayer.succeed(NettyConfig.defaultWithFastShutdown) ++ DnsResolver.default) >>> live
   }
@@ -46,7 +46,7 @@ trait ZClientPlatformSpecific {
 
   def default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.succeed(Config.default) >>> requiringConfig
+    ZLayer.succeed(Config.default) >>> fromConfig
   }
 
 }
