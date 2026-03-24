@@ -22,7 +22,7 @@ import zio.test._
 import zio.stream._
 
 import zio.http._
-import zio.http.stomp._ // Import syntax extensions
+import zio.http.stomp._
 
 object StompIntegrationSpec extends ZIOSpecDefault {
 
