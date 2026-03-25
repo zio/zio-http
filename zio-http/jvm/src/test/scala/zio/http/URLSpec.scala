@@ -422,5 +422,79 @@ object URLSpec extends ZIOHttpSpec {
           )
         },
       ),
+      suite("relative URI fast path")(
+        test("empty string returns URL.empty") {
+          val url = URL.decode("").toOption.get
+          assertTrue(url == URL.empty)
+        },
+        test("path only") {
+          val url = URL.decode("/api/users/123").toOption.get
+          assertTrue(
+            url.path == Path.decode("/api/users/123"),
+            url.queryParams.isEmpty,
+            url.fragment.isEmpty,
+            url.kind == URL.Location.Relative,
+          )
+        },
+        test("path with query") {
+          val url = URL.decode("/api/users?page=2&limit=10").toOption.get
+          assertTrue(
+            url.path == Path.decode("/api/users"),
+            url.queryParams.queryParam("page") == Some("2"),
+            url.queryParams.queryParam("limit") == Some("10"),
+            url.fragment.isEmpty,
+          )
+        },
+        test("path with fragment") {
+          val url = URL.decode("/docs/intro#section-1").toOption.get
+          assertTrue(
+            url.path == Path.decode("/docs/intro"),
+            url.queryParams.isEmpty,
+            url.fragment.map(_.raw) == Some("section-1"),
+          )
+        },
+        test("path with query and fragment") {
+          val url = URL.decode("/search?q=test#results").toOption.get
+          assertTrue(
+            url.path == Path.decode("/search"),
+            url.queryParams.queryParam("q") == Some("test"),
+            url.fragment.map(_.raw) == Some("results"),
+          )
+        },
+        test("matches java.net.URI behavior for relative URLs") {
+          val urls = List(
+            "/",
+            "/api/v1/items",
+            "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+            "/users#the%20hash",
+            "/a/b/c?x=1&y=2#frag",
+            "/search#results?q=test",
+            "/path?",
+            "/path#",
+            "/path?key=val%26ue&other=123",
+            "/path?empty=&also=",
+            "/%E4%B8%AD%E6%96%87/path",
+            "/a/b/c?x=1&x=2&x=3",
+            "/path?q=hello+world",
+            "/deeply/nested/path/to/resource",
+            "/trailing/slash/",
+          )
+          assertTrue(urls.forall { raw =>
+            val fast = URL.decode(raw).toOption.get
+            val uri  = new java.net.URI(raw)
+            val slow = URL.fromURI(uri).get
+            fast.path == slow.path &&
+            fast.queryParams == slow.queryParams &&
+            fast.fragment.map(_.raw) == slow.fragment.map(_.raw)
+          })
+        },
+        test("absolute URLs still go through java.net.URI") {
+          val url = URL.decode("http://abc.com/users?a=1").toOption.get
+          assertTrue(
+            url.kind.isAbsolute,
+            url.path == Path.decode("/users"),
+          )
+        },
+      ),
     )
 }
