@@ -3,11 +3,38 @@ package zio.http.endpoint
 import zio.http._
 import zio.http.codec._
 
+/**
+ * Describes the authentication type for an [[Endpoint]].
+ *
+ * When authentication fails at runtime, the endpoint responds with
+ * [[unauthorizedStatus]], which defaults to `Status.NotFound` (404). This is an
+ * intentional security pattern (information hiding) that prevents attackers
+ * from discovering protected resources. To use a different status:
+ *
+ * {{{
+ * Endpoint(Method.GET / "secret")
+ *   .auth(AuthType.Bearer)
+ *   .unauthorizedStatus(Status.Unauthorized) // respond with 401 instead
+ * }}}
+ */
 sealed trait AuthType { self =>
   type ClientRequirement
   def codec: HttpCodec[HttpCodecType.RequestType, ClientRequirement]
 
-  def unauthorizedStatus: Status                       = Status.NotFound
+  /**
+   * The HTTP status code returned when authentication fails. Defaults to
+   * `Status.NotFound` (404) for security (information hiding). Override with
+   * [[withUnauthorizedStatus]] to use e.g. `Status.Unauthorized` (401).
+   */
+  def unauthorizedStatus: Status = Status.NotFound
+
+  /**
+   * Returns a copy of this auth type with a different unauthorized status.
+   *
+   * {{{
+   * AuthType.Bearer.withUnauthorizedStatus(Status.Unauthorized)
+   * }}}
+   */
   def withUnauthorizedStatus(status: Status): AuthType =
     AuthType
       .WithStatus(self.asInstanceOf[AuthType { type ClientRequirement = self.ClientRequirement }], status)

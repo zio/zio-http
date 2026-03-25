@@ -198,9 +198,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g, h, i, j, k, l)),
     )
 
+  /** Sets the authentication type for this endpoint. */
   def auth[Auth0 <: AuthType](auth: Auth0): Endpoint[PathInput, Input, Err, Output, Auth0] =
     copy(authType = auth)
 
+  /**
+   * Overrides the HTTP status returned when authentication fails. Defaults to
+   * 404 (Not Found) for security. Use `Status.Unauthorized` for standard 401
+   * behavior.
+   */
   def unauthorizedStatus(status: Status): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(authType = authType.withUnauthorizedStatus(status).asInstanceOf[Auth])
 
