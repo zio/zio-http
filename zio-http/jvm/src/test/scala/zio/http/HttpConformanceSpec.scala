@@ -920,6 +920,8 @@ object HttpConformanceSpec extends ZIOSpecDefault {
       suite("Advanced Transfer-Encoding (RFC 9112 §6.1, §6.3, §7.1)")(
         test("Chunk extensions are ignored and don't break body assembly") {
           // RFC 9112 §7.1.1: Chunk extensions (e.g., "4;name=value") should be ignored
+          // Note: Netty 4.2.11+ requires quoted-string for chunk-ext-val (unquoted tokens
+          // are rejected by HttpChunkLineValidatingByteProcessor due to a missing terminal state)
           val routes = (Method.POST / "chunk-ext" -> handler { (req: Request) =>
             for {
               body <- req.body.asString.orDie
@@ -929,7 +931,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
           for {
             port <- Server.installRoutes(routes)
             rawRequest =
-              s"""POST /chunk-ext HTTP/1.1\r\nHost: localhost:$port\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n4;ext=val\r\ntest\r\n0\r\n\r\n"""
+              s"""POST /chunk-ext HTTP/1.1\r\nHost: localhost:$port\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n4;ext="val"\r\ntest\r\n0\r\n\r\n"""
             output <- sendRawHttp(port, rawRequest)
           } yield assertTrue(output.contains("received=4"))
         },
