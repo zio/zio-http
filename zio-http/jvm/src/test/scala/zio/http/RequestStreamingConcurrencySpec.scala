@@ -16,14 +16,16 @@
 
 package zio.http
 
+import java.util.UUID
+
 import zio._
-import zio.http.Server.RequestStreaming
-import zio.http.netty.NettyConfig
-import zio.stream.ZStream
 import zio.test.TestAspect._
 import zio.test._
 
-import java.util.UUID
+import zio.stream.ZStream
+
+import zio.http.Server.RequestStreaming
+import zio.http.netty.NettyConfig
 
 /**
  * Regression test for request streaming + concurrent load.
