@@ -196,13 +196,26 @@ private[zio] final case class ServerInboundHandler(
             ctx.writeAndFlush(jResponse)
             NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
               case Some(bodyTask) =>
-                val channelConfig    = ctx.channel().config()
-                val previousAutoRead = channelConfig.isAutoRead
-                if (previousAutoRead) channelConfig.setAutoRead(false)
-                Some(bodyTask.ensuring(ZIO.succeed {
-                  if (previousAutoRead) {
-                    channelConfig.setAutoRead(true)
-                    ctx.channel().read()
+                // Disable auto-read while the response body is being streamed to prevent
+                // the next request's headers from being read and interleaved.
+                // All autoRead manipulation must happen on the event loop thread to avoid
+                // racing with AsyncBodyReader (used for request streaming)
+                val channel          = ctx.channel()
+                val previousAutoRead = new java.util.concurrent.atomic.AtomicBoolean(true)
+                channel
+                  .eventLoop()
+                  .execute(() => {
+                    val prev = channel.config().isAutoRead
+                    previousAutoRead.set(prev)
+                    if (prev) channel.config().setAutoRead(false): Unit
+                  })
+                Some(bodyTask.ensuring(ZIO.async[Any, Nothing, Unit] { cb =>
+                  channel.eventLoop().execute { () =>
+                    if (previousAutoRead.get()) {
+                      channel.config().setAutoRead(true)
+                      channel.read()
+                    }
+                    cb(Exit.unit)
                   }
                 }))
               case None           => None
