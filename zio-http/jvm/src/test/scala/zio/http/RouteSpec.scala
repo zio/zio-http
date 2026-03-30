@@ -456,6 +456,51 @@ object RouteSpec extends ZIOHttpSpec {
         )
       },
     ),
+    suite("composable methods (Method.#|)")(
+      test("composable methods route matches both GET and POST") {
+        val routes = Routes(
+          Method.GET #| Method.POST / "test" -> handler(Response.text("ok")),
+        )
+        for {
+          getResp  <- routes.runZIO(Request.get("/test"))
+          postResp <- routes.runZIO(Request.post("/test", Body.empty))
+        } yield assertTrue(
+          getResp.status == Status.Ok,
+          postResp.status == Status.Ok,
+        )
+      },
+      test("composable methods route doesn't match other methods") {
+        val routes = Routes(
+          Method.GET #| Method.POST / "test" -> handler(Response.text("ok")),
+        )
+        for {
+          putResp <- routes.runZIO(Request.put("/test", Body.empty))
+        } yield assertTrue(putResp.status == Status.NotFound)
+      },
+      test("Method.matches works with composite methods") {
+        val composite = Method.GET #| Method.POST
+        assertTrue(
+          composite.matches(Method.GET),
+          composite.matches(Method.POST),
+          !composite.matches(Method.PUT),
+          !composite.matches(Method.DELETE),
+        )
+      },
+      test("three methods can be combined") {
+        val composite = Method.GET #| Method.POST #| Method.PUT
+        assertTrue(
+          composite.matches(Method.GET),
+          composite.matches(Method.POST),
+          composite.matches(Method.PUT),
+          !composite.matches(Method.DELETE),
+        )
+      },
+      test("composable method route renders correctly") {
+        val pattern  = Method.GET #| Method.POST / "test"
+        val rendered = pattern.render
+        assertTrue(rendered == "GET#|POST /test")
+      },
+    ),
     test("Handled#toHandler should not suspend") {
       val request = Request(headers = Headers.empty, method = Method.GET)
       val ok      = (Method.GET / "foo" -> handler(Response.ok)).toHandler
