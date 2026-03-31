@@ -280,8 +280,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.13",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.13",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.14",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.14",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",
@@ -347,7 +347,6 @@ lazy val zioHttpStomp = (project in file("zio-http-stomp"))
   .dependsOn(zioHttpJVM)
   .dependsOn(zioHttpTestkit % Test)
   .settings(MimaSettings.mimaSettings(failOnProblem = true))
-
 
 lazy val zioHttpMetrics = (project in file("zio-http-metrics"))
   .settings(
