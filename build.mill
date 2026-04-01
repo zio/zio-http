@@ -14,11 +14,9 @@ object Versions {
 }
 
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
-val wsRoot = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
+val wsRoot = os.pwd
 
-def scalaVersionDir(v: String): String = if (v.startsWith("2.")) "scala-2" else if (v.startsWith("3.")) "scala-3" else ""
-
-trait ZioHttpModule extends CrossScalaModule with PlatformScalaModule {
+trait ZioHttpModule extends CrossScalaModule {
 
   override def scalacOptions = Task {
     val base = Seq("-deprecation", "-encoding", "UTF-8", "-feature", "-unchecked", "-language:postfixOps")
@@ -33,10 +31,7 @@ trait ZioHttpModule extends CrossScalaModule with PlatformScalaModule {
 
   override def scalacPluginMvnDeps = Seq(mvn"com.lihaoyi::unroll-plugin:${Versions.UnrollAnnotation}")
 
-  override def mvnDeps = {
-    val reflect = if (crossScalaVersion.startsWith("2.")) Seq(mvn"org.scala-lang:scala-reflect:${crossScalaVersion}") else Seq.empty
-    reflect ++ Seq(mvn"com.lihaoyi::unroll-annotation:${Versions.UnrollAnnotation}")
-  }
+  override def mvnDeps = super.mvnDeps() ++ Seq(mvn"com.lihaoyi::unroll-annotation:${Versions.UnrollAnnotation}")
 }
 
 trait ZioHttpJSModule extends ZioHttpModule with ScalaJSModule {
@@ -45,45 +40,42 @@ trait ZioHttpJSModule extends ZioHttpModule with ScalaJSModule {
 
 trait ZioHttpTestModule extends TestModule {
   def testFramework = "zio.test.sbt.ZTestFramework"
-  def mvnDeps = super.mvnDeps() ++ Seq(mvn"dev.zio::zio-test:${Versions.Zio}", mvn"dev.zio::zio-test-sbt:${Versions.Zio}")
+  override def mvnDeps = super.mvnDeps() ++ Seq(mvn"dev.zio::zio-test:${Versions.Zio}", mvn"dev.zio::zio-test-sbt:${Versions.Zio}")
 }
 
 object core extends Module {
   val r = wsRoot / "zio-http-core"
-
   object jvm extends Cross[JvmModule](scalaVersions)
   trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-core"
-    val vDir = scalaVersionDir(crossScalaVersion)
-    override def sources = Task.Sources(
-      Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
-      ++ (if (vDir.nonEmpty) Seq(r / "shared" / "src" / "main" / vDir) else Nil): _*
-    )
+    override def sources = {
+      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
+      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base)*)
+    }
     override def resources = Task.Sources(r / "shared" / "src" / "main" / "resources", r / "jvm" / "src" / "main" / "resources")
     override def mvnDeps = super.mvnDeps() ++ Seq(
-      mvn"dev.zio::zio:${Versions.Zio}",
-      mvn"dev.zio::zio-streams:${Versions.Zio}",
-      mvn"dev.zio::zio-schema:${Versions.ZioSchema}",
-      mvn"dev.zio::zio-schema-json:${Versions.ZioSchema}",
+      mvn"dev.zio::zio:${Versions.Zio}", mvn"dev.zio::zio-streams:${Versions.Zio}",
+      mvn"dev.zio::zio-schema:${Versions.ZioSchema}", mvn"dev.zio::zio-schema-json:${Versions.ZioSchema}",
       mvn"dev.zio::zio-schema-protobuf:${Versions.ZioSchema}",
     )
     object test extends ScalaTests with ZioHttpTestModule {
-      override def sources = Task.Sources(
-        Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
-        ++ (if (vDir.nonEmpty) Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir) else Nil): _*
-      )
+      override def sources = {
+        val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+        val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
+        Task.Sources((if (vDir.nonEmpty) base ++ Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir) else base)*)
+      }
       override def resources = Task.Sources(r / "shared" / "src" / "test" / "resources", r / "jvm" / "src" / "test" / "resources")
     }
   }
-
   object js extends Cross[JsModule](scalaVersions)
   trait JsModule extends ZioHttpJSModule {
     def artifactName = "zio-http-core"
-    val vDir = scalaVersionDir(crossScalaVersion)
-    override def sources = Task.Sources(
-      Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
-      ++ (if (vDir.nonEmpty) Seq(r / "shared" / "src" / "main" / vDir) else Nil): _*
-    )
+    override def sources = {
+      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
+      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base)*)
+    }
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"dev.zio::zio:${Versions.Zio}", mvn"dev.zio::zio-streams:${Versions.Zio}",
       mvn"dev.zio::zio-schema:${Versions.ZioSchema}", mvn"dev.zio::zio-schema-json:${Versions.ZioSchema}",
@@ -133,21 +125,21 @@ object endpoint extends Module {
   trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-endpoint"
     def moduleDeps = Seq(core.jvm(), client.jvm())
-    val vDir = scalaVersionDir(crossScalaVersion)
-    override def sources = Task.Sources(
-      Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
-      ++ (if (vDir.nonEmpty) Seq(r / "shared" / "src" / "main" / vDir) else Nil): _*
-    )
+    override def sources = {
+      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
+      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base)*)
+    }
   }
   object js extends Cross[JsModule](scalaVersions)
   trait JsModule extends ZioHttpJSModule {
     def artifactName = "zio-http-endpoint"
     def moduleDeps = Seq(core.js(), client.js())
-    val vDir = scalaVersionDir(crossScalaVersion)
-    override def sources = Task.Sources(
-      Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
-      ++ (if (vDir.nonEmpty) Seq(r / "shared" / "src" / "main" / vDir) else Nil): _*
-    )
+    override def sources = {
+      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
+      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base)*)
+    }
   }
 }
 
@@ -171,6 +163,7 @@ object nettyCore extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"io.netty:netty-codec-http:${Versions.Netty}", mvn"io.netty:netty-handler-proxy:${Versions.Netty}",
       mvn"io.netty:netty-transport-native-epoll:${Versions.Netty}", mvn"io.netty:netty-transport-native-kqueue:${Versions.Netty}",
+      mvn"io.netty:netty-transport-native-io_uring:${Versions.Netty}",
       mvn"io.netty:netty-pkitesting:${Versions.Netty}",
     )
   }
