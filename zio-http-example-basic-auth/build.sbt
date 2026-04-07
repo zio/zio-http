@@ -1,13 +1,13 @@
-name := "zio-http-example-basic-auth"
-version := "0.1.0"
+name         := "zio-http-example-basic-auth"
+version      := "0.1.0"
 scalaVersion := "2.13.18"
 
 publish / skip  := true
 publishArtifact := false
-run / fork := true
+run / fork      := true
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio" % "2.1.24",
+  "dev.zio" %% "zio"      % "2.1.25",
   "dev.zio" %% "zio-http" % "3.5.1",
 )
 
@@ -16,5 +16,5 @@ enablePlugins(DockerPlugin)
 
 Compile / mainClass := Some("example.auth.basic.AuthenticationServer")
 
-dockerBaseImage := "eclipse-temurin:21-jre"
+dockerBaseImage    := "eclipse-temurin:21-jre"
 dockerExposedPorts := Seq(8080)

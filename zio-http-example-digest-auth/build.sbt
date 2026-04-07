@@ -4,10 +4,10 @@ scalaVersion := "2.13.18"
 
 publish / skip  := true
 publishArtifact := false
-run / fork := true
+run / fork      := true
 
 libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"      % "2.1.24",
+  "dev.zio" %% "zio"      % "2.1.25",
   "dev.zio" %% "zio-http" % "3.5.1",
 )
 

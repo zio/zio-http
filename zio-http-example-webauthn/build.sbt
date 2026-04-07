@@ -7,7 +7,7 @@ publishArtifact := false
 run / fork      := true
 
 libraryDependencies ++= Seq(
-  "dev.zio"   %% "zio"                         % "2.1.24",
+  "dev.zio"   %% "zio"                         % "2.1.25",
   "dev.zio"   %% "zio-http"                    % "3.5.1",
   "dev.zio"   %% "zio-config"                  % "4.0.7",
   "com.yubico" % "webauthn-server-core"        % "2.7.0",
