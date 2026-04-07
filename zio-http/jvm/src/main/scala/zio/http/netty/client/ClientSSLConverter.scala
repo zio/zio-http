@@ -25,7 +25,12 @@ import scala.util.Using
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ClientSSLCertConfig.{FromClientCertFile, FromClientCertResource}
+import zio.http.ClientSSLCertConfig.{
+  FromClientCertFile,
+  FromClientCertFileWithPassword,
+  FromClientCertResource,
+  FromClientCertResourceWithPassword,
+}
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
@@ -107,6 +112,27 @@ private[netty] object ClientSSLConverter {
         val certInputStream = use(classLoader.getResourceAsStream(certPath))
         val keyInputStream  = use(classLoader.getResourceAsStream(keyPath))
         newBuilder.keyManager(certInputStream, keyInputStream)
+      }.get
+    case ClientSSLConfig.FromClientAndServerCert(
+          serverCertConfig,
+          FromClientCertFileWithPassword(certPath, keyPath, keyPassword),
+        ) =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val certInputStream = use(new FileInputStream(new File(certPath)))
+        val keyInputStream  = use(new FileInputStream(new File(keyPath)))
+        newBuilder.keyManager(certInputStream, keyInputStream, keyPassword.value.mkString)
+      }.get
+    case ClientSSLConfig.FromClientAndServerCert(
+          serverCertConfig,
+          FromClientCertResourceWithPassword(certPath, keyPath, keyPassword),
+        ) =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val classLoader     = getClass.getClassLoader
+        val certInputStream = use(classLoader.getResourceAsStream(certPath))
+        val keyInputStream  = use(classLoader.getResourceAsStream(keyPath))
+        newBuilder.keyManager(certInputStream, keyInputStream, keyPassword.value.mkString)
       }.get
     case ClientSSLConfig.FromTrustStoreFile(trustStorePath, trustStorePassword)                               =>
       val trustStoreStream = new FileInputStream(trustStorePath)
