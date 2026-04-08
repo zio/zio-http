@@ -48,6 +48,29 @@ object EndpointSpec extends ZIOHttpSpec {
 
       assertTrue(inCodec == expectedCodec, outCodec == expectedCodec)
     },
+    suite("renderUrl")(
+      test("path only") {
+        val ep = Endpoint(Method.GET / "api" / "users")
+        assertTrue(ep.renderUrl(()) == Right("/api/users"))
+      },
+      test("path with path params") {
+        val ep = Endpoint(Method.GET / "users" / int("id"))
+        assertTrue(ep.renderUrl(42) == Right("/users/42"))
+      },
+      test("query params are not rendered") {
+        val ep = Endpoint(Method.GET / "users" / int("id"))
+          .query(HttpCodec.query[String]("name"))
+        assertTrue(ep.renderUrl(42) == Right("/users/42"))
+      },
+      test("with base path") {
+        val ep = Endpoint(Method.GET / "users" / int("id"))
+        assertTrue(ep.renderUrl("/v1", 42) == Right("/v1/users/42"))
+      },
+      test("base path with trailing slash") {
+        val ep = Endpoint(Method.GET / "users")
+        assertTrue(ep.renderUrl("/v1/", ()) == Right("/v1/users"))
+      },
+    ),
   )
 
   def testEndpoint[R](service: Routes[R, Nothing])(
