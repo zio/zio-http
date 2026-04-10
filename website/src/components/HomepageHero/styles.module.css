@@ -43,6 +43,7 @@
   font-weight: 900;
   letter-spacing: 0.2em;
   background: linear-gradient(to bottom, #e8f5e9, #6cb97d);
+  color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -70,6 +71,7 @@
 .headingLine {
   display: block;
   background: linear-gradient(to bottom, #ffffff, #c5e1cd, #80b48f);
+  color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -129,8 +131,8 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   opacity: 0.6;
+  text-decoration: none;
   transition: opacity 0.3s ease;
-  cursor: pointer;
 }
 
 .watermark:hover {

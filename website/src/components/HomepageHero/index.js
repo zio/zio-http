@@ -33,7 +33,7 @@ export default function HomepageHero() {
           <div className={styles.featureTags}>
             {featureTags.map(({ icon: Icon, label }) => (
               <div key={label} className={styles.featureTag}>
-                <Icon className={styles.featureIcon} size={20} />
+                <Icon className={styles.featureIcon} size={20} aria-hidden="true" />
                 <span>{label}</span>
               </div>
             ))}
@@ -49,7 +49,12 @@ export default function HomepageHero() {
           </div>
         </div>
       </div>
-      <div className={styles.watermark}>ziohttp.com</div>
+      <Link
+        className={styles.watermark}
+        to="/"
+        aria-label="Go to the ZIO HTTP homepage">
+        ziohttp.com
+      </Link>
     </header>
   );
 }
