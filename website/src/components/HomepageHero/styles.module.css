@@ -25,19 +25,19 @@
   z-index: 10;
   max-width: 1450px;
   margin: 0 auto;
-  height: 100%;
+  min-height: 600px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  align-items: center;
+  align-items: stretch;
   padding: 4rem;
 }
 
 .leftColumn {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  padding-top: 4rem;
+  padding-bottom: 0rem;
 }
 
 .zioTitle {
@@ -50,6 +50,12 @@
   background-clip: text;
   filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.8));
   margin: 0;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .mainHeading {
