@@ -55,6 +55,8 @@ private[netty] object Conversions {
       case Method.CONNECT      => HttpMethod.CONNECT
       case Method.ANY          => HttpMethod.GET
       case Method.CUSTOM(name) => new HttpMethod(name)
+      case Method.Methods(_)   =>
+        throw new IllegalArgumentException("Methods composite cannot be converted to a single Netty method")
     }
 
   def headersToNetty(headers: Headers): HttpHeaders =

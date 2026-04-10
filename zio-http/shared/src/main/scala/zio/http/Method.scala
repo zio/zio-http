@@ -31,6 +31,17 @@ sealed trait Method { self: Product =>
     if (that == Method.ANY) self
     else that
 
+  def #|(that: Method): Method =
+    if (self == Method.ANY || that == Method.ANY) Method.ANY
+    else
+      (self, that) match {
+        case (Method.Methods(a), Method.Methods(b)) => Method.Methods(a ++ b)
+        case (Method.Methods(a), _)                 => Method.Methods(a + that)
+        case (_, Method.Methods(b))                 => Method.Methods(b + self)
+        case _ if self == that                      => self
+        case _                                      => Method.Methods(Set(self, that))
+      }
+
   def /[A](that: PathCodec[A]): RoutePattern[A] =
     if (that == PathCodec.empty) RoutePattern.fromMethod(self).asInstanceOf[RoutePattern[A]]
     else RoutePattern.fromMethod(self) / that
@@ -38,7 +49,15 @@ sealed trait Method { self: Product =>
   def matches(that: Method): Boolean =
     if (self == Method.ANY) true
     else if (that == Method.ANY) true
-    else self == that
+    else
+      self match {
+        case Method.Methods(methods) => methods.exists(_.matches(that))
+        case _                       =>
+          that match {
+            case Method.Methods(methods) => methods.exists(_.matches(self))
+            case _                       => self == that
+          }
+      }
 
   /**
    * The name of the method, as it appears in the HTTP request.
@@ -69,6 +88,10 @@ object Method {
     }
 
   final case class CUSTOM(name: String) extends Method
+
+  final case class Methods(methods: Set[Method]) extends Method {
+    val name: String = methods.toList.sortBy(_.render).map(_.render).mkString("#|")
+  }
 
   case object OPTIONS extends Method { val name = "OPTIONS" }
   case object GET     extends Method { val name = "GET"     }

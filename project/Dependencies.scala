@@ -2,11 +2,11 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "11.0.3"
-  val NettyVersion                 = "4.2.11.Final"
+  val NettyVersion                 = "4.2.12.Final"
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.24"
   val ZioCliVersion                = "0.8.0"
-  val ZioJsonVersion               = "0.9.0"
+  val ZioJsonVersion               = "0.9.1"
   val ZioSchemaVersion             = "1.8.3"
   val SttpVersion                  = "3.3.18"
   val ZioConfigVersion             = "4.0.7"
@@ -30,7 +30,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
       "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
-      "com.aayushatharva.brotli4j" % "brotli4j" % "1.20.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.22.0" % "provided",
     )
 
   val unroll = Seq(

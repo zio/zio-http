@@ -74,6 +74,8 @@ object FetchDriver {
     case Method.CUSTOM(name) => throw new IllegalArgumentException(s"Custom method $name is not supported")
     case Method.TRACE        => throw new IllegalArgumentException("TRACE is not supported")
     case Method.CONNECT      => throw new IllegalArgumentException("CONNECT is not supported")
+    case Method.Methods(_)   =>
+      throw new IllegalArgumentException("Methods composite cannot be converted to a single HTTP method")
   }
 
   private[http] def fromZBody(body: Body): ZIO[Any, Throwable, js.UndefOr[BodyInit]] =

@@ -77,7 +77,11 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
 
   def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.flatMap { path =>
     if (method == Method.ANY) Method.standardMethods.map(RoutePattern(_, path))
-    else List(RoutePattern(method, path))
+    else
+      method match {
+        case Method.Methods(ms) => ms.toList.map(m => RoutePattern(m, path))
+        case _                  => List(RoutePattern(method, path))
+      }
   }
 
   /**
@@ -252,16 +256,16 @@ object RoutePattern                                                       {
       val empty = Tree.empty[Env]
 
       routePattern.method match {
-        case Method.GET       => empty.copy(getRoot = subtree)
-        case Method.POST      => empty.copy(postRoot = subtree)
-        case Method.PUT       => empty.copy(putRoot = subtree)
-        case Method.DELETE    => empty.copy(deleteRoot = subtree)
-        case Method.CONNECT   => empty.copy(connectRoot = subtree)
-        case Method.HEAD      => empty.copy(headRoot = subtree)
-        case Method.OPTIONS   => empty.copy(optionsRoot = subtree)
-        case Method.PATCH     => empty.copy(patchRoot = subtree)
-        case Method.TRACE     => empty.copy(traceRoot = subtree)
-        case Method.ANY       =>
+        case Method.GET        => empty.copy(getRoot = subtree)
+        case Method.POST       => empty.copy(postRoot = subtree)
+        case Method.PUT        => empty.copy(putRoot = subtree)
+        case Method.DELETE     => empty.copy(deleteRoot = subtree)
+        case Method.CONNECT    => empty.copy(connectRoot = subtree)
+        case Method.HEAD       => empty.copy(headRoot = subtree)
+        case Method.OPTIONS    => empty.copy(optionsRoot = subtree)
+        case Method.PATCH      => empty.copy(patchRoot = subtree)
+        case Method.TRACE      => empty.copy(traceRoot = subtree)
+        case Method.ANY        =>
           empty.copy(
             getRoot = subtree,
             postRoot = subtree,
@@ -273,7 +277,11 @@ object RoutePattern                                                       {
             patchRoot = subtree,
             traceRoot = subtree,
           )
-        case m: Method.CUSTOM => empty.copy(customRoots = Map(m -> subtree))
+        case m: Method.Methods =>
+          m.methods.foldLeft(empty) { (acc, singleMethod) =>
+            acc ++ Tree(RoutePattern(singleMethod, routePattern.pathCodec), value)
+          }
+        case m: Method.CUSTOM  => empty.copy(customRoots = Map(m -> subtree))
       }
     }
 
