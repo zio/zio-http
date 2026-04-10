@@ -1,0 +1,205 @@
+.heroBanner {
+  position: relative;
+  width: 100%;
+  min-height: 600px;
+  background-image: url('/img/banner.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #0d1117;
+  overflow: hidden;
+  padding: 0;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.contentGrid {
+  position: relative;
+  z-index: 10;
+  max-width: 1450px;
+  margin: 0 auto;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 4rem;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding-top: 4rem;
+}
+
+.zioTitle {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  background: linear-gradient(to bottom, #e8f5e9, #6cb97d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.8));
+  margin: 0;
+}
+
+.mainHeading {
+  font-size: 3.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+  margin: 0 0 1.5rem 0;
+}
+
+.headingLine {
+  display: block;
+  background: linear-gradient(to bottom, #ffffff, #c5e1cd, #80b48f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: #d1d5db;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.625;
+  max-width: 32rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  margin: 0 0 1.5rem 0;
+}
+
+.featureTags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.featureTag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #81c784;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.featureIcon {
+  filter: drop-shadow(0 0 8px rgba(129, 199, 132, 0.8));
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+}
+
+.arrowIcon {
+  margin-left: 12px;
+  position: relative;
+  top: 2px;
+}
+
+.watermark {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 2rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.watermark:hover {
+  opacity: 1;
+}
+
+/* Ensure button is visible on the always-dark banner in both themes */
+.buttons :global(.button--secondary) {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.buttons :global(.button--secondary:hover) {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+/* Tablet and below */
+@media screen and (max-width: 996px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .leftColumn {
+    padding-top: 2rem;
+  }
+
+  .zioTitle {
+    font-size: 2.5rem;
+  }
+
+  .mainHeading {
+    font-size: 2.5rem;
+  }
+
+  .subtitle {
+    max-width: 100%;
+  }
+
+  .rightColumn {
+    align-items: center;
+  }
+
+  .featureTags {
+    justify-content: center;
+  }
+
+  .buttons {
+    justify-content: center;
+  }
+}
+
+/* Small mobile */
+@media screen and (max-width: 600px) {
+  .heroBanner {
+    min-height: 500px;
+  }
+
+  .zioTitle {
+    font-size: 2rem;
+  }
+
+  .mainHeading {
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .featureTags {
+    gap: 1rem;
+  }
+}
