@@ -1,3 +1,5 @@
+/* ===== Desktop layout (2-column grid with landscape banner) ===== */
+
 .heroBanner {
   position: relative;
   width: 100%;
@@ -122,23 +124,6 @@
   top: 2px;
 }
 
-.watermark {
-  position: absolute;
-  bottom: 1.5rem;
-  right: 2rem;
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  text-decoration: none;
-  transition: opacity 0.3s ease;
-}
-
-.watermark:hover {
-  opacity: 1;
-}
-
 /* Ensure button is visible on the always-dark banner in both themes */
 .buttons :global(.button--secondary) {
   color: #ffffff;
@@ -152,62 +137,101 @@
   border-color: #81c784;
 }
 
-/* Tablet and below */
-@media screen and (max-width: 996px) {
-  .contentGrid {
-    grid-template-columns: 1fr;
-    padding: 2rem;
-    text-align: center;
-  }
+/* ===== Tablet (996px) ===== */
 
-  .leftColumn {
-    padding-top: 2rem;
+@media screen and (max-width: 996px) {
+  .mainHeading {
+    font-size: 2.5rem;
   }
 
   .zioTitle {
     font-size: 2.5rem;
   }
-
-  .mainHeading {
-    font-size: 2.5rem;
-  }
-
-  .subtitle {
-    max-width: 100%;
-  }
-
-  .rightColumn {
-    align-items: center;
-  }
-
-  .featureTags {
-    justify-content: center;
-  }
-
-  .buttons {
-    justify-content: center;
-  }
 }
 
-/* Small mobile */
-@media screen and (max-width: 600px) {
+/* ===== Mobile layout (single column, portrait banner) ===== */
+
+@media screen and (max-width: 768px) {
   .heroBanner {
-    min-height: 500px;
+    background-image: url('/img/banner-mobile.png');
+    background-position: top center;
+    background-size: 100% auto;
+    min-height: auto;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    text-align: center;
+  }
+
+  /* Top section: banner area with ZIO HTTP underneath the Z logo */
+  .leftColumn {
+    /* Reserve space for the banner image to show the Z logo above */
+    min-height: 250px;
+    justify-content: flex-end;
+    padding-bottom: 0;
   }
 
   .zioTitle {
     font-size: 2rem;
   }
 
+  /* Bottom section: stacked content below banner */
+  .rightColumn {
+    align-items: center;
+    padding: 1.5rem 2rem 2rem;
+    background-color: #0d1117;
+  }
+
   .mainHeading {
-    font-size: 1.75rem;
+    font-size: 2rem;
+    text-align: center;
   }
 
   .subtitle {
+    text-align: center;
+    max-width: 100%;
     font-size: 1rem;
   }
 
   .featureTags {
-    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    /* Center the vertical list */
+    margin-left: auto;
+    margin-right: auto;
+    width: fit-content;
+  }
+
+  .buttons {
+    justify-content: center;
+  }
+
+  .buttons :global(.button--lg) {
+    width: 220px;
+    justify-content: center;
+  }
+
+}
+
+/* ===== Small mobile ===== */
+
+@media screen and (max-width: 480px) {
+  .leftColumn {
+    min-height: 220px;
+  }
+
+  .zioTitle {
+    font-size: 1.75rem;
+  }
+
+  .mainHeading {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
   }
 }

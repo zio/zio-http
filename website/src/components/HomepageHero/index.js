@@ -14,12 +14,12 @@ export default function HomepageHero() {
     <header className={styles.heroBanner}>
       <div className={styles.overlay} />
       <div className={styles.contentGrid}>
-        {/* Left Column: ZIO HTTP Title */}
+        {/* Left Column (desktop) / Top section (mobile): Banner + ZIO HTTP */}
         <div className={styles.leftColumn}>
           <h2 className={styles.zioTitle}>ZIO HTTP</h2>
         </div>
 
-        {/* Right Column: Hero Copy and Features */}
+        {/* Right Column (desktop) / Bottom section (mobile): Copy + Features */}
         <div className={styles.rightColumn}>
           <h1 className={styles.mainHeading}>
             <span className={styles.headingLine}>POWERING</span>
@@ -49,12 +49,6 @@ export default function HomepageHero() {
           </div>
         </div>
       </div>
-      <Link
-        className={styles.watermark}
-        to="/"
-        aria-label="Go to the ZIO HTTP homepage">
-        ziohttp.com
-      </Link>
     </header>
   );
 }
