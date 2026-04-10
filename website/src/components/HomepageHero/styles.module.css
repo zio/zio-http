@@ -23,13 +23,11 @@
 .contentGrid {
   position: relative;
   z-index: 10;
-  max-width: 1450px;
-  margin: 0 auto;
+  width: 100%;
   min-height: 600px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: stretch;
-  padding: 4rem;
 }
 
 .leftColumn {
@@ -37,7 +35,7 @@
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding-bottom: 0rem;
+  padding-bottom: 3rem;
 }
 
 .zioTitle {
@@ -56,6 +54,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 4rem 4rem 4rem 0;
 }
 
 .mainHeading {
