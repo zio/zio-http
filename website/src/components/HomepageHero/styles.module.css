@@ -140,13 +140,14 @@
 /* Ensure button is visible on the always-dark banner in both themes */
 .buttons :global(.button--secondary) {
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.7);
+  background-color: transparent;
+  border: 2px solid #81c784;
 }
 
 .buttons :global(.button--secondary:hover) {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(129, 199, 132, 0.15);
   color: #ffffff;
-  border-color: #ffffff;
+  border-color: #81c784;
 }
 
 /* Tablet and below */
