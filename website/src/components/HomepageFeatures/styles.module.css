@@ -19,7 +19,7 @@
 
 .featuresSubtitle {
   font-size: 1.2rem;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .featureCards {
@@ -43,13 +43,13 @@
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border: 1px solid var(--ifm-color-emphasis-200);
-  border-top: 3px solid var(--zio-accent-green);
+  border-top: 3px solid var(--ifm-color-primary);
 }
 
 .featureCard:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  border-color: var(--zio-accent-green);
+  border-color: var(--ifm-color-primary);
 }
 
 .featureCardHeader {
@@ -71,18 +71,18 @@
 .featureCardIcon svg {
   width: 200px;
   height: 200px;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
   transition: color 0.3s ease;
 }
 
 .featureCard:hover .featureCardIcon svg {
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .featureCardHeader h3 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .featureCardDescription {

@@ -42,7 +42,7 @@
   font-size: 3rem;
   font-weight: 900;
   letter-spacing: 0.2em;
-  background: linear-gradient(to bottom, var(--zio-accent-green-pale), var(--zio-accent-green));
+  background: linear-gradient(to bottom, #e8f5e9, var(--ifm-color-primary));
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -70,7 +70,7 @@
 
 .headingLine {
   display: block;
-  background: linear-gradient(to bottom, #ffffff, var(--zio-accent-green-light), var(--zio-accent-green));
+  background: linear-gradient(to bottom, #ffffff, #a5d6a7, var(--ifm-color-primary));
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
   font-weight: 700;
   font-size: 0.875rem;
   letter-spacing: 0.05em;
@@ -109,7 +109,7 @@
 
 .featureIcon {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .buttons {
@@ -144,13 +144,13 @@
 .buttons :global(.button--secondary) {
   color: #ffffff;
   background-color: transparent;
-  border: 2px solid var(--zio-accent-green);
+  border: 2px solid var(--ifm-color-primary);
 }
 
 .buttons :global(.button--secondary:hover) {
   background-color: rgba(129, 199, 132, 0.15);
   color: #ffffff;
-  border-color: var(--zio-accent-green);
+  border-color: var(--ifm-color-primary);
 }
 
 /* Tablet and below */
