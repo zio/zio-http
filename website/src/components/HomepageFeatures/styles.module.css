@@ -43,12 +43,13 @@
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border: 1px solid var(--ifm-color-emphasis-200);
+  border-top: 3px solid var(--zio-accent-green);
 }
 
 .featureCard:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  border-color: var(--ifm-color-primary-lightest);
+  border-color: var(--zio-accent-green);
 }
 
 .featureCardHeader {
@@ -71,6 +72,11 @@
   width: 200px;
   height: 200px;
   color: var(--ifm-color-primary);
+  transition: color 0.3s ease;
+}
+
+.featureCard:hover .featureCardIcon svg {
+  color: var(--zio-accent-green);
 }
 
 .featureCardHeader h3 {
