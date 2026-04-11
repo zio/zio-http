@@ -72,7 +72,13 @@
   width: 200px;
   height: 200px;
   color: var(--ifm-color-primary);
-  transition: color 0.3s ease;
+  fill: currentColor;
+  transition: color 0.3s ease, fill 0.3s ease;
+}
+
+.featureCardIcon svg * {
+  fill: currentColor;
+  transition: fill 0.3s ease;
 }
 
 .featureCard:hover .featureCardIcon svg {

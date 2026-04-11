@@ -95,7 +95,7 @@
 .pre {
   margin: 0;
   padding: 1.25rem 1rem;
-  overflow-y: auto;
+  overflow: auto;
   max-height: 500px;
   font-size: 0.875rem;
   line-height: 1.6;
@@ -173,6 +173,7 @@
   }
 
   .pre {
+    overflow: auto;
     max-height: 450px;
   }
 }

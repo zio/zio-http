@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 import dracula from 'prism-react-renderer/themes/dracula';
 import useIsBrowser from '@docusaurus/useIsBrowser';
@@ -130,23 +130,56 @@ export default function HomepageCodeSnippet() {
   const [activeTab, setActiveTab] = useState(0);
   const [copied, setCopied] = useState(false);
   const isBrowser = useIsBrowser();
+  const timeoutRef = useRef(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleTabClick = (idx) => {
     setActiveTab(idx);
     setCopied(false);
+    // Clear any pending timeout when switching tabs
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
   };
 
   const handleCopy = () => {
     if (!isBrowser) return;
-    navigator.clipboard
-      .writeText(TABS[activeTab].code.trim())
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch((err) => {
-        console.error('Failed to copy:', err);
-      });
+
+    const textToCopy = TABS[activeTab].code.trim();
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API is not available');
+      }
+
+      navigator.clipboard
+        .writeText(textToCopy)
+        .then(() => {
+          setCopied(true);
+          // Clear any existing timeout
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+          // Set new timeout
+          timeoutRef.current = setTimeout(() => {
+            setCopied(false);
+            timeoutRef.current = null;
+          }, 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy:', err);
+        });
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   return (
@@ -163,7 +196,7 @@ export default function HomepageCodeSnippet() {
           <div>
             <Link
               className="button button--outline button--lg"
-              to="/docs">
+              to="/">
               Explore the Docs
             </Link>
           </div>
@@ -173,16 +206,19 @@ export default function HomepageCodeSnippet() {
         <div className={styles.rightColumn}>
           <div className={styles.codePanel}>
             {/* Tab Bar */}
-            <div className={styles.tabBar}>
+            <div className={styles.tabBar} role="tablist">
               {TABS.map((tab, idx) => (
                 <button
                   key={idx}
+                  id={`tab-${idx}`}
                   className={clsx(
                     styles.tab,
                     activeTab === idx && styles.tabActive
                   )}
                   onClick={() => handleTabClick(idx)}
                   aria-selected={activeTab === idx}
+                  aria-controls={`tabpanel-${idx}`}
+                  type="button"
                   role="tab">
                   {tab.label}
                 </button>
@@ -190,7 +226,11 @@ export default function HomepageCodeSnippet() {
             </div>
 
             {/* Code Area */}
-            <div className={styles.codeArea}>
+            <div
+              id={`tabpanel-${activeTab}`}
+              className={styles.codeArea}
+              role="tabpanel"
+              aria-labelledby={`tab-${activeTab}`}>
               <Highlight
                 key={activeTab}
                 {...defaultProps}
@@ -235,6 +275,7 @@ export default function HomepageCodeSnippet() {
               <span className={styles.langBadge}>Scala</span>
               {isBrowser && (
                 <button
+                  type="button"
                   className={clsx(
                     styles.copyButton,
                     copied && styles.copyButtonCopied
