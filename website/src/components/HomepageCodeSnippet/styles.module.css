@@ -81,9 +81,9 @@
 }
 
 .tabActive {
-  color: #81c784;
+  color: var(--zio-accent-green);
   font-weight: 600;
-  box-shadow: inset 0 -2px 0 #81c784;
+  box-shadow: inset 0 -2px 0 var(--zio-accent-green);
 }
 
 .codeArea {
@@ -153,13 +153,13 @@
 }
 
 .copyButton:hover {
-  border-color: #81c784;
-  color: #81c784;
+  border-color: var(--zio-accent-green);
+  color: var(--zio-accent-green);
 }
 
 .copyButtonCopied {
-  color: #81c784;
-  border-color: #81c784;
+  color: var(--zio-accent-green);
+  border-color: var(--zio-accent-green);
 }
 
 @media screen and (max-width: 996px) {

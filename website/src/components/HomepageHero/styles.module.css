@@ -42,7 +42,7 @@
   font-size: 3rem;
   font-weight: 900;
   letter-spacing: 0.2em;
-  background: linear-gradient(to bottom, #e8f5e9, #6cb97d);
+  background: linear-gradient(to bottom, var(--zio-accent-green-pale), var(--zio-accent-green));
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -70,7 +70,7 @@
 
 .headingLine {
   display: block;
-  background: linear-gradient(to bottom, #ffffff, #c5e1cd, #80b48f);
+  background: linear-gradient(to bottom, #ffffff, var(--zio-accent-green-light), var(--zio-accent-green));
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #81c784;
+  color: var(--zio-accent-green);
   font-weight: 700;
   font-size: 0.875rem;
   letter-spacing: 0.05em;
@@ -108,7 +108,8 @@
 }
 
 .featureIcon {
-  filter: drop-shadow(0 0 8px rgba(129, 199, 132, 0.8));
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
+  color: var(--zio-accent-green);
 }
 
 .buttons {
@@ -143,13 +144,13 @@
 .buttons :global(.button--secondary) {
   color: #ffffff;
   background-color: transparent;
-  border: 2px solid #81c784;
+  border: 2px solid var(--zio-accent-green);
 }
 
 .buttons :global(.button--secondary:hover) {
   background-color: rgba(129, 199, 132, 0.15);
   color: #ffffff;
-  border-color: #81c784;
+  border-color: var(--zio-accent-green);
 }
 
 /* Tablet and below */
