@@ -71,7 +71,7 @@
 .featureCardIcon svg {
   width: 200px;
   height: 200px;
-  color: var(--ifm-color-primary);
+  color: var(--zio-accent-green);
   transition: color 0.3s ease;
 }
 
@@ -82,7 +82,7 @@
 .featureCardHeader h3 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--ifm-color-primary);
+  color: var(--zio-accent-green);
 }
 
 .featureCardDescription {
