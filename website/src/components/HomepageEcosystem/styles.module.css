@@ -56,7 +56,7 @@
 
 .ecosystemSubtitle {
   font-size: 1.2rem;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .ecosystemCards {
@@ -137,7 +137,7 @@
 .ecosystemCardHeader h3 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--zio-accent-green);
+  color: var(--ifm-color-primary);
 }
 
 .ecosystemCardDescription {
