@@ -3,7 +3,7 @@
   align-items: center;
   padding: 4rem 0;
   width: 100%;
-  background-color: var(--ifm-color-emphasis-0);
+  background-color: var(--ifm-color-emphasis-100);
 }
 
 .wideContainer {
@@ -43,12 +43,13 @@
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border: 1px solid var(--ifm-color-emphasis-200);
+  border-top: 3px solid var(--ifm-color-primary);
 }
 
 .featureCard:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  border-color: var(--ifm-color-primary-lightest);
+  border-color: var(--ifm-color-primary);
 }
 
 .featureCardHeader {
@@ -71,6 +72,11 @@
   width: 200px;
   height: 200px;
   color: var(--ifm-color-primary);
+  transition: filter 0.3s ease;
+}
+
+.featureCard:hover .featureCardIcon svg {
+  filter: brightness(1.1) saturate(1.1);
 }
 
 .featureCardHeader h3 {

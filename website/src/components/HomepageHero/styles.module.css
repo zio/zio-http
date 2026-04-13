@@ -1,0 +1,238 @@
+/* ===== Desktop layout (2-column grid with landscape banner) ===== */
+
+.heroBanner {
+  position: relative;
+  width: 100%;
+  min-height: 600px;
+  background-image: url('/img/banner.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #0d1117;
+  overflow: hidden;
+  padding: 0;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.contentGrid {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  min-height: 600px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 3rem;
+}
+
+.zioTitle {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  background: linear-gradient(to bottom, #e8f5e9, var(--ifm-color-primary));
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.8));
+  margin: 0;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem 4rem 4rem 0;
+}
+
+.mainHeading {
+  font-size: 3.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+  margin: 0 0 1.5rem 0;
+}
+
+.headingLine {
+  display: block;
+  background: linear-gradient(to bottom, #ffffff, #a5d6a7, var(--ifm-color-primary));
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: #d1d5db;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.625;
+  max-width: 32rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  margin: 0 0 1.5rem 0;
+}
+
+.featureTags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.featureTag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ifm-color-primary);
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.featureIcon {
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
+  color: var(--ifm-color-primary);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+}
+
+.arrowIcon {
+  margin-left: 12px;
+  position: relative;
+  top: 2px;
+}
+
+/* Ensure button is visible on the always-dark banner in both themes */
+.buttons :global(.button--secondary) {
+  color: #ffffff;
+  background-color: transparent;
+  border: 2px solid var(--ifm-color-primary);
+}
+
+.buttons :global(.button--secondary:hover) {
+  background-color: rgba(129, 199, 132, 0.15);
+  color: #ffffff;
+  border-color: var(--ifm-color-primary);
+}
+
+/* ===== Tablet (996px) ===== */
+
+@media screen and (max-width: 996px) {
+  .mainHeading {
+    font-size: 2.5rem;
+  }
+
+  .zioTitle {
+    font-size: 2.5rem;
+  }
+}
+
+/* ===== Mobile layout (single column, portrait banner) ===== */
+
+@media screen and (max-width: 768px) {
+  .heroBanner {
+    background-image: url('/img/banner-mobile.png');
+    background-position: top center;
+    background-size: 100% auto;
+    min-height: auto;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    text-align: center;
+  }
+
+  /* Top section: banner area with ZIO HTTP underneath the Z logo */
+  .leftColumn {
+    /* Reserve space for the banner image to show the Z logo above */
+    min-height: 250px;
+    justify-content: flex-end;
+    padding-bottom: 0;
+  }
+
+  .zioTitle {
+    font-size: 2rem;
+  }
+
+  /* Bottom section: stacked content below banner */
+  .rightColumn {
+    align-items: center;
+    padding: 1.5rem 2rem 2rem;
+    background-color: #0d1117;
+  }
+
+  .mainHeading {
+    font-size: 2rem;
+    text-align: center;
+  }
+
+  .subtitle {
+    text-align: center;
+    max-width: 100%;
+    font-size: 1rem;
+  }
+
+  .featureTags {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    /* Center the vertical list */
+    margin-left: auto;
+    margin-right: auto;
+    width: fit-content;
+  }
+
+  .buttons {
+    justify-content: center;
+  }
+
+  .buttons :global(.button--lg) {
+    width: 220px;
+    justify-content: center;
+  }
+
+}
+
+/* ===== Small mobile ===== */
+
+@media screen and (max-width: 480px) {
+  .leftColumn {
+    min-height: 220px;
+  }
+
+  .zioTitle {
+    font-size: 1.75rem;
+  }
+
+  .mainHeading {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+}
