@@ -408,6 +408,18 @@ object OpenAPIGen {
               .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
+          case HttpCodec.ContentStream(codec, _, _)
+              if codec
+                .lookup(mediaType)
+                .map(_._2.schema)
+                .getOrElse(codec.defaultSchema) == Schema[Byte] =>
+            JsonSchema
+              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
+              .description(descriptionFromMeta)
+              .deprecated(deprecated(metadata))
+              .nullable(optional(metadata))
+              .contentEncoding(JsonSchema.ContentEncoding.Binary)
+              .contentMediaType(MediaType.application.`octet-stream`.fullType)
           case HttpCodec.ContentStream(codec, _, _)                         =>
             JsonSchema
               .ArrayType(
