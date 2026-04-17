@@ -366,23 +366,22 @@ object OpenAPIGen {
                 .nullable(optional(metadata)),
             )
           case HttpCodec.ContentStream(codec, maybeName, _)
-              if codec
+              if wrapInObject && codec
                 .lookup(mediaType)
                 .map(_._2.schema)
                 .getOrElse(codec.defaultSchema) == Schema[Byte] =>
-            val schema = JsonSchema
-              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
-              .description(descriptionFromMeta)
-              .deprecated(deprecated(metadata))
-              .nullable(optional(metadata))
-              // currently we have no information about the encoding. So we just assume binary
-              .contentEncoding(JsonSchema.ContentEncoding.Binary)
-              .contentMediaType(MediaType.application.`octet-stream`.fullType)
-            if (wrapInObject) {
-              val name =
-                findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
-              JsonSchema.obj(name -> schema)
-            } else schema
+            val name =
+              findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
+            JsonSchema.obj(
+              name -> JsonSchema
+                .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
+                .description(descriptionFromMeta)
+                .deprecated(deprecated(metadata))
+                .nullable(optional(metadata))
+                // currently we have no information about the encoding. So we just assume binary
+                .contentEncoding(JsonSchema.ContentEncoding.Binary)
+                .contentMediaType(MediaType.application.`octet-stream`.fullType),
+            )
           case HttpCodec.ContentStream(codec, maybeName, _) if wrapInObject =>
             val name =
               findName(metadata).orElse(maybeName).getOrElse(throw new Exception("Multipart content without name"))
@@ -409,6 +408,18 @@ object OpenAPIGen {
               .description(descriptionFromMeta)
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
+          case HttpCodec.ContentStream(codec, _, _)
+              if codec
+                .lookup(mediaType)
+                .map(_._2.schema)
+                .getOrElse(codec.defaultSchema) == Schema[Byte] =>
+            JsonSchema
+              .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType)
+              .description(descriptionFromMeta)
+              .deprecated(deprecated(metadata))
+              .nullable(optional(metadata))
+              .contentEncoding(JsonSchema.ContentEncoding.Binary)
+              .contentMediaType(mediaType.fullType)
           case HttpCodec.ContentStream(codec, _, _)                         =>
             JsonSchema
               .ArrayType(
