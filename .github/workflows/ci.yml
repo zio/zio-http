@@ -27,11 +27,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.12.21, 2.13.18, 3.3.7]
-        java:
-          - graal_graalvm@17
-          - graal_graalvm@21
-          - temurin@17
-          - temurin@21
+        java: [graal_graalvm@25, temurin@17, temurin@25]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
@@ -41,21 +37,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup GraalVM (graal_graalvm@17)
-        if: matrix.java == 'graal_graalvm@17'
+      - name: Setup GraalVM (graal_graalvm@25)
+        if: matrix.java == 'graal_graalvm@25'
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: 17
-          distribution: graalvm
-          components: native-image
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: sbt
-
-      - name: Setup GraalVM (graal_graalvm@21)
-        if: matrix.java == 'graal_graalvm@21'
-        uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: 21
+          java-version: 25
           distribution: graalvm
           components: native-image
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -69,12 +55,12 @@ jobs:
           java-version: 17
           cache: sbt
 
-      - name: Setup Java (temurin@21)
-        if: matrix.java == 'temurin@21'
+      - name: Setup Java (temurin@25)
+        if: matrix.java == 'temurin@25'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
           cache: sbt
 
       - name: Setup sbt
@@ -125,7 +111,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.18]
-        java: [graal_graalvm@17]
+        java: [graal_graalvm@25]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
@@ -133,21 +119,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup GraalVM (graal_graalvm@17)
-        if: matrix.java == 'graal_graalvm@17'
+      - name: Setup GraalVM (graal_graalvm@25)
+        if: matrix.java == 'graal_graalvm@25'
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: 17
-          distribution: graalvm
-          components: native-image
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: sbt
-
-      - name: Setup GraalVM (graal_graalvm@21)
-        if: matrix.java == 'graal_graalvm@21'
-        uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: 21
+          java-version: 25
           distribution: graalvm
           components: native-image
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -161,12 +137,12 @@ jobs:
           java-version: 17
           cache: sbt
 
-      - name: Setup Java (temurin@21)
-        if: matrix.java == 'temurin@21'
+      - name: Setup Java (temurin@25)
+        if: matrix.java == 'temurin@25'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
           cache: sbt
 
       - name: Setup sbt
