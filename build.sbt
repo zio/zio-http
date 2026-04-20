@@ -17,10 +17,9 @@ ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 ThisBuild / libraryDependencySchemes += "dev.zio" %% "zio-json" % VersionScheme.Always
 
 ThisBuild / githubWorkflowJavaVersions   := Seq(
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "25"),
   JavaSpec.temurin("17"),
-  JavaSpec.temurin("21"),
+  JavaSpec.temurin("25"),
 )
 ThisBuild / githubWorkflowTargetBranches := Seq("main")
 ThisBuild / githubWorkflowPREventTypes   := Seq(
