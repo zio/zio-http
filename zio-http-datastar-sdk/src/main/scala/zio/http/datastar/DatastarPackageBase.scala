@@ -25,7 +25,7 @@ trait DatastarPackageBase extends Attributes {
 
   private[datastar] val scriptName: String
 
-  private val DefaultDatastarVersion = "1.0.0-RC.8"
+  private val DefaultDatastarVersion = "1.0.1"
 
   /**
    * Script element that loads Datastar from CDN using the version
@@ -37,13 +37,12 @@ trait DatastarPackageBase extends Attributes {
   def datastarScript: Dom.Element.Script = datastarScript(DefaultDatastarVersion)
 
   /**
-   * Script element that loads Datastar from CDN using a specific version. Must
-   * be at least version 1.0.0-RC.8
+   * Script element that loads Datastar from CDN using a specific version.
    *
    * @param version
-   *   The Datastar version to load (e.g., "1.0.0-RC.8")
+   *   The Datastar version to load (e.g., "1.0.1")
    * @example
-   *   {{{head( datastarScript("1.0.0-RC.8") )}}}
+   *   {{{head( datastarScript("1.0.1") )}}}
    */
   def datastarScript(version: String): Dom.Element.Script =
     script.externalModule(s"https://cdn.jsdelivr.net/gh/starfederation/datastar@$version/bundles/$scriptName")
@@ -62,7 +61,7 @@ trait DatastarPackageBase extends Attributes {
    * @example
    *   {{{ mainPage( headContent = Seq( title("My App"), meta.charset("UTF-8")
    *   ), bodyContent = Seq( div("Hello, Datastar!") ), datastarVersion =
-   *   "1.0.0-RC.8", language = Some("en") ) }}}
+   *   "1.0.1", language = Some("en") ) }}}
    */
   def mainPage(
     headContent: Seq[Dom],

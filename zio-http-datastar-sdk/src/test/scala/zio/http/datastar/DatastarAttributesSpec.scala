@@ -330,5 +330,28 @@ object DatastarAttributesSpec extends ZIOSpecDefault {
       val rendered = view.render
       assertTrue(rendered == """<div data-on-interval__duration.250ms.leading__viewtransition="tick()"></div>""")
     },
+    test("dataBind with __prop modifier") {
+      val attr     = dataBind("isChecked").prop("checked")
+      val view     = input(attr)
+      val rendered = view.render
+      assertTrue(rendered.contains("data-bind:is-checked__prop.checked"))
+    },
+    test("dataBind with __event modifier") {
+      val attr     = dataBind("query").event("input", "change")
+      val view     = input(attr)
+      val rendered = view.render
+      assertTrue(rendered.contains("data-bind:query__event.input.change"))
+    },
+    test("dataBind with chained __prop and __event modifiers") {
+      val attr     = dataBind("isChecked").prop("checked").event("change")
+      val view     = input(attr)
+      val rendered = view.render
+      assertTrue(rendered.contains("data-bind:is-checked__prop.checked__event.change"))
+    },
+    test("dataOn with __document modifier") {
+      val view     = button(dataOn.document.click := js"console.log('hi')")
+      val rendered = view.render
+      assertTrue(rendered.contains("data-on:click__document="))
+    },
   )
 }
