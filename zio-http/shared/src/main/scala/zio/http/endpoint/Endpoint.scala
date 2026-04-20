@@ -210,6 +210,27 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def unauthorizedStatus(status: Status): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(authType = authType.withUnauthorizedStatus(status).asInstanceOf[Auth])
 
+  /**
+   * Renders the URL path for this endpoint given the path input values.
+   *
+   * Example:
+   * {{{
+   *   val ep = Endpoint(Method.GET / "users" / int("id"))
+   *   ep.renderUrl(42) // Right("/users/42")
+   * }}}
+   */
+  def renderUrl(values: PathInput): Either[String, String] =
+    route.format(values).map(_.encode)
+
+  /**
+   * Renders the URL path for this endpoint with a base path prefix.
+   */
+  def renderUrl(basePath: String, values: PathInput): Either[String, String] =
+    renderUrl(values).map { url =>
+      val base = if (basePath.endsWith("/")) basePath.dropRight(1) else basePath
+      base + url
+    }
+
   def scopes: List[String] = authScopesRecursive(authType)
 
   private def authScopesRecursive(authType: AuthType): List[String] = authType match {
