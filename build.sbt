@@ -44,10 +44,10 @@ ThisBuild / githubWorkflowAddedJobs :=
       steps = List(
         WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
         coursierSetup,
-      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
+      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("25"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
       scalas = List(Scala213),
-      javas = List(JavaSpec.temurin("21")),
+      javas = List(JavaSpec.temurin("25")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
