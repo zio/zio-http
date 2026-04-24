@@ -47,6 +47,42 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      'docusaurus-plugin-llms',
+      /** @type {import('docusaurus-plugin-llms').PluginOptions} */
+      ({
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        generateMarkdownFiles: true,
+        docsDir: 'docs',
+        ignoreFiles: [],
+        title: 'ZIO HTTP',
+        description:
+          'A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.',
+        includeBlog: false,
+        pathTransformation: {
+          ignorePaths: ['docs'],
+          addPaths: [],
+        },
+        includeOrder: [
+          'index.md',
+          'installation.md',
+          'reference/**',
+          'guides/**',
+          'examples/**',
+          'concepts/**',
+          'migration/**',
+          'faq.md',
+        ],
+        excludeImports: true,
+        removeDuplicateHeadings: true,
+        includeUnmatchedLast: true,
+        preserveDirectoryStructure: false,
+      }),
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
