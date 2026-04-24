@@ -1,6 +1,7 @@
 ---
 id: body
 title: Body
+slug: /reference/body
 ---
 
 `Body` is a domain to model content for `Request` and `Response`. The body can be a fixed chunk of bytes, a stream of bytes, or form data, or any type that can be encoded into such representations (such as textual data using some character encoding, the contents of files, JSON, etc.).
