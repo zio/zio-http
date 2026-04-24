@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'ZIO HTTP',
-  tagline: ' A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
+  tagline: 'A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
   url: 'https://ziohttp.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -43,6 +43,40 @@ const config = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+      }),
+    ],
+  ],
+
+  plugins: [
+    [
+      'docusaurus-plugin-llms',
+      /** @type {import('docusaurus-plugin-llms').PluginOptions} */
+      ({
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        generateMarkdownFiles: true,
+        docsDir: 'docs',
+        ignoreFiles: [],
+        // title/description fall back to siteConfig.title/siteConfig.tagline
+        includeBlog: false,
+        pathTransformation: {
+          ignorePaths: ['docs'],
+          addPaths: [],
+        },
+        includeOrder: [
+          'index.md',
+          'installation.md',
+          'reference/**',
+          'guides/**',
+          'examples/**',
+          'concepts/**',
+          'migration/**',
+          'faq.md',
+        ],
+        excludeImports: true,
+        removeDuplicateHeadings: true,
+        includeUnmatchedLast: true,
+        preserveDirectoryStructure: false,
       }),
     ],
   ],

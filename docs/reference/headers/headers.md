@@ -1,6 +1,7 @@
 ---
 id: headers
 title: Headers
+slug: /reference/headers
 ---
 
 **ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616)) along with custom headers.
