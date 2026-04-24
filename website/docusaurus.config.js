@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'ZIO HTTP',
-  tagline: ' A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
+  tagline: 'A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers',
   url: 'https://ziohttp.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -57,9 +57,7 @@ const config = {
         generateMarkdownFiles: true,
         docsDir: 'docs',
         ignoreFiles: [],
-        title: 'ZIO HTTP',
-        description:
-          'A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.',
+        // title/description fall back to siteConfig.title/siteConfig.tagline
         includeBlog: false,
         pathTransformation: {
           ignorePaths: ['docs'],
