@@ -437,6 +437,30 @@ sealed trait Route[-Env, +Err] { self =>
 
   final def toRoutes: Routes[Env, Err] = Routes(self)
 
+  /**
+   * Applies a [[HandlerAspect]] with no context output to this route. The
+   * aspect is applied after path-parameter decoding, so it is safe to use on
+   * routes that have path parameters.
+   *
+   * Unlike calling `@@` directly on a [[Handler]] that accepts path-parameter
+   * tuples, this method does not produce a runtime ClassCastException.
+   */
+  final def @@[Env1](aspect: HandlerAspect[Env1, Unit])(implicit trace: Trace): Route[Env with Env1, Err] =
+    transform(_ @@ aspect)
+
+  /**
+   * Applies a [[HandlerAspect]] that produces a context value to this route.
+   * The aspect is applied after path-parameter decoding, so it is safe to use
+   * on routes that have path parameters.
+   *
+   * Unlike calling `@@` directly on a [[Handler]] that accepts path-parameter
+   * tuples, this method does not produce a runtime ClassCastException.
+   */
+  final def @@[Env0, Ctx <: Env](
+    aspect: HandlerAspect[Env0, Ctx],
+  )(implicit tag: Tag[Ctx], trace: Trace): Route[Env0, Err] =
+    transform(_ @@ aspect)
+
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Route[Env1, Err] =
