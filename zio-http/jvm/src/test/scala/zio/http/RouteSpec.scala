@@ -528,7 +528,7 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "user-42")
       },
-      test("HandlerAspect with context applies correctly to routes with path params (issue #3141)") {
+      test("HandlerAspect with typed context injects service via Routes.apply (issue #3141)") {
         case class Session(userId: String)
 
         val sessionAspect: HandlerAspect[Any, Session] =
@@ -536,17 +536,16 @@ object RouteSpec extends ZIOHttpSpec {
             handler((req: Request) => (req, Session("alice"))),
           )
 
-        val route: Route[Session, Nothing] =
+        // After applying the aspect, the route environment is satisfied (Route[Any, Nothing])
+        // because the aspect provides Session. We let Scala infer the type rather than
+        // widening it to Route[Session, Nothing].
+        val route =
           (Method.GET / "profile" / string("id") -> handler((id: String, req: Request) =>
             withContext((session: Session) => ZIO.succeed(Response.text(s"${session.userId}-$id"))),
           )) @@ sessionAspect
 
-        // Use Routes.apply so the aspect injects Session into the ZIO environment
-        // during request processing (route.toHandler.run would require Session from
-        // the outer ZIO environment at compile time).
-        val routes = Routes(route)
         for {
-          response   <- routes.apply(Request.get(url"/profile/99"))
+          response   <- Routes(route).apply(Request.get(url"/profile/99"))
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "alice-99")
       },
