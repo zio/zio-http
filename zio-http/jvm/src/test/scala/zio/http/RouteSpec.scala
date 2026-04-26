@@ -541,9 +541,12 @@ object RouteSpec extends ZIOHttpSpec {
             withContext((session: Session) => ZIO.succeed(Response.text(s"${session.userId}-$id"))),
           )) @@ sessionAspect
 
-        val request = Request.get(url"/profile/99")
+        // Use Routes.apply so the aspect injects Session into the ZIO environment
+        // during request processing (route.toHandler.run would require Session from
+        // the outer ZIO environment at compile time).
+        val routes = Routes(route)
         for {
-          response   <- route.toHandler.run(path = Path("/profile/99"), method = Method.GET).merge
+          response   <- routes.apply(Request.get(url"/profile/99"))
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "alice-99")
       },
