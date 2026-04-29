@@ -6,5 +6,7 @@
   "excludeFolders": ["docs/examples"],
   "excludeFiles": [],
   "rules": ["Ignore anything with the term `printSource`."],
-  "previousVersions": []
+  "previousVersions": [],
+  "url": "https://context7.com/zio/zio-http",
+  "public_key": "pk_3NVpTNBUFjXEiGh6hR3Te"
 }
