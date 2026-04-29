@@ -49,7 +49,7 @@ object AsyncBodyReaderSpec extends ZIOHttpSpec {
 
   /** Outbound handler placed before AsyncBodyReader to count `ctx.read()`. */
   private final class ReadCounter extends ChannelOutboundHandlerAdapter {
-    val count = new AtomicInteger(0)
+    val count                                           = new AtomicInteger(0)
     override def read(ctx: ChannelHandlerContext): Unit = {
       count.incrementAndGet()
       ctx.read(): Unit
@@ -78,9 +78,9 @@ object AsyncBodyReaderSpec extends ZIOHttpSpec {
     suite("AsyncBodyReader")(
       test("Buffering state stops requesting reads once pre-connect cap is reached") {
         ZIO.attempt {
-          val cap            = 64 * 1024
-          val chunkSz        = 8 * 1024
-          val (counter, ch)  = setup(cap)
+          val cap           = 64 * 1024
+          val chunkSz       = 8 * 1024
+          val (counter, ch) = setup(cap)
           // Feed 100 chunks of 8 KB = 800 KB, far above the 64 KB cap.
           feed(ch, chunkBytes = chunkSz, count = 100)
 
@@ -93,12 +93,12 @@ object AsyncBodyReaderSpec extends ZIOHttpSpec {
       },
       test("Buffering state keeps requesting reads while under cap") {
         ZIO.attempt {
-          val cap            = 64 * 1024
-          val chunkSz        = 1024
-          val (counter, ch)  = setup(cap)
+          val cap           = 64 * 1024
+          val chunkSz       = 1024
+          val (counter, ch) = setup(cap)
           feed(ch, chunkBytes = chunkSz, count = 4)
           // 4 KB buffered, well below 64 KB cap → reader still asking for more.
-          val reads = counter.count.get()
+          val reads         = counter.count.get()
           assertTrue(reads == 4)
         }
       },
