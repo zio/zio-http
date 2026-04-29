@@ -32,12 +32,18 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.concurrent.ScheduledFuture
 
-private[netty] abstract class AsyncBodyReader(timeoutMillis: Option[Long])
-    extends SimpleChannelInboundHandler[HttpContent](true) { self =>
+private[netty] abstract class AsyncBodyReader(
+  timeoutMillis: Option[Long],
+  maxPreConnectBufferSize: Int = AsyncBodyReader.DefaultMaxPreConnectBufferSize,
+) extends SimpleChannelInboundHandler[HttpContent](true) { self =>
   import zio.http.netty.AsyncBodyReader._
 
   private var state: State                    = State.Buffering
   private val buffer                          = new mutable.ArrayBuilder.ofByte()
+  // Tracks `buffer` size while in `State.Buffering` so we can apply back-pressure
+  // before the consumer connects. `ArrayBuilder#knownSize` is unreliable on
+  // Scala 2.12, so we count bytes ourselves.
+  private var bufferedBytes: Int              = 0
   private var previousAutoRead: Boolean       = false
   private var readingDone: Boolean            = false
   private var ctx: ChannelHandlerContext      = _
@@ -114,9 +120,12 @@ private[netty] abstract class AsyncBodyReader(timeoutMillis: Option[Long])
       val readMore =
         state match {
           case State.Buffering                                            =>
-            // `connect` method hasn't been called yet, add all incoming content to the buffer
+            // `connect` method hasn't been called yet, add all incoming content to the buffer.
+            // Cap the pre-connect buffer to avoid unbounded heap growth when a fast producer
+            // outpaces a slow-to-start consumer (see issue #3173).
             buffer0.addAll(content)
-            true
+            bufferedBytes += content.length
+            bufferedBytes < maxPreConnectBufferSize
           case State.Direct(callback) if isLast && buffer0.knownSize == 0 =>
             // Buffer is empty, we can just use the array directly
             callback(Chunk.fromArray(content), isLast = true)
@@ -218,6 +227,13 @@ private[netty] abstract class AsyncBodyReader(timeoutMillis: Option[Long])
 }
 
 private[netty] object AsyncBodyReader {
+
+  /**
+   * Default cap on bytes that may be buffered before the consumer calls
+   * `connect`. Once the buffer reaches this size we stop calling `ctx.read()`,
+   * relying on Netty's TCP back-pressure until the consumer drains the buffer.
+   */
+  final val DefaultMaxPreConnectBufferSize: Int = 64 * 1024
 
   sealed trait State
 
