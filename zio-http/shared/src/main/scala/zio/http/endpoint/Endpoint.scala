@@ -347,6 +347,19 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
+    // Header names whose absence should be treated as "auth missing" -- so the response
+    // collapses to `unauthorizedStatus` instead of leaking a generic codec-decode error.
+    // Walks `Or` / `WithStatus` / `ScopedAuth` wrappers; returns `Nil` for `Custom`/`None`
+    // since we can't tell which header (if any) the codec needs.
+    def authHeaderNames(authType: AuthType): List[String] = authType match {
+      case AuthType.Basic | AuthType.Bearer | AuthType.Digest => List("authorization")
+      case AuthType.Cookie(_)                                 => List("cookie")
+      case AuthType.Or(a1, a2, _)                             => authHeaderNames(a1) ++ authHeaderNames(a2)
+      case AuthType.WithStatus(a, _)                          => authHeaderNames(a)
+      case AuthType.ScopedAuth(a, _)                          => authHeaderNames(a)
+      case AuthType.None | AuthType.Custom(_)                 => Nil
+    }
+
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
@@ -370,6 +383,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         } { case () =>
           Left("Unsupported")
         }
+      case auth @ AuthType.Cookie(_)    =>
+        auth.codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Custom(codec)       =>
         codec.transformOrFailRight[Unit](_ => ())(_ => Left("Unsupported"))
       case AuthType.Or(auth1, auth2, _) =>
@@ -489,7 +504,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
               case Some(e: HttpCodecError.MissingHeader)
-                  if maybeUnauthedResponse.isDefined && e.headerName.toLowerCase == "authorization" =>
+                  if maybeUnauthedResponse.isDefined && authHeaderNames(authType).contains(e.headerName.toLowerCase) =>
                 maybeUnauthedResponse.get
               case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
