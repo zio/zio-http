@@ -7,7 +7,7 @@ object Dependencies {
   val ZioVersion                   = "2.1.25"
   val ZioCliVersion                = "0.8.0"
   val ZioJsonVersion               = "0.9.1"
-  val ZioSchemaVersion             = "1.8.3"
+  val ZioSchemaVersion             = "1.8.5"
   val SttpVersion                  = "3.3.18"
   val ZioConfigVersion             = "4.0.7"
 
