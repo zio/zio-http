@@ -11,7 +11,7 @@ In ZIO HTTP, each `Route` consists of a `RoutePattern` and a `Handler`. The `Rou
 
 ## Definition
 
-The `Hander` trait is defined as follows:
+The `Handler` trait is defined as follows:
 
 ```scala
 sealed trait Handler[-R, +Err, -In, +Out] {
@@ -78,7 +78,7 @@ As we can see, the `handler` constructor is quite versatile and can be used to c
    :::
 
 3. The third example shows a handler that generates a random UUID. It doesn't need any input, but it requires an effect that produces a `UUID`. So, we pass a `ZIO` effect that generates a random `UUID` and returns a `Response`.
-4. The fourth example shows a handler that takes the name from the path and returns a greeting message. It needs the name from the path, so we pass a function that takes a `String`, (and also the `Request` which we ignore it using `_`), and returns a `Response`. Please note that whenever we need to access path parameters, we need also to pass the `Request` as an argument to the handler function, even if we don't use it.
+4. The fourth example shows a handler that takes the name from the path and returns a greeting message. It needs the name from the path, so we pass a function that takes a `String`, (and also the `Request` which we ignore using `_`), and returns a `Response`. Please note that whenever we need to access path parameters, we need also to pass the `Request` as an argument to the handler function, even if we don't use it.
 5. The fifth example is similar to the previous one, but it takes two path parameters.
 
 ## Handler Constructors
@@ -117,7 +117,7 @@ ZIO boasts a robust error model, enabling us to manage errors in a type-safe and
 
 ### Importing non-ZIO Code 
 
-Sometimes we need to import a non ZIO code to a `Handler`. The code may throw an exception and we want to capture all non-fatal exceptions while importing to the `Handler`, in such cases we can use the `Handler.attempt` constructor. It takes a thunk of type `Out` and returns a `Handler` that have `Throwable` as the error type and result type as `Out`:
+Sometimes we need to import a non ZIO code to a `Handler`. The code may throw an exception and we want to capture all non-fatal exceptions while importing to the `Handler`, in such cases we can use the `Handler.attempt` constructor. It takes a thunk of type `Out` and returns a `Handler` that has `Throwable` as the error type and result type as `Out`:
 
 ```scala
 object Handler {
@@ -312,7 +312,7 @@ Routes(
 
 #### Creating an HTML Response Using Template
 
-ZIP HTTP has a simple built-in template which is useful for creating simple HTML pages with minimal effort. Let's see an example:
+ZIO HTTP has a simple built-in template which is useful for creating simple HTML pages with minimal effort. Let's see an example:
 
 ```scala mdoc:compile-only
 import zio.http._
@@ -408,7 +408,7 @@ Routes(
 
 ### From Function
 
-To create a `Handler` using a pure function, use `Handler.fromFunction`. It takes a function from `In` to `Out` (`Int => Out`) and returns a `Handler` that takes `In` and returns `Out` (`Handler[Any, Nothing, In, Out]`).
+To create a `Handler` using a pure function, use `Handler.fromFunction`. It takes a function from `In` to `Out` (`In => Out`) and returns a `Handler` that takes `In` and returns `Out` (`Handler[Any, Nothing, In, Out]`).
 
 The following example shows how to create a handler that takes an `Int` and `Request` from the input and returns a `Response`:
 
@@ -621,9 +621,9 @@ Routes(
            Handler.fromFile(Paths.get("file.txt").toFile).sandbox,
    ) @@ ErrorResponseConfig.debug
 ```
-### Converting a `Handler` to an `Routes`
+### Converting a `Handler` to a `Routes`
 
-The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
+The `Handler#toRoutes` operator, converts a handler to a `Routes` to be served by the `Server`. The following example, shows an HTTP application that serves a simple "Hello, World!" response for all types of incoming requests:
 
 ```scala mdoc:compile-only
 import zio._
@@ -699,7 +699,7 @@ If you're unfamiliar with these operators, it's recommended to explore the [core
 
 3. **compose** — This function functions as the inverse of `andThen`. When provided with two handlers, `h1: B => C` and `h2: A => B`, it returns the function `A => C` via `h1 compose h2`. The `<<<` operator is an alias for `compose`.
 
-4. **zip** — Utilized to merge two handlers into a singular handler, producing a tuple comprising the outputs of both handlers. `zipLeft` and `zipRight` are utilized when only one handler's output is of interest. The `zip` operator is alias for `zip`, while `<*` and `*>` serve as aliases for `zipLeft` and `zipRight` respectively.
+4. **zip** — Utilized to merge two handlers into a singular handler, producing a tuple comprising the outputs of both handlers. `zipLeft` and `zipRight` are utilized when only one handler's output is of interest. The `<*>` operator is alias for `zip`, while `<*` and `*>` serve as aliases for `zipLeft` and `zipRight` respectively.
 
 5. **orElse** — This function combines two handlers into one, attempting the first handler and proceeding to the second if the first one fails. The `<>` operator is an alias for `orElse`.
 
