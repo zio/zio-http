@@ -507,5 +507,48 @@ object RouteSpec extends ZIOHttpSpec {
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
     },
+    suite("Route#@@")(
+      test("HandlerAspect with Unit context applies correctly to routes with path params (issue #3141)") {
+        // This verifies that applying a HandlerAspect at the Route level does not throw
+        // a ClassCastException (which occurred when applying @@ directly on a Handler with
+        // a tuple input type such as (String, Request)).
+        case class Session(userId: String)
+
+        val sessionAspect: HandlerAspect[Any, Unit] =
+          HandlerAspect.interceptIncomingHandler(handler((req: Request) => (req, ())))
+
+        val route: Route[Any, Nothing] =
+          (Method.GET / "user" / string("id") -> handler((id: String, req: Request) =>
+            Response.text(s"user-$id"),
+          )) @@ sessionAspect
+
+        val request = Request.get(url"/user/42")
+        for {
+          response   <- route.toHandler.run(path = Path("/user/42"), method = Method.GET).merge
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == "user-42")
+      },
+      test("HandlerAspect with typed context injects service via Routes.apply (issue #3141)") {
+        case class Session(userId: String)
+
+        val sessionAspect: HandlerAspect[Any, Session] =
+          HandlerAspect.interceptIncomingHandler(
+            handler((req: Request) => (req, Session("alice"))),
+          )
+
+        // After applying the aspect, the route environment is satisfied (Route[Any, Nothing])
+        // because the aspect provides Session. We let Scala infer the type rather than
+        // widening it to Route[Session, Nothing].
+        val route =
+          (Method.GET / "profile" / string("id") -> handler((id: String, req: Request) =>
+            withContext((session: Session) => ZIO.succeed(Response.text(s"${session.userId}-$id"))),
+          )) @@ sessionAspect
+
+        for {
+          response   <- Routes(route).apply(Request.get(url"/profile/99"))
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == "alice-99")
+      },
+    ),
   )
 }
