@@ -106,7 +106,7 @@ object AuthType {
     override val codec: HttpCodec[HttpCodecType.RequestType, String] =
       HeaderCodec.cookie.transformOrFailLeft[String] { cookieHeader =>
         cookieHeader.value.collectFirst { case c if c.name == name => c.content }
-          .toRight(s"Missing cookie '$name'")
+          .toRight(s"Cookie '$name' auth required")
       } { value =>
         Header.Cookie(NonEmptyChunk.single(zio.http.Cookie.Request(name, value)))
       }

@@ -179,6 +179,30 @@ object AuthSpec extends ZIOSpecDefault {
           status = response.status
         } yield assertTrue(status == Status.Unauthorized)
       },
+      test("Cookie header present but named cookie absent returns 401 when configured for AuthType.Cookie") {
+        val endpoint = Endpoint(Method.GET / "test-cookie-wrong-name-401")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Cookie("session"))
+          .unauthorizedStatus(Status.Unauthorized)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-cookie-wrong-name-401",
+            headers = Headers(
+              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("other", "value"))),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.Unauthorized)
+      },
       test("Auth from query parameter") {
         val endpoint = Endpoint(Method.GET / "test")
           .out[String](MediaType.text.`plain`)

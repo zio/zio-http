@@ -762,6 +762,8 @@ object OpenAPIGen {
           }
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
           List(SecurityRequirement(Map(authType.toString() -> Nil)))
+        case AuthType.Cookie(name)                              =>
+          List(SecurityRequirement(Map(name -> Nil)))
         case custom: AuthType.Custom[_]                         =>
           val schemes = customAuthSchemes(custom.codec)
           List(SecurityRequirement(schemes.map { case (name, _) => name -> Nil }.toMap))
@@ -1068,6 +1070,17 @@ object OpenAPIGen {
                     scheme = authType.toString(),
                     bearerFormat = None,
                     description = None,
+                  ),
+                ),
+            )
+          case AuthType.Cookie(name)                              =>
+            ListMap(
+              OpenAPI.Key.fromString(name).get ->
+                ReferenceOr.Or[SecurityScheme.ApiKey](
+                  SecurityScheme.ApiKey(
+                    description = None,
+                    name = name,
+                    in = SecurityScheme.ApiKey.In.Cookie,
                   ),
                 ),
             )
