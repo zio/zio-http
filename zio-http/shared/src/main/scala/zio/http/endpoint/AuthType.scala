@@ -84,14 +84,13 @@ object AuthType {
   /**
    * Authentication via a named cookie. The handler / context middleware
    * receives the cookie value as a `String`. If the named cookie is missing
-   * from the request, the codec fails to decode and the endpoint responds
-   * with [[AuthType.unauthorizedStatus]] (404 by default; override to 401
-   * with `.unauthorizedStatus(Status.Unauthorized)` if you prefer the
+   * from the request, the codec fails to decode and the endpoint responds with
+   * [[AuthType.unauthorizedStatus]] (404 by default; override to 401 with
+   * `.unauthorizedStatus(Status.Unauthorized)` if you prefer the
    * standards-conformant response).
    *
-   * If the request carries multiple cookies with the same name (rare but
-   * valid -- e.g. one per `Domain`/`Path` scope), the first one in header
-   * order wins.
+   * If the request carries multiple cookies with the same name (rare but valid
+   * -- e.g. one per `Domain`/`Path` scope), the first one in header order wins.
    *
    * Example: combine with `Bearer` so an endpoint accepts either an
    * `Authorization` header or a session cookie:

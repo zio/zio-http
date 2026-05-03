@@ -139,7 +139,9 @@ object AuthSpec extends ZIOSpecDefault {
       },
       test("Missing cookie returns 404 by default for AuthType.Cookie") {
         val endpoint =
-          Endpoint(Method.GET / "test-missing-cookie").out[String](MediaType.text.`plain`).auth(AuthType.Cookie("session"))
+          Endpoint(Method.GET / "test-missing-cookie")
+            .out[String](MediaType.text.`plain`)
+            .auth(AuthType.Cookie("session"))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => "Response")),
