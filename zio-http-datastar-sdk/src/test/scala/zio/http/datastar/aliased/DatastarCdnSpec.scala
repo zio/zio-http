@@ -15,19 +15,19 @@ object DatastarCdnSpec extends ZIOSpecDefault {
           rendered.contains("<script"),
           rendered.contains("type=\"module\""),
           rendered.contains(
-            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar-aliased.js\"",
+            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.1/bundles/datastar-aliased.js\"",
           ),
           rendered.contains("</script>"),
         )
       },
       test("renders script tag with custom version") {
-        val script   = datastarScript("1.0.0-RC.7")
+        val script   = datastarScript("1.0.1-RC.7")
         val rendered = script.render
         assertTrue(
           rendered.contains("<script"),
           rendered.contains("type=\"module\""),
           rendered.contains(
-            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar-aliased.js\"",
+            "src=\"https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.1-RC.7/bundles/datastar-aliased.js\"",
           ),
           rendered.contains("</script>"),
         )
@@ -91,13 +91,13 @@ object DatastarCdnSpec extends ZIOSpecDefault {
         val page     = mainPage(
           headContent = Seq(title("Test Page")),
           bodyContent = Seq(div("Content")),
-          datastarVersion = "1.0.0-RC.8",
+          datastarVersion = "1.0.1",
           language = Some("de"),
         )
         val rendered = page.render
         assertTrue(
           rendered.contains("lang=\"de\""),
-          rendered.contains("datastar@1.0.0-RC.8"),
+          rendered.contains("datastar@1.0.1"),
           rendered.contains("<html"),
           rendered.contains("</html>"),
         )

@@ -411,6 +411,7 @@ object Attributes {
       modify(EventModifier.Throttle(duration, noleading, trailing))
     def viewTransition: PartialDataOn = modify(EventModifier.ViewTransition)
     def window: PartialDataOn         = modify(EventModifier.Window)
+    def document: PartialDataOn       = modify(EventModifier.Document)
 
     // ---------------------------------------------------------------------------
     // Mouse Events
@@ -498,6 +499,7 @@ object Attributes {
       modify(EventModifier.Throttle(duration, noleading, trailing))
     def viewTransition: DataOn = modify(EventModifier.ViewTransition)
     def window: DataOn         = modify(EventModifier.Window)
+    def document: DataOn       = modify(EventModifier.Document)
   }
 
   final case class DataOnIntersect(prefix: String, modifier: IntersectModifier) {
@@ -768,21 +770,56 @@ object Attributes {
     def pascal: PartialDataBind = copy(caseModifier = CaseModifier.Pascal)
   }
 
-  final case class DataBind(prefix: String, signalName: SignalName, caseModifier: CaseModifier = CaseModifier.Camel) {
-    private val full = s"$prefix-bind:${signalName.name}${signalName.caseModifier.suffix(CaseModifier.Camel)}"
+  final case class DataBind(
+    prefix: String,
+    signalName: SignalName,
+    caseModifier: CaseModifier = CaseModifier.Camel,
+    modifier: BindModifier = BindModifier.None,
+  ) {
+    private val full =
+      s"$prefix-bind:${signalName.name}${signalName.caseModifier.suffix(CaseModifier.Camel)}${modifier.render}"
 
-    def camel: DataBind  =
+    def camel: DataBind                                         =
       copy(caseModifier = CaseModifier.Camel, signalName = signalName.caseModifier(CaseModifier.Camel))
-    def kebab: DataBind  =
+    def kebab: DataBind                                         =
       copy(caseModifier = CaseModifier.Kebab, signalName = signalName.caseModifier(CaseModifier.Kebab))
-    def snake: DataBind  =
+    def snake: DataBind                                         =
       copy(caseModifier = CaseModifier.Snake, signalName = signalName.caseModifier(CaseModifier.Snake))
-    def pascal: DataBind =
+    def pascal: DataBind                                        =
       copy(caseModifier = CaseModifier.Pascal, signalName = signalName.caseModifier(CaseModifier.Pascal))
+    def prop(propertyName: String): DataBind                    =
+      copy(modifier = modifier && BindModifier.Prop(propertyName))
+    def event(eventName: String, eventNames: String*): DataBind =
+      copy(modifier = modifier && BindModifier.Event(eventName +: eventNames))
   }
 
   object DataBind {
     implicit def toAttribute(attr: DataBind): Attribute = Dom.boolAttr(attr.full)
+  }
+
+  sealed trait BindModifier extends Product with Serializable {
+    def render: String
+    def &&(other: BindModifier): BindModifier  = and(other)
+    def and(other: BindModifier): BindModifier = BindModifier.And(this, other)
+  }
+
+  object BindModifier {
+    case object None                                              extends BindModifier {
+      val render: String = ""
+    }
+    final case class Prop(propertyName: String)                   extends BindModifier {
+      val render: String = s"__prop.$propertyName"
+    }
+    final case class Event(eventNames: Seq[String])               extends BindModifier {
+      val render: String = s"__event.${eventNames.mkString(".")}"
+    }
+    final case class And(left: BindModifier, right: BindModifier) extends BindModifier {
+      val render: String = (left, right) match {
+        case (None, r) => r.render
+        case (l, None) => l.render
+        case _         => s"${left.render}${right.render}"
+      }
+    }
   }
 
   final case class PartialDataRef(prefix: String, caseModifier: CaseModifier = CaseModifier.Camel) {
@@ -878,7 +915,8 @@ object Attributes {
       def trailing: Throttle  = copy(trailing0 = false)
     }
     case object ViewTransition extends OptionLess
-    case object Window extends OptionLess
+    case object Window   extends OptionLess
+    case object Document extends OptionLess
   }
 
   sealed trait CaseModifier extends Product with Serializable { self =>

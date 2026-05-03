@@ -90,7 +90,7 @@ object DatastarEvent {
 
     override def toServerSentEvent: ServerSentEvent[String] = {
       val sb = new StringBuilder()
-      sb.append("selector ").append(body.render).append('\n')
+      sb.append("selector body\n")
       sb.append("mode append\n")
 
       val rendered = escapeScriptContent(script.render)

@@ -17,10 +17,9 @@ ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 ThisBuild / libraryDependencySchemes += "dev.zio" %% "zio-json" % VersionScheme.Always
 
 ThisBuild / githubWorkflowJavaVersions   := Seq(
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "17"),
-  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "21"),
+  JavaSpec.graalvm(Graalvm.Distribution("graalvm"), "25"),
   JavaSpec.temurin("17"),
-  JavaSpec.temurin("21"),
+  JavaSpec.temurin("25"),
 )
 ThisBuild / githubWorkflowTargetBranches := Seq("main")
 ThisBuild / githubWorkflowPREventTypes   := Seq(
@@ -45,10 +44,10 @@ ThisBuild / githubWorkflowAddedJobs :=
       steps = List(
         WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
         coursierSetup,
-      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("21"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
+      ) ++ WorkflowStep.SetupJava(List(JavaSpec.temurin("25"))) :+ WorkflowStep.Sbt(List("mimaChecks")),
       cond = Option("${{ github.event_name == 'pull_request' }}"),
       scalas = List(Scala213),
-      javas = List(JavaSpec.temurin("21")),
+      javas = List(JavaSpec.temurin("25")),
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
@@ -280,8 +279,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.14",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.14",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.16",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.16",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.17",

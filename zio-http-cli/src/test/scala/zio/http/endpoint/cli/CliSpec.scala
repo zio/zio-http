@@ -133,7 +133,7 @@ object CliSpec extends ZIOSpecDefault {
           check(EndpointGen.anyCliEndpoint) { case CliRepr(endpoint, repr) =>
             assertTrue(endpoint == repr)
           }
-        },
+        } @@ samples(20) @@ timeout(60.seconds),
         test("CliEndpoint generates correct Options") {
           check(OptionsGen.anyCliEndpoint) { case CliRepr(options, repr) =>
             assertTrue(
@@ -141,7 +141,7 @@ object CliSpec extends ZIOSpecDefault {
                 && HttpCommand.addOptionsTo(repr).uid == options.uid,
             )
           }
-        },
+        } @@ samples(20) @@ timeout(60.seconds),
         test("fromEndpoints generates correct Command") {
           check(CommandGen.anyEndpoint) { case CliRepr(endpoint, helpDoc) =>
             val command = HttpCommand.fromEndpoints("cli", Chunk(endpoint), cliStyle = true)

@@ -409,18 +409,26 @@ object OpenAPIGen {
               .deprecated(deprecated(metadata))
               .nullable(optional(metadata))
           case HttpCodec.ContentStream(codec, _, _)                         =>
-            JsonSchema
-              .ArrayType(
-                Some(
-                  JsonSchema
-                    .fromZSchema(codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema), refType),
-                ),
-                None,
-                uniqueItems = false,
-              )
-              .description(descriptionFromMeta)
-              .deprecated(deprecated(metadata))
-              .nullable(optional(metadata))
+            val schema = codec.lookup(mediaType).map(_._2.schema).getOrElse(codec.defaultSchema)
+            if (schema == Schema[Byte]) {
+              JsonSchema
+                .fromZSchema(schema, refType)
+                .description(descriptionFromMeta)
+                .deprecated(deprecated(metadata))
+                .nullable(optional(metadata))
+                .contentEncoding(JsonSchema.ContentEncoding.Binary)
+                .contentMediaType(mediaType.fullType)
+            } else {
+              JsonSchema
+                .ArrayType(
+                  Some(JsonSchema.fromZSchema(schema, refType)),
+                  None,
+                  uniqueItems = false,
+                )
+                .description(descriptionFromMeta)
+                .deprecated(deprecated(metadata))
+                .nullable(optional(metadata))
+            }
           case _                                                            => JsonSchema.Null
         }
       case HttpCodec.Annotated(codec, data)                        =>

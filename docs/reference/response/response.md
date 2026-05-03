@@ -1,6 +1,7 @@
 ---
 id: response
 title: Response
+slug: /reference/response
 ---
 
 **ZIO HTTP** `Response` is designed to encode HTTP Response.

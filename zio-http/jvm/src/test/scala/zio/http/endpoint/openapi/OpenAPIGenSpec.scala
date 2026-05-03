@@ -3882,6 +3882,48 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
             |""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
+      test("Stream schema for Byte produces binary format") {
+        val endpoint     = Endpoint(RoutePattern.GET / "download")
+          .outStream[Byte](MediaType.application.`octet-stream`)
+        val openApi      = OpenAPIGen.fromEndpoints(endpoint)
+        val json         = toJsonAst(openApi)
+        val expectedJson =
+          """
+            |{
+            |  "openapi" : "3.1.0",
+            |  "info" : {
+            |    "title" : "",
+            |    "version" : ""
+            |  },
+            |  "paths" : {
+            |    "/download" : {
+            |      "get" : {
+            |        "responses" : {
+            |          "200" :
+            |            {
+            |            "content" : {
+            |              "application/octet-stream" : {
+            |                "schema" :
+            |                  {
+            |                  "type" :
+            |                    "string",
+            |                  "contentEncoding" : "binary",
+            |                  "contentMediaType" : "application/octet-stream"
+            |                }
+            |              }
+            |            }
+            |          }
+            |        }
+            |      }
+            |    }
+            |  },
+            |  "components" : {
+            |
+            |  }
+            |}
+            |""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
       test("Stream schema multipart") {
         val endpoint     = Endpoint(RoutePattern.POST / "folder")
           .outCodec(

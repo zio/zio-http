@@ -1,6 +1,7 @@
 ---
 id: socket
 title: "Socket"
+slug: /reference/socket
 ---
 
 Websocket support can be added to your Http application using the same `Http` domain, something like this —
