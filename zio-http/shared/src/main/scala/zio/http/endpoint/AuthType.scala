@@ -1,5 +1,7 @@
 package zio.http.endpoint
 
+import zio.NonEmptyChunk
+
 import zio.http._
 import zio.http.codec._
 
@@ -77,6 +79,37 @@ object AuthType {
     type ClientRequirement = Header.Authorization.Digest
     override val codec: HeaderCodec[Header.Authorization.Digest] =
       HeaderCodec.digestAuth
+  }
+
+  /**
+   * Authentication via a named cookie. The handler / context middleware
+   * receives the cookie value as a `String`. If the named cookie is missing
+   * from the request, the codec fails to decode and the endpoint responds with
+   * [[AuthType.unauthorizedStatus]] (404 by default; override to 401 with
+   * `.unauthorizedStatus(Status.Unauthorized)` if you prefer the
+   * standards-conformant response).
+   *
+   * If the request carries multiple cookies with the same name (rare but valid
+   * -- e.g. one per `Domain`/`Path` scope), the first one in header order wins.
+   *
+   * Example: combine with `Bearer` so an endpoint accepts either an
+   * `Authorization` header or a session cookie:
+   *
+   * {{{
+   * Endpoint(Method.GET / "download" / fileId)
+   *   .auth(AuthType.Bearer | AuthType.Cookie("session"))
+   *   .unauthorizedStatus(Status.Unauthorized)
+   * }}}
+   */
+  final case class Cookie(name: String) extends AuthType {
+    type ClientRequirement = String
+    override val codec: HttpCodec[HttpCodecType.RequestType, String] =
+      HeaderCodec.cookie.transformOrFailLeft[String] { cookieHeader =>
+        cookieHeader.value.collectFirst { case c if c.name == name => c.content }
+          .toRight(s"Cookie '$name' auth required")
+      } { value =>
+        Header.Cookie(NonEmptyChunk.single(zio.http.Cookie.Request(name, value)))
+      }
   }
 
   final case class Custom[ClientReq](override val codec: HttpCodec[HttpCodecType.RequestType, ClientReq])
