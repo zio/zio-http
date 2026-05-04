@@ -200,16 +200,15 @@ object Server extends ServerPlatformSpecific {
       self.copy(requestStreaming = requestStreaming)
 
     /**
-     * Soft cap on the bytes the server will buffer from a streamed request
-     * body before the route handler starts consuming it. The cap may be
-     * overshot by up to one `HttpContent` chunk: the chunk that crosses the
-     * threshold is appended to the buffer before reads stop. Once the
-     * threshold is reached, Netty's TCP back-pressure kicks in and the client
-     * is paused until the handler calls `request.body.asStream` (or similar)
-     * and begins reading. Prevents heap exhaustion when an async handler
-     * defers consuming the body and the client uploads faster than the
-     * handler can connect. Only applies when [[RequestStreaming.Enabled]] is
-     * configured.
+     * Soft cap on the bytes the server will buffer from a streamed request body
+     * before the route handler starts consuming it. The cap may be overshot by
+     * up to one `HttpContent` chunk: the chunk that crosses the threshold is
+     * appended to the buffer before reads stop. Once the threshold is reached,
+     * Netty's TCP back-pressure kicks in and the client is paused until the
+     * handler calls `request.body.asStream` (or similar) and begins reading.
+     * Prevents heap exhaustion when an async handler defers consuming the body
+     * and the client uploads faster than the handler can connect. Only applies
+     * when [[RequestStreaming.Enabled]] is configured.
      */
     def requestBodyPreConnectBufferSize(size: Int): Config = {
       require(size >= 0, "requestBodyPreConnectBufferSize must be >= 0")
