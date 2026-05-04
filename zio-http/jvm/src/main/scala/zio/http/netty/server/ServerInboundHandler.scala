@@ -131,7 +131,7 @@ private[zio] final case class ServerInboundHandler(
     }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
-    val handler = new ServerAsyncBodyHandler
+    val handler = new ServerAsyncBodyHandler(config.requestBodyPreConnectBufferSize)
     ctx
       .channel()
       .pipeline()

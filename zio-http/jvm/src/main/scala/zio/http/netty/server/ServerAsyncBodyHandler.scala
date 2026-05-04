@@ -18,4 +18,5 @@ package zio.http.netty.server
 
 import zio.http.netty.AsyncBodyReader
 
-private[zio] final class ServerAsyncBodyHandler extends AsyncBodyReader(timeoutMillis = None) {}
+private[zio] final class ServerAsyncBodyHandler(maxPreConnectBufferSize: Int)
+    extends AsyncBodyReader(timeoutMillis = None, maxPreConnectBufferSize = maxPreConnectBufferSize) {}
