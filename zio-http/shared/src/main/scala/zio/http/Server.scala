@@ -208,8 +208,10 @@ object Server extends ServerPlatformSpecific {
      * consuming the body and the client uploads faster than the handler can
      * connect. Only applies when [[RequestStreaming.Enabled]] is configured.
      */
-    def requestBodyPreConnectBufferSize(size: Int): Config =
+    def requestBodyPreConnectBufferSize(size: Int): Config = {
+      require(size >= 0, "requestBodyPreConnectBufferSize must be >= 0")
       self.copy(requestBodyPreConnectBufferSize = size)
+    }
 
     /**
      * Sets the maximum number of connection requests that will be queued before
