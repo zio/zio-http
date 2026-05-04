@@ -38,6 +38,8 @@ private[netty] abstract class AsyncBodyReader(
 ) extends SimpleChannelInboundHandler[HttpContent](true) { self =>
   import zio.http.netty.AsyncBodyReader._
 
+  require(maxPreConnectBufferSize >= 0, "maxPreConnectBufferSize must be >= 0")
+
   private var state: State                    = State.Buffering
   private val buffer                          = new mutable.ArrayBuilder.ofByte()
   // Tracks `buffer` size while in `State.Buffering` so we can apply back-pressure
