@@ -207,8 +207,10 @@ object Server extends ServerPlatformSpecific {
      * Netty's TCP back-pressure kicks in and the client is paused until the
      * handler calls `request.body.asStream` (or similar) and begins reading.
      * Prevents heap exhaustion when an async handler defers consuming the body
-     * and the client uploads faster than the handler can connect. Only applies
-     * when [[RequestStreaming.Enabled]] is configured.
+     * and the client uploads faster than the handler can connect. Applies when
+     * [[RequestStreaming.Enabled]] is configured, and also with
+     * [[RequestStreaming.Hybrid]] for request bodies that exceed the aggregated
+     * threshold and are therefore handled as streamed bodies.
      */
     def requestBodyPreConnectBufferSize(size: Int): Config = {
       require(size >= 0, "requestBodyPreConnectBufferSize must be >= 0")
