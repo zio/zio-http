@@ -85,10 +85,13 @@ object AsyncBodyReaderSpec extends ZIOHttpSpec {
           feed(ch, chunkBytes = chunkSz, count = 100)
 
           // Without the fix, AsyncBodyReader would request a read after every
-          // chunk (~100 reads). With the cap, it stops once bufferedBytes
-          // reaches the cap — that's after ceil(cap / chunkSz) = 8 chunks.
-          val reads = counter.count.get()
-          assertTrue(reads <= cap / chunkSz, reads < 100)
+          // chunk (~100 reads). With the cap, a read is requested only while
+          // bufferedBytes < cap; the chunk that pushes bufferedBytes to `cap`
+          // is buffered but does not trigger another read. Expected reads:
+          // (cap - 1) / chunkSz = 7.
+          val expectedReads = (cap - 1) / chunkSz
+          val reads         = counter.count.get()
+          assertTrue(reads == expectedReads)
         }
       },
       test("Buffering state keeps requesting reads while under cap") {
