@@ -63,7 +63,7 @@ const sidebars = {
         },
       ],
     },
-    "reference/template",
+    "reference/body/template",
     {
       type: "category",
       label: "Declarative Endpoints",
@@ -144,14 +144,6 @@ const sidebars = {
           "guides/authentication-with-a-third-party-oauth-provider",
           "guides/passwordless-authentication-with-webauthn",
        ],
-     },
-     {
-        type: "category",
-        collapsed: false,
-        label: "Datastar",
-        items: [
-           "guides/real-time-chat-with-datastar",
-        ],
      },
      {
         type: "category",

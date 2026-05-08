@@ -34,7 +34,7 @@ The `zio-http-datastar-sdk` provides both server-side and client-side utilities 
 
 ## Installation
 
-To use the Datastar SDK with ZIO HTTP, add the following dependency to your `build.sbt` file:
+To use the Datastar SDK with ZIO HTTP, add the following dependency to your build:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-http-datastar-sdk" % "@VERSION@"

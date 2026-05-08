@@ -45,7 +45,7 @@ Server.serve(routes).provide(
 )
 ```
 
-:::note[Handling Interrupt Signals (Ctrl+C) in SBT]
+:::note[Handling Interrupt Signals (Ctrl+C)]
 Sometimes we may want to have more control over installation of the http application into the server. In such cases, we may want to use the `Server.install` method. This method only installs the `Routes` into the server, and the lifecycle of the server can be managed separately.
 :::
 
@@ -320,7 +320,7 @@ Server
   )
 ```
 
-For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
+For example, to load the server configuration from the hocon file, add the `zio-config-typesafe` dependency to your build:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-config"          % "<version>"
@@ -667,7 +667,7 @@ printSource("zio-http-example/src/main/scala/example/GracefulShutdown.scala")
 This approach ensures that clients receive appropriate responses for their requests, rather than encountering errors or abrupt disconnections. It helps maintain the integrity of the communication between clients and the server, providing a smoother experience for users and preventing potential data loss or corruption.
 
 :::Note
-When running a server through SBT, pressing Ctrl+C doesn't cleanly shut down the application. Instead, SBT intercepts the signal and throws a `java.lang.InterruptedException`, bypassing any custom shutdown handlers you may have implemented.
+When running a server through a build tool, pressing Ctrl+C may not always trigger your application's graceful shutdown handlers in the same way as a directly launched JVM process.
 
 However, if you run the same server directly from a packaged JAR file using `java -jar`, Ctrl+C will trigger the expected graceful shutdown sequence, allowing your application to clean up resources properly before terminating.
 :::
@@ -730,7 +730,7 @@ Some optional netty channel type configurations may require additional libraries
 
 On linux-x86_64 platforms if you decide to use URING channel type then you can do as follows:
 
-In SBT you will need to explicitly add the io uiring package to your project's dependencies:
+You will need to explicitly add the io_uring transport package to your project's dependencies:
 ```
 libraryDependencies += "io.netty" % "netty-transport-native-io_uring" % "x.x.x"
 ```

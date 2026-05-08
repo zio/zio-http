@@ -180,8 +180,9 @@ Clone the ZIO HTTP repository and run the example:
 ```bash
 git clone https://github.com/zio/zio-http.git
 cd zio-http
-sbt "zioHttpExampleDatastarChat/run"
 ```
+
+Then run the chat example with your build tool from the `zio-http-example-datastar-chat` project.
 
 Open your browser to [http://localhost:8080/chat](http://localhost:8080/chat).
 

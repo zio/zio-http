@@ -238,9 +238,7 @@ Client                                          Server
 
 ### 1. Start the Server
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.selfsigned.ServerApp"
-```
+Run the `example.ssl.tls.selfsigned.ServerApp` main class from the example project with your build tool.
 
 Output:
 ```
@@ -249,9 +247,7 @@ Self-signed TLS Server starting on https://localhost:8443/
 
 ### 2. Run the Client
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.selfsigned.ClientApp"
-```
+Run the `example.ssl.tls.selfsigned.ClientApp` main class from the example project with your build tool.
 
 Output:
 ```

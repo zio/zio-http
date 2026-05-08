@@ -445,10 +445,7 @@ git sparse-checkout set zio-http-example-opaque-bearer-token-auth
 
 To run the authentication server:
 
-```bash
-cd zio-http/zio-http-example-opaque-bearer-token-auth
-sbt "runMain example.auth.bearer.opaque.AuthenticationServer"
-```
+Run the `example.auth.bearer.opaque.AuthenticationServer` main class from the `zio-http-example-opaque-bearer-token-auth` example project with your build tool.
 
 The server starts on `http://localhost:8080` with these test users:
 
@@ -462,10 +459,7 @@ The server starts on `http://localhost:8080` with these test users:
 
 Run the command-line client (ensure server is running):
 
-```bash
-cd zio-http/zio-http-example-opaque-bearer-token-auth
-sbt "runMain example.auth.bearer.opaque.AuthenticationClient"
-```
+Run the `example.auth.bearer.opaque.AuthenticationClient` main class from the `zio-http-example-opaque-bearer-token-auth` example project with your build tool.
 
 Example output:
 
@@ -485,9 +479,7 @@ To demonstrate the authentication flow in a web client, we've created a simple H
 
 First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`opaque-bearer-token-auth-client.html`) located in the resource folder:
 
-```scala
-sbt "zioHttpExample/runMain example.auth.bearer.opaque.AuthenticationServer"
-```
+Run the `example.auth.bearer.opaque.AuthenticationServer` main class from the `zio-http-example-opaque-bearer-token-auth` example project with your build tool.
 
 Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, and log out, showcasing the full opaque bearer token authentication flow.
 

@@ -31,7 +31,7 @@ When the server receives a request with this header, it decodes the credentials 
 
 ## Setting Up Dependencies
 
-First, add the necessary dependencies to our `build.sbt`:
+First, add the necessary dependencies to your build:
 
 ```scala 
 libraryDependencies ++= Seq(
@@ -483,10 +483,7 @@ The example contains the following files:
 
 To run the authentication server:
 
-```bash
-cd zio-http
-sbt "zio-http-example/runMain example.auth.basic.AuthenticationServer"
-```
+Run the `example.auth.basic.AuthenticationServer` main class from the `zio-http-example-basic-auth` example project with your build tool.
 
 The server will start on `http://localhost:8080` with the following test users:
 
@@ -500,9 +497,7 @@ The server will start on `http://localhost:8080` with the following test users:
 
 To run the command-line client (make sure the server is running first):
 
-```bash
-sbt "zio-http-example/runMain example.auth.basic.AuthenticationClient"
-```
+Run the `example.auth.basic.AuthenticationClient` main class from the `zio-http-example-basic-auth` example project with your build tool.
 
 The client will demonstrate:
 1. Accessing a public endpoint (no authentication)

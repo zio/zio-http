@@ -300,9 +300,7 @@ Client                                          Server
 
 To run the server, open a terminal and execute the following command:
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ServerApp"
-```
+Run the `example.ssl.tls.intermediatecasigned.ServerApp` main class from the example project with your build tool.
 
 Output:
 ```
@@ -321,9 +319,7 @@ Press Ctrl+C to stop...
 
 To run the client, open a new terminal and execute:
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ClientApp"
-```
+Run the `example.ssl.tls.intermediatecasigned.ClientApp` main class from the example project with your build tool.
 
 ## Conclusion
 
