@@ -32,5 +32,5 @@ Run the currently configured JVM test suites with:
 
 ```shell
 ./mill core.jvm[2.13.18].test
-./mill core.jvm[3.3.7].test
+./mill core.jvm[3.8.3].test
 ```

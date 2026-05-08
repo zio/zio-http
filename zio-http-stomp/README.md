@@ -238,7 +238,7 @@ The module includes comprehensive tests for:
 Run the currently configured mill test suites from the repository root with:
 ```bash
 ./mill core.jvm[2.13.18].test
-./mill core.jvm[3.3.7].test
+./mill core.jvm[3.8.3].test
 ```
 
 ## License
