@@ -191,3 +191,25 @@ object nettyClient extends Module {
     override def resources = Task.Sources(wsRoot / "zio-http-netty-client" / "src" / "main" / "resources")
   }
 }
+
+object profiling extends ScalaModule {
+  def scalaVersion = Versions.Scala213
+  def artifactName = "zio-http-profiling"
+  def moduleDeps = Seq(server.jvm(Versions.Scala213), nettyServer.jvm(Versions.Scala213))
+  override def scalacOptions = Task {
+    Seq(
+      "-deprecation",
+      "-encoding",
+      "UTF-8",
+      "-feature",
+      "-unchecked",
+      "-language:postfixOps",
+      "-language:existentials",
+      "-language:higherKinds",
+      "-explaintypes",
+      "-Wconf:cat=unused:info",
+    )
+  }
+  override def mvnDeps = super.mvnDeps() ++ Seq(mvn"org.scala-lang:scala-reflect:${scalaVersion()}")
+  override def sources = Task.Sources(wsRoot / "profiling" / "src" / "main" / "scala")
+}
