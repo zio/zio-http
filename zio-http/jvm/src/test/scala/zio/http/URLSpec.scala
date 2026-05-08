@@ -403,6 +403,15 @@ object URLSpec extends ZIOHttpSpec {
             result.path == Path("/plaintext"),
           )
         },
+        test("absolute URL with braces in query returns non-null URL") {
+          val result = URL.decodeOrNull("https://example.com/t?v={bla}")
+          assertTrue(
+            result ne null,
+            result.kind == URL.Location.Absolute(Scheme.HTTPS, "example.com", None),
+            result.path == Path("/t"),
+            result.queryParams.queryParam("v") == Some("{bla}"),
+          )
+        },
         test("valid path with query params returns non-null URL") {
           val result = URL.decodeOrNull("/api/users?id=1")
           assertTrue(
@@ -493,6 +502,18 @@ object URLSpec extends ZIOHttpSpec {
           assertTrue(
             url.kind.isAbsolute,
             url.path == Path.decode("/users"),
+          )
+        },
+        test("absolute URL with braces in query matches relative decoding") {
+          val relative = URL.decode("/t?v={bla}")
+          val absolute = URL.decode("https://example.com/t?v={bla}")
+
+          assertTrue(
+            relative.isRight,
+            absolute.isRight,
+            relative.toOption.get.path == absolute.toOption.get.path,
+            relative.toOption.get.queryParams == absolute.toOption.get.queryParams,
+            absolute.toOption.get.kind == URL.Location.Absolute(Scheme.HTTPS, "example.com", None),
           )
         },
       ),
