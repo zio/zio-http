@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.annotation.unroll
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Scope, Trace, ZIO}
 
@@ -33,7 +31,6 @@ trait ClientDriver {
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-    @unroll
     bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 

@@ -16,8 +16,6 @@
 
 package zio.http.netty.client
 
-import scala.annotation.unroll
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -46,7 +44,6 @@ final case class NettyClientDriver private[netty] (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-    @unroll
     bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
     requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, bodyReadTimeoutMillis)
