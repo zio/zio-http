@@ -18,7 +18,7 @@ jobs:
           node-version: '22'
           cache: 'yarn'
           cache-dependency-path: website/yarn.lock
-      - name: Run build script
+      - name: Run site build
         run: ./build.sh
         shell: bash
 

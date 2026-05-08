@@ -19,31 +19,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
+  compile:
+    name: Compile with mill
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup JDK
         uses: coursier/setup-action@v2
         with:
-          jvm: temurin:17
-          apps: sbt
+          jvm: temurin:21
       - name: Cache
         uses: coursier/cache-action@v8
-      - name: Check formatting
-        run: sbt "++2.13.18; fmtCheck"
+      - name: Compile all modules
+        run: chmod +x ./mill && ./mill __.compile
 
-  testJVM:
-    name: Test JVM — Scala ${{ matrix.scala }}, JDK ${{ matrix.java }}
+  testCoreJvm:
+    name: Core JVM tests — Scala ${{ matrix.scala }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        java: ['17', '25']
         scala: ['2.13.18', '3.3.7']
     steps:
       - name: Checkout
@@ -51,107 +49,40 @@ jobs:
       - name: Setup JDK
         uses: coursier/setup-action@v2
         with:
-          jvm: temurin:${{ matrix.java }}
-          apps: sbt
+          jvm: temurin:21
       - name: Cache
         uses: coursier/cache-action@v8
-      - name: Set JDK 25 flags
-        if: matrix.java == '25'
-        run: echo "JAVA_TOOL_OPTIONS=-XX:+UseCompactObjectHeaders" >> "$GITHUB_ENV"
-      - name: Compile & Test
-        run: sbt "++${{ matrix.scala }}; compile; test"
+      - name: Run core JVM tests
+        run: chmod +x ./mill && ./mill core.jvm[${{ matrix.scala }}].test
 
-  testJS:
-    name: Test JS — Scala ${{ matrix.scala }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        scala: ['2.13.18', '3.3.7']
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup JDK
-        uses: coursier/setup-action@v2
-        with:
-          jvm: temurin:17
-          apps: sbt
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Compile & Test JS
-        run: sbt "++${{ matrix.scala }}; zioHttpJS/compile; zioHttpJS/test"
-
-  checkDocs:
-    name: Check Doc Generation
+  docsSite:
+    name: Build website
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Setup JDK
-        uses: coursier/setup-action@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          jvm: temurin:17
-          apps: sbt
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Generate Scaladoc
-        run: sbt "++2.13.18; doc"
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: website/yarn.lock
+      - name: Build docs site
+        run: ./build.sh
 
   ci:
     name: CI
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, testJVM, testJS, checkDocs]
+    needs: [compile, testCoreJvm, docsSite]
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || \
-                "${{ needs.testJVM.result }}" == "failure" || \
-                "${{ needs.testJS.result }}" == "failure" || \
-                "${{ needs.checkDocs.result }}" == "failure" ]]; then
+          if [[ "${{ needs.compile.result }}" == "failure" || \
+                "${{ needs.testCoreJvm.result }}" == "failure" || \
+                "${{ needs.docsSite.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi
           echo "All CI checks passed"
-
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [ci]
-    if: github.event_name != 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Setup JDK
-        uses: coursier/setup-action@v2
-        with:
-          jvm: temurin:17
-          apps: sbt
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Release
-        run: sbt ci-release
-        env:
-          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          CI_RELEASE_MODE: '1'
-      - name: Release Shaded
-        run: sbt ci-release
-        env:
-          PUBLISH_SHADED: 'true'
-          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          CI_RELEASE_MODE: '1'
