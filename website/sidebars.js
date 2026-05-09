@@ -105,8 +105,7 @@ const sidebars = {
         "reference/configs/openapi",
         "reference/configs/netty",
       ],
-    },
-    "reference/datastar-sdk/index"
+    }
   ],
 
   examples: [
