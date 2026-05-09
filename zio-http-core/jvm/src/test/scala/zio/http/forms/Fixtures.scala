@@ -16,6 +16,7 @@
 
 package zio.http.forms
 
+import java.time.Instant
 import java.nio.charset.StandardCharsets
 
 import zio._
@@ -24,12 +25,16 @@ import zio.test.Gen
 import zio.stream.ZStream
 
 import zio.schema.codec.JsonCodec
-import zio.schema.{Schema, StandardType}
+import zio.schema.{DeriveSchema, Schema, StandardType}
 
-import zio.http.endpoint.EndpointSpec.ImageMetadata
 import zio.http.{FormField, MediaType}
 
 object Fixtures {
+
+  final case class ImageMetadata(description: String, createdAt: Instant)
+  object ImageMetadata {
+    implicit val schema: Schema[ImageMetadata] = DeriveSchema.gen[ImageMetadata]
+  }
 
   val CR   = '\r'
   val CRLF = "\r\n"
