@@ -2,6 +2,7 @@ package zio.http.internal
 
 import scala.collection.compat.immutable.ArraySeq
 import scala.scalajs.js
+import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.typedarray.{TypedArrayBuffer, Uint8Array}
 
 import zio._
@@ -27,23 +28,25 @@ final case class FetchDriver() extends ZClient.Driver[Any, Scope, Throwable] {
       jsHeaders = js.Dictionary(requestHeaders.map(h => h.headerName -> h.renderedValue).toSeq: _*)
       abortSignal <- FetchDriver.makeAbortSignal
       response    <-
-        ZIO.fromPromiseJS {
-          dom.fetch(
-            url.encode,
-            new dom.RequestInit {
-              method = jsMethod
-              headers = jsHeaders
-              body = jsBody
-              signal = abortSignal
-            },
-          )
+        ZIO.fromFuture { implicit ec =>
+          dom
+            .fetch(
+              url.encode,
+              new dom.RequestInit {
+                method = jsMethod
+                headers = jsHeaders
+                body = jsBody
+                signal = abortSignal
+              },
+            )
+            .toFuture
         }
       respHeaders = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1))))
       ct = respHeaders.get(Header.ContentType)
     } yield Response(
       status = Status.fromInt(response.status),
       headers = respHeaders,
-      body = FetchBodyInternal.fromResponse(response, ct.map(Body.ContentType.fromHeader)),
+      body = FetchBodyInternal.fromResponse(response, ct.map(Body.ContentType.fromHeader(_))),
     )
 
   override def disableStreaming(implicit ev1: Scope =:= Scope): ZClient.Driver[Any, Any, Throwable] =
@@ -103,18 +106,20 @@ private[http] final case class FetchDriverBatched() extends ZClient.Driver[Any, 
         jsMethod  = FetchDriver.fromZMethod(requestMethod)
         jsHeaders = js.Dictionary(requestHeaders.map(h => h.headerName -> h.renderedValue).toSeq: _*)
         abortSignal <- FetchDriver.makeAbortSignal
-        response    <- ZIO.fromPromiseJS {
-          dom.fetch(
-            url.encode,
-            new dom.RequestInit {
-              method = jsMethod
-              headers = jsHeaders
-              body = jsBody
-              signal = abortSignal
-            },
-          )
+        response    <- ZIO.fromFuture { implicit ec =>
+          dom
+            .fetch(
+              url.encode,
+              new dom.RequestInit {
+                method = jsMethod
+                headers = jsHeaders
+                body = jsBody
+                signal = abortSignal
+              },
+            )
+            .toFuture
         }
-        bytes       <- ZIO.fromPromiseJS { response.arrayBuffer() }.map { buf =>
+        bytes       <- ZIO.fromFuture { implicit ec => response.arrayBuffer().toFuture }.map { buf =>
           val view = new scala.scalajs.js.typedarray.Uint8Array(buf)
           val out  = new Array[Byte](view.length)
           var i    = 0
@@ -122,7 +127,7 @@ private[http] final case class FetchDriverBatched() extends ZClient.Driver[Any, 
           out
         }.catchAllCause { _ =>
           ZIO.logDebug("Error fetching body bytes, using text fetch instead") *>
-            ZIO.fromPromiseJS { response.clone().text() }.map(_.getBytes(Charsets.Http))
+            ZIO.fromFuture { implicit ec => response.clone().text().toFuture }.map(_.getBytes(Charsets.Http))
         }
         respHeaders = Headers.fromIterable(response.headers.map(h => Header.Custom(h(0), h(1))))
         ct       = respHeaders.get(Header.ContentType)
@@ -131,7 +136,7 @@ private[http] final case class FetchDriverBatched() extends ZClient.Driver[Any, 
       } yield Response(
         status = Status.fromInt(response.status),
         headers = respHeaders,
-        body = FetchBodyBatched(bytes, ct.map(Body.ContentType.fromHeader), cl),
+        body = FetchBodyBatched(bytes, ct.map(Body.ContentType.fromHeader(_)), cl),
       )
     }
 
