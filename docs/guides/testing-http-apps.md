@@ -36,7 +36,6 @@ ZIO HTTP provides the `zio-http-testkit` package that includes a `TestClient` an
 libraryDependencies += "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test
 libraryDependencies += "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test
 libraryDependencies += "dev.zio" %% "zio-http-testkit" % "@VERSION@" % Test
-testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 ```
 
 Now, based on the requirement we can use any of the following test utilities:

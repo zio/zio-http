@@ -20,7 +20,7 @@ import zio.http.codec.Doc
 
 trait MdInterpolator {
 
-  extension(inline sc: StringContext) {
+  extension (inline sc: StringContext) {
     inline def md(inline args: Any*): Doc = Doc.fromCommonMark(sc.s(args*).stripMargin)
   }
 

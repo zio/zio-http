@@ -695,10 +695,7 @@ git sparse-checkout set zio-http-example-cookie-auth
 
 To run the authentication server:
 
-```bash
-cd zio-http/zio-http-example-cookie-auth
-sbt "runMain example.auth.session.cookie.AuthenticationServer"
-```
+Run the `example.auth.session.cookie.AuthenticationServer` main class from the `zio-http-example-cookie-auth` example project with your build tool.
 
 The server starts on `http://localhost:8080` with these test users:
 
@@ -713,10 +710,7 @@ The server starts on `http://localhost:8080` with these test users:
 
 Run the command-line client (ensure server is running):
 
-```bash
-cd zio-http/zio-http-example-cookie-auth
-sbt "runMain example.auth.session.cookie.AuthenticationClient"
-```
+Run the `example.auth.session.cookie.AuthenticationClient` main class from the `zio-http-example-cookie-auth` example project with your build tool.
 
 Example output:
 

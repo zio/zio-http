@@ -14,7 +14,8 @@ trait HandlerVersionSpecific {
       aspect.applyHandlerContext {
         Handler.scoped[Env0] {
           handler { (ctx: Ctx, req: Request) =>
-            val handler: ZIO[Scope & Env, Response, Response] = self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
+            val handler: ZIO[Scope & Env, Response, Response] =
+              self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
             handler.provideSomeEnvironment[Scope & Env0](_.add(ctx).asInstanceOf[ZEnvironment[Scope & Env]])
           }
         }

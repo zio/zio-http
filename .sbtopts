@@ -1,5 +1,0 @@
--J-Xms2G
--J-Xmx4G
--J-XX:+UseG1GC
--J-XX:ReservedCodeCacheSize=1G
--J-XX:NonProfiledCodeHeapSize=512M

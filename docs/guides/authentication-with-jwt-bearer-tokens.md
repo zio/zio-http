@@ -200,7 +200,7 @@ The `issue` method takes a `username` and generates a JWT token. It uses the sta
 
 To implement the `JwtTokenService`, we can use the `jwt-core` library:
 
-```sbt
+```scala
 libraryDependencies += "com.github.jwt-scala" %% "jwt-core" % @JWT_CORE_VERSION@
 ```
 
@@ -674,10 +674,7 @@ git sparse-checkout set zio-http-example-jwt-bearer-token-auth
 
 To run the authentication server:
 
-```bash
-cd zio-http/zio-http-example-jwt-bearer-token-auth
-sbt "runMain example.auth.bearer.jwt.AuthenticationServer"
-```
+Run the `example.auth.bearer.jwt.AuthenticationServer` main class from the `zio-http-example-jwt-bearer-token-auth` example project with your build tool.
 
 The server starts on `http://localhost:8080` with these test users:
 
@@ -691,10 +688,7 @@ The server starts on `http://localhost:8080` with these test users:
 
 Run the command-line client (ensure server is running):
 
-```bash
-cd zio-http/zio-http-example-opaque-bearer-token-auth
-sbt "runMain example.auth.bearer.jwt.AuthenticationClient"
-```
+Run the `example.auth.bearer.jwt.AuthenticationClient` main class from the `zio-http-example-jwt-bearer-token-auth` example project with your build tool.
 
 ### Web-Based Client
 
@@ -702,9 +696,7 @@ To demonstrate the authentication flow in a web client, we've created a simple H
 
 First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`jwt-bearer-token-auth-client.html`) located in the resource folder:
 
-```scala
-sbt "runMain example.auth.bearer.jwt.AuthenticationServer"
-```
+Run the `example.auth.bearer.jwt.AuthenticationServer` main class from the `zio-http-example-jwt-bearer-token-auth` example project with your build tool.
 
 Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, and log out, showcasing the full JWT bearer token authentication flow.
 

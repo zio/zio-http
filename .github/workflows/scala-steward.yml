@@ -16,8 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Scala Steward
     steps:
-      - name: Setup sbt
-        uses: sbt/setup-sbt@v1
+      - name: Setup JDK
+        uses: coursier/setup-action@v2
+        with:
+          jvm: temurin:21
       - name: Scala Steward
         uses: scala-steward-org/scala-steward-action@v2
         with:

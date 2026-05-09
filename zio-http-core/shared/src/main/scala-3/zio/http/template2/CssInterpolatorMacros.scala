@@ -39,10 +39,10 @@ object CssInterpolatorMacros {
               if (!isValidCss(cssString)) {
                 report.error(s"Invalid CSS syntax: $cssString")
               }
-            case _ => // Has interpolation, skip validation
+            case _                                         => // Has interpolation, skip validation
           }
         }
-      case None => // Can't extract value at compile time, skip validation
+      case None                => // Can't extract value at compile time, skip validation
     }
 
     // Always delegate to standard string interpolation
@@ -66,10 +66,10 @@ object CssInterpolatorMacros {
               if (!isValidCssSelector(selectorString)) {
                 report.error(s"Invalid CSS selector syntax: $selectorString")
               }
-            case _ => // Has interpolation, skip validation
+            case _                                         => // Has interpolation, skip validation
           }
         }
-      case None => // Can't extract value at compile time, skip validation
+      case None                => // Can't extract value at compile time, skip validation
     }
 
     // Always delegate to standard string interpolation
@@ -81,14 +81,14 @@ object CssInterpolatorMacros {
     if (trimmed.isEmpty) return true
 
     // Basic CSS validation - allow most reasonable CSS
-    val cssPropertyPattern = """^[a-zA-Z\-]+\s*:\s*[^;]+;?\s*$""".r
-    val cssRulePattern = """^[^{]+\{[^}]*}$""".r
+    val cssPropertyPattern    = """^[a-zA-Z\-]+\s*:\s*[^;]+;?\s*$""".r
+    val cssRulePattern        = """^[^{]+\{[^}]*}$""".r
     val cssDeclarationPattern = """^[a-zA-Z\-]+\s*:\s*[^;]+$""".r
 
     cssPropertyPattern.matches(trimmed) ||
     cssRulePattern.matches(trimmed) ||
     cssDeclarationPattern.matches(trimmed) ||
-    trimmed.contains(":") || // Allow basic property declarations
+    trimmed.contains(":") ||                                 // Allow basic property declarations
     trimmed.matches("""^[a-zA-Z0-9\-\s.#{}:;,'"()\[\]]+$""") // Allow reasonable CSS characters
   }
 

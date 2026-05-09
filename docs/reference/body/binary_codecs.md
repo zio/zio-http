@@ -60,7 +60,7 @@ object Book {
 }
 ```
 
-Based on what format we want, we can add one of the following codecs to our `build.sbt` file:
+Based on what format we want, we can add one of the following codecs to our build:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@ZIO_SCHEMA_VERSION@"

@@ -701,20 +701,14 @@ export BASE_URL="http://localhost:8080"
 ### Running the Server
 
 To run the authentication server:
-```bash
-cd zio-http/zio-http-example-oauth-bearer-token-auth
-sbt "runMain example.auth.bearer.oauth.AuthenticationServer"
-```
+Run the `example.auth.bearer.oauth.AuthenticationServer` main class from the `zio-http-example-oauth-bearer-token-auth` example project with your build tool.
 
 The server starts on `http://localhost:8080` and handles the complete GitHub OAuth authentication flow.
 
 ### ZIO HTTP Client
 
 Run the command-line client in a separate terminal (ensure the server is running):
-```bash
-cd zio-http/zio-http-example-oauth-bearer-token-auth
-sbt "runMain example.auth.bearer.oauth.AuthenticationClient"
-```
+Run the `example.auth.bearer.oauth.AuthenticationClient` main class from the `zio-http-example-oauth-bearer-token-auth` example project with your build tool.
 
 The client application will initiate the OAuth flow by starting a local callback server on port 3000 and opening your default browser for GitHub authentication. Once you authorize the application, the client captures the callback containing the tokens and can proceed to make authenticated requests to the protected endpoints.
 

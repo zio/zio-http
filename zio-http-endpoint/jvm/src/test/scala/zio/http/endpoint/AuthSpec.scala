@@ -1,16 +1,18 @@
 package zio.http.endpoint
 
 import zio.Config.Secret
+import zio.Ref
 import zio.test._
 import zio.{Scope, ZIO, durationInt}
 
 import zio.http._
 import zio.http.codec.HttpCodec
-import zio.http.internal.middlewares.AuthSpec.AuthContext
 import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyServer
 
 object AuthSpec extends ZIOSpecDefault {
+
+  final case class AuthContext(value: String)
 
   private val basicAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
     {

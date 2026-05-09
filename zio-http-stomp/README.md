@@ -21,7 +21,7 @@ This module provides support for STOMP protocol versions 1.0, 1.1, and 1.2 as de
 
 ## Installation
 
-Add the following dependency to your `build.sbt`:
+Add the following dependency to your build:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-http-stomp" % "<version>"
@@ -235,12 +235,12 @@ The module includes comprehensive tests for:
 - Endpoint API integration
 - STOMP protocol scenarios
 
-Run tests with:
+Run the currently configured mill test suites from the repository root with:
 ```bash
-sbt zioHttpStomp/test
+./mill core.jvm[2.13.18].test
+./mill core.jvm[3.8.3].test
 ```
 
 ## License
 
 Apache License 2.0
-

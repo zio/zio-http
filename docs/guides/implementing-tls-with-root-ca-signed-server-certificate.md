@@ -272,15 +272,11 @@ cd src/main/resources/certs/tls/root-ca-signed
 
 ### 2. Start the Server
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.rootcasigned.ServerApp"
-```
+Run the `example.ssl.tls.rootcasigned.ServerApp` main class from the example project with your build tool.
 
 ### 3. Run the Client
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.rootcasigned.ClientApp"
-```
+Run the `example.ssl.tls.rootcasigned.ClientApp` main class from the example project with your build tool.
 
 Output:
 ```

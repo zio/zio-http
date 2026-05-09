@@ -18,7 +18,7 @@ package zio.http
 
 import java.net.{InetSocketAddress, URI}
 
-import scala.annotation.{nowarn, unroll}
+import scala.annotation.nowarn
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -492,7 +492,6 @@ object ZClient extends ZClientPlatformSpecific {
     addUserAgentHeader: Boolean,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
-    @unroll
     bodyReadTimeout: Option[Duration] = None,
   ) {
     self =>

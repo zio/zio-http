@@ -37,10 +37,10 @@ object JsInterpolatorMacros {
               if (!isValidJavaScript(jsString)) {
                 report.error(s"Invalid JavaScript syntax: $jsString")
               }
-            case _ => // Has interpolation, skip validation
+            case _                     => // Has interpolation, skip validation
           }
         }
-      case None => // Can't extract value at compile time, skip validation
+      case None                => // Can't extract value at compile time, skip validation
     }
 
     // Return Js wrapper around the interpolated string
@@ -51,25 +51,47 @@ object JsInterpolatorMacros {
     val trimmed = js.trim
     if (trimmed.isEmpty) return true
 
-    // Check for Datastar expressions (e.g., @get('url'), @post('url'), etc.)
-    val datastarPattern = """@[a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)""".r
-    if (datastarPattern.matches(trimmed) || datastarPattern.findFirstMatchIn(trimmed).isDefined) return true
-
     // Basic JavaScript validation patterns
     val jsKeywords = Set(
-      "var", "let", "const", "function", "if", "else", "for", "while", "do", "switch", "case",
-      "break", "continue", "return", "try", "catch", "finally", "throw", "new", "this", "typeof",
-      "instanceof", "in", "delete", "void", "true", "false", "null", "undefined"
+      "var",
+      "let",
+      "const",
+      "function",
+      "if",
+      "else",
+      "for",
+      "while",
+      "do",
+      "switch",
+      "case",
+      "break",
+      "continue",
+      "return",
+      "try",
+      "catch",
+      "finally",
+      "throw",
+      "new",
+      "this",
+      "typeof",
+      "instanceof",
+      "in",
+      "delete",
+      "void",
+      "true",
+      "false",
+      "null",
+      "undefined",
     )
 
     val validJsPatterns = List(
-      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*.+;?\s*$""".r,  // Variable assignment
-      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*\{.*}$""".r,  // Function declaration
-      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*;?\s*$""".r,  // Function call
-      """^if\s*\([^)]+\)\s*\{.*}(\s*else\s*\{.*})?$""".r,  // If statement
-      """^for\s*\([^)]*\)\s*\{.*}$""".r,  // For loop
-      """^while\s*\([^)]+\)\s*\{.*}$""".r,  // While loop
-      """^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*\s*=\s*.+;?\s*$""".r  // Property assignment
+      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*.+;?\s*$""".r,                             // Variable assignment
+      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*\{.*}$""".r,                       // Function declaration
+      """^[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*;?\s*$""".r,                       // Function call
+      """^if\s*\([^)]+\)\s*\{.*}(\s*else\s*\{.*})?$""".r,                           // If statement
+      """^for\s*\([^)]*\)\s*\{.*}$""".r,                                            // For loop
+      """^while\s*\([^)]+\)\s*\{.*}$""".r,                                          // While loop
+      """^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*\s*=\s*.+;?\s*$""".r, // Property assignment
     )
 
     validJsPatterns.exists(_.matches(trimmed)) ||

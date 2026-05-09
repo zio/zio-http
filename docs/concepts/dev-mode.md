@@ -36,10 +36,10 @@ Examples:
 
 ```bash
 # Using a JVM system property
-sbt "run -Dzio.http.mode=preprod"
+./mill -D zio.http.mode=preprod profiling.run
 
 # Using an environment variable (takes effect if the system property is NOT set)
-ZIO_HTTP_MODE=prod sbt run
+ZIO_HTTP_MODE=prod ./mill profiling.run
 ```
 
 Unknown values cause a warning on stderr and the mode falls back to `dev`:
