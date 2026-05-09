@@ -20,7 +20,7 @@ import scala.quoted.*
 
 trait UrlInterpolator {
 
-  extension(inline sc: StringContext) {
+  extension (inline sc: StringContext) {
     inline def url(inline args: Any*): URL = ${ UrlInterpolatorMacro.url('sc, 'args) }
   }
 
@@ -32,18 +32,18 @@ private[http] object UrlInterpolatorMacro {
     import quotes.reflect.*
     import report.*
 
-    val ctx = sc.valueOrAbort
+    val ctx         = sc.valueOrAbort
     val staticParts = ctx.parts
 
     val argExprs = args match {
       case Varargs(exprs) => exprs
-      case _ => errorAndAbort(s"Unexpected arguments", args)
+      case _              => errorAndAbort(s"Unexpected arguments", args)
     }
 
     val result = if (argExprs.isEmpty) {
       URL.decode(staticParts.mkString) match {
         case Left(error) => errorAndAbort(s"Invalid URL: $error", sc)
-        case Right(url) =>
+        case Right(url)  =>
           val uri = Expr(url.encode)
           '{ URL.fromURI(new java.net.URI($uri)).get }
       }
@@ -52,36 +52,36 @@ private[http] object UrlInterpolatorMacro {
         argExprs.map { arg =>
           val typ = arg.asTerm.tpe.asType
           typ match {
-            case '[String] =>
+            case '[String]         =>
               "string"
-            case '[Byte] =>
+            case '[Byte]           =>
               "123"
-            case '[Short] =>
+            case '[Short]          =>
               "1234"
-            case '[Int] =>
-                "1234"
-            case '[Long] =>
-                "1234"
-            case '[Boolean] =>
-                "true"
-            case '[Float] =>
-                "1.23"
-            case '[Double] =>
-                "1.23"
+            case '[Int]            =>
+              "1234"
+            case '[Long]           =>
+              "1234"
+            case '[Boolean]        =>
+              "true"
+            case '[Float]          =>
+              "1.23"
+            case '[Double]         =>
+              "1.23"
             case '[java.util.UUID] =>
-                "123e4567-e89b-12d3-a456-426614174000"
-            case _ =>
+              "123e4567-e89b-12d3-a456-426614174000"
+            case _                 =>
               errorAndAbort(s"Injected field ${arg.show} has an unsupported type", arg)
           }
         }
 
       val exampleParts = staticParts.zipAll(injectedPartExamples, "", "").flatMap { case (a, b) => List(a, b) }
-      val example = exampleParts.mkString
+      val example      = exampleParts.mkString
 
       URL.decode(example) match {
         case Left(error) =>
           errorAndAbort(s"Invalid URL: $error", sc)
-        case Right(url) =>
+        case Right(url)  =>
           val parts =
             staticParts.map { s => Expr(s) }
               .zipAll(argExprs, Expr(""), Expr(""))
@@ -89,7 +89,7 @@ private[http] object UrlInterpolatorMacro {
 
           val concatenated =
             parts.foldLeft[Expr[String]](Expr("")) { case (acc, part) =>
-              '{$acc + $part}
+              '{ $acc + $part }
             }
 
           '{ URL.fromURI(new java.net.URI($concatenated)).get }

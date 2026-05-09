@@ -22,9 +22,10 @@ package zio.http.template2
 trait JsInterpolator {
 
   /**
-   * JavaScript string interpolator that validates JavaScript syntax at compile time.
+   * JavaScript string interpolator that validates JavaScript syntax at compile
+   * time.
    */
-  extension(inline sc: StringContext) {
+  extension (inline sc: StringContext) {
     inline def js(inline args: Any*): Js = ${ JsInterpolatorMacros.jsImpl('args, 'sc) }
   }
 }

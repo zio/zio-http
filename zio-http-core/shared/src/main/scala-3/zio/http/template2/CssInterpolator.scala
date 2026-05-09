@@ -17,15 +17,16 @@
 package zio.http.template2
 
 /**
- * Trait providing CSS and selector string interpolation with compile-time validation.
+ * Trait providing CSS and selector string interpolation with compile-time
+ * validation.
  */
 trait CssInterpolator {
 
   /**
    * CSS string interpolator that validates CSS syntax at compile time.
    */
-  extension(inline sc: StringContext) {
-    inline def css(inline args: Any*): Css = ${ CssInterpolatorMacros.cssImpl('args, 'sc) }
+  extension (inline sc: StringContext) {
+    inline def css(inline args: Any*): Css              = ${ CssInterpolatorMacros.cssImpl('args, 'sc) }
     inline def selector(inline args: Any*): CssSelector = ${ CssInterpolatorMacros.selectorImpl('args, 'sc) }
   }
 }
