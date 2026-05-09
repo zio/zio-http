@@ -19,6 +19,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup JDK
+        uses: coursier/setup-action@v2
+        with:
+          jvm: temurin:21
+      - name: Cache
+        uses: coursier/cache-action@v8
+      - name: Check formatting
+        run: chmod +x ./mill && ./mill mill.scalalib.scalafmt/checkFormatAll
+
   compile:
     name: Compile with mill
     runs-on: ubuntu-latest
@@ -36,7 +52,7 @@ jobs:
         run: chmod +x ./mill && ./mill __.compile
 
   testCoreJvm:
-    name: Core JVM tests — Scala ${{ matrix.scala }}
+    name: JVM tests — Scala ${{ matrix.scala }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -52,8 +68,16 @@ jobs:
           jvm: temurin:21
       - name: Cache
         uses: coursier/cache-action@v8
-      - name: Run core JVM tests
-        run: chmod +x ./mill && ./mill core.jvm[${{ matrix.scala }}].test
+      - name: Run supported JVM tests
+        run: >-
+          chmod +x ./mill &&
+          ./mill
+          'core.jvm[${{ matrix.scala }}].test'
+          'endpoint.jvm[${{ matrix.scala }}].test'
+          'nettyCore.jvm[${{ matrix.scala }}].test'
+          'nettyServer.jvm[${{ matrix.scala }}].test'
+          'nettyClient.jvm[${{ matrix.scala }}].test'
+          'testkit.jvm[${{ matrix.scala }}].test'
 
   docsSite:
     name: Build website
@@ -75,11 +99,12 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     if: always()
-    needs: [compile, testCoreJvm, docsSite]
+    needs: [lint, compile, testCoreJvm, docsSite]
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.compile.result }}" == "failure" || \
+          if [[ "${{ needs.lint.result }}" == "failure" || \
+                "${{ needs.compile.result }}" == "failure" || \
                 "${{ needs.testCoreJvm.result }}" == "failure" || \
                 "${{ needs.docsSite.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
