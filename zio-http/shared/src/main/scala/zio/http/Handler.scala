@@ -55,9 +55,16 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     aspect.applyHandlerContext {
       Handler.scoped[Env0] {
         handler { (ctx: Ctx, req: Request) =>
+          // Handle both cases: with and without path parameters
           val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+            self match {
+              case h: Handler.WithEnv[Ctx, Response, Request, Response] =>
+                h(req)
+              case h: Handler.WithEnv[Ctx, Response, (Request, PathParams), Response] =>
+                h((req, PathParams.empty)) // Provide empty path params if none were extracted
+              case _ =>
+                ZIO.dieMessage(s"Unexpected handler type: ${self.getClass.getName}")
+            }
           handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
         }
       }
