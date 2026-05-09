@@ -37,18 +37,18 @@ object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
     }
   }
 
-
   sealed trait Error extends Product with Serializable
   object Error {
     final case class Error0(errors: List[String]) extends Error derives Schema
-    final case class Error1(message: String)     extends Error derives Schema
+    final case class Error1(message: String)      extends Error derives Schema
   }
 
   @discriminatorName("type")
   sealed trait Output derives Schema
   object Output {
     @caseName("HTTP")
-    final case class HttpOutput(body: Option[HttpOutput.Body], headers: Map[String, String]) extends Output derives Schema
+    final case class HttpOutput(body: Option[HttpOutput.Body], headers: Map[String, String]) extends Output
+        derives Schema
 
     object HttpOutput {
       @discriminatorName("type")
@@ -78,11 +78,14 @@ object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
   override val spec =
     suite("OpenAPIGen")(
       suite(".gen")(
-        test("doesn't throw 'ClassCastException: class zio.schema.Schema$Lazy cannot be cast to class zio.schema.Schema$Record'") {
+        test(
+          "doesn't throw 'ClassCastException: class zio.schema.Schema$Lazy cannot be cast to class zio.schema.Schema$Record'",
+        ) {
           zio.http.endpoint.openapi.OpenAPIGen.gen(endpoint = testEndpoint)
           assertTrue(true)
         },
         test("scala doc for api doc is sanetized") {
+
           /**
            * This is the Input documentation
            */
@@ -96,14 +99,16 @@ object Scala3OpenAPIGenSpec extends ZIOSpecDefault {
               .out[String](mediaType = MediaType.application.json, doc = Doc.p("this is the output doc"))
 
           val spec: String =
-            OpenAPIGen.fromEndpoints(
-              title = "This is my OpenAPI doc title",
-              version = "0.0.0",
-              endpoints = List(testEndpoint)
-              ).toJson
+            OpenAPIGen
+              .fromEndpoints(
+                title = "This is my OpenAPI doc title",
+                version = "0.0.0",
+                endpoints = List(testEndpoint),
+              )
+              .toJson
 
           assertTrue(spec.contains(""""description":"This is the Input documentation""""))
-        }
-      )
+        },
+      ),
     )
 }

@@ -150,7 +150,7 @@ object UnionRoundtripSpec extends ZIOHttpSpec {
     string: String,
     strings: Chunk[String] = Chunk("defaultString"),
   )
-  implicit val paramsSchema: Schema[Params]   = DeriveSchema.gen[Params]
+  implicit val paramsSchema: Schema[Params]           = DeriveSchema.gen[Params]
 
   def spec: Spec[Any, Any] =
     suite("UnionRoundtripSpec")(
