@@ -24,14 +24,10 @@ import zio.{Chunk, Trace}
 /**
  * A multipart boundary, which consists of both the boundary and its charset.
  */
-final case class Boundary(id: String, charset: Charset) { self =>
-  val closingBoundary: String = s"--$id--"
+final case class Boundary(value: String, charset: Charset) { self =>
+  val closingBoundary: String = s"--$value--"
 
-  def contentTypeHeader: Headers = Headers(
-    Header.ContentType(MediaType.multipart.`form-data`, Some(self)),
-  )
-
-  val encapsulationBoundary: String = s"--$id"
+  val encapsulationBoundary: String = s"--$value"
 
   def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
 
@@ -40,6 +36,8 @@ final case class Boundary(id: String, charset: Charset) { self =>
   private[http] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
 
   private[http] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
+
+  override def toString: String = value
 }
 
 object Boundary {
@@ -64,14 +62,16 @@ object Boundary {
     else Option.empty
   }
 
-  def fromHeaders(headers: Headers): Option[Boundary] =
-    for {
-      contentType <- headers.header(Header.ContentType)
-      boundary    <- contentType.boundary
-    } yield boundary
-
-  def fromString(content: String, charset: Charset): Option[Boundary] =
-    fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
+  def generate: Boundary = {
+    val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    val sb    = new StringBuilder(24)
+    var i     = 0
+    while (i < 24) {
+      sb.append(chars.charAt(scala.util.Random.nextInt(chars.length)))
+      i += 1
+    }
+    Boundary(sb.toString)
+  }
 
   def randomUUID(implicit trace: Trace): zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>

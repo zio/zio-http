@@ -31,11 +31,11 @@ private[http] object UrlInterpolatorMacro {
     import c.universe._
     c.prefix.tree match {
       case Apply(_, List(Apply(_, Literal(Constant(p: String)) :: Nil))) =>
-        val result = URL.decode(p) match {
-          case Left(error) => c.abort(c.enclosingPosition, error.getMessage)
+        val result = URL.parse(p) match {
+          case Left(error) => c.abort(c.enclosingPosition, error)
           case Right(url)  =>
             val uri = url.encode
-            q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($uri)).get"
+            q"_root_.zio.http.URL.parse($uri).toOption.get"
         }
         c.Expr[URL](result)
       case Apply(_, List(Apply(_, staticPartLiterals)))                  =>
@@ -67,8 +67,8 @@ private[http] object UrlInterpolatorMacro {
           }
         val exampleParts = staticParts.zipAll(injectedPartExamples, "", "").flatMap { case (a, b) => List(a, b) }
         val example              = exampleParts.mkString
-        URL.decode(example) match {
-          case Left(error) => c.abort(c.enclosingPosition, error.getMessage)
+        URL.parse(example) match {
+          case Left(error) => c.abort(c.enclosingPosition, error)
           case Right(_)    =>
             val parts =
               staticParts.map { s => Literal(Constant(s)) }
@@ -80,7 +80,7 @@ private[http] object UrlInterpolatorMacro {
                 q"$acc + $part"
               }
 
-            c.Expr[URL](q"_root_.zio.http.URL.fromURI(new _root_.java.net.URI($concatenated)).get")
+            c.Expr[URL](q"_root_.zio.http.URL.parse($concatenated).toOption.get")
         }
     }
   }

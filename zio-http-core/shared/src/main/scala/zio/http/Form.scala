@@ -16,17 +16,11 @@
 
 package zio.http
 
-import java.io.UnsupportedEncodingException
-import java.nio.charset.Charset
-
-import scala.jdk.CollectionConverters._
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream._
 
-import zio.http.FormDecodingError._
 import zio.http.FormField._
 import zio.http.internal.FormAST
 
@@ -87,7 +81,7 @@ final case class Form(formData: Chunk[FormField]) {
   )(implicit trace: Trace): ZStream[Any, Nothing, Byte] = {
 
     val encapsulatingBoundary = FormAST.EncapsulatingBoundary(boundary)
-    val closingBoundary       = FormAST.ClosingBoundary(boundary)
+    val closingBoundary0      = FormAST.ClosingBoundary(boundary)
 
     val astStreams = formData.map {
       case fd @ Simple(name, value) =>
@@ -154,27 +148,10 @@ final case class Form(formData: Chunk[FormField]) {
         ) ++ data.chunks.map(FormAST.Content(_)) ++ ZStream(FormAST.EoL)
     }
 
-    val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, FormAST.EoL))
+    val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary0, FormAST.EoL))
 
     stream.map(_.bytes).flattenChunks
   }
-
-  def toQueryParams: QueryParams =
-    QueryParams(formData.collect {
-      case t: FormField.Text   => (t.name, Chunk(t.value))
-      case s: FormField.Simple => (s.name, Chunk(s.value))
-    }: _*)
-
-  /**
-   * Encodes the form using URL encoding, using the default charset.
-   */
-  def urlEncoded: String = urlEncoded(Charsets.Utf8)
-
-  /**
-   * Encodes the form using URL encoding, using the specified charset. Ignores
-   * any data that cannot be URL encoded.
-   */
-  def urlEncoded(charset: Charset): String = toQueryParams.encode(charset).drop(1)
 }
 
 object Form {
@@ -202,7 +179,7 @@ object Form {
    */
   def fromMultipartBytes(
     bytes: Chunk[Byte],
-    charset: Charset = Charsets.Utf8,
+    charset: java.nio.charset.Charset = Charsets.Utf8,
     boundary: Option[Boundary] = None,
   )(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     for {
@@ -211,19 +188,4 @@ object Form {
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
       form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form
-
-  def fromQueryParams(queryParams: QueryParams): Form = {
-    queryParams.seq.foldLeft[Form](Form.empty) { case (acc, entry) =>
-      acc + FormField.simpleField(entry.getKey, entry.getValue.asScala.mkString(","))
-    }
-  }
-
-  /**
-   * Creates a form from the specified URL encoded data.
-   */
-  def fromURLEncoded(encoded: String, charset: Charset): Either[FormDecodingError, Form] =
-    scala.util.Try(fromQueryParams(QueryParams.decode(encoded, charset))).toEither.left.map {
-      case e: UnsupportedEncodingException => InvalidCharset(e.getMessage)
-      case e                               => InvalidURLEncodedFormat(e.getMessage)
-    }
 }

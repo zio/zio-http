@@ -37,7 +37,7 @@ trait HeaderGetters { self =>
    * be parsed
    */
   final def header(headerType: HeaderType): Option[headerType.HeaderValue] =
-    headers.get(headerType.name).flatMap { raw =>
+    headers.rawGet(headerType.name).flatMap { raw =>
       val parsed = headerType.parse(raw)
       parsed.toOption
     }
@@ -103,13 +103,10 @@ trait HeaderGetters { self =>
 
   final def headers(headerType: HeaderType): Chunk[headerType.HeaderValue] =
     Chunk.fromIterator(
-      headers.iterator
-        .filter(header =>
-          CharSequenceExtensions
-            .equals(header.headerNameAsCharSequence, headerType.name, CaseMode.Insensitive),
-        )
-        .flatMap { raw =>
-          val parsed = headerType.parse(raw.renderedValue)
+      headers.toList.iterator
+        .filter { case (k, _) => k.equalsIgnoreCase(headerType.name) }
+        .flatMap { case (_, v) =>
+          val parsed = headerType.parse(v)
           parsed.toOption
         },
     )
@@ -119,7 +116,7 @@ trait HeaderGetters { self =>
    * could not be parsed it returns the parsing error
    */
   final def headerOrFail(headerType: HeaderType): Option[Either[String, headerType.HeaderValue]] =
-    headers.get(headerType.name).map(headerType.parse(_))
+    headers.rawGet(headerType.name).map(headerType.parse(_))
 
   /**
    * Returns the headers
@@ -127,13 +124,13 @@ trait HeaderGetters { self =>
   def headers: Headers
 
   /** Gets the raw unparsed header value */
-  final def rawHeader(name: CharSequence): Option[String] = headers.get(name)
+  final def rawHeader(name: CharSequence): Option[String] = headers.rawGet(name.toString)
 
   def rawHeaders(name: CharSequence): Chunk[String] =
     Chunk.fromIterator(
-      headers.iterator
-        .filter(header => CharSequenceExtensions.equals(header.headerNameAsCharSequence, name, CaseMode.Insensitive))
-        .map(_.renderedValue),
+      headers.toList.iterator
+        .filter { case (k, _) => k.equalsIgnoreCase(name.toString) }
+        .map(_._2),
     )
 
   /** Gets the raw unparsed header value */

@@ -244,16 +244,14 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
           // Consume all Trailing, possibly empty:
           if (j >= segments.length) {
             val result =
-              if (path.hasTrailingSlash) Path.root else Path.empty
+              if (path.trailingSlash) Path.root else Path.empty
 
             stack.push(result)
           } else {
-            val flags =
-              if (j == 0) path.flags
-              else if (path.hasTrailingSlash) Path.Flags(Path.Flag.TrailingSlash)
-              else 0
+            val hasLeading = j == 0 && path.hasLeadingSlash
+            val hasTrailing = if (j == 0) path.trailingSlash else path.trailingSlash
 
-            stack.push(Path(flags, segments.drop(j)))
+            stack.push(Path(segments.drop(j), hasLeadingSlash = hasLeading, trailingSlash = hasTrailing))
             j = segments.length
           }
 
@@ -703,9 +701,9 @@ object PathCodec {
   def apply(value: String): PathCodec[Unit] = {
     val path = Path(value)
 
-    (path.segments: @unchecked) match {
-      case Chunk()                 => PathCodec.empty
-      case Chunk(first, rest @ _*) =>
+    path.segments.toList match {
+      case Nil                 => PathCodec.empty
+      case first :: rest =>
         rest.foldLeft[PathCodec[Unit]](Segment(SegmentCodec.literal(first))) { (pathSpec, segment) =>
           pathSpec / Segment(SegmentCodec.literal(segment))
         }
@@ -829,7 +827,7 @@ object PathCodec {
       get(path, 0)
 
     private def get(path: Path, from: Int, skipLiteralsFor: Set[Int] = Set.empty): RequestHandler[Env, Response] = {
-      val segments  = path.segments
+      val segments  = zio.Chunk.fromArray(path.segments.toArray)
       val nSegments = segments.length
       var subtree   = self
       var result    = subtree.value

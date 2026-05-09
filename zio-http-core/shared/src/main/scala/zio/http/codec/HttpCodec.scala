@@ -26,7 +26,7 @@ import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema.Schema
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.Accept.MediaRange
 import zio.http.Header.{HeaderTypeBase, SchemaHeaderType}
 import zio.http._
 import zio.http.codec.HttpCodec.{Annotated, Metadata}
@@ -188,7 +188,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def decodeResponse(response: Response, config: CodecConfig = CodecConfig.defaultConfig)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(config, URL.empty, response.status, Method.GET, response.headers, response.body)
+    encoderDecoder.decode(config, URL.root, response.status, Method.GET, response.headers, response.body)
 
   def doc: Option[Doc] = {
     @tailrec
@@ -215,27 +215,26 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def encodeRequest(value: Value, config: CodecConfig): Request =
     encodeWith(config, value, Chunk.empty)((url, _, method, headers, body) =>
       Request(
-        url = url,
         method = method.getOrElse(Method.GET),
+        url = url,
         headers = headers,
         body = body,
-        version = Version.Default,
-        remoteAddress = None,
+        version = Version.`HTTP/1.1`,
       ),
     )
 
   /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaRange], config: CodecConfig): Response =
     encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
 
-  private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+  private final def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaRange])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(config, value, outputTypes.sorted)(f)
+    encoderDecoder.encodeWith(config, value, outputTypes.sortBy(-_.quality))(f)
 
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))

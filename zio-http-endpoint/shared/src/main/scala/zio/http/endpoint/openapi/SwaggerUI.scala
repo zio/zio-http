@@ -53,7 +53,7 @@ object SwaggerUI {
    */
   //format: on
   def routes(path: PathCodec[Unit], version: String, api: OpenAPI, apis: OpenAPI*): Routes[Any, Response] = {
-    import zio.http.template._
+    import zio.blocks.html._
     val basePath   = Method.GET / path
     val jsonRoutes = (api +: apis).map { api =>
       basePath / s"${URLEncoder.encode(api.info.title, Charsets.Utf8.name())}.json" -> handler { (_: Request) =>
@@ -64,40 +64,37 @@ object SwaggerUI {
     val jsonTitles = (api +: apis).map(_.info.title)
     val jsonUrls   = jsonTitles.zip(jsonPaths).map { case (title, path) => s"""{url: "$path", name: "$title"}""" }
     val uiRoute    = basePath -> handler { (_: Request) =>
-      Response.html(
-        html(
-          head(
-            meta(charsetAttr := "utf-8"),
-            meta(nameAttr    := "viewport", contentAttr    := "width=device-width, initial-scale=1"),
-            meta(nameAttr    := "description", contentAttr := "SwaggerUI"),
-            title("SwaggerUI"),
-            link(relAttr := "stylesheet", href := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui.css"),
-            link(
-              relAttr    := "icon",
-              typeAttr   := "image/png",
-              href       := s"https://unpkg.com/swagger-ui-dist@$version/favicon-32x32.png",
-            ),
-          ),
-          body(
-            div(id         := "swagger-ui"),
-            script(srcAttr := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-bundle.js"),
-            script(srcAttr := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-standalone-preset.js"),
-            Dom.raw(s"""<script>
-                       |window.onload = () => {
-                       |  window.ui = SwaggerUIBundle({
-                       |    urls: ${jsonUrls.mkString("[\n", ",\n", "\n]")},
-                       |    dom_id: '#swagger-ui',
-                       |    presets: [
-                       |      SwaggerUIBundle.presets.apis,
-                       |      SwaggerUIStandalonePreset
-                       |    ],
-                       |    layout: "StandaloneLayout",
-                       |  });
-                       |};
-                       |</script>""".stripMargin),
+      val page = html(
+        head(
+          meta(charset := "utf-8"),
+          meta(name    := "viewport", content    := "width=device-width, initial-scale=1"),
+          meta(name    := "description", content := "SwaggerUI"),
+          title("SwaggerUI"),
+          link(rel     := "stylesheet", href     := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui.css"),
+          link(
+            rel        := "icon",
+            typeAttr   := "image/png",
+            href       := s"https://unpkg.com/swagger-ui-dist@$version/favicon-32x32.png",
           ),
         ),
+        body(
+          div(id     := "swagger-ui"),
+          script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-bundle.js"),
+          script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-standalone-preset.js"),
+          script().inlineJs(s"""window.onload = () => {
+                               |  window.ui = SwaggerUIBundle({
+                               |    urls: ${jsonUrls.mkString("[\n", ",\n", "\n]")},
+                               |    dom_id: '#swagger-ui',
+                               |    presets: [
+                               |      SwaggerUIBundle.presets.apis,
+                               |      SwaggerUIStandalonePreset
+                               |    ],
+                               |    layout: "StandaloneLayout",
+                               |  });
+                               |};""".stripMargin),
+        ),
       )
+      Response(Status.Ok, Headers("content-type" -> "text/html"), Body.fromString("<!DOCTYPE html>" + page.render))
     }
     Routes.fromIterable(jsonRoutes) :+ uiRoute
   }

@@ -41,11 +41,11 @@ private[http] object UrlInterpolatorMacro {
     }
 
     val result = if (argExprs.isEmpty) {
-      URL.decode(staticParts.mkString) match {
+      URL.parse(staticParts.mkString) match {
         case Left(error) => errorAndAbort(s"Invalid URL: $error", sc)
         case Right(url)  =>
           val uri = Expr(url.encode)
-          '{ URL.fromURI(new java.net.URI($uri)).get }
+          '{ URL.parse($uri).toOption.get }
       }
     } else {
       val injectedPartExamples =
@@ -78,7 +78,7 @@ private[http] object UrlInterpolatorMacro {
       val exampleParts = staticParts.zipAll(injectedPartExamples, "", "").flatMap { case (a, b) => List(a, b) }
       val example      = exampleParts.mkString
 
-      URL.decode(example) match {
+      URL.parse(example) match {
         case Left(error) =>
           errorAndAbort(s"Invalid URL: $error", sc)
         case Right(url)  =>
@@ -91,8 +91,8 @@ private[http] object UrlInterpolatorMacro {
             parts.foldLeft[Expr[String]](Expr("")) { case (acc, part) =>
               '{ $acc + $part }
             }
-
-          '{ URL.fromURI(new java.net.URI($concatenated)).get }
+          // TODO there should be a more optimized way to do this
+          '{ URL.parse($concatenated).toOption.get }
       }
     }
 

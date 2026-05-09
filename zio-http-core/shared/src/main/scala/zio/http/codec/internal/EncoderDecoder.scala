@@ -21,7 +21,9 @@ import scala.util.Try
 
 import zio._
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.stream.ZStream
+
+import zio.http.Header.Accept.MediaRange
 import zio.http._
 import zio.http.codec._
 
@@ -30,7 +32,7 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
     trace: Trace,
   ): Task[Value]
 
-  def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+  def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaRange])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z
 
@@ -78,12 +80,15 @@ private[codec] object EncoderDecoder {
       tryDecode(0, Cause.empty)
     }
 
-    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaRange])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
       val orderedSingles = if (outputTypes.nonEmpty) {
         val matchingAlternatives = outputTypes.flatMap { acceptedType =>
-          singles.filter { case (single, _) => single.matchesMediaType(acceptedType.mediaType) }
+          val localMt = MediaType
+            .forContentType(acceptedType.mediaType.fullType)
+            .getOrElse(MediaType(acceptedType.mediaType.mainType, acceptedType.mediaType.subType))
+          singles.filter { case (single, _) => single.matchesMediaType(localMt) }
         }
         val remaining            = singles.filterNot(s => matchingAlternatives.exists(_._1 eq s._1))
         (matchingAlternatives ++ remaining).distinct
@@ -132,7 +137,7 @@ private[codec] object EncoderDecoder {
     override def encodeWith[Z](
       config: CodecConfig,
       value: Any,
-      outputTypes: Chunk[MediaTypeWithQFactor],
+      outputTypes: Chunk[MediaRange],
     )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
       throw new IllegalStateException(encodeWithErrorMessage)
     }
@@ -184,7 +189,7 @@ private[codec] object EncoderDecoder {
       decodeBody(config, body, inputsBuilder.content).as(constructor(inputsBuilder))
     }
 
-    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
+    override def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaRange])(
       f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
     ): Z = {
       val inputs = deconstructor(value)
@@ -198,7 +203,7 @@ private[codec] object EncoderDecoder {
       val body               = encodeBody(config, inputs.content, outputTypes)
 
       val headers0 = if (headers.contains("content-type")) headers else headers ++ contentTypeHeaders
-      f(URL(path, queryParams = query), status, method, headers0, body)
+      f(URL(scheme = None, host = None, port = None, path = path, queryParams = query, fragment = None), status, method, headers0, body)
     }
 
     private def genericDecode[A, Codec](
@@ -290,7 +295,11 @@ private[codec] object EncoderDecoder {
         }
       } else {
         // multi-part
-        decodeForm(body.asMultipartFormStream, inputs, config) *> check(inputs)
+        val boundary = body.contentType.boundary.getOrElse(
+          throw HttpCodecError.CustomError("MissingBoundary", "Multipart body missing boundary"),
+        )
+        val stream   = ZStream.fromChunk(zio.Chunk.fromArray(body.toChunk.toArray))
+        decodeForm(ZIO.succeed(StreamingForm(stream, boundary)), inputs, config) *> check(inputs)
       }
     }
 
@@ -383,7 +392,7 @@ private[codec] object EncoderDecoder {
     private def encodeMethod(inputs: Array[Any]): Option[Method] =
       simpleEncode(flattened.method, inputs)
 
-    private def encodeBody(config: CodecConfig, inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Body =
+    private def encodeBody(config: CodecConfig, inputs: Array[Any], outputTypes: Chunk[MediaRange]): Body =
       inputs.length match {
         case 0 =>
           Body.empty
@@ -391,13 +400,23 @@ private[codec] object EncoderDecoder {
           val bodyCodec = flattened.content(0)
           bodyCodec.erase.encodeToBody(inputs(0), outputTypes, config)
         case _ =>
-          Body.fromMultipartForm(encodeMultipartFormData(inputs, outputTypes, config), formBoundary)
+          val form = encodeMultipartFormData(inputs, outputTypes, config)
+          val ct   = ContentType(
+            zio.blocks.mediatype.MediaType("multipart", "form-data"),
+            boundary = Some(formBoundary),
+          )
+          Unsafe.unsafe { implicit u =>
+            val bytes = zio.Runtime.default.unsafe.run(
+              form.multipartBytes(formBoundary).runCollect,
+            ).getOrThrowFiberFailure()
+            Body.fromChunk(zio.blocks.chunk.Chunk.fromArray(bytes.toArray), ct)
+          }
 
       }
 
     private def encodeMultipartFormData(
       inputs: Array[Any],
-      outputTypes: Chunk[MediaTypeWithQFactor],
+      outputTypes: Chunk[MediaRange],
       config: CodecConfig,
     ): Form = {
       val formFields = flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
@@ -409,7 +428,7 @@ private[codec] object EncoderDecoder {
       Form(formFields: _*)
     }
 
-    private def encodeContentType(inputs: Array[Any], outputTypes: Chunk[MediaTypeWithQFactor]): Headers =
+    private def encodeContentType(inputs: Array[Any], outputTypes: Chunk[MediaRange]): Headers =
       inputs.length match {
         case 0 =>
           Headers.empty
@@ -418,9 +437,9 @@ private[codec] object EncoderDecoder {
             .content(0)
             .mediaType(outputTypes)
             .getOrElse(throw HttpCodecError.CustomError("InvalidHttpContentCodec", "No codecs found."))
-          Headers(Header.ContentType(mediaType))
+          Headers("content-type" -> mediaType.fullType)
         case _ =>
-          Headers(Header.ContentType(MediaType.multipart.`form-data`))
+          Headers("content-type" -> MediaType.multipart.`form-data`.fullType)
       }
   }
 }

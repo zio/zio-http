@@ -9,7 +9,7 @@ import zio._
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
 
-import zio.http.template._
+import zio.blocks.html._
 
 /**
  * `Flash` represents a flash value that one can retrieve from the flash scope.
@@ -42,13 +42,13 @@ sealed trait Flash[+A] { self =>
 
   final def optional: Flash[Option[A]] = self.map(Option(_)) <> Flash.succeed(None)
 
-  final def foldHtml[A1 >: A, B](f: Html => B, g: Html => B)(h: (B, B) => B)(implicit
-    ev: A1 =:= Flash.Message[Html, Html],
+  final def foldHtml[A1 >: A, B](f: Dom => B, g: Dom => B)(h: (B, B) => B)(implicit
+    ev: A1 =:= Flash.Message[Dom, Dom],
   ): Flash[B] =
     self.map(a => a.asInstanceOf[A1].fold(f, g)(h))
 
-  final def toHtml[A1 >: A](implicit ev: A1 =:= String): Flash[Html] =
-    self.map(Html.fromString(_))
+  final def toHtml[A1 >: A](implicit ev: A1 =:= String): Flash[Dom] =
+    self.map(Dom.text(_))
 
 }
 
@@ -166,7 +166,10 @@ object Flash {
         for {
           flashId       <- zio.Random.nextUUID
           setterFlashId <- ref.update(in => in + (flashId -> map)).as(Flash.setValue(flashIdName, flashId))
-        } yield response.addFlash(setterFlashId)
+        } yield {
+          val cookie = Flash.Setter.run(setterFlashId)
+          response.addHeader("set-cookie", Cookie.renderResponse(cookie))
+        }
       }
     }
 
@@ -195,8 +198,8 @@ object Flash {
 
     case class Concat[A, B](left: Setter[A], right: Setter[B]) extends Flash.Setter[(A, B)]
 
-    def run[A](setter: Setter[A]): Cookie.Response =
-      Cookie.Response(
+    def run[A](setter: Setter[A]): ResponseCookie =
+      ResponseCookie(
         Flash.COOKIE_NAME,
         URLEncoder.encode(
           JsonCodec.jsonEncoder(Schema[Map[String, String]]).encodeJson(run(setter, Map.empty)).toString,
@@ -276,7 +279,7 @@ object Flash {
       case _ => Flash.fail(s"neither '${Message.Notice.name}' nor '${Message.Alert.name}' do exist in the flash-scope")
     }
 
-  private def getMessageHtml[A: Schema, B: Schema](f: A => Html, g: B => Html): Flash[Message[Html, Html]] =
+  private def getMessageHtml[A: Schema, B: Schema](f: A => Dom, g: B => Dom): Flash[Message[Dom, Dom]] =
     getMessage[A, B].map {
       case Message.Notice(a)                                 => Message.Notice(f(a))
       case Message.Alert(b)                                  => Message.Alert(g(b))
@@ -291,7 +294,7 @@ object Flash {
    *
    * Usage e.g.: `Flash.getMessageHtml.foldHtml(showNotice, showAlert)(_ ++ _)`
    */
-  def getMessageHtml: Flash[Message[Html, Html]] =
+  def getMessageHtml: Flash[Message[Dom, Dom]] =
     getMessageHtml[String, String](a => Dom.text(a), b => Dom.text(b))
 
   /**
@@ -353,20 +356,23 @@ object Flash {
     }
   }
 
-  private[http] def run[A](flash: Flash[A], sourceRequest: Request): Either[Throwable, A] =
-    sourceRequest
-      .cookie(COOKIE_NAME)
+  private[http] def run[A](flash: Flash[A], sourceRequest: Request): Either[Throwable, A] = {
+    val cookieOpt = sourceRequest.headers.rawGet("cookie").flatMap { raw =>
+      Cookie.parseRequest(raw).find(_.name == COOKIE_NAME)
+    }
+    cookieOpt
       .toRight(new RuntimeException("flash cookie doesn't exist"))
       .flatMap { cookie =>
         try {
           val content =
-            URLDecoder.decode(cookie.content, StandardCharsets.UTF_8.toString.toLowerCase)
+            URLDecoder.decode(cookie.value, StandardCharsets.UTF_8.toString.toLowerCase)
           JsonCodec.jsonDecoder(Schema.map[String, String]).decodeJson(content).left.map(e => new RuntimeException(e))
         } catch {
           case e: Exception => Left(e)
         }
       }
       .flatMap(in => run(flash, in))
+  }
 
   private[http] def run[A](flash: Flash[A], sourceMap: Map[String, String]): Either[Throwable, A] = {
     def loop[A0](flash: Flash[A0], map: Map[String, String]): Either[Throwable, A0] =

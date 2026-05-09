@@ -19,8 +19,8 @@ package zio.http.internal
 trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
   def hasQueryParam(name: CharSequence): Boolean =
-    queryParameters.seq.exists(_.getKey == name)
+    queryParameters.has(name.toString)
 
   def valueCount(name: CharSequence): Int =
-    queryParameters.seq.count(_.getKey == name)
+    queryParameters.get(name.toString).fold(0)(_.size)
 }

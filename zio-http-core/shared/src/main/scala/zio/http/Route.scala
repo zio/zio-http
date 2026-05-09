@@ -192,7 +192,7 @@ sealed trait Route[-Env, +Err] { self =>
         Handled(
           routePattern,
           handler.map(_.tapErrorCauseZIO { cause0 =>
-            f(cause0.asInstanceOf[Cause[Nothing]]).catchAllCause(cause => ZIO.fail(Response.fromCause(cause)))
+            f(cause0.asInstanceOf[Cause[Nothing]]).catchAllCause(cause => ZIO.fail(Response(status = Status.InternalServerError)))
           }),
           location,
         )
@@ -238,7 +238,7 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorRequestCauseZIO((request, cause) =>
-      ErrorResponseConfig.configRef.get.map(Response.fromCauseWith(cause, _)(f(_, request))),
+      ZIO.succeed(cause.failureOption.map(err => f(err, request)).getOrElse(Response(status = Status.InternalServerError))),
     )
 
   /**
@@ -411,7 +411,7 @@ sealed trait Route[-Env, +Err] { self =>
   final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
     handleErrorCauseZIO { cause =>
       logUnhandledError(cause) *>
-        ErrorResponseConfig.configRef.getWith(cfg => Exit.succeed(Response.fromCause(cause, cfg)))
+        Exit.succeed(Response(status = Status.InternalServerError))
     }
 
   /**

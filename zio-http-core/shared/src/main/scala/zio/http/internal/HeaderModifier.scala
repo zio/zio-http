@@ -34,15 +34,15 @@ import zio.http._
  */
 trait HeaderModifier[+A] { self =>
   final def addHeader(header: Header): A =
-    addHeaders(Headers(header))
+    addHeaders(Headers(header.headerName -> header.renderedValue))
 
   protected def addHeader(name: CharSequence, value: CharSequence): A =
-    addHeaders(Headers.apply(name, value))
+    addHeaders(Headers(name.toString -> value.toString))
 
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
 
   final def addHeaders(headers: Iterable[(CharSequence, CharSequence)]): A =
-    addHeaders(Headers.fromIterable(headers.map { case (k, v) => Header.Custom(k, v) }))
+    addHeaders(Headers(headers.map { case (k, v) => (k.toString, v.toString) }.toSeq: _*))
 
   /**
    * Adds a header / headers with the specified name and based on the given
@@ -68,7 +68,7 @@ trait HeaderModifier[+A] { self =>
   final def removeHeader(name: String): A = removeHeaders(Set(name))
 
   final def removeHeaders(headers: Set[String]): A =
-    updateHeaders(orig => Headers(orig.filterNot(h => headers.exists(h.headerName.equalsIgnoreCase))))
+    updateHeaders(orig => Headers(orig.toList.filterNot { case (k, _) => headers.exists(k.equalsIgnoreCase) }: _*))
 
   final def setHeaders(headers: Headers): A = self.updateHeaders(_ => headers)
 

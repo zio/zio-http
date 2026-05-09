@@ -28,9 +28,9 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http.Handler.ApplyContextAspect
-import zio.http.Header.HeaderType
 import zio.http.internal.{HeaderGetters, HeaderModifier}
-import zio.http.template._
+import zio.http.headers.{Accept, AcceptRanges, ContentLength, ContentRange, ContentType => HContentType, ETag, IfRange, LastModified, Range => HRange}
+import zio.blocks.html._
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
@@ -335,10 +335,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def headers(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Headers] =
     self.map(_.headers)
 
-  final def header(headerType: HeaderType)(implicit
+  final def header[H <: Header](headerType: Header.Typed[H])(implicit
     ev: Out <:< Response,
     trace: Trace,
-  ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
+  ): Handler[R, Err, In, Option[H]] =
     self.headers.map(_.get(headerType))
 
   /**
@@ -543,7 +543,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
   )(implicit ev: Request <:< In): ZIO[Scope & R, Err, Out] =
-    self(ev(Request(method = method, url = URL.root.path(path), headers = headers, body = body)))
+    self(ev(Request(method = method, url = URL.root.path(path), headers = headers, body = body, version = Version.`HTTP/1.1`)))
 
   final def runZIO(in: In): ZIO[Scope & R, Err, Out] =
     self(in)
@@ -551,7 +551,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCauseZIO { cause =>
       logUnhandledError(cause) *>
-        ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response.fromCause(cause, cfg)))
+        ErrorResponseConfig.configRef.getWith(cfg => Exit.fail(Response(status = Status.InternalServerError)))
     }
 
   /**
@@ -711,12 +711,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
-      request.body.asStream.chunks
-        .runFoldZIO(Chunk.empty[Byte]) { case (acc, bytes) =>
-          ZIO
-            .succeed(acc ++ bytes)
-            .filterOrFail(_.size < limit)(new Exception("Too large input"))
-        },
+      ZIO.attemptBlocking {
+        val bytes = request.body.toArray
+        if (bytes.length >= limit) throw new Exception("Too large input")
+        Chunk.fromArray(bytes)
+      },
     )
 
   /**
@@ -763,8 +762,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler with an error and the default error message.
    */
-  def error(status: => Status.Error): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.error(status))
+  def error(status: => Status): Handler[Any, Nothing, Any, Response] =
+    fromResponse(Response(status = status))
 
   /**
    * Creates a handler with an error and the specified error message. The error
@@ -776,7 +775,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * included in the response, use `Handler.fromResponse(Response.error(status,
    * message))`
    */
-  def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
+  def error(status: => Status, message: => String): Handler[Any, Nothing, Any, Response] =
     error(status, message, Routes.empty)
 
   /**
@@ -789,34 +788,40 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * included in the response, use `Handler.fromResponse(Response.error(status,
    * message))`
    */
-  def error(status: => Status.Error, message: => String, routes: Routes[_, _]): Handler[Any, Nothing, Any, Response] =
-    (fromResponse(Response.status(status)) @@ Middleware.interceptHandlerStateful(
-      handler((req: Request) => (req.header(Header.Accept), (req, ()))),
+  def error(status: => Status, message: => String, routes: Routes[_, _]): Handler[Any, Nothing, Any, Response] =
+    (fromResponse(Response(status = status)) @@ Middleware.interceptHandlerStateful(
+      handler((req: Request) => (req.headers.get(Accept), (req, ()))),
     ) {
-      handler { (accept: Option[Header.Accept], res: Response) =>
+      handler { (accept: Option[Accept], res: Response) =>
         ErrorResponseConfig.configRef.get.map { cfg =>
           if (cfg.withErrorBody) {
             val mediaType: MediaType = accept
-              .flatMap(_.mimeTypes.sorted.map(_.mediaType).collectFirst {
-                case mt if errorMediaTypes.exists(mt.matches(_, ignoreParameters = true)) =>
-                  errorMediaTypes.find(mt.matches(_, ignoreParameters = true)).get
-              })
+              .flatMap { a =>
+                val ranges = a.mediaRanges.toList.sortBy(-_.quality)
+                ranges.map(_.mediaType).collectFirst {
+                  case mt if errorMediaTypes.exists(_.fullType == mt.fullType) =>
+                    errorMediaTypes.find(_.fullType == mt.fullType).get
+                }
+              }
               .getOrElse(cfg.errorFormat.mediaType)
             mediaType match {
               case MediaType.application.`json`                                                               =>
                 Response(status = status, body = Body.fromString(s"""{"status": "$status", "error": "$message"}"""))
-                  .contentType(MediaType.application.json)
+                  .addHeader("content-type", MediaType.application.json.fullType)
               case MediaType.text.`html` if Mode.isDev && status == Status.NotFound && routes.routes.nonEmpty =>
-                Response.html(RoutesOverview(routes.routes.map(_.routePattern)), Status.NotFound)
+                val htmlStr = RoutesOverview(routes.routes.map(_.routePattern)).render
+                Response(status = Status.NotFound, body = Body.fromString(htmlStr))
+                  .addHeader("content-type", MediaType.text.html.fullType)
               case MediaType.text.`html`                                                                      =>
                 Response(
                   status = status,
                   body = Body.fromString(
                     s"""<!DOCTYPE html><html><head><title>$status</title></head><body><h1>$status</h1><p>$message</p></body></html>""",
                   ),
-                ).contentType(MediaType.text.html)
+                ).addHeader("content-type", MediaType.text.html.fullType)
               case MediaType.text.`plain`                                                                     =>
-                Response(status = status, body = Body.fromString(message)).contentType(MediaType.text.plain)
+                Response(status = status, body = Body.fromString(message))
+                  .addHeader("content-type", MediaType.text.plain.fullType)
               case _ => throw new Exception("Unsupported media type")
             }
           } else {
@@ -869,7 +874,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * code
    */
   def fromBody(body: => Body): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response(body = body))
+    fromResponse(Response(status = Status.Ok, body = body))
 
   /**
    * Lifts an `Either` into a `Handler` alue.
@@ -927,7 +932,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     trace: Trace,
   ): Handler[R, Throwable, Request, Response] = {
     Handler
-      .fromZIO[R, Throwable, (File, Long, Option[MediaType], Header.ETag, Header.LastModified)](
+      .fromZIO[R, Throwable, (File, Long, Option[MediaType], String, String)](
         ZIO.blocking {
           getFile.flatMap { file =>
             if (!file.exists()) {
@@ -942,9 +947,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
                 val pathName      = file.toPath.toString
                 val mediaType     = determineMediaType(pathName)
                 val lastModified  = java.time.Instant.ofEpochMilli(file.lastModified())
-                val etag          = Header.ETag.Weak(s"${file.lastModified().toHexString}-${fileSize.toHexString}")
+                val etag          = s"""W/"${file.lastModified().toHexString}-${fileSize.toHexString}""""
                 val lastModHeader =
-                  Header.LastModified(java.time.ZonedDateTime.ofInstant(lastModified, java.time.ZoneOffset.UTC))
+                  java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                    java.time.ZonedDateTime.ofInstant(lastModified, java.time.ZoneOffset.UTC),
+                  )
                 (file, fileSize, mediaType, etag, lastModHeader)
               }
             }
@@ -964,61 +971,64 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fileSize: Long,
     mediaType: Option[MediaType],
     charset: Charset,
-    etag: Header.ETag,
-    lastModified: Header.LastModified,
+    etag: String,
+    lastModified: String,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-    val rangeOpt   = request.headers.get(Header.Range)
-    val ifRangeOpt = request.headers.get(Header.IfRange)
+    val rangeOpt   = request.headers.get(HRange)
+    val ifRangeOpt = request.headers.get(IfRange)
 
-    // Check If-Range precondition
     val shouldProcessRange = ifRangeOpt match {
-      case None                             => true // No If-Range, always process Range
-      case Some(Header.IfRange.ETag(v))     =>
-        // Compare ETag (strip quotes if needed)
-        Header.ETag.render(etag).contains(v) || v == etag.asInstanceOf[Header.ETag.Weak].validator
-      case Some(Header.IfRange.DateTime(v)) =>
-        // Compare with Last-Modified
-        !v.isBefore(lastModified.value)
+      case None    => true
+      case Some(ifRange) => etag.contains(ifRange.value) || ifRange.value == lastModified
     }
 
-    // Only process "bytes" unit
-    val isBytesRange = rangeOpt.exists {
-      case Header.Range.Single(unit, _, _) => unit == "bytes"
-      case Header.Range.Multiple(unit, _)  => unit == "bytes"
-      case Header.Range.Suffix(unit, _)    => unit == "bytes"
-      case Header.Range.Prefix(unit, _)    => unit == "bytes"
-    }
+    val isBytesRange = rangeOpt.exists(_.unit == "bytes")
 
     if (rangeOpt.isDefined && shouldProcessRange && isBytesRange) {
-      handleByteRangeRequest(rangeOpt.get, file, fileSize, mediaType, charset, etag, lastModified)
+      handleByteRangeRequest(rangeOpt.get.ranges, file, fileSize, mediaType, charset, etag, lastModified)
     } else {
-      // Return full file with Accept-Ranges header
       fullFileResponse(file, mediaType, charset, etag, lastModified)
     }
   }
 
   private def handleByteRangeRequest(
-    range: Header.Range,
+    rangesStr: String,
     file: File,
     fileSize: Long,
     mediaType: Option[MediaType],
     charset: Charset,
-    etag: Header.ETag,
-    lastModified: Header.LastModified,
+    etag: String,
+    lastModified: String,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-    range match {
-      case Header.Range.Single(_, start, endOpt) =>
-        handleSingleRange(start, endOpt, file, fileSize, mediaType, charset, etag, lastModified)
-
-      case Header.Range.Suffix(_, suffixLength) =>
-        val start = (fileSize - suffixLength).max(0)
-        handleSingleRange(start, Some(fileSize - 1), file, fileSize, mediaType, charset, etag, lastModified)
-
-      case Header.Range.Prefix(_, start) =>
-        handleSingleRange(start, None, file, fileSize, mediaType, charset, etag, lastModified)
-
-      case Header.Range.Multiple(_, ranges) =>
-        handleMultipleRanges(ranges, file, fileSize, mediaType, etag, lastModified)
+    val rangeSpecs = rangesStr.split(",").map(_.trim).toList
+    rangeSpecs match {
+      case single :: Nil =>
+        if (single.startsWith("-")) {
+          val suffixLength = single.substring(1).toLong
+          val start        = (fileSize - suffixLength).max(0)
+          handleSingleRange(start, Some(fileSize - 1), file, fileSize, mediaType, charset, etag, lastModified)
+        } else if (single.endsWith("-")) {
+          val start = single.dropRight(1).toLong
+          handleSingleRange(start, None, file, fileSize, mediaType, charset, etag, lastModified)
+        } else {
+          val parts = single.split("-", 2)
+          val start = parts(0).toLong
+          val end   = parts(1).toLong
+          handleSingleRange(start, Some(end), file, fileSize, mediaType, charset, etag, lastModified)
+        }
+      case multiple      =>
+        val parsed = multiple.map { spec =>
+          if (spec.startsWith("-")) {
+            val suffixLength = spec.substring(1).toLong
+            ((fileSize - suffixLength).max(0), Some(fileSize - 1))
+          } else {
+            val parts = spec.split("-", 2)
+            val start = parts(0).toLong
+            val end   = if (parts.length > 1 && parts(1).nonEmpty) Some(parts(1).toLong) else None
+            (start, end)
+          }
+        }
+        handleMultipleRanges(parsed, file, fileSize, mediaType, etag, lastModified)
     }
   }
 
@@ -1029,30 +1039,38 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fileSize: Long,
     mediaType: Option[MediaType],
     charset: Charset,
-    etag: Header.ETag,
-    lastModified: Header.LastModified,
+    etag: String,
+    lastModified: String,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
     val actualEnd = endOpt.map(e => Math.min(e, fileSize - 1)).getOrElse(fileSize - 1)
 
     if (start >= fileSize || start < 0 || start > actualEnd) {
-      // 416 Range Not Satisfiable
       ZIO.succeed(
-        Response
-          .status(Status.RequestedRangeNotSatisfiable)
-          .addHeader(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+        Response(status = Status.RangeNotSatisfiable)
+          .addHeader("content-range", s"bytes */$fileSize"),
       )
     } else {
       val length = actualEnd - start + 1
-      Body.fromFileRange(file, start, length).map { body =>
+      ZIO.attemptBlocking {
+        val raf = new java.io.RandomAccessFile(file, "r")
+        try {
+          raf.seek(start)
+          val bytes = new Array[Byte](length.toInt)
+          raf.readFully(bytes)
+          bytes
+        } finally raf.close()
+      }.map { bytes =>
+        val body     = Body.fromArray(bytes)
         val charset0 = mediaType.filter(mt => mt.mainType == "text" || !mt.binary).flatMap(_ => Some(charset))
         var response = Response(status = Status.PartialContent, body = body)
-          .addHeader(Header.ContentRange.EndTotal("bytes", start.toInt, actualEnd.toInt, fileSize.toInt))
-          .addHeader(Header.AcceptRanges.Bytes)
-          .addHeader(etag)
-          .addHeader(lastModified)
+          .addHeader("content-range", s"bytes $start-$actualEnd/$fileSize")
+          .addHeader("accept-ranges", "bytes")
+          .addHeader("etag", etag)
+          .addHeader("last-modified", lastModified)
 
         mediaType.foreach { mt =>
-          response = response.addHeader(Header.ContentType(mt, charset = charset0))
+          val ctValue = charset0.map(c => s"${mt.fullType}; charset=${c.name()}").getOrElse(mt.fullType)
+          response = response.addHeader("content-type", ctValue)
         }
 
         response
@@ -1065,10 +1083,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     file: File,
     fileSize: Long,
     mediaType: Option[MediaType],
-    etag: Header.ETag,
-    lastModified: Header.LastModified,
+    etag: String,
+    lastModified: String,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-    // Validate all ranges and filter valid ones
     val validatedRanges = ranges.flatMap { case (start, endOpt) =>
       val actualEnd = endOpt.map(e => Math.min(e, fileSize - 1)).getOrElse(fileSize - 1)
       if (start >= 0 && start < fileSize && start <= actualEnd) {
@@ -1080,34 +1097,36 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
     if (validatedRanges.isEmpty) {
       ZIO.succeed(
-        Response
-          .status(Status.RequestedRangeNotSatisfiable)
-          .addHeader(Header.ContentRange.RangeTotal("bytes", fileSize.toInt)),
+        Response(status = Status.RangeNotSatisfiable)
+          .addHeader("content-range", s"bytes */$fileSize"),
       )
     } else {
       val contentType = mediaType.getOrElse(MediaType.application.`octet-stream`)
+      val boundary    = Boundary.generate
 
-      val byteRanges = Chunk.fromIterable(validatedRanges.map { case (start, end) =>
-        val length = end - start + 1
-        Body.ByteRange(
-          start = start,
-          end = end,
-          totalSize = fileSize,
-          contentType = contentType,
-          data =
-            Body.FileBody(file, chunkSize = 4096, fileSize = fileSize, offset = start, length = Some(length)).asStream,
-        )
-      })
-
-      Boundary.randomUUID.map { boundary =>
-        val body = Body.fromMultipartByteRanges(byteRanges, boundary)
+      ZIO.attemptBlocking {
+        val raf = new java.io.RandomAccessFile(file, "r")
+        try {
+          val parts    = validatedRanges.map { case (start, end) =>
+            val length     = (end - start + 1).toInt
+            raf.seek(start)
+            val bytes      = new Array[Byte](length)
+            raf.readFully(bytes)
+            val partHeader =
+              s"--${boundary.value}\r\nContent-Type: ${contentType.fullType}\r\nContent-Range: bytes $start-$end/$fileSize\r\n\r\n"
+            partHeader.getBytes("UTF-8") ++ bytes ++ "\r\n".getBytes("UTF-8")
+          }
+          val footer   = s"--${boundary.value}--\r\n".getBytes("UTF-8")
+          val allBytes = parts.foldLeft(Array.emptyByteArray)((a, b) => a ++ (b: Array[Byte])) ++ footer
+          allBytes
+        } finally raf.close()
+      }.map { allBytes =>
+        val body = Body.fromArray(allBytes)
         Response(status = Status.PartialContent, body = body)
-          .addHeader(
-            Header.ContentType(MediaType.multipart.`byteranges`.copy(parameters = Map("boundary" -> boundary.id))),
-          )
-          .addHeader(Header.AcceptRanges.Bytes)
-          .addHeader(etag)
-          .addHeader(lastModified)
+          .addHeader("content-type", s"multipart/byteranges; boundary=${boundary.value}")
+          .addHeader("accept-ranges", "bytes")
+          .addHeader("etag", etag)
+          .addHeader("last-modified", lastModified)
       }
     }
   }
@@ -1116,18 +1135,22 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     file: File,
     mediaType: Option[MediaType],
     charset: Charset,
-    etag: Header.ETag,
-    lastModified: Header.LastModified,
+    etag: String,
+    lastModified: String,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-    Body.fromFile(file).map { body =>
+    ZIO.attemptBlocking {
+      val bytes = java.nio.file.Files.readAllBytes(file.toPath)
+      Body.fromArray(bytes)
+    }.map { body =>
       val charset0 = mediaType.filter(mt => mt.mainType == "text" || !mt.binary).flatMap(_ => Some(charset))
-      var response = Response(body = body)
-        .addHeader(Header.AcceptRanges.Bytes)
-        .addHeader(etag)
-        .addHeader(lastModified)
+      var response = Response(status = Status.Ok, body = body)
+        .addHeader("accept-ranges", "bytes")
+        .addHeader("etag", etag)
+        .addHeader("last-modified", lastModified)
 
       mediaType.foreach { mt =>
-        response = response.addHeader(Header.ContentType(mt, charset = charset0))
+        val ctValue = charset0.map(c => s"${mt.fullType}; charset=${c.name()}").getOrElse(mt.fullType)
+        response = response.addHeader("content-type", ctValue)
       }
 
       response
@@ -1138,12 +1161,12 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Creates a Handler that always succeeds with a 200 status code and the
    * provided ZStream with a known content length as the body
    */
-  def fromStream[R](stream: ZStream[R, Throwable, String], contentLength: Long, charset: Charset = Charsets.Http)(
+  def fromStream[R](stream: ZStream[R, Throwable, String], contentLength: Long, charset: java.nio.charset.Charset = Charsets.Http)(
     implicit trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
-      ZIO.environment[R].map { env =>
-        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), contentLength, charset))
+      stream.mkString.map { str =>
+        fromBody(Body.fromString(str))
       }
     }.flatten
 
@@ -1155,8 +1178,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
-      ZIO.environment[R].map { env =>
-        fromBody(Body.fromStream(stream.provideEnvironment(env), contentLength))
+      stream.runCollect.map { chunk =>
+        fromBody(Body.fromArray(chunk.toArray))
       }
     }.flatten
 
@@ -1164,12 +1187,12 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Creates a Handler that always succeeds with a 200 status code and the
    * provided ZStream as the body using chunked transfer encoding
    */
-  def fromStreamChunked[R](stream: ZStream[R, Throwable, String], charset: Charset = Charsets.Http)(implicit
+  def fromStreamChunked[R](stream: ZStream[R, Throwable, String], charset: java.nio.charset.Charset = Charsets.Http)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
-      ZIO.environment[R].map { env =>
-        fromBody(Body.fromCharSequenceStreamChunked(stream.provideEnvironment(env), charset))
+      stream.mkString.map { str =>
+        fromBody(Body.fromString(str))
       }
     }.flatten
 
@@ -1181,8 +1204,8 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
-      ZIO.environment[R].map { env =>
-        fromBody(Body.fromStreamChunked(stream.provideEnvironment(env)))
+      stream.runCollect.map { chunk =>
+        fromBody(Body.fromArray(chunk.toArray))
       }
     }.flatten
 
@@ -1201,8 +1224,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   /**
    * Creates a handler which always responds with the provided Html page.
    */
-  def html(view: => Html): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.html(view))
+  def html(view: => Dom): Handler[Any, Nothing, Any, Response] =
+    fromResponse(
+      Response(status = Status.Ok, body = Body.fromString(view.render))
+        .addHeader("content-type", MediaType.text.html.fullType),
+    )
 
   /**
    * Creates a pass thru Handler instance
@@ -1299,14 +1325,21 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Creates a handler which responds with an Html page using the built-in
    * template.
    */
-  def template(heading: => CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.html(Template.container(heading)(view)))
+  def template(heading: => CharSequence)(view: Dom): Handler[Any, Nothing, Any, Response] =
+    fromResponse(
+      Response(
+        status = Status.Ok,
+        body = Body.fromString(
+          s"<!DOCTYPE html><html><head><title>${heading.toString}</title></head><body><h1>${heading.toString}</h1>${view.render}</body></html>",
+        ),
+      ).addHeader("content-type", MediaType.text.html.fullType),
+    )
 
   /**
    * Creates a handler which always responds with the same plain text.
    */
   def text(text: => CharSequence): Handler[Any, Nothing, Any, Response] =
-    fromResponse(Response.text(text))
+    fromResponse(Response.text(text.toString))
 
   /**
    * Creates a handler that responds with a 408 status code after the provided
@@ -1319,18 +1352,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    * Creates a handler which always responds with a 413 status code.
    */
   val tooLarge: Handler[Any, Nothing, Any, Response] =
-    Handler.status(Status.RequestEntityTooLarge)
+    Handler.status(Status.PayloadTooLarge)
 
   val unit: Handler[Any, Nothing, Any, Unit] =
     fromExit(Exit.unit)
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {
-
-    /**
-     * Patches the response produced by the handler
-     */
-    def patch(patch: Response.Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
 
     /**
      * Overwrites the method in the incoming request
@@ -1341,14 +1369,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     /**
      * Overwrites the path in the incoming request
      */
-    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.path(path))
+    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updateUrl(_.path(path)))
 
     /**
      * Sets the status in the response produced by the handler
      */
-    def status(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
-      Response.Patch.status(status),
-    )
+    def status(status: Status)(implicit trace: Trace): RequestHandler[R, Err] =
+      self.map(_.copy(status = status))
 
     /**
      * Overwrites the url in the incoming request
@@ -1374,14 +1401,14 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     /**
      * Extracts content-length from the response if available
      */
-    def contentLength(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentLength]] =
-      self.map(_.header(Header.ContentLength))
+    def contentLength(implicit trace: Trace): Handler[R, Err, In, Option[ContentLength]] =
+      self.map(_.header(ContentLength))
 
     /**
      * Extracts the value of ContentType header
      */
-    def contentType(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentType]] =
-      header(Header.ContentType)
+    def contentType(implicit trace: Trace): Handler[R, Err, In, Option[HContentType]] =
+      header(HContentType)
 
     /**
      * Extracts the `Headers` from the type `B` if possible
@@ -1392,26 +1419,25 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     /**
      * Extracts the value of the provided header name.
      */
-    def header(headerType: HeaderType)(implicit
+    def header[H <: Header](headerType: Header.Typed[H])(implicit
       trace: Trace,
-    ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
+    ): Handler[R, Err, In, Option[H]] =
       self.map(_.header(headerType))
 
-    def headerOrFail(
-      headerType: HeaderType,
-    )(implicit trace: Trace, ev: Err <:< String): Handler[R, String, In, Option[headerType.HeaderValue]] =
+    def headerOrFail[H <: Header](
+      headerType: Header.Typed[H],
+    )(implicit trace: Trace, ev: Err <:< String): Handler[R, String, In, Option[H]] =
       self
         .mapError(ev)
         .flatMap { response =>
-          response.headerOrFail(headerType) match {
-            case Some(Left(error))  => Handler.fail(error)
-            case Some(Right(value)) => Handler.succeed(Some(value))
-            case None               => Handler.succeed(None)
+          response.header(headerType) match {
+            case Some(value) => Handler.succeed(Some(value))
+            case None        => Handler.succeed(None)
           }
         }
 
     def rawHeader(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
-      self.map(_.rawHeader(name))
+      self.map(_.headers.rawGet(name.toString))
 
     /**
      * Extracts `Status` from the type `B` is possible.

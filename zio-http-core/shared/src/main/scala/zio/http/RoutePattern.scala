@@ -125,7 +125,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Renders the route pattern as a string.
    */
   def render: String =
-    s"${method.render} ${pathCodec.render}"
+    s"${method.name} ${pathCodec.render}"
 
   private[http] def structureEquals(that: RoutePattern[_]): Boolean = {
     def map: PartialFunction[PathCodec.Opt, Iterable[Opt]] = {
@@ -221,7 +221,7 @@ object RoutePattern                                                       {
           case Method.OPTIONS if optionsRoot != null                => optionsRoot.get(path)
           case Method.PATCH if patchRoot != null                    => patchRoot.get(path)
           case Method.TRACE if traceRoot != null                    => traceRoot.get(path)
-          case m: Method.CUSTOM if customRoots.contains(m)          => customRoots(m).get(path)
+          case m if customRoots.contains(m)          => customRoots(m).get(path)
           case _                                                    => null.asInstanceOf[RequestHandler[Env, Response]]
         }
       }
@@ -273,7 +273,7 @@ object RoutePattern                                                       {
             patchRoot = subtree,
             traceRoot = subtree,
           )
-        case m: Method.CUSTOM => empty.copy(customRoots = Map(m -> subtree))
+        case m => empty.copy(customRoots = Map(m -> subtree))
       }
     }
 

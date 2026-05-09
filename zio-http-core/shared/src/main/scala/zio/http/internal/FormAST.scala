@@ -20,7 +20,7 @@ import java.nio.charset._
 
 import zio._
 
-import zio.http.Header.ContentTransferEncoding
+import zio.http.headers.ContentTransferEncoding
 import zio.http.{Boundary, Headers, MediaType}
 
 private[http] sealed trait FormAST {

@@ -10,6 +10,6 @@ trait URLPlatformSpecific {
    * location.
    */
   def toJavaURL: Option[java.net.URL] =
-    if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
+    if (self.isRelative) None else Try(new java.net.URI(self.encode).toURL).toOption
 
 }

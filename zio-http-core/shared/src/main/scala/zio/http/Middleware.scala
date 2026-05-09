@@ -24,6 +24,7 @@ import zio._
 import zio.metrics._
 
 import zio.http.codec.{PathCodec, SegmentCodec}
+import zio.http.headers.{AccessControlAllowCredentials, AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlAllowOrigin, AccessControlExposeHeaders, AccessControlMaxAge, AccessControlRequestHeaders, AccessControlRequestMethod, Origin}
 
 @nowarn("msg=shadows type")
 trait Middleware[-UpperEnv] { self =>
@@ -56,13 +57,21 @@ object Middleware extends HandlerAspects {
    * Configuration for the CORS aspect.
    */
   final case class CorsConfig(
-    allowedOrigin: Header.Origin => Option[Header.AccessControlAllowOrigin] = origin =>
-      Some(Header.AccessControlAllowOrigin.Specific(origin)),
-    allowedMethods: Header.AccessControlAllowMethods = Header.AccessControlAllowMethods.All,
-    allowedHeaders: Header.AccessControlAllowHeaders = Header.AccessControlAllowHeaders.All,
-    allowCredentials: Header.AccessControlAllowCredentials = Header.AccessControlAllowCredentials.Allow,
-    exposedHeaders: Header.AccessControlExposeHeaders = Header.AccessControlExposeHeaders.All,
-    maxAge: Option[Header.AccessControlMaxAge] = None,
+    allowedOrigin: Origin => Option[AccessControlAllowOrigin] = origin =>
+      Some(AccessControlAllowOrigin.Specific(origin.renderedValue)),
+    allowedMethods: AccessControlAllowMethods = AccessControlAllowMethods(
+      zio.blocks.chunk.Chunk.fromArray(
+        Array(Method.GET, Method.POST, Method.PUT, Method.DELETE, Method.PATCH, Method.HEAD, Method.OPTIONS),
+      ),
+    ),
+    allowedHeaders: AccessControlAllowHeaders = AccessControlAllowHeaders(
+      zio.blocks.chunk.Chunk.fromArray(Array("*")),
+    ),
+    allowCredentials: AccessControlAllowCredentials = AccessControlAllowCredentials(true),
+    exposedHeaders: AccessControlExposeHeaders = AccessControlExposeHeaders(
+      zio.blocks.chunk.Chunk.fromArray(Array("*")),
+    ),
+    maxAge: Option[AccessControlMaxAge] = None,
   )
 
   /**
@@ -80,11 +89,16 @@ object Middleware extends HandlerAspects {
    */
   def cors(config: CorsConfig): Middleware[Any] = {
     // Pre-build the allowed headers Set once at construction time to avoid per-request allocation
-    val allowedHeadersSet: Set[String] =
-      config.allowedHeaders match {
-        case s: Header.AccessControlAllowHeaders.Some => s.values.toSet
-        case _                                        => Set.empty
+    val allowedHeadersSet: Set[String] = {
+      val h = config.allowedHeaders.headers
+      if (h.length == 1 && h(0) == "*") Set.empty
+      else {
+        val s = Set.newBuilder[String]
+        var i = 0
+        while (i < h.length) { s += h(i); i += 1 }
+        s.result()
       }
+    }
 
     // Pre-build fixed headers at construction time to avoid per-request allocation.
     // The repetition of config fields across branches is intentional: each call to
@@ -94,66 +108,99 @@ object Middleware extends HandlerAspects {
       config.maxAge match {
         case Some(maxAge) =>
           (
-            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders, maxAge),
-            Headers(config.allowedMethods, config.allowCredentials, maxAge),
+            Headers(
+              config.allowedMethods.headerName   -> config.allowedMethods.renderedValue,
+              config.allowCredentials.headerName -> config.allowCredentials.renderedValue,
+              config.exposedHeaders.headerName   -> config.exposedHeaders.renderedValue,
+              maxAge.headerName                  -> maxAge.renderedValue,
+            ),
+            Headers(
+              config.allowedMethods.headerName   -> config.allowedMethods.renderedValue,
+              config.allowCredentials.headerName -> config.allowCredentials.renderedValue,
+              maxAge.headerName                  -> maxAge.renderedValue,
+            ),
           )
         case None         =>
           (
-            Headers(config.allowedMethods, config.allowCredentials, config.exposedHeaders),
-            Headers(config.allowedMethods, config.allowCredentials),
+            Headers(
+              config.allowedMethods.headerName   -> config.allowedMethods.renderedValue,
+              config.allowCredentials.headerName -> config.allowCredentials.renderedValue,
+              config.exposedHeaders.headerName   -> config.exposedHeaders.renderedValue,
+            ),
+            Headers(
+              config.allowedMethods.headerName   -> config.allowedMethods.renderedValue,
+              config.allowCredentials.headerName -> config.allowCredentials.renderedValue,
+            ),
           )
       }
 
     def allowedHeaders(
-      requestedHeaders: Option[Header.AccessControlRequestHeaders],
-      allowedHeaders: Header.AccessControlAllowHeaders,
-    ): Header.AccessControlAllowHeaders =
-      // Returning an intersection of requested headers and allowed headers
-      // if there are no requested headers, we return the configured allowed headers without modification
-      allowedHeaders match {
-        case _: Header.AccessControlAllowHeaders.Some =>
-          requestedHeaders match {
-            case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(allowedHeadersSet)
-              NonEmptyChunk.fromIterableOption(intersection) match {
-                case Some(values) => Header.AccessControlAllowHeaders.Some(values)
-                case None         => Header.AccessControlAllowHeaders.None
-              }
-            case None                                              => allowedHeaders
-          }
-        case Header.AccessControlAllowHeaders.All     =>
-          requestedHeaders match {
-            case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
-            case _                                                 => Header.AccessControlAllowHeaders.All
-          }
-        case Header.AccessControlAllowHeaders.None    => Header.AccessControlAllowHeaders.None
+      requestedHeaders: Option[AccessControlRequestHeaders],
+      allowedHeaders: AccessControlAllowHeaders,
+    ): AccessControlAllowHeaders = {
+      val isWildcard = allowedHeaders.headers.length == 1 && allowedHeaders.headers(0) == "*"
+      if (isWildcard) {
+        requestedHeaders match {
+          case Some(AccessControlRequestHeaders(headers)) =>
+            AccessControlAllowHeaders(headers)
+          case _                                                 => allowedHeaders
+        }
+      } else if (allowedHeaders.headers.isEmpty) {
+        allowedHeaders // empty = none
+      } else {
+        requestedHeaders match {
+          case Some(AccessControlRequestHeaders(headers)) =>
+            val intersection = {
+              val requested = new scala.collection.mutable.ArrayBuffer[String]()
+              var i         = 0
+              while (i < headers.length) { requested += headers(i); i += 1 }
+              requested.toSet.intersect(allowedHeadersSet)
+            }
+            if (intersection.nonEmpty)
+              AccessControlAllowHeaders(zio.blocks.chunk.Chunk.fromArray(intersection.toArray))
+            else
+              AccessControlAllowHeaders(zio.blocks.chunk.Chunk.empty)
+          case None                                              => allowedHeaders
+        }
       }
+    }
 
     def corsHeaders(
-      allowOrigin: Header.AccessControlAllowOrigin,
-      requestedHeaders: Option[Header.AccessControlRequestHeaders],
+      allowOrigin: AccessControlAllowOrigin,
+      requestedHeaders: Option[AccessControlRequestHeaders],
       isPreflight: Boolean,
     ): Headers =
-      if (isPreflight)
-        Headers(allowOrigin, allowedHeaders(requestedHeaders, config.allowedHeaders)) ++ preflightBaseHeaders
-      else
-        Headers(allowOrigin) ++ nonPreflightHeaders
+      if (isPreflight) {
+        val ah = allowedHeaders(requestedHeaders, config.allowedHeaders)
+        Headers(
+          allowOrigin.headerName -> allowOrigin.renderedValue,
+          ah.headerName          -> ah.renderedValue,
+        ) ++ preflightBaseHeaders
+      } else
+        Headers(allowOrigin.headerName -> allowOrigin.renderedValue) ++ nonPreflightHeaders
+
+    def methodAllowed(method: Method): Boolean = {
+      val methods = config.allowedMethods.methods
+      var found   = false
+      var i       = 0
+      while (i < methods.length && !found) { if (methods(i) == method) found = true; i += 1 }
+      found
+    }
 
     // HandlerAspect:
     val aspect =
       HandlerAspect.interceptHandlerStateful[Any, Headers, Unit](
         Handler.fromFunctionZIO[Request] { request =>
-          val originHeader = request.header(Header.Origin)
-          val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
+          val originHeader = request.header(Origin)
+          val acrhHeader   = request.header(AccessControlRequestHeaders)
 
           originHeader match {
             case Some(origin) =>
               config.allowedOrigin(origin) match {
-                case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
+                case Some(allowOrigin) if methodAllowed(request.method) =>
                   ZIO.succeed((corsHeaders(allowOrigin, acrhHeader, isPreflight = false), (request, ())))
-                case _                                                                   =>
-                  // Origin is not allowed - reject the request with 403 Forbidden
-                  ZIO.fail(Response.status(Status.Forbidden))
+                case _                                                  =>
+                  ZIO.fail(Response(status = Status.Forbidden))
               }
 
             case None => ZIO.succeed((Headers.empty, (request, ())))
@@ -166,10 +213,10 @@ object Middleware extends HandlerAspects {
     val optionsRoute = {
       implicit val trace: Trace = Trace.empty
 
-      Method.OPTIONS / trailing -> handler { (_: Path, request: Request) =>
-        val originHeader = request.header(Header.Origin)
-        val acrmHeader   = request.header(Header.AccessControlRequestMethod)
-        val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
+      RoutePattern.OPTIONS / trailing -> handler { (_: Path, request: Request) =>
+        val originHeader = request.header(Origin)
+        val acrmHeader   = request.header(AccessControlRequestMethod)
+        val acrhHeader   = request.header(AccessControlRequestHeaders)
 
         (
           originHeader,
@@ -177,7 +224,7 @@ object Middleware extends HandlerAspects {
         ) match {
           case (Some(origin), Some(acrm)) =>
             config.allowedOrigin(origin) match {
-              case Some(allowOrigin) if config.allowedMethods.contains(acrm.method) =>
+              case Some(allowOrigin) if methodAllowed(acrm.method) =>
                 Response(
                   Status.NoContent,
                   headers = corsHeaders(allowOrigin, acrhHeader, isPreflight = true),
@@ -198,14 +245,14 @@ object Middleware extends HandlerAspects {
     }
   }
 
-  def ensureHeader(header: Header.HeaderType)(make: => header.HeaderValue): Middleware[Any] =
+  def ensureHeader[H <: Header](header: Header.Typed[H])(make: => H): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { h =>
           Handler.scoped[Env1] {
             handler { (req: Request) =>
               if (req.headers.contains(header.name)) h(req)
-              else h(req.addHeader(make))
+              else h(req.addHeader(make.headerName, make.renderedValue))
             }
           }
         }
@@ -218,7 +265,7 @@ object Middleware extends HandlerAspects {
           Handler.scoped[Env1] {
             handler { (req: Request) =>
               if (req.headers.contains(headerName)) h(req)
-              else h(req.addHeader[String](headerName, make))
+              else h(req.addHeader(headerName, make))
             }
           }
         }
@@ -236,7 +283,7 @@ object Middleware extends HandlerAspects {
               RequestStore.update[ForwardedHeaders] { old =>
                 ForwardedHeaders {
                   old.map(_.headers).getOrElse(Headers.empty) ++
-                    Headers.fromIterable(headerValues)
+                    headerValues
                 }
               } *> h(req)
             }
@@ -244,7 +291,7 @@ object Middleware extends HandlerAspects {
         }
     }
 
-  def forwardHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
+  def forwardHeaders(header: Header.Typed[_ <: Header], headers: Header.Typed[_ <: Header]*)(implicit
     trace: Trace,
   ): Middleware[Any] = {
     val allHeaders = header +: headers
@@ -253,20 +300,19 @@ object Middleware extends HandlerAspects {
         routes.transform[Env1] { h =>
           Handler.scoped[Env1] {
             handler { (req: Request) =>
-              val headerValues = ChunkBuilder.make[Header]()
-              headerValues.sizeHint(allHeaders.length)
-              var i            = 0
+              val pairs = scala.collection.mutable.ListBuffer.empty[(String, String)]
+              var i     = 0
               while (i < allHeaders.length) {
-                val name = allHeaders(i)
-                req.headers.get(name).foreach { value =>
-                  headerValues += value
+                val ht = allHeaders(i)
+                req.headers.get(ht).foreach { value =>
+                  pairs += ((value.headerName, value.renderedValue))
                 }
                 i += 1
               }
               RequestStore.update[ForwardedHeaders] { old =>
                 ForwardedHeaders {
                   old.map(_.headers).getOrElse(Headers.empty) ++
-                    Headers.fromIterable(headerValues.result())
+                    Headers(pairs.toSeq: _*)
                 }
               } *> h(req)
             }
@@ -282,20 +328,20 @@ object Middleware extends HandlerAspects {
         routes.transform[Env1] { h =>
           Handler.scoped[Env1] {
             handler { (req: Request) =>
-              val headerValues = ChunkBuilder.make[Header]()
-              headerValues.sizeHint(allHeaders.length)
-              var i            = 0
+              val pairs = scala.collection.mutable.ListBuffer.empty[(String, String)]
+              val headerList = req.headers.toList
+              var i          = 0
               while (i < allHeaders.length) {
                 val name = allHeaders(i)
-                req.headers.get(name).foreach { value =>
-                  headerValues += Header.Custom(name, value)
+                headerList.foreach { case (n, v) =>
+                  if (n.equalsIgnoreCase(name)) pairs += ((n, v))
                 }
                 i += 1
               }
               RequestStore.update[ForwardedHeaders] { old =>
                 ForwardedHeaders {
                   old.map(_.headers).getOrElse(Headers.empty) ++
-                    Headers.fromIterable(headerValues.result())
+                    Headers(pairs.toSeq: _*)
                 }
               } *> h(req)
             }
@@ -360,7 +406,7 @@ object Middleware extends HandlerAspects {
               var i           = 0
               while (i < headers.length) {
                 val name = headers(i)
-                annotations += LogAnnotation(name, req.headers.get(name).mkString)
+                annotations += LogAnnotation(name, req.headers.rawGet(name).mkString)
                 i += 1
               }
               ZIO.logAnnotate(annotations.result())(h(req))
@@ -374,7 +420,7 @@ object Middleware extends HandlerAspects {
    * Creates middleware that will annotate log messages that are logged while a
    * request is handled with the names and the values of the specified headers.
    */
-  def logAnnotateHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
+  def logAnnotateHeaders(header: Header.Typed[_ <: Header], headers: Header.Typed[_ <: Header]*)(implicit
     trace: Trace,
   ): Middleware[Any] =
     logAnnotateHeaders(header.name, headers.map(_.name): _*)
@@ -413,7 +459,7 @@ object Middleware extends HandlerAspects {
 
     def labelsForRequest(routePattern: RoutePattern[_]): Set[MetricLabel] =
       Set(
-        MetricLabel("method", routePattern.method.render),
+        MetricLabel("method", routePattern.method.name),
         MetricLabel("path", routePattern.pathCodec.render),
       ) ++ extraLabels
 
@@ -493,7 +539,7 @@ object Middleware extends HandlerAspects {
 
     def labelsForRequest(routePattern: RoutePattern[_]): Set[MetricLabel] =
       Set(
-        MetricLabel("method", routePattern.method.render),
+        MetricLabel("method", routePattern.method.name),
         MetricLabel("path", pathLabelMapper(routePattern.pathCodec.render)),
       ) ++ extraLabels
 
@@ -576,7 +622,7 @@ object Middleware extends HandlerAspects {
    */
   def tracing(
     spanName: (RoutePattern[_], Request) => String = (routePattern, request) =>
-      s"${request.method.render} ${routePattern.pathCodec.render}",
+      s"${request.method.name} ${routePattern.pathCodec.render}",
     additionalAttributes: Request => Set[LogAnnotation] = _ => Set.empty,
   )(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
@@ -588,7 +634,7 @@ object Middleware extends HandlerAspects {
               Handler.scoped[Env1](handler { (request: Request) =>
                 val name        = spanName(routePattern, request)
                 val annotations = Set(
-                  LogAnnotation("http.method", request.method.render),
+                  LogAnnotation("http.method", request.method.name),
                   LogAnnotation("http.route", routePattern.pathCodec.render),
                   LogAnnotation("http.target", request.url.path.encode + request.url.queryParams.encode),
                 ) ++ additionalAttributes(request)
@@ -648,7 +694,7 @@ object Middleware extends HandlerAspects {
 
       override def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] = {
         val mountpoint =
-          Method.GET / path.segments.map(PathCodec.literal).reduceLeftOption(_ / _).getOrElse(PathCodec.empty)
+          RoutePattern.GET / path.segments.map(PathCodec.literal).reduceLeftOption(_ / _).getOrElse(PathCodec.empty)
         val pattern    = mountpoint / trailing
         val other      = Routes(
           pattern -> Handler
@@ -662,7 +708,7 @@ object Middleware extends HandlerAspects {
                   v
                 }
                 val unnest = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
-                val path   = request.path.unnest(unnest).addLeadingSlash
+                val path   = request.path.drop(unnest.length).addLeadingSlash
                 staticServe.run(path, request).sandbox
               }
             },
@@ -714,7 +760,13 @@ object Middleware extends HandlerAspects {
    * Creates a middleware for managing the flash scope.
    */
   def flashScopeHandling: HandlerAspect[Any, Unit] = Middleware.intercept { (req, resp) =>
-    req.cookie(Flash.COOKIE_NAME).fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
+    val cookieHeader = req.headers.rawGet("cookie")
+    val flashCookie = cookieHeader.flatMap { raw =>
+      Cookie.parseRequest(raw).toList.find(_.name == Flash.COOKIE_NAME)
+    }
+    flashCookie.fold(resp) { flash =>
+      resp.addCookie(ResponseCookie(flash.name, "", maxAge = Some(0L)))
+    }
   }
 
 }

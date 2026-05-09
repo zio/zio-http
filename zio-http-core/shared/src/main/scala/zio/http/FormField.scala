@@ -25,7 +25,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.{Take, ZPipeline, ZStream}
 
 import zio.http.FormDecodingError._
-import zio.http.Header.ContentTransferEncoding
+import zio.http.headers.ContentTransferEncoding
 import zio.http.internal.FormAST
 
 /**
@@ -37,20 +37,12 @@ sealed trait FormField {
   def contentType: MediaType
   def filename: Option[String]
 
-  /**
-   * Gets the value as a String, but only if it is a text or simple field. For
-   * binary fields it returns None.
-   */
   final def stringValue: Option[String] = this match {
     case FormField.Text(_, value, _, _) => Some(value)
     case FormField.Simple(_, value)     => Some(value)
     case _                              => None
   }
 
-  /**
-   * Gets the value of this form field as a String. If it is a binary field, the
-   * value is interpreted as an UTF-8 byte stream.
-   */
   final def asText(implicit trace: Trace): ZIO[Any, CharacterCodingException, String] = this match {
     case FormField.Text(_, value, _, _)                =>
       ZIO.succeed(value)
@@ -62,10 +54,6 @@ sealed trait FormField {
       ZIO.succeed(value)
   }
 
-  /**
-   * Gets the value of this form field as a chunk of bytes. If it is a text
-   * field, the value gets encoded as an UTF-8 byte stream.
-   */
   final def asChunk(implicit trace: Trace): ZIO[Any, Nothing, Chunk[Byte]] = this match {
     case FormField.Text(_, value, _, _)                =>
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
@@ -77,10 +65,6 @@ sealed trait FormField {
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
-  /**
-   * Gets the value of this form field as a chunk of bytes. If it is a text
-   * field, the value gets encoded as an UTF-8 byte stream.
-   */
   final def asStream(implicit trace: Trace): ZStream[Any, Nothing, Byte] = this match {
     case FormField.Text(_, value, _, _)                =>
       ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
@@ -106,25 +90,6 @@ sealed trait FormField {
 
 object FormField {
 
-  /**
-   * A binary form data part.
-   *
-   * @param name
-   *   Name of this form data part. This is the value of the `name` field in the
-   *   `Content-Disposition` within this part.
-   * @param data
-   *   The data of this form data part. This is the data between the headers and
-   *   the boundary.
-   * @param contentType
-   *   The content type of this form data part. This is the value of the
-   *   `Content-Type` with in this part.
-   * @param transferEncoding
-   *   The transfer encoding of this form data part. This is the value of the
-   *   `Content-Transfer-Encoding` within this part. IMPORTANT NOTE: The data is
-   *   not encoded in any way relative to the provided `transferEncoding`. It is
-   *   the responsibility of the user to encode the `data` accordingly.
-   * @param filename
-   */
   final case class Binary(
     name: String,
     data: Chunk[Byte],
@@ -192,7 +157,7 @@ object FormField {
         Try {
           extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset)
         }.toEither.left.map(e => InvalidCharset(e.getMessage))
-      contentParts     = extract._4.tail // Skip the first empty line
+      contentParts     = extract._4.tail
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
         .flatMap(x => MediaType.forContentType(x.value))
@@ -211,8 +176,8 @@ object FormField {
       case header: FormAST.Header if header.name.equalsIgnoreCase("Content-Type") =>
         MediaType
           .forContentType(header.value)
-          .getOrElse(MediaType.application.`octet-stream`) // Unknown content type defaults to binary
-    }.getOrElse(MediaType.text.plain) // Missing content type defaults to text
+          .getOrElse(MediaType.application.`octet-stream`)
+    }.getOrElse(MediaType.text.plain)
 
   private[http] def incomingStreamingBinary(
     ast: Chunk[FormAST],

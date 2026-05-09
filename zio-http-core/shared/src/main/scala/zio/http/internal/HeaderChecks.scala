@@ -26,11 +26,11 @@ import zio.http._
 trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
   final def hasContentType(value: CharSequence): Boolean =
     header(Header.ContentType).exists(ct =>
-      CharSequenceExtensions.equals(ct.mediaType.fullType, value, CaseMode.Insensitive),
+      CharSequenceExtensions.equals(ct.value.mediaType.fullType, value, CaseMode.Insensitive),
     )
 
   final def hasContentType(mediaType: MediaType): Boolean =
-    header(Header.ContentType).exists(ct => ct.mediaType == mediaType)
+    header(Header.ContentType).exists(ct => ct.value.mediaType.fullType == mediaType.fullType)
 
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(MediaType.application.`x-www-form-urlencoded`.fullType)
@@ -45,7 +45,7 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
     header(headerType).nonEmpty
 
   final def hasHeader(header: Header): Boolean =
-    self.header(header.headerType).contains(header)
+    headers.rawGet(header.headerName).contains(header.renderedValue)
 
   final def hasJsonContentType: Boolean =
     hasContentType(MediaType.application.json.fullType)

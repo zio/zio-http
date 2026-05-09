@@ -30,7 +30,7 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
    * left-to-right.
    */
   def ++(that: QueryParams): A =
-    updateQueryParams(params => QueryParams.fromEntries(params.seq ++ that.seq: _*))
+    updateQueryParams(params => params ++ that)
 
   /**
    * Adds the specified key/value pair to the query parameters.
@@ -46,16 +46,14 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
    * Adds the specified key/value pairs to the query parameters.
    */
   def addQueryParams(key: String, value: Chunk[String]): A =
-    updateQueryParams(params => params ++ QueryParams(key -> value))
+    updateQueryParams(params => value.foldLeft(params)((p, v) => p.add(key, v)))
 
   def addQueryParams(values: String): A =
-    updateQueryParams(params => params ++ QueryParams.decode(values))
+    updateQueryParams(params => params ++ QueryParams.fromEncoded(values))
 
   def addQueryParams(queryParams: Iterable[(String, String)]): A =
     updateQueryParams(params =>
-      params ++ QueryParams(queryParams.groupBy(_._1).map { case (k, v) =>
-        k -> Chunk.fromIterable(v).map(_._2)
-      }),
+      params ++ QueryParams(queryParams.toSeq: _*),
     )
 
   def addQueryParam[T](key: String, value: T)(implicit schema: Schema[T]): A =
@@ -69,28 +67,27 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
    */
   def removeQueryParam(key: String): A =
     updateQueryParams { params =>
-      QueryParams.fromEntries(params.seq.filter { entry => entry.getKey != key }: _*)
+      params.remove(key)
     }
 
   /**
    * Removes the specified keys from the query parameters.
    */
   def removeQueryParams(keys: Iterable[String]): A = updateQueryParams { params =>
-    val keysToRemove = keys.toSet
-    QueryParams.fromEntries(params.seq.filterNot { entry => keysToRemove.contains(entry.getKey) }: _*)
+    keys.foldLeft(params)((p, k) => p.remove(k))
   }
 
   def setQueryParams(values: QueryParams): A =
     updateQueryParams(_ => values)
 
   def setQueryParams(values: String): A =
-    updateQueryParams(_ => QueryParams.decode(values))
+    updateQueryParams(_ => QueryParams.fromEncoded(values))
 
   def setQueryParams(queryParams: Map[String, Chunk[String]]): A =
-    updateQueryParams(_ => QueryParams(queryParams))
+    updateQueryParams(_ => QueryParams(queryParams.toSeq.flatMap { case (k, vs) => vs.map(v => (k, v)) }: _*))
 
   def setQueryParams(queryParams: (String, Chunk[String])*): A =
-    updateQueryParams(_ => QueryParams(queryParams: _*))
+    updateQueryParams(_ => QueryParams(queryParams.flatMap { case (k, vs) => vs.map(v => (k, v)) }: _*))
 
   def updateQueryParams(f: QueryParams => QueryParams): A
 }

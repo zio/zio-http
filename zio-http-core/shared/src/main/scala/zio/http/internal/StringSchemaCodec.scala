@@ -359,26 +359,26 @@ private[http] object StringSchemaCodec {
         override def schema: Schema[A] = schema1.asInstanceOf[Schema[A]]
 
         override private[http] def add(headers: Headers, key: String, value: String): Headers =
-          headers.addHeaders(Headers.apply(key, value))
+          headers.add(key, value)
 
         override private[http] def addAll(headers: Headers, key: String, values: Iterable[String]): Headers =
           if (values.isEmpty) headers
-          else headers.addHeaders(Headers.apply(key, values.mkString(",")))
+          else headers.add(key, values.mkString(","))
 
         override private[http] def contains(headers: Headers, key: String): Boolean =
           headers.contains(key)
 
         override private[http] def unsafeGet(headers: Headers, key: String): String =
-          headers.getUnsafe(key)
+          headers.rawGet(key).orNull
 
         override private[http] def getAll(headers: Headers, key: String): Chunk[String] =
-          headers.rawHeaders(key).flatMap { header =>
+          Chunk.fromIterable(headers.rawGetAll(key)).flatMap { header =>
             if (header.isEmpty) Chunk.empty
             else Chunk.fromIterable(header.split(","))
           }
 
         override private[http] def count(headers: Headers, key: String): Int =
-          headers.rawHeaders(key).size
+          headers.rawGetAll(key).size
 
         override private[http] def error: ErrorConstructor =
           error0
@@ -444,26 +444,26 @@ private[http] object StringSchemaCodec {
         override def schema: Schema[A] = schema1.asInstanceOf[Schema[A]]
 
         override private[http] def add(queryParams: QueryParams, key: String, value: String): QueryParams =
-          queryParams.addQueryParam(key, value)
+          queryParams.add(key, value)
 
         override private[http] def addAll(
           queryParams: QueryParams,
           key: String,
           values: Iterable[String],
         ): QueryParams =
-          queryParams.addQueryParams(key, Chunk.fromIterable(values))
+          values.foldLeft(queryParams)((qp, v) => qp.add(key, v))
 
         override private[http] def contains(queryParams: QueryParams, key: String): Boolean =
-          queryParams.hasQueryParam(key)
+          queryParams.has(key)
 
         override private[http] def unsafeGet(queryParams: QueryParams, key: String): String =
-          queryParams.unsafeQueryParam(key)
+          queryParams.getFirst(key).orNull
 
         override private[http] def getAll(queryParams: QueryParams, key: String): Chunk[String] =
-          queryParams.getAll(key)
+          queryParams.get(key).map(c => Chunk.fromIterable(c)).getOrElse(Chunk.empty)
 
         override private[http] def count(queryParams: QueryParams, key: String): Int =
-          queryParams.valueCount(key)
+          queryParams.get(key).fold(0)(_.size)
 
         override private[http] def error: ErrorConstructor =
           error0

@@ -32,7 +32,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
    * Retrieves all query parameter values having the specified name.
    */
   def queryParams(key: String): Chunk[String] =
-    queryParameters.getAll(key)
+    queryParameters.get(key).map(c => Chunk.fromIterable(c)).getOrElse(Chunk.empty)
 
   /**
    * Retrieves all typed query parameter values having the specified name.

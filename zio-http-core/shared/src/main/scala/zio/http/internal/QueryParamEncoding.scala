@@ -96,7 +96,23 @@ private[http] object QueryParamEncoding {
         startIndex = ampIndex + 1
       }
 
-      QueryParams(params)
+      val pairs = scala.collection.mutable.ArrayBuffer.empty[(String, String)]
+      val iter = params.entrySet().iterator()
+      while (iter.hasNext) {
+        val entry = iter.next()
+        val key = entry.getKey
+        val values = entry.getValue
+        if (values.isEmpty) {
+          pairs += ((key, ""))
+        } else {
+          var i = 0
+          while (i < values.size()) {
+            pairs += ((key, values.get(i)))
+            i += 1
+          }
+        }
+      }
+      QueryParams(pairs.toSeq: _*)
     }
   }
 
@@ -105,46 +121,27 @@ private[http] object QueryParamEncoding {
       return baseUri.toString
     }
 
-    // Estimate initial capacity to avoid resizing
-    val paramCount = queryParams.seq.size
+    val pairs = queryParams.toList
+    val paramCount = pairs.size
     baseUri.ensureCapacity(baseUri.length + Math.min(paramCount * 20, 1024))
 
     var isFirst  = true
-    val iterator = queryParams.seq.iterator
+    val iterator = pairs.iterator
     while (iterator.hasNext) {
-      val entry = iterator.next()
-      val key   = entry.getKey
+      val (key, value) = iterator.next()
 
       if (key != "") {
-        val values = entry.getValue
-
-        if (values.isEmpty) {
-          // Handle key with no value
-          if (isFirst) {
-            baseUri.append('?')
-            isFirst = false
-          } else {
-            baseUri.append('&')
-          }
-          encodeComponentInto(key, charset, baseUri)
-          baseUri.append('=')
+        if (isFirst) {
+          baseUri.append('?')
+          isFirst = false
         } else {
-          // Handle key with values - use direct iteration for better performance
-          var j          = 0
-          val valuesSize = values.size()
-          while (j < valuesSize) {
-            if (isFirst) {
-              baseUri.append('?')
-              isFirst = false
-            } else {
-              baseUri.append('&')
-            }
+          baseUri.append('&')
+        }
 
-            encodeComponentInto(key, charset, baseUri)
-            baseUri.append('=')
-            encodeComponentInto(values.get(j), charset, baseUri)
-            j += 1
-          }
+        encodeComponentInto(key, charset, baseUri)
+        baseUri.append('=')
+        if (value.nonEmpty) {
+          encodeComponentInto(value, charset, baseUri)
         }
       }
     }

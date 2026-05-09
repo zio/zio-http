@@ -26,23 +26,21 @@ final case class MultipartMixed(source: ZStream[Any, Throwable, Byte], boundary:
 object MultipartMixed {
   final case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
     def contentType: Option[Header.ContentType] =
-      headers.header(Header.ContentType)
-    def mediaType: Option[MediaType]            =
-      contentType.map(_.mediaType)
+      headers.rawGet(Header.ContentType.name).flatMap(Header.ContentType.parse(_).toOption)
+    def mediaType: Option[zio.blocks.mediatype.MediaType] =
+      contentType.map(_.value.mediaType)
 
-    // each part may be a multipart entity on its own
     def boundary: Option[Boundary] =
-      contentType.flatMap(_.boundary)
+      contentType.flatMap(_.value.boundary)
 
     def toBody: Body = {
-      val base = Body.fromStreamChunked(bytes)
       (this.mediaType, this.boundary) match {
-        case (Some(mt), Some(boundary)) =>
-          base.contentType(mt, boundary)
-        case (Some(mt), None)           =>
-          base.contentType(mt)
-        case _                          =>
-          base
+        case (Some(mt), Some(bnd)) =>
+          Body.fromStream(zio.blocks.streams.Stream.empty, zio.http.ContentType(mt, Some(bnd), None))
+        case (Some(mt), None)      =>
+          Body.fromStream(zio.blocks.streams.Stream.empty, zio.http.ContentType(mt, None, None))
+        case _                     =>
+          Body.empty
       }
     }
   }
@@ -129,7 +127,7 @@ object MultipartMixed {
             FormAST.Header
               .fromBytes(h.toArray, StandardCharsets.UTF_8)
               .map { case FormAST.Header(name, value) =>
-                parseHeaders(rest, res.addHeader[String](name, value))
+                parseHeaders(rest, res.add(name, value))
               }
               .getOrElse(parseHeaders(rest, res))
           }
@@ -274,8 +272,9 @@ object MultipartMixed {
   }
 
   def fromBody(body: Body, bufferSize: Int = 8192): Option[MultipartMixed] = {
-    body.boundary.map { b =>
-      MultipartMixed(body.asStream, b, bufferSize)
+    body.contentType.boundary.map { b =>
+      val bytes = ZStream.fromIterator(body.toChunk.iterator).map(_.asInstanceOf[Byte])
+      MultipartMixed(bytes, b, bufferSize)
     }
   }
 
@@ -285,9 +284,9 @@ object MultipartMixed {
     val bytes =
       parts.flatMap { case Part(headers, bytes) =>
         val headersBytes: ZStream[Any, CharacterCodingException, Byte] = ZStream
-          .fromIterable(headers)
-          .map { h =>
-            s"${h.headerName}: ${h.renderedValue}\r\n"
+          .fromIterable(headers.toList)
+          .map { case (name, value) =>
+            s"${name}: ${value}\r\n"
           } >>>
           ZPipeline.utf8Encode
 

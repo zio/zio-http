@@ -25,7 +25,7 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.Accept.MediaRange
 import zio.http._
 import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
@@ -387,7 +387,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
           (
             request.headers
               .getAll(Header.Accept)
-              .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+              .flatMap(a => zio.Chunk.fromIterable(a.mediaRanges.toList)) :+
+              MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 0.0)
           ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
           config,
         )
@@ -408,7 +409,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
           val outputMediaTypes =
             request.headers
               .getAll(Header.Accept)
-              .flatMap(_.mimeTypes)
+              .flatMap(a => zio.Chunk.fromIterable(a.mediaRanges.toList))
               .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
@@ -472,7 +473,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                       (
                         request.headers
                           .getAll(Header.Accept)
-                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
+                          .flatMap(a => zio.Chunk.fromIterable(a.mediaRanges.toList)) :+
+                          MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 0.0)
                       ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
 
                     codecError.encodeResponse(error, outputMediaTypes, config)
@@ -1948,5 +1950,5 @@ object Endpoint {
   }
 
   private[endpoint] val defaultMediaTypes =
-    NonEmptyChunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1)))
+    NonEmptyChunk(MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 1.0))
 }

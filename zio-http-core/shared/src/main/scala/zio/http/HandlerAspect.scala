@@ -21,6 +21,8 @@ import java.nio.charset._
 import zio._
 import zio.metrics._
 
+import zio.http.headers.{Authorization, WWWAuthenticate}
+
 /**
  * A [[zio.http.HandlerAspect]] is a kind of [[zio.http.ProtocolStack]] that is
  * specialized to transform a handler's incoming requests and outgoing
@@ -200,33 +202,33 @@ object HandlerAspect extends HandlerAspects {
     HandlerAspect.addHeader[String](name.toString, value.toString)
 
   final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
-    def apply(result: (Response, State) => Response.Patch): HandlerAspect[Any, Unit] =
+    def apply(result: (Response, State) => Response => Response): HandlerAspect[Any, Unit] =
       HandlerAspect.interceptHandlerStateful(
         Handler.fromFunction[Request] { request =>
           val state = fromRequest(request)
           (state, (request, ()))
         },
       )(
-        Handler.fromFunction[(State, Response)] { case (state, response) => response.patch(result(response, state)) },
+        Handler.fromFunction[(State, Response)] { case (state, response) => result(response, state)(response) },
       )
   }
 
   final class InterceptPatchZIO[Env, State](val fromRequest: Request => ZIO[Env, Response, State]) extends AnyVal {
-    def apply(result: (Response, State) => ZIO[Env, Response, Response.Patch]): HandlerAspect[Env, Unit] =
+    def apply(result: (Response, State) => ZIO[Env, Response, Response => Response]): HandlerAspect[Env, Unit] =
       HandlerAspect.interceptHandlerStateful(
         Handler.fromFunctionZIO[Request] { request =>
           fromRequest(request).map((_, (request, ())))
         },
       )(
         Handler.fromFunctionZIO[(State, Response)] { case (state, response) =>
-          result(response, state).map(response.patch(_)).merge
+          result(response, state).map(f => f(response)).merge
         },
       )
   }
 
   final class Allow(val unit: Unit) extends AnyVal {
     def apply(condition: Request => Boolean): HandlerAspect[Any, Unit] =
-      HandlerAspect.ifRequestThenElse(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
+      HandlerAspect.ifRequestThenElse(condition)(ifFalse = fail(Response(status = Status.Forbidden)), ifTrue = identity)
   }
 
   final class AllowZIO(val unit: Unit) extends AnyVal {
@@ -234,7 +236,7 @@ object HandlerAspect extends HandlerAspects {
       condition: Request => ZIO[Env, Response, Boolean],
     ): HandlerAspect[Env, Unit] =
       HandlerAspect.ifRequestThenElseZIO(condition)(
-        ifFalse = fail(Response.status(Status.Forbidden)),
+        ifFalse = fail(Response(status = Status.Forbidden)),
         ifTrue = identity,
       )
   }
@@ -244,13 +246,13 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Sets a cookie in the response headers
    */
-  def addCookie(cookie: Cookie.Response): HandlerAspect[Any, Unit] =
-    addHeader(Header.SetCookie(cookie))
+  def addCookie(cookie: ResponseCookie): HandlerAspect[Any, Unit] =
+    updateResponse(_.addCookie(cookie))
 
   /**
    * Sets an effectfully created cookie in the response headers.
    */
-  def addCookieZIO[Env](cookie: ZIO[Env, Nothing, Cookie.Response])(implicit
+  def addCookieZIO[Env](cookie: ZIO[Env, Nothing, ResponseCookie])(implicit
     trace: Trace,
   ): HandlerAspect[Env, Unit] =
     updateResponseZIO(response => cookie.map(response.addCookie))
@@ -272,12 +274,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def basicAuth(f: Credentials => Boolean): HandlerAspect[Any, Unit] =
     customAuth(
-      _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Basic(userName, password)) =>
-          f(Credentials(userName, password))
-        case _                                                    => false
+      _.header(Authorization) match {
+        case Some(Authorization.Basic(userName, password)) =>
+          f(Credentials(userName, zio.Config.Secret(password)))
+        case _                                             => false
       },
-      Headers(Header.WWWAuthenticate.Basic()),
+      Headers(WWWAuthenticate.name -> WWWAuthenticate.render(WWWAuthenticate("Basic", Map.empty))),
     )
 
   /**
@@ -303,12 +305,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     trace: Trace,
   ): HandlerAspect[Env, Unit] =
     customAuthZIO(
-      _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Basic(userName, password)) =>
-          f(Credentials(userName, password))
-        case _                                                    => ZIO.succeed(false)
+      _.header(Authorization) match {
+        case Some(Authorization.Basic(userName, password)) =>
+          f(Credentials(userName, zio.Config.Secret(password)))
+        case _                                             => ZIO.succeed(false)
       },
-      Headers(Header.WWWAuthenticate.Basic()),
+      Headers(WWWAuthenticate.name -> WWWAuthenticate.render(WWWAuthenticate("Basic", Map.empty))),
     )
 
   /**
@@ -319,11 +321,11 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def bearerAuth(f: zio.Config.Secret => Boolean): HandlerAspect[Any, Unit] =
     customAuth(
-      _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token)
-        case _                                        => false
+      _.header(Authorization) match {
+        case Some(Authorization.Bearer(token)) => f(zio.Config.Secret(token))
+        case _                                 => false
       },
-      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
+      Headers(WWWAuthenticate.name -> WWWAuthenticate.render(WWWAuthenticate("Bearer", Map("realm" -> "Access")))),
     )
 
   /**
@@ -337,11 +339,11 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     f: zio.Config.Secret => ZIO[Env, Response, Boolean],
   )(implicit trace: Trace): HandlerAspect[Env, Unit] =
     customAuthZIO(
-      _.header(Header.Authorization) match {
-        case Some(Header.Authorization.Bearer(token)) => f(token)
-        case _                                        => ZIO.succeed(false)
+      _.header(Authorization) match {
+        case Some(Authorization.Bearer(token)) => f(zio.Config.Secret(token))
+        case _                                 => ZIO.succeed(false)
       },
-      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
+      Headers(WWWAuthenticate.name -> WWWAuthenticate.render(WWWAuthenticate("Bearer", Map("realm" -> "Access")))),
     )
 
   /**
@@ -356,7 +358,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     HandlerAspect.interceptIncomingHandler[Any, Unit] {
       Handler.fromFunctionExit[Request] { request =>
         if (verify(request)) Exit.succeed((request, ()))
-        else Exit.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+        else Exit.fail(Response(status = responseStatus).addHeaders(responseHeaders))
       }
     }
 
@@ -386,7 +388,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
       Handler.fromFunctionZIO[Request] { req =>
         provide(req).flatMap {
           case Some(context) => ZIO.succeed((req, context))
-          case None          => ZIO.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+          case None          => ZIO.fail(Response(status = responseStatus).addHeaders(responseHeaders))
         }
       },
     )
@@ -404,7 +406,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     HandlerAspect.interceptIncomingHandler[Env, Unit](Handler.fromFunctionZIO[Request] { request =>
       verify(request).flatMap {
         case true  => ZIO.succeed((request, ()))
-        case false => ZIO.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+        case false => ZIO.fail(Response(status = responseStatus).addHeaders(responseHeaders))
       }
     })
 
@@ -436,7 +438,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def dropTrailingSlash(onlyIfNoQueryParams: Boolean): HandlerAspect[Any, Unit] =
     updateRequest { request =>
-      if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty) request.dropTrailingSlash else request
+      if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty) request.copy(url = request.url.dropTrailingSlash) else request
     }
 
   /**
@@ -598,20 +600,20 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Creates a middleware that produces a Patch for the Response
    */
-  def patch(f: Response => Response.Patch): HandlerAspect[Any, Unit] =
+  def patch(f: Response => Response => Response): HandlerAspect[Any, Unit] =
     interceptPatch(_ => ())((response, _) => f(response))
 
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  def patchZIO[Env](f: Response => ZIO[Env, Response, Response.Patch]): HandlerAspect[Env, Unit] =
+  def patchZIO[Env](f: Response => ZIO[Env, Response, Response => Response]): HandlerAspect[Env, Unit] =
     interceptPatchZIO[Env, Unit](_ => ZIO.unit)((response, _) => f(response))
 
   /**
    * Creates a middleware that will redirect requests to the specified URL.
    */
   def redirect(url: URL, isPermanent: Boolean = false): HandlerAspect[Any, Unit] =
-    fail(Response.redirect(url, isPermanent))
+    fail(Response.redirect(url.encode, isPermanent))
 
   /**
    * Creates middleware that will redirect requests with trailing slash to the
@@ -620,8 +622,8 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   def redirectTrailingSlash(
     isPermanent: Boolean = false,
   ): HandlerAspect[Any, Unit] =
-    ifRequestThenElse(request => request.url.path.hasTrailingSlash && request.url.queryParams.isEmpty)(
-      ifTrue = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
+    ifRequestThenElse(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
+      ifTrue = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url.encode, isPermanent)),
       ifFalse = HandlerAspect.identity,
     )
 
@@ -630,15 +632,15 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
-    loggedRequestHeaders: Set[Header.HeaderTypeBase] = Set.empty,
-    loggedResponseHeaders: Set[Header.HeaderTypeBase] = Set.empty,
+    loggedRequestHeaders: Set[Header.Typed[_ <: Header]] = Set.empty,
+    loggedResponseHeaders: Set[Header.Typed[_ <: Header]] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
   )(implicit trace: Trace): HandlerAspect[Any, Unit] = {
-    val loggedRequestHeaderNames  = loggedRequestHeaders.flatMap(_.names.map(_.toLowerCase))
-    val loggedResponseHeaderNames = loggedResponseHeaders.flatMap(_.names.map(_.toLowerCase))
+    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
+    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
 
     HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
       zio.Clock.instant.map(now => ((now, request), (request, ())))
@@ -650,21 +652,20 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
           ZIO
             .logLevel(level(response.status)) {
               def requestHeaders  =
-                request.headers.collect {
-                  case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
-                    LogAnnotation(header.headerName, header.renderedValue)
+                request.headers.toList.collect {
+                  case (name, value) if loggedRequestHeaderNames.contains(name.toLowerCase) =>
+                    LogAnnotation(name, value)
                 }.toSet
               def responseHeaders =
-                response.headers.collect {
-                  case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
-                    LogAnnotation(header.headerName, header.renderedValue)
+                response.headers.toList.collect {
+                  case (name, value) if loggedResponseHeaderNames.contains(name.toLowerCase) =>
+                    LogAnnotation(name, value)
                 }.toSet
 
-              val requestBody  = if (request.body.isComplete) request.body.asChunk.option else ZIO.none
-              val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
+              val requestBodyChunk  = Some(request.body.toChunk)
+              val responseBodyChunk = Some(response.body.toChunk)
 
-              requestBody.flatMap { requestBodyChunk =>
-                responseBody.flatMap { responseBodyChunk =>
+              {
                   val bodyAnnotations = Set(
                     requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
                     requestBodyChunk.flatMap(chunk =>
@@ -690,11 +691,10 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
                       requestHeaders union
                       responseHeaders union
                       bodyAnnotations,
-                  ) {
+                   ) {
                     ZIO.log("Http request served").as(response)
                   }
                 }
-              }
             }
         }
       },
@@ -718,23 +718,31 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def signCookies(secret: String): HandlerAspect[Any, Unit] =
     updateHeaders { headers =>
-      headers.modify {
-        case Header.SetCookie(cookie)                                                      =>
-          Header.SetCookie(cookie.sign(secret))
-        case header @ Header.Custom(name, value) if name.toString == Header.SetCookie.name =>
-          Header.SetCookie.parse(value.toString) match {
-            case Left(_)               => header
-            case Right(responseCookie) => Header.SetCookie(responseCookie.value.sign(secret))
+      val setCookieName = zio.http.headers.SetCookieHeader.name
+      val modified = headers.toList.map {
+        case (name, value) if name.equalsIgnoreCase(setCookieName) =>
+          Cookie.parseResponse(value) match {
+            case Left(_)               => (name, value)
+            case Right(responseCookie) =>
+              val signed = {
+                val mac       = javax.crypto.Mac.getInstance("HmacSHA256")
+                val secretKey = new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256")
+                mac.init(secretKey)
+                val signature = java.util.Base64.getEncoder.encodeToString(mac.doFinal(responseCookie.value.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                responseCookie.copy(value = s"${responseCookie.value}.$signature")
+              }
+              (setCookieName, Cookie.renderResponse(signed))
           }
-        case header: Header                                                                => header
+        case other                                                => other
       }
+      Headers(modified: _*)
     }
 
   /**
    * Creates middleware that will update the status of the response.
    */
   def status(status: Status): HandlerAspect[Any, Unit] =
-    patch(_ => Response.Patch.status(status))
+    updateResponse(_.status(status))
 
   /**
    * Creates middleware that will update the headers of the response.

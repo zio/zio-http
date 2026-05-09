@@ -9,10 +9,10 @@ import zio.stream._
 import zio.schema.codec._
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.Accept.MediaRange
 import zio.http._
 import zio.http.internal.HeaderOps
-import zio.http.template._
+import zio.blocks.html._
 
 sealed trait HttpContentCodec[A] { self =>
   def choices: ListMap[MediaType, BinaryCodecWithSchema[A]]
@@ -24,10 +24,11 @@ sealed trait HttpContentCodec[A] { self =>
     HttpContentCodec.Choices(choices ++ that.choices)
 
   def decodeRequest(request: Request, config: CodecConfig): Task[A] = {
-    val contentType = mediaTypeFromContentTypeHeader(request)
+    val contentType = mediaTypeFromContentTypeHeader(request.headers)
     lookup(contentType) match {
       case Some((_, codec)) =>
-        request.body.asChunk.flatMap { bytes =>
+        ZIO.attempt(request.body.toChunk).flatMap { blocksBytes =>
+          val bytes = zio.Chunk.fromArray(blocksBytes.toArray)
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
       case None             =>
@@ -39,10 +40,11 @@ sealed trait HttpContentCodec[A] { self =>
     CodecConfig.codecRef.getWith(decodeRequest(request, _))
 
   def decodeResponse(response: Response, config: CodecConfig): Task[A] = {
-    val contentType = mediaTypeFromContentTypeHeader(response)
+    val contentType = mediaTypeFromContentTypeHeader(response.headers)
     lookup(contentType) match {
       case Some((_, codec)) =>
-        response.body.asChunk.flatMap { bytes =>
+        ZIO.attempt(response.body.toChunk).flatMap { blocksBytes =>
+          val bytes = zio.Chunk.fromArray(blocksBytes.toArray)
           ZIO.fromEither(codec.codec(config).decode(bytes))
         }
       case None             =>
@@ -53,9 +55,9 @@ sealed trait HttpContentCodec[A] { self =>
   def decodeResponse(response: Response): Task[A] =
     CodecConfig.codecRef.getWith(decodeResponse(response, _))
 
-  private def mediaTypeFromContentTypeHeader(header: HeaderOps[_]) = {
-    if (header.headers.contains(Header.ContentType.name)) {
-      val contentType = header.headers.getUnsafe(Header.ContentType.name)
+  private def mediaTypeFromContentTypeHeader(hdrs: Headers) = {
+    if (hdrs.contains(Header.ContentType.name)) {
+      val contentType = hdrs.rawGet(Header.ContentType.name).getOrElse("")
       if (MediaType.contentTypeMap.contains(contentType)) {
         MediaType.contentTypeMap(contentType)
       } else {
@@ -70,7 +72,9 @@ sealed trait HttpContentCodec[A] { self =>
     if (choices.isEmpty) {
       Left("No codec defined")
     } else {
-      Right(Body.fromChunk(choices.head._2.codec(config).encode(value), mediaType = choices.head._1))
+      val mt = choices.head._1
+      val blocksMediaType = zio.blocks.mediatype.MediaType(mt.mainType, mt.subType, mt.compressible, mt.binary, mt.fileExtensions, mt.extensions, mt.parameters)
+      Right(Body.fromChunk(zio.blocks.chunk.Chunk.fromArray(choices.head._2.codec(config).encode(value).toArray), contentType = ContentType(blocksMediaType)))
     }
   }
 
@@ -87,15 +91,19 @@ sealed trait HttpContentCodec[A] { self =>
       case None        => self
     }
 
-  private[http] def chooseFirst(mediaTypes: Chunk[MediaTypeWithQFactor]): (MediaType, BinaryCodecWithSchema[A]) =
+  private[http] def chooseFirst(mediaTypes: Chunk[MediaRange]): (MediaType, BinaryCodecWithSchema[A]) =
     if (mediaTypes.isEmpty) {
       (defaultMediaType, defaultBinaryCodecWithSchema)
     } else {
       var i                                             = 0
       var result: (MediaType, BinaryCodecWithSchema[A]) = null
       while (i < mediaTypes.size && result == null) {
-        val mediaType    = mediaTypes(i)
-        val lookupResult = lookup(mediaType.mediaType)
+        val mr           = mediaTypes(i)
+        val localMt      =
+          MediaType
+            .forContentType(mr.mediaType.fullType)
+            .getOrElse(MediaType(mr.mediaType.mainType, mr.mediaType.subType))
+        val lookupResult = lookup(localMt)
         if (lookupResult.isDefined) result = lookupResult.get
         i += 1
       }
@@ -107,7 +115,7 @@ sealed trait HttpContentCodec[A] { self =>
     }
 
   private[http] def chooseFirstOrDefault(
-    mediaTypes: Chunk[MediaTypeWithQFactor],
+    mediaTypes: Chunk[MediaRange],
   ): (MediaType, BinaryCodecWithSchema[A]) =
     if (mediaTypes.isEmpty) {
       (defaultMediaType, defaultBinaryCodecWithSchema)
@@ -115,8 +123,12 @@ sealed trait HttpContentCodec[A] { self =>
       var i                                             = 0
       var result: (MediaType, BinaryCodecWithSchema[A]) = null
       while (i < mediaTypes.size && result == null) {
-        val mediaType    = mediaTypes(i)
-        val lookupResult = lookup(mediaType.mediaType)
+        val mr           = mediaTypes(i)
+        val localMt      =
+          MediaType
+            .forContentType(mr.mediaType.fullType)
+            .getOrElse(MediaType(mr.mediaType.mainType, mr.mediaType.subType))
+        val lookupResult = lookup(localMt)
         if (lookupResult.isDefined) result = lookupResult.get
         i += 1
       }
@@ -213,10 +225,13 @@ object HttpContentCodec {
   private val NameExtractor    = """.*<p id="name">([^<]+)</p>.*""".r
   private val MessageExtractor = """.*<p id="message">([^<]+)</p>.*""".r
 
+  private implicit val domSchema: Schema[Dom] =
+    Schema[String].transform(s => Dom.text(s): Dom, _.render)
+
   private val domBasedSchema: Schema[HttpCodecError] =
     Schema[Dom].transformOrFail[HttpCodecError](
       dom => {
-        val encoded = dom.encode
+        val encoded = dom.render
 
         val name = encoded match {
           case NameExtractor(name) => Some(name)
@@ -240,8 +255,8 @@ object HttpContentCodec {
               body(
                 h1("Codec Error"),
                 p("There was an error en-/decoding the request/response"),
-                p(name, idAttr    := "name"),
-                p(message, idAttr := "message"),
+                p(name, id    := "name"),
+                p(message, id := "message"),
               ),
             ),
           )
@@ -251,8 +266,8 @@ object HttpContentCodec {
               body(
                 h1("Codec Error"),
                 p("There was an error en-/decoding the request/response"),
-                p(e.productPrefix, idAttr := "name"),
-                p(e.getMessage(), idAttr  := "message"),
+                p(e.productPrefix, id := "name"),
+                p(e.getMessage(), id  := "message"),
               ),
             ),
           )

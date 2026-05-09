@@ -22,9 +22,9 @@ import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema._
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.Accept.MediaRange
 import zio.http.codec.{BinaryCodecWithSchema, CodecConfig, HttpCodecError, HttpContentCodec}
-import zio.http.{Body, FormField, MediaType}
+import zio.http.{Body, ContentType, FormField, MediaType}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
@@ -52,14 +52,14 @@ private[http] sealed trait BodyCodec[A] { self =>
   /**
    * Encodes the `A` to a FormField in the given codec.
    */
-  def encodeToField(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(implicit
+  def encodeToField(value: A, mediaTypes: Chunk[MediaRange], name: String, config: CodecConfig)(implicit
     trace: Trace,
   ): FormField
 
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit trace: Trace): Body
+  def encodeToBody(value: A, mediaTypes: Chunk[MediaRange], config: CodecConfig)(implicit trace: Trace): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -72,7 +72,7 @@ private[http] sealed trait BodyCodec[A] { self =>
    * The default is application/json for arbitrary types and
    * application/octet-stream for byte streams
    */
-  def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType]
+  def mediaType(accepted: Chunk[MediaRange]): Option[MediaType]
 
   /**
    * Name of the body part
@@ -91,25 +91,25 @@ private[http] object BodyCodec {
 
     override def decodeFromBody(body: Body, config: CodecConfig)(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
 
-    override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
+    override def encodeToBody(value: Unit, mediaTypes: Chunk[MediaRange], config: CodecConfig)(implicit
       trace: Trace,
     ): Body = Body.empty
 
-    override def encodeToField(value: Unit, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(
-      implicit trace: Trace,
+    override def encodeToField(value: Unit, mediaTypes: Chunk[MediaRange], name: String, config: CodecConfig)(implicit
+      trace: Trace,
     ): FormField =
       throw HttpCodecError.CustomError("UnsupportedEncodingType", s"Unit can't be encoded to a FormField")
 
     def schema: Schema[Unit] = Schema[Unit]
 
-    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] = None
+    def mediaType(accepted: Chunk[MediaRange]): Option[MediaType] = None
 
     def name: Option[String] = None
   }
 
   final case class Single[A](codec: HttpContentCodec[A], name: Option[String]) extends BodyCodec[A] {
 
-    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
+    def mediaType(accepted: Chunk[MediaRange]): Option[MediaType] =
       Some(codec.chooseFirstOrDefault(accepted)._1)
 
     def decodeFromField(field: FormField, config: CodecConfig)(implicit trace: Trace): IO[Throwable, A] = {
@@ -135,11 +135,13 @@ private[http] object BodyCodec {
           if (body.isEmpty) Exit.unit.asInstanceOf[IO[Throwable, A]]
           else ZIO.fail(HttpCodecError.CustomError("InvalidBody", "Non-empty body cannot be decoded as Unit"))
         case Right((_, bc @ BinaryCodecWithSchema(_, schema)))                      =>
-          body.asChunk.flatMap { chunk => ZIO.fromEither(bc.codec(config).decode(chunk)) }.flatMap(validateZIO(schema))
+          ZIO.attempt(zio.Chunk.fromArray(body.toChunk.toArray)).flatMap { chunk =>
+            ZIO.fromEither(bc.codec(config).decode(chunk))
+          }.flatMap(a => validateZIO(schema)(a))
       }
     }
 
-    def encodeToField(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], name: String, config: CodecConfig)(implicit
+    def encodeToField(value: A, mediaTypes: Chunk[MediaRange], name: String, config: CodecConfig)(implicit
       trace: Trace,
     ): FormField = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
@@ -160,14 +162,14 @@ private[http] object BodyCodec {
       }
     }
 
-    def encodeToBody(value: A, mediaTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig)(implicit
+    def encodeToBody(value: A, mediaTypes: Chunk[MediaRange], config: CodecConfig)(implicit
       trace: Trace,
     ): Body = {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      if (bc.schema == Schema[Unit]) Body.empty.contentType(mediaType)
-      else Body.fromChunk(bc.codec(config).encode(value), mediaType)
+      if (bc.schema == Schema[Unit]) Body.fromChunk(zio.blocks.chunk.Chunk.empty[Byte], toContentType(mediaType))
+      else Body.fromChunk(zio.blocks.chunk.Chunk.fromArray(bc.codec(config).encode(value).toArray), toContentType(mediaType))
     }
 
     type Element = A
@@ -176,7 +178,7 @@ private[http] object BodyCodec {
   final case class Multiple[E](codec: HttpContentCodec[E], name: Option[String])
       extends BodyCodec[ZStream[Any, Nothing, E]] {
 
-    def mediaType(accepted: Chunk[MediaTypeWithQFactor]): Option[MediaType] =
+    def mediaType(accepted: Chunk[MediaRange]): Option[MediaType] =
       Some(codec.chooseFirstOrDefault(accepted)._1)
 
     override def decodeFromField(field: FormField, config: CodecConfig)(implicit
@@ -196,13 +198,15 @@ private[http] object BodyCodec {
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.fromEither {
         codecForBody(codec, body).map { case (_, bc @ BinaryCodecWithSchema(_, schema)) =>
-          (body.asStream >>> bc.codec(config).streamDecoder >>> validateStream(schema)).orDie
+          // TODO: Restore true streaming once blocks Stream <-> ZStream bridge exists
+          val bytes = zio.Chunk.fromArray(body.toChunk.toArray)
+          (ZStream.fromChunk(bytes) >>> bc.codec(config).streamDecoder >>> validateStream(schema)).orDie
         }
       }
 
     override def encodeToField(
       value: ZStream[Any, Nothing, E],
-      mediaTypes: Chunk[MediaTypeWithQFactor],
+      mediaTypes: Chunk[MediaRange],
       name: String,
       config: CodecConfig,
     )(implicit
@@ -220,7 +224,7 @@ private[http] object BodyCodec {
 
     override def encodeToBody(
       value: ZStream[Any, Nothing, E],
-      mediaTypes: Chunk[MediaTypeWithQFactor],
+      mediaTypes: Chunk[MediaRange],
       config: CodecConfig,
     )(implicit
       trace: Trace,
@@ -228,17 +232,23 @@ private[http] object BodyCodec {
       val selected  = codec.chooseFirstOrDefault(mediaTypes)
       val mediaType = selected._1
       val bc        = selected._2
-      Body.fromStreamChunked(value >>> bc.codec(config).streamEncoder).contentType(mediaType)
+      // TODO: Restore true streaming once blocks Stream <-> ZStream bridge exists
+      val encoded = Unsafe.unsafe { implicit u =>
+        zio.Runtime.default.unsafe.run(
+          (value >>> bc.codec(config).streamEncoder).runCollect,
+        ).getOrThrowFiberFailure()
+      }
+      Body.fromChunk(zio.blocks.chunk.Chunk.fromArray(encoded.toArray), toContentType(mediaType))
     }
 
     type Element = E
   }
 
   private def codecForBody[E](codec: HttpContentCodec[E], body: Body) = {
-    val mediaType = body.mediaType.getOrElse(codec.defaultMediaType)
+    val mediaType = MediaType.forContentType(body.contentType.render).getOrElse(codec.defaultMediaType)
     val codec0    = codec
       .lookup(mediaType)
-      .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${body.mediaType}"))
+      .toRight(HttpCodecError.CustomError("UnsupportedMediaType", s"MediaType: ${body.contentType.render}"))
     codec0
   }
 
@@ -252,5 +262,11 @@ private[http] object BodyCodec {
     trace: Trace,
   ): ZPipeline[Any, HttpCodecError, E, E] =
     ZPipeline.mapZIO(validateZIO(schema))
+
+  private def toContentType(mt: MediaType): ContentType = {
+    val blocksMediaType =
+      zio.blocks.mediatype.MediaType(mt.mainType, mt.subType, mt.compressible, mt.binary, mt.fileExtensions, mt.extensions, mt.parameters)
+    ContentType(blocksMediaType)
+  }
 
 }

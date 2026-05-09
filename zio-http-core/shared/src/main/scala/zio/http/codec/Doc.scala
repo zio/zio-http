@@ -21,7 +21,7 @@ import zio.Chunk
 import zio.schema.Schema
 
 import zio.http.codec.Doc.Span.CodeStyle
-import zio.http.template
+import zio.blocks.html
 
 /**
  * A `Doc` models documentation for an endpoint or input.
@@ -164,12 +164,12 @@ sealed trait Doc { self =>
     writer.toString()
   }
 
-  def toHtml: template.Html = {
-    import template._
+  def toHtml: html.Dom = {
+    import html._
 
-    val html: Html = self match {
+    val dom: Dom = self match {
       case Doc.Empty                                =>
-        Html.Empty
+        Dom.Empty
       case Header(value, level)                     =>
         level match {
           case 1 => h1(value)
@@ -192,9 +192,9 @@ sealed trait Doc { self =>
           },
         )
       case Sequence(left, right)                    =>
-        left.toHtml ++ right.toHtml
+        div(left.toHtml, right.toHtml)
       case Listing(elements, _) if elements.isEmpty =>
-        Html.Empty
+        Dom.Empty
       case Listing(elements, listingType)           =>
         val elementsHtml =
           elements.map { doc =>
@@ -206,17 +206,17 @@ sealed trait Doc { self =>
         }
 
       case Raw(value, RawDocType.Html) =>
-        Html.fromString(value)
+        Dom.text(value)
       case Raw(_, docType)             =>
         throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
       case Tagged(doc, _)              =>
         doc.toHtml
     }
-    html ++ (if (tags.nonEmpty) Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml else Html.Empty)
+    if (tags.nonEmpty) div(dom, Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml) else dom
   }
 
   def toHtmlSnippet: String =
-    toHtml.encode(2).toString
+    toHtml.render(2)
 
   def toPlaintext(columnWidth: Int = 100, color: Boolean = true): String = {
     val _ = color
@@ -441,19 +441,19 @@ object Doc {
         case Span.Sequence(left, right) => left.size + right.size
       }
 
-    def toHtml: template.Html = {
-      import template._
+    def toHtml: html.Dom = {
+      import html._
 
       self match {
-        case Span.Text(value)                   => value
+        case Span.Text(value)                   => Dom.text(value)
         case Span.Code(value, CodeStyle.Block)  => pre(code(value))
         case Span.Code(value, CodeStyle.Inline) => code(value)
         case Span.Error(value)                  => span(styleAttr := "color: red", value)
         case Span.Bold(value)                   => b(value.toHtml)
         case Span.Italic(value)                 => i(value.toHtml)
         case Span.Link(value, text)             =>
-          a(href := value.toASCIIString, Html.fromString(text.getOrElse(value.toASCIIString)))
-        case Span.Sequence(left, right)         => left.toHtml ++ right.toHtml
+          a(href := value.toASCIIString, Dom.text(text.getOrElse(value.toASCIIString)))
+        case Span.Sequence(left, right)         => div(left.toHtml, right.toHtml)
       }
     }
   }

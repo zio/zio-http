@@ -3,10 +3,9 @@ package zio.http
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
 import java.util.zip.ZipFile
-
+import zio.http._
 import zio.{Trace, ZIO}
 
-import zio.stream.ZStream
 
 trait HandlerPlatformSpecific {
   self: Handler.type =>
@@ -52,31 +51,38 @@ trait HandlerPlatformSpecific {
           ZIO
             .acquireReleaseWith(openZip)(closeZip) { jar =>
               for {
-                entry <- ZIO
-                  .attemptBlocking(Option(jar.getEntry(resourcePath)))
-                  .collect(fileNotFound) { case Some(e) => e }
-                _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
-                contentLength  = entry.getSize
-                lastModifiedMs = entry.getTime
-                etag           = Header.ETag.Weak(s"${lastModifiedMs.toHexString}-${contentLength.toHexString}")
-                lastModified   = Header.LastModified(
-                  java.time.ZonedDateTime.ofInstant(
-                    java.time.Instant.ofEpochMilli(if (lastModifiedMs < 0) 0 else lastModifiedMs),
-                    java.time.ZoneOffset.UTC,
-                  ),
-                )
-                inZStream      = ZStream
-                  .acquireReleaseWith(openZip)(closeZip)
-                  .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
-                  .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
-                response       = Response(body = Body.fromStream(inZStream, contentLength))
-                  .addHeader(Header.AcceptRanges.None) // Range not supported for JAR resources
-                  .addHeader(etag)
-                  .addHeader(lastModified)
+                 entry <- ZIO
+                   .attemptBlocking(Option(jar.getEntry(resourcePath)))
+                   .collect(fileNotFound) { case Some(e) => e }
+                 _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
+                 contentLen     = entry.getSize
+                 lastModifiedMs = entry.getTime
+                 etagValue      = s"""W/"${lastModifiedMs.toHexString}-${contentLen.toHexString}""""
+                 lastModifiedValue = java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                   java.time.ZonedDateTime.ofInstant(
+                     java.time.Instant.ofEpochMilli(if (lastModifiedMs < 0) 0 else lastModifiedMs),
+                     java.time.ZoneOffset.UTC,
+                   ),
+                 )
+                 inBytes <- ZIO.attemptBlocking {
+                   val is = jar.getInputStream(entry)
+                   try {
+                     val baos = new java.io.ByteArrayOutputStream(if (contentLen > 0) contentLen.toInt else 8192)
+                     val buf  = new Array[Byte](8192)
+                     var n    = is.read(buf)
+                     while (n >= 0) { baos.write(buf, 0, n); n = is.read(buf) }
+                     baos.toByteArray
+                   } finally is.close()
+                 }
+                 response       = Response(status = Status.Ok, body = Body.fromArray(inBytes))
+                   .addHeader("accept-ranges", "none") // Range not supported for JAR resources
+                   .addHeader("etag", etagValue)
+                   .addHeader("last-modified", lastModifiedValue)
               } yield mediaType.fold(response) { t =>
-                val charset0 = if (t.mainType == "text" || !t.binary) Some(charset) else None
+                val charsetStr = if (t.mainType == "text" || !t.binary) Some(charset.name()) else scala.None
+                val ctValue    = charsetStr.fold(t.fullType)(cs => s"${t.fullType}; charset=$cs")
                 response
-                  .addHeader(Header.ContentType(t, charset = charset0))
+                  .addHeader("content-type", ctValue)
               }
             }
         }

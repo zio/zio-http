@@ -1,7 +1,7 @@
 package zio.http
 
 import zio.http.codec.Doc
-import zio.http.template2._
+import zio.blocks.html._
 
 object RoutesOverview {
   def apply(patterns: Iterable[RoutePattern[_]]): Dom = {
@@ -11,8 +11,7 @@ object RoutesOverview {
         meta(charset := "UTF-8"),
         meta(name    := "viewport", content := "width=device-width, initial-scale=1.0"),
         title("404 - Route Not Found"),
-        // language=JavaScript
-        script(s"""
+        script().inlineJs(Js(s"""
           const routes = ${routesToJson(sortedPatterns)};
           let currentRoute = null;
 
@@ -180,9 +179,8 @@ object RoutesOverview {
 
           // Set initial theme immediately (before DOMContentLoaded)
           setTheme(getPreferredTheme());
-        """),
-        // language=css
-        style.inlineCss("""
+        """)),
+        style().inlineCss(Css("""
           :root {
             --bg-gradient-start: #667eea;
             --bg-gradient-end: #764ba2;
@@ -518,16 +516,16 @@ object RoutesOverview {
           .btn-copy:hover:not(:disabled) {
             background: #059669;
           }
-        """),
+        """)),
       ),
       body(
         div(`class` := "container")(
           div(`class` := "header")(
             button(
-              `class` := "theme-toggle",
-              id      := "themeToggle",
-              Dom.attr("onclick")("toggleTheme()"),
-              Dom.attr("aria-label")("Toggle theme"),
+              `class`            := "theme-toggle",
+              id                 := "themeToggle",
+              attr("onclick")    := "toggleTheme()",
+              attr("aria-label") := "Toggle theme",
             )(
               span(id := "themeIcon")("🌙"),
             ),
@@ -535,15 +533,15 @@ object RoutesOverview {
             p("The route you're looking for doesn't exist. Here are the available routes:"),
           ),
           div(`class` := "routes-grid")(
-            sortedPatterns.zipWithIndex.map { case (pattern, idx) =>
+            sortedPatterns.zipWithIndex.toList.map { case (pattern, idx) =>
               val pathStr = pattern.pathCodec.render
 
               div(
-                `class` := "route-card clickable",
-                Dom.attr("onclick")(s"openDialog($idx)"),
+                `class`         := "route-card clickable",
+                attr("onclick") := s"openDialog($idx)",
               )(
                 span(`class` := s"method method-${pattern.method.asInstanceOf[Product].productPrefix}")(
-                  pattern.method.render,
+                  Method.render(pattern.method),
                 ),
                 div(`class` := "path")(
                   pathStr,
@@ -566,18 +564,18 @@ object RoutesOverview {
           div(id := "dialogForm", `class` := "dialog-form"),
           div(id := "previewUrl", `class` := "preview-url"),
           div(`class` := "dialog-buttons")(
-            button(`class` := "btn-secondary", Dom.attr("onclick")("closeDialog()"))("Cancel"),
+            button(`class` := "btn-secondary", attr("onclick") := "closeDialog()")("Cancel"),
             button(
-              id      := "copyBtn",
-              `class` := "btn-copy",
-              Dom.attr("onclick")("copyToClipboard()"),
-              Dom.attr("disabled")("true"),
+              id               := "copyBtn",
+              `class`          := "btn-copy",
+              attr("onclick")  := "copyToClipboard()",
+              attr("disabled") := "true",
             )("Copy URL"),
             button(
-              id      := "goBtn",
-              `class` := "btn-primary",
-              Dom.attr("onclick")("navigateToUrl()"),
-              Dom.attr("disabled")("true"),
+              id               := "goBtn",
+              `class`          := "btn-primary",
+              attr("onclick")  := "navigateToUrl()",
+              attr("disabled") := "true",
             )("Go"),
           ),
         ),
@@ -588,7 +586,7 @@ object RoutesOverview {
   private def routesToJson(patterns: Seq[RoutePattern[_]]): String = {
     val routesJson = patterns.map { pattern =>
       val pathStr    = pattern.pathCodec.render
-      val methodStr  = pattern.method.render
+      val methodStr  = Method.render(pattern.method)
       val params     = extractParams(pathStr)
       val paramsJson = params.map { case (name, paramType) =>
         s"""{"name":"$name","type":"$paramType"}"""

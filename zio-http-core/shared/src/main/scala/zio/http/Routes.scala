@@ -228,7 +228,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
   )(implicit ev: Err <:< Response): ZIO[Scope & Env, Nothing, Response] =
-    runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body))
+    runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body, version = Version.`HTTP/1.1`))
 
   /**
    * An alias for `apply`.
