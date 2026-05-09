@@ -27,7 +27,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v2
+        uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
       - name: Cache
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v2
+        uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
       - name: Cache
@@ -63,7 +63,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup JDK
-        uses: coursier/setup-action@v2
+        uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
       - name: Cache
@@ -87,7 +87,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
