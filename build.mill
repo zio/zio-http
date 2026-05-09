@@ -1,6 +1,7 @@
 package build
 
 import mill._, scalalib._, scalajslib._
+import mill.api.BuildCtx
 
 object Versions {
   val Scala213              = "2.13.18"
@@ -14,7 +15,7 @@ object Versions {
 }
 
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
-val wsRoot = os.pwd
+val wsRoot = BuildCtx.workspaceRoot
 
 trait ZioHttpModule extends CrossScalaModule {
 
@@ -43,17 +44,8 @@ trait ZioHttpJSModule extends ZioHttpModule with ScalaJSModule {
 
 trait ZioHttpTestModule extends TestModule {
   def testFramework = "zio.test.sbt.ZTestFramework"
+  override def testParallelism = false
   override def mvnDeps = super.mvnDeps() ++ Seq(mvn"dev.zio::zio-test:${Versions.Zio}", mvn"dev.zio::zio-test-sbt:${Versions.Zio}")
-}
-
-trait ZioHttpJvmTestableModule extends ZioHttpModule {
-  def root: os.Path
-  override def sources = Task.Sources(root / "src" / "main" / "scala")
-  override def resources = Task.Sources(root / "src" / "main" / "resources")
-  object test extends ScalaTests with ZioHttpTestModule {
-    override def sources = Task.Sources(root / "src" / "test" / "scala")
-    override def resources = Task.Sources(root / "src" / "test" / "resources")
-  }
 }
 
 object core extends Module {
@@ -73,6 +65,7 @@ object core extends Module {
       mvn"dev.zio::zio-schema-protobuf:${Versions.ZioSchema}",
     )
     object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(core.jvm(), client.jvm(), server.jvm(), endpoint.jvm(), nettyCore.jvm(), nettyServer.jvm(), nettyClient.jvm())
       override def sources = {
         val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
         val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
@@ -144,6 +137,7 @@ object endpoint extends Module {
       Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base)*)
     }
     object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(endpoint.jvm(), core.jvm().test, nettyCore.jvm(), nettyServer.jvm(), nettyClient.jvm())
       override def sources = {
         val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
         val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
@@ -175,45 +169,79 @@ object fetchClient extends Module {
 }
 
 object nettyCore extends Module {
+  val r = wsRoot / "zio-http-netty-core"
   object jvm extends Cross[JvmModule](scalaVersions)
-  trait JvmModule extends ZioHttpJvmTestableModule {
-    def root = wsRoot / "zio-http-netty-core"
+  trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-netty-core"
     def moduleDeps = Seq(core.jvm(), client.jvm())
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def resources = Task.Sources(r / "src" / "main" / "resources")
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"io.netty:netty-codec-http:${Versions.Netty}", mvn"io.netty:netty-handler-proxy:${Versions.Netty}",
       mvn"io.netty:netty-transport-native-epoll:${Versions.Netty}", mvn"io.netty:netty-transport-native-kqueue:${Versions.Netty}",
       mvn"io.netty:netty-transport-native-io_uring:${Versions.Netty}",
       mvn"io.netty:netty-pkitesting:${Versions.Netty}",
     )
+    override def compileMvnDeps = super.compileMvnDeps() ++ Seq(
+      mvn"com.aayushatharva.brotli4j:brotli4j:1.16.0",
+    )
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(nettyCore.jvm(), core.jvm().test, nettyClient.jvm(), nettyServer.jvm())
+      override def sources = Task.Sources(r / "src" / "test" / "scala")
+      override def resources = Task.Sources(r / "src" / "test" / "resources")
+    }
   }
 }
 
 object nettyServer extends Module {
+  val r = wsRoot / "zio-http-netty-server"
   object jvm extends Cross[JvmModule](scalaVersions)
-  trait JvmModule extends ZioHttpJvmTestableModule {
-    def root = wsRoot / "zio-http-netty-server"
+  trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-netty-server"
     def moduleDeps = Seq(server.jvm(), nettyCore.jvm())
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def resources = Task.Sources(r / "src" / "main" / "resources")
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(nettyServer.jvm(), core.jvm().test, nettyCore.jvm())
+      override def sources = Task.Sources(r / "src" / "test" / "scala")
+      override def resources = Task.Sources(r / "src" / "test" / "resources")
+    }
   }
 }
 
 object nettyClient extends Module {
+  val r = wsRoot / "zio-http-netty-client"
   object jvm extends Cross[JvmModule](scalaVersions)
-  trait JvmModule extends ZioHttpJvmTestableModule {
-    def root = wsRoot / "zio-http-netty-client"
+  trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-netty-client"
     def moduleDeps = Seq(client.jvm(), nettyCore.jvm())
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def resources = Task.Sources(r / "src" / "main" / "resources")
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(nettyClient.jvm(), core.jvm().test, nettyCore.jvm(), nettyServer.jvm())
+      override def sources = Task.Sources(r / "src" / "test" / "scala")
+      override def resources = Task.Sources(r / "src" / "test" / "resources")
+    }
   }
 }
 
 object testkit extends Module {
+  val r = wsRoot / "zio-http-testkit"
   object jvm extends Cross[JvmModule](scalaVersions)
-  trait JvmModule extends ZioHttpJvmTestableModule {
-    def root = wsRoot / "zio-http-testkit"
+  trait JvmModule extends ZioHttpModule {
     def artifactName = "zio-http-testkit"
     def moduleDeps = Seq(core.jvm(), server.jvm(), client.jvm(), endpoint.jvm(), nettyCore.jvm(), nettyServer.jvm(), nettyClient.jvm())
-    override def mvnDeps = super.mvnDeps() ++ Seq(mvn"dev.zio::zio:${Versions.Zio}")
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"dev.zio::zio:${Versions.Zio}",
+      mvn"dev.zio::zio-test:${Versions.Zio}",
+    )
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def resources = Task.Sources(r / "src" / "main" / "resources")
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(testkit.jvm(), endpoint.jvm(), nettyCore.jvm(), nettyClient.jvm(), nettyServer.jvm())
+      override def sources = Task.Sources(r / "src" / "test" / "scala")
+      override def resources = Task.Sources(r / "src" / "test" / "resources")
+    }
   }
 }
 
