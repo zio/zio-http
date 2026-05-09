@@ -358,8 +358,28 @@ object URL {
 
   private[http] def decodeOrNull(rawUrl: String): URL = {
     try {
-      val uri = new URI(sanitizeAbsoluteUrlQuery(rawUrl))
-      if (uri.isAbsolute) fromAbsoluteURIOrNull(uri) else fromRelativeURIOrNull(uri)
+      if (rawUrl.isEmpty) URL.empty
+      else if (rawUrl.charAt(0) == '/') {
+        val fragmentIdx = rawUrl.indexOf('#')
+        val rawQueryIdx = rawUrl.indexOf('?')
+        val queryIdx    = if (fragmentIdx >= 0 && rawQueryIdx > fragmentIdx) -1 else rawQueryIdx
+
+        val pathEnd  = if (queryIdx >= 0) queryIdx else if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
+        val rawPath  = rawUrl.substring(0, pathEnd)
+        val rawQuery = if (queryIdx >= 0) {
+          val queryEnd = if (fragmentIdx > queryIdx) fragmentIdx else rawUrl.length
+          rawUrl.substring(queryIdx + 1, queryEnd)
+        } else null
+        val fragment = if (fragmentIdx >= 0) {
+          val rawFrag = rawUrl.substring(fragmentIdx + 1)
+          Some(Fragment.fromRaw(rawFrag))
+        } else None
+
+        URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(rawQuery), fragment)
+      } else {
+        val uri = new URI(sanitizeAbsoluteUrlQuery(rawUrl))
+        if (uri.isAbsolute) fromAbsoluteURIOrNull(uri) else fromRelativeURIOrNull(uri)
+      }
     } catch {
       case NonFatal(_) => null
     }
@@ -379,9 +399,7 @@ object URL {
           val sanitizedQuery = rawQuery
             .replace("{", EncodedLeftBrace)
             .replace("}", EncodedRightBrace)
-
-          if (sanitizedQuery eq rawQuery) rawUrl
-          else rawUrl.substring(0, queryIdx + 1) + sanitizedQuery + rawUrl.substring(queryEnd)
+          rawUrl.substring(0, queryIdx + 1) + sanitizedQuery + rawUrl.substring(queryEnd)
         }
       }
     }
