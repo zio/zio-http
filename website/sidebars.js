@@ -100,6 +100,20 @@ const sidebars = {
       items: ["reference/socket/socket", "reference/socket/websocketframe"],
     },
 
+    // ZIO HTTP Testkit subsection
+    {
+      type: "category",
+      label: "Testing (Testkit)",
+      link: { type: 'doc', id: "reference/zio-http-testkit/index" },
+      items: [
+        "reference/zio-http-testkit/test-server",
+        "reference/zio-http-testkit/test-client",
+        "reference/zio-http-testkit/test-channel",
+        "reference/zio-http-testkit/http-test-aspect",
+        "reference/zio-http-testkit/examples",
+      ],
+    },
+
     // Configs subsection
     {
       type: "category",

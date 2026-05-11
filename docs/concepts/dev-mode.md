@@ -87,22 +87,13 @@ Each aspect sets the mode for the duration of the test, restoring the previous m
 
 Example:
 
-```scala
-import zio.test._
-import zio.http._
+```scala mdoc:passthrough
+import utils._
 
-object ModeExamplesSpec extends ZIOSpecDefault {
-  def spec = suite("ModeExamplesSpec")(
-    test("enables preprod logic") {
-      assertTrue(Mode.current == Mode.Preprod)
-    } @@ HttpTestAspect.preprodMode,
-
-    test("enables prod logic") {
-      assertTrue(Mode.isProd)
-    } @@ HttpTestAspect.prodMode,
-  ) @@ TestAspect.sequential // IMPORTANT, see below
-}
+printSource("zio-http-example-testing/src/test/scala/example/testing/GuideModeExamplesSpec.scala")
 ```
+
+([source](https://github.com/zio/zio-http/blob/main/zio-http-example-testing/src/test/scala/example/testing/GuideModeExamplesSpec.scala))
 
 ### Why `TestAspect.sequential`?
 
