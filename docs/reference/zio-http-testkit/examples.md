@@ -172,12 +172,12 @@ These examples directly correspond to sections in the testkit reference:
 
 | Example File | Reference | Topics |
 |---|---|---|
-| `DirectRouteTestingExamples.scala` | [Direct Route Testing](../guides/testing-http-apps.md) | Unit testing, handler logic, routing |
+| `DirectRouteTestingExamples.scala` | [Direct Route Testing](../../guides/testing-http-apps.md) | Unit testing, handler logic, routing |
 | `TestServerExamples.scala` | [TestServer](./test-server.md) | Integration testing, multiple routes, state |
 | `TestClientExamples.scala` | [TestClient](./test-client.md) | Mocking, external services, fallback handling |
 | `WebSocketExamples.scala` | [TestChannel](./test-channel.md) | WebSocket, bidirectional messaging, frames |
-| `ErrorHandlingExamples.scala` | [Error Handling](../guides/testing-http-apps.md) | Status codes, error responses |
-| `StatefulHandlerExamples.scala` | [State Persistence](../guides/testing-http-apps.md) | Ref, state management, request tracking |
+| `ErrorHandlingExamples.scala` | [Error Handling](../../guides/testing-http-apps.md) | Status codes, error responses |
+| `StatefulHandlerExamples.scala` | [State Persistence](../../guides/testing-http-apps.md) | Ref, state management, request tracking |
 
 ## Writing Your Own Tests
 

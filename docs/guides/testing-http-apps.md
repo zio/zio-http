@@ -44,7 +44,7 @@ testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 This guide assumes you're familiar with:
 - [ZIO effects and testing](https://zio.dev/reference/test/) — how to write ZIO code and tests
-- [ZIO HTTP routes and handlers](../reference/route.md) — how to define HTTP endpoints
+- [ZIO HTTP routes and handlers](../reference/routing/routes.md) — how to define HTTP endpoints
 - Basic HTTP concepts — requests, responses, status codes, headers
 
 If you're new to ZIO or ZIO HTTP, start with those reference pages before diving into testing patterns.
@@ -448,4 +448,4 @@ The key insight is that routes are just functions — you can test them like any
 For more details, see:
 - [ZIO Test documentation](https://zio.dev/reference/test/) — how to write ZIO tests
 - [ZIO HTTP Handler reference](../reference/handler.md) — handler patterns and APIs
-- [ZIO HTTP Route reference](../reference/route.md) — route definition and matching
+- [ZIO HTTP Route reference](../reference/routing/routes.md) — route definition and matching
