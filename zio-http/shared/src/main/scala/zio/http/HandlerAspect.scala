@@ -132,6 +132,31 @@ final case class HandlerAspect[-Env, +CtxOut](
     }
   }
 
+  def applyHandlerContextInput[Env1 <: Env, In](
+    handler: Handler[Env1, Response, (CtxOut, In), Response],
+  )(implicit input: Handler.IsRequest[In]): Handler[Env1, Response, In, Response] = {
+    if (self == HandlerAspect.identity) handler.contramap[In](in => (().asInstanceOf[CtxOut], in))
+    else {
+      Handler.scoped[Env1] {
+        Handler.fromFunctionZIO[In] { in =>
+          protocol.incoming(input.get(in)).flatMap { case (state, (request, ctxOut)) =>
+            val updatedInput = input.replace(in, request)
+            handler((ctxOut, updatedInput)).either.flatMap { either =>
+              protocol.outgoing(state, either.merge).flatMap { response =>
+                if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  def applyHandlerInput[Env1 <: Env, In](
+    handler: Handler[Env1, Response, In, Response],
+  )(implicit input: Handler.IsRequest[In]): Handler[Env1, Response, In, Response] =
+    applyHandlerContextInput(handler.contramap[(CtxOut, In)](_._2))
+
   def applyHandler[Env1 <: Env](handler: RequestHandler[Env1, Response]): RequestHandler[Env1, Response] =
     if (self == HandlerAspect.identity) handler
     else {

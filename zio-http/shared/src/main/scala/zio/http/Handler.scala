@@ -38,11 +38,11 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
+  ): Handler[Env1, Response, In1, Response] = {
+    def convert(handler: Handler[R, Err, In, Out]): Handler[Env1, Response, In1, Response] =
+      handler.asInstanceOf[Handler[Env1, Response, In1, Response]]
 
-    aspect.applyHandler(convert(self))
+    aspect.applyHandlerInput(convert(self))
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
@@ -51,13 +51,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
+  ): Handler[Env0, Response, In1, Response] =
+    aspect.applyHandlerContextInput {
       Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
+        handler { (ctx: Ctx, in: In1) =>
           val handler: ZIO[Scope & Ctx, Response, Response] =
             self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
+              .asInstanceOf[Handler[Ctx, Response, In1, Response]](in)
           handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
         }
       }
@@ -703,10 +703,63 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A] {
+    def get(value: A): Request
+    def replace(value: A, request: Request): A
+  }
 
-  object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  object IsRequest extends IsRequestLowPriority {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {
+      def get(value: Request): Request                       = value
+      def replace(value: Request, request: Request): Request = request
+    }
+  }
+
+  private[http] trait IsRequestLowPriority {
+    implicit def tuple2[A]: IsRequest[(A, Request)] = new IsRequest[(A, Request)] {
+      def get(value: (A, Request)): Request                       = value._2
+      def replace(value: (A, Request), request: Request): (A, Request) = (value._1, request)
+    }
+
+    implicit def tuple3[A, B]: IsRequest[(A, B, Request)] = new IsRequest[(A, B, Request)] {
+      def get(value: (A, B, Request)): Request = value._3
+      def replace(value: (A, B, Request), request: Request): (A, B, Request) =
+        (value._1, value._2, request)
+    }
+
+    implicit def tuple4[A, B, C]: IsRequest[(A, B, C, Request)] = new IsRequest[(A, B, C, Request)] {
+      def get(value: (A, B, C, Request)): Request = value._4
+      def replace(value: (A, B, C, Request), request: Request): (A, B, C, Request) =
+        (value._1, value._2, value._3, request)
+    }
+
+    implicit def tuple5[A, B, C, D]: IsRequest[(A, B, C, D, Request)] =
+      new IsRequest[(A, B, C, D, Request)] {
+        def get(value: (A, B, C, D, Request)): Request = value._5
+        def replace(value: (A, B, C, D, Request), request: Request): (A, B, C, D, Request) =
+          (value._1, value._2, value._3, value._4, request)
+      }
+
+    implicit def tuple6[A, B, C, D, E]: IsRequest[(A, B, C, D, E, Request)] =
+      new IsRequest[(A, B, C, D, E, Request)] {
+        def get(value: (A, B, C, D, E, Request)): Request = value._6
+        def replace(value: (A, B, C, D, E, Request), request: Request): (A, B, C, D, E, Request) =
+          (value._1, value._2, value._3, value._4, value._5, request)
+      }
+
+    implicit def tuple7[A, B, C, D, E, F]: IsRequest[(A, B, C, D, E, F, Request)] =
+      new IsRequest[(A, B, C, D, E, F, Request)] {
+        def get(value: (A, B, C, D, E, F, Request)): Request = value._7
+        def replace(value: (A, B, C, D, E, F, Request), request: Request): (A, B, C, D, E, F, Request) =
+          (value._1, value._2, value._3, value._4, value._5, value._6, request)
+      }
+
+    implicit def tuple8[A, B, C, D, E, F, G]: IsRequest[(A, B, C, D, E, F, G, Request)] =
+      new IsRequest[(A, B, C, D, E, F, G, Request)] {
+        def get(value: (A, B, C, D, E, F, G, Request)): Request = value._8
+        def replace(value: (A, B, C, D, E, F, G, Request), request: Request): (A, B, C, D, E, F, G, Request) =
+          (value._1, value._2, value._3, value._4, value._5, value._6, value._7, request)
+      }
   }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =

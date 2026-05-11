@@ -45,6 +45,29 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1 test")
       },
+      test("HandlerAspect with context preserves path parameters and request input") {
+        final case class WebSession(id: Int)
+
+        val handlerAspect: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunction[Request](request => (request, Some(WebSession(1)))),
+          )
+
+        val routeHandler: Handler[Any, Response, (String, Request), Response] =
+          (handler { (id: String, request: Request) =>
+              withContext { (session: Option[WebSession]) =>
+                Response.text(s"$id:${request.path.encode}:${session.map(_.id).getOrElse(0)}")
+              }
+            } @@ handlerAspect)
+
+        val route =
+          Method.GET / "base" / string("id") -> routeHandler
+
+        for {
+          response   <- route.toRoutes.runZIO(Request.get(URL(Path.root / "base" / "abc")))
+          bodyString <- response.body.asString
+        } yield assertTrue(bodyString == "abc:/base/abc:1")
+      },
       // format: on
     )
 }
