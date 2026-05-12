@@ -24,7 +24,7 @@ Key properties:
 
 Testing HTTP applications requires more than unit testing individual handlers. Real servers require startup, actual HTTP calls, verification, and teardown—an approach that is **slow** (seconds per test), **hard to debug** (network I/O adds noise), and **difficult to test edge cases** (timeouts, rate limits, failures).
 
-`TestServer` solves this by simulating a complete server in-memory, preserving the full HTTP request/response cycle without network overhead.
+`TestServer` solves this by running your routes in-process on localhost. While requests use the real HTTP stack with loopback network I/O, this eliminates external network latency and disk I/O, preserving the full request/response cycle while keeping tests fast and deterministic.
 
 Use `TestServer` when testing multiple routes together, including route precedence, state persistence across requests, and complete feature workflows.
 

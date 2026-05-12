@@ -107,7 +107,7 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/MockingExte
 When you need the complete picture—multiple `Route`s working together, state persisting across requests—bring in `TestServer`:
 ```
 HTTP Request ──> TestServer ──> Route Matching ──> Handler ──> Response
-                (in-memory)
+                (localhost / in-process)
 ```
 
 This is where you test feature workflows. User registration followed by email verification. API calls in sequence. Routes interacting as they would in production. It's the slowest approach, but it catches integration issues that simpler tests miss.

@@ -23,7 +23,7 @@ cd zio-http-example-testing
 Then, compile all examples:
 
 ```bash
-sbt compile
+sbt test:compile
 ```
 
 ## Example Test Suites
