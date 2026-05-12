@@ -1,5 +1,3 @@
-# Dev / Preprod / Prod Modes
-
 ZIO HTTP provides a simple built-in notion of application "mode" so you can adapt behavior (e.g. enable extra diagnostics in development, stricter settings in production, other routes, different error handling) without wiring your own config keys everywhere.
 
 The available modes are:
@@ -12,7 +10,7 @@ The available modes are:
 
 Use any of the following helpers:
 
-```scala
+```scala mdoc:compile-only
 import zio.http.Mode
 
 // Full value
@@ -42,13 +40,13 @@ sbt "run -Dzio.http.mode=preprod"
 ZIO_HTTP_MODE=prod sbt run
 ```
 
-Unknown values cause a warning on stderr and the mode falls back to `dev`:
+Unknown values cause a warning on stderr and the mode falls back to `dev`.
 
 ## Typical Use Cases
 
 You can branch on the mode to enable / disable features:
 
-```scala
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 
@@ -65,7 +63,7 @@ val appRoutes = baseRoutes ++ extraRoutes
 
 Or adapt server config:
 
-```scala
+```scala mdoc:compile-only
 val serverConfig =
   if (Mode.isProd) Server.Config.default
     .leakDetection(false)
