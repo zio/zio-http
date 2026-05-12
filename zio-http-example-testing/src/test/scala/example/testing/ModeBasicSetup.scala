@@ -23,5 +23,5 @@ object ModeBasicSetup extends ZIOSpecDefault {
         modeInProd <- ZIO.succeed(Mode.current)
       } yield assertTrue(modeInProd == Mode.Prod)
     } @@ HttpTestAspect.prodMode,
-  )
+  ) @@ TestAspect.sequential
 }
