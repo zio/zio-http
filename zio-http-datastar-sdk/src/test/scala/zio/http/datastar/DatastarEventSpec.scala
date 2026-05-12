@@ -66,11 +66,11 @@ object DatastarEventSpec extends ZIOSpecDefault {
         } yield assertTrue(
           events.length == 2,
           events.head.eventType.contains("datastar-patch-elements"),
-          events.head.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test1')</script>\n",
+          events.head.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test1')</script>\n",
           events(1).eventType.contains("datastar-patch-elements"),
           events(
             1,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test2')</script>\n",
+          ).data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test2')</script>\n",
         )
       },
       test("should handle mixed DatastarEvent types in stream") {
@@ -92,7 +92,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           events(2).eventType.contains("datastar-patch-elements"),
           events(
             2,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('script')</script>\n",
+          ).data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">console.log('script')</script>\n",
         )
       },
       test("should preserve event options in SSE stream") {
@@ -199,7 +199,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
           sseEvents(3).eventType.contains("datastar-patch-elements"),
           sseEvents(
             3,
-          ).data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('done')</script>",
+          ).data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">console.log('done')</script>",
         )
       },
       test("should handle handler with effectful stream creation") {
@@ -304,7 +304,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test')</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">console.log('test')</script>\n",
         )
       },
       test("executeScript with autoRemove false") {
@@ -316,7 +316,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script>alert('hello')</script>\n",
+          sse.data == "selector body\nmode append\nelements <script>alert('hello')</script>\n",
         )
       },
       test("executeScript with custom attributes") {
@@ -329,7 +329,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\" data-custom=\"value\" data-foo=\"bar\">console.log('test')</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\" data-custom=\"value\" data-foo=\"bar\">console.log('test')</script>\n",
         )
       },
       test("executeScript with all parameters") {
@@ -346,7 +346,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         assertTrue(
           sse.id.contains("script-789"),
           sse.retry.contains(4000.millis),
-          sse.data == "selector <body></body>\nmode append\nelements <script async=\"true\">window.location.reload()</script>\n",
+          sse.data == "selector body\nmode append\nelements <script async=\"true\">window.location.reload()</script>\n",
         )
       },
     ),
@@ -413,7 +413,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">" + scriptContent + "</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">" + scriptContent + "</script>\n",
         )
       },
       test("default retry duration is not included in SSE") {
@@ -584,7 +584,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse = event.toServerSentEvent
 
         assertTrue(
-          sse.data.contains("selector <body></body>\n"),
+          sse.data.contains("selector body\n"),
           sse.data.contains("mode append\n"),
           sse.data.contains("elements <script data-effect=\"el.remove()\">const x = 1;\n"),
           sse.data.contains("elements const y = 2;\n"),
@@ -595,7 +595,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val event = DatastarEvent.executeScript("var x = '</script><div>xss</div>'; alert(x)")
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">var x = '<\\/script><div>xss</div>'; alert(x)</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">var x = '<\\/script><div>xss</div>'; alert(x)</script>\n",
         )
       },
     ),
@@ -605,7 +605,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse   = event.toServerSentEvent
         assertTrue(
           sse.eventType.contains("datastar-patch-elements"),
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('test-event',{detail:{\"count\":42},bubbles:true,cancelable:false,composed:false}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('test-event',{detail:{\"count\":42},bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
       test("dispatch with custom selector") {
@@ -616,7 +616,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         )
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('#my-el');if(el)el.dispatchEvent(new CustomEvent('my-event',{detail:{\"count\":1},bubbles:true,cancelable:false,composed:false}))})()</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('#my-el');if(el)el.dispatchEvent(new CustomEvent('my-event',{detail:{\"count\":1},bubbles:true,cancelable:false,composed:false}))})()</script>\n",
         )
       },
       test("dispatch with all event options") {
@@ -627,35 +627,35 @@ object DatastarEventSpec extends ZIOSpecDefault {
         )
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('custom',{detail:{\"count\":5},bubbles:false,cancelable:true,composed:true}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('custom',{detail:{\"count\":5},bubbles:false,cancelable:true,composed:true}))</script>\n",
         )
       },
       test("event name escaping") {
         val event = DatastarEvent.dispatchEvent("it's-an-event", CountUpdate(0))
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('it\\'s-an-event',{detail:{\"count\":0},bubbles:true,cancelable:false,composed:false}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('it\\'s-an-event',{detail:{\"count\":0},bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
       test("complex nested payload") {
         val event = DatastarEvent.dispatchEvent("nested", Outer(Inner(1, "hello"), true))
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('nested',{detail:{\"inner\":{\"x\":1,\"y\":\"hello\"},\"flag\":true},bubbles:true,cancelable:false,composed:false}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('nested',{detail:{\"inner\":{\"x\":1,\"y\":\"hello\"},\"flag\":true},bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
       test("raw Js payload") {
         val event = DatastarEvent.dispatchEvent("raw", Js("myExpression"))
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('raw',{detail:myExpression,bubbles:true,cancelable:false,composed:false}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('raw',{detail:myExpression,bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
       test("dispatch with source convenience overload") {
         val event = DatastarEvent.dispatchEvent("ev", CountUpdate(7), Some(selector".cls"))
         val sse   = event.toServerSentEvent
         assertTrue(
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('.cls');if(el)el.dispatchEvent(new CustomEvent('ev',{detail:{\"count\":7},bubbles:true,cancelable:false,composed:false}))})()</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">(function(){var el=document.querySelector('.cls');if(el)el.dispatchEvent(new CustomEvent('ev',{detail:{\"count\":7},bubbles:true,cancelable:false,composed:false}))})()</script>\n",
         )
       },
       test("SSE format verification") {
@@ -663,7 +663,7 @@ object DatastarEventSpec extends ZIOSpecDefault {
         val sse   = event.toServerSentEvent
         assertTrue(
           sse.eventType.contains("datastar-patch-elements"),
-          sse.data == "selector <body></body>\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('fmt-test',{detail:{\"count\":99},bubbles:true,cancelable:false,composed:false}))</script>\n",
+          sse.data == "selector body\nmode append\nelements <script data-effect=\"el.remove()\">document.dispatchEvent(new CustomEvent('fmt-test',{detail:{\"count\":99},bubbles:true,cancelable:false,composed:false}))</script>\n",
         )
       },
     ),

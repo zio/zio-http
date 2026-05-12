@@ -71,7 +71,7 @@ Using the `Routes.fromIterable` constructor, we can build routes from an iterabl
 
 ## Nested Routes
 
-Routes can be nested, which means that we can have routes that are themselves collections of other routes. This is useful for organizing routes into hierarchical structures, and for sharing common paths accross routes.
+Routes can be nested, which means that we can have routes that are themselves collections of other routes. This is useful for organizing routes into hierarchical structures, and for sharing common paths across routes.
 
 Let's see an example of nested routes:
 

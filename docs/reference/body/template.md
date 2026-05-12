@@ -3,7 +3,7 @@ id: template
 title: Template
 ---
 
-The package `zio.http.template._` contains lightweight helpers for generating statically typed, safe html similiar in spirit to `scalatags`. 
+The package `zio.http.template._` contains lightweight helpers for generating statically typed, safe html similar in spirit to `scalatags`. 
 
 ## Html and DOM
 
