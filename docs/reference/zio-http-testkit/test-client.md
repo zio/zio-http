@@ -84,7 +84,7 @@ TestClient instances are created via ZIO layers that provide both `TestClient` a
 
 ### `TestClient.layer` — Basic TestClient Layer
 
-```scala
+```scala mdoc:compile-only
 val testClientLayer: ZLayer[Any, Nothing, TestClient & Client] = TestClient.layer
 ```
 
@@ -118,7 +118,7 @@ Key behavior:
 
 ### `TestClient.withFallbackHandler` — Custom Fallback Behavior
 
-```scala
+```scala mdoc:compile-only
 def withFallbackHandler[R](
   fallbackHandler: Request => ZIO[R, Response, Response]
 ): ZLayer[R, Nothing, TestClient & Client]
@@ -162,7 +162,7 @@ Configure how TestClient responds to HTTP requests using these methods:
 
 #### `TestClient#addRoute` — Add Dynamic Route Handler
 
-```scala
+```scala mdoc:compile-only
 trait TestClient {
   def addRoute[R](route: Route[R, Response]): ZIO[R, Nothing, Unit]
 }
@@ -198,7 +198,7 @@ Key behavior:
 
 #### `TestClient#addRoutes` — Add Multiple Dynamic Routes
 
-```scala
+```scala mdoc:compile-only
 trait TestClient {
   def addRoutes[R](
     route: Route[R, Response],
@@ -239,7 +239,7 @@ Key behavior:
 
 #### `TestClient#addRequestResponse` — Exact Request/Response Matching
 
-```scala
+```scala mdoc:compile-only
 trait TestClient {
   def addRequestResponse(
     expectedRequest: Request,
@@ -283,7 +283,7 @@ Key behavior:
 
 #### `TestClient#setFallbackHandler` — Fallback for Unmatched Requests
 
-```scala
+```scala mdoc:compile-only
 trait TestClient {
   def setFallbackHandler[R](
     fallbackFunction: Request => ZIO[R, Response, Response]

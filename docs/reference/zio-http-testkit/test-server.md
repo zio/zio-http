@@ -80,7 +80,7 @@ TestServer instances are created via ZIO layers. There are two main approaches:
 
 The simplest way to get started. Provides a fully configured TestServer with sensible defaults:
 
-```scala
+```scala mdoc:compile-only
 val testServerLayer: ZLayer[Any, Nothing, TestServer] = TestServer.default
 ```
 
@@ -112,7 +112,7 @@ val result = myTest.provideSome[Client](
 
 For advanced use cases, combine `TestServer.layer` with a custom `Driver` to customize server behavior:
 
-```scala
+```scala mdoc:compile-only
 val layer: ZLayer[Driver & Server.Config, Throwable, TestServer] = TestServer.layer
 ```
 
@@ -144,7 +144,7 @@ Add routes dynamically during test execution using these three methods:
 
 #### `TestServer#addRoute` — Add a Single Route
 
-```scala
+```scala mdoc:compile-only
 trait TestServer {
   def addRoute[R](route: Route[R, Response]): ZIO[R, Nothing, Unit]
 }
@@ -179,7 +179,7 @@ Key behavior:
 
 #### `TestServer#addRoutes` — Add Multiple Routes
 
-```scala
+```scala mdoc:compile-only
 trait TestServer {
   def addRoutes[R](routes: Routes[R, Response]): ZIO[R, Nothing, Unit]
 }
@@ -217,7 +217,7 @@ Key behavior:
 
 #### `TestServer#addRequestResponse` — Exact Request/Response Matching
 
-```scala
+```scala mdoc:compile-only
 trait TestServer {
   def addRequestResponse(expectedRequest: Request, response: Response): ZIO[Any, Nothing, Unit]
 }
