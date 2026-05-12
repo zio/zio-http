@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 
 Here's what you can do with the testkit:
 
-```scala
+```scala mdoc:compile-only
 // Test a server route directly
 val routes = Routes(Method.GET / "users" -> Handler.text("Alice"))
 
@@ -45,7 +45,7 @@ Testing HTTP applications is fundamentally different from testing pure functions
 
 Add this dependency to your `build.sbt`:
 
-```scala
+```scala mdoc:compile-only
 libraryDependencies += "dev.zio" %% "zio-http-testkit" % "@VERSION@" % Test
 ```
 
