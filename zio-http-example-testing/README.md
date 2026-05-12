@@ -127,6 +127,7 @@ zio-http-example-testing/
 ```scala
 for {
   client <- ZIO.service[Client]
+  port   <- ZIO.serviceWithZIO[Server](_.port)
   counter <- Ref.make(0)
   _ <- TestServer.addRoute {
     Method.GET / "increment" -> handler { _ =>
@@ -143,6 +144,7 @@ for {
 ```scala
 for {
   client <- ZIO.service[Client]
+  port   <- ZIO.serviceWithZIO[Server](_.port)
   _ <- TestServer.addRoute {
     Method.GET / "protected" -> handler { req =>
       if (req.headers.contains("Authorization"))

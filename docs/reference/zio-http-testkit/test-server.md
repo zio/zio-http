@@ -3,7 +3,7 @@ id: test-server
 title: "TestServer"
 ---
 
-`TestServer` is an in-memory HTTP server for integration testing. It simulates a running server without actual network I/O, accepting configured routes and responding to HTTP requests via a standard `Client`. All operations execute synchronously and in-memory, enabling fast, deterministic integration tests that verify multiple routes working together.
+`TestServer` is an integration testing HTTP server that simulates a real server listening on localhost. Unlike a real production server, it skips disk I/O and network latency, keeping tests fast and deterministic. It accepts configured routes and responds to HTTP requests via a standard `Client`. All operations execute synchronously, enabling fast integration tests that verify multiple routes working together.
 
 ```scala
 final case class TestServer(driver: Driver, bindPort: Int) extends Server {
@@ -171,9 +171,9 @@ val test = for {
 ```
 
 Key behavior:
-- Routes accumulate; routes added later are checked first (LIFO ordering within route matching)
+- Routes accumulate in the order they are added; earlier routes are checked before later ones
 - Provides the route's environment `R` into the effect
-- Performance: route matching is O(1) per request
+- Performance: route matching is O(n) where n is the number of routes
 
 #### `TestServer#addRoutes` — Add Multiple Routes
 

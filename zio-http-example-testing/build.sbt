@@ -11,3 +11,5 @@ libraryDependencies ++= Seq(
 )
 
 testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+
+Test / parallelExecution := false

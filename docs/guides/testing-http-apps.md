@@ -308,7 +308,7 @@ It's easy to test the "happy path" where everything works correctly. But in prod
 
 **Testing HTTP status codes:**
 
-Use `TestClient` to verify that your handlers return the correct status codes:
+Use direct route testing or `TestServer` to verify that your handlers return the correct status codes:
 
 ```scala mdoc:passthrough
 import utils._

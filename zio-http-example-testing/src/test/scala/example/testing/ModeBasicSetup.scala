@@ -17,5 +17,11 @@ object ModeBasicSetup extends ZIOSpecDefault {
         currentMode <- ZIO.succeed(Mode.current)
       } yield assertTrue(currentMode == Mode.Prod)
     } @@ HttpTestAspect.prodMode,
+
+    test("modes are isolated between tests") {
+      for {
+        modeInProd <- ZIO.succeed(Mode.current)
+      } yield assertTrue(modeInProd == Mode.Prod)
+    } @@ HttpTestAspect.prodMode,
   )
 }

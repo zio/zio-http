@@ -2,7 +2,8 @@ package example.testing
 
 import zio._
 import zio.http._
-import zio.http.ChannelEvent.Read
+import zio.http.ChannelEvent.{Read, UserEventTriggered}
+import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.test._
 
 /**
@@ -30,6 +31,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         // Define the client handler - sends a message and receives the echo
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             // Send initial message
             _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
             // Receive the echo
@@ -62,6 +65,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         // Client that sends multiple messages
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             // Send first message
             _ <- channel.send(Read(WebSocketFrame.text("First")))
             // Receive response
@@ -99,6 +104,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         // Client that receives greeting then sends message
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             // Receive greeting
             greeting <- channel.receive
             // Send a message
@@ -129,6 +136,8 @@ object WebSocketExamples extends ZIOSpecDefault {
 
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             // Send text frame
             _ <- channel.send(Read(WebSocketFrame.text("Hello")))
             textResp <- channel.receive
@@ -164,6 +173,8 @@ object WebSocketExamples extends ZIOSpecDefault {
 
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             // Send three messages
             _ <- channel.send(Read(WebSocketFrame.text("msg1")))
             count1 <- channel.receive
@@ -195,6 +206,8 @@ object WebSocketExamples extends ZIOSpecDefault {
 
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             _ <- channel.send(Read(WebSocketFrame.text("hello")))
             _ <- channel.receive
             _ <- channel.send(Read(WebSocketFrame.text("close")))
@@ -224,6 +237,8 @@ object WebSocketExamples extends ZIOSpecDefault {
 
         val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
           for {
+            // Skip handshake complete event
+            _ <- channel.receive
             _ <- channel.send(Read(WebSocketFrame.text("hello")))
             broadcast <- channel.receive
             _ <- channel.shutdown
