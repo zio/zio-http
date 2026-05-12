@@ -5,7 +5,9 @@ title: "TestServer"
 
 `TestServer` is an integration testing HTTP server that simulates a real server listening on localhost. Unlike a real production server, it skips external network latency and disk I/O, keeping tests fast and deterministic. It accepts configured routes and responds to HTTP requests via a standard `Client`. Requests run through the full HTTP stack on localhost, ensuring realistic behavior while remaining deterministic.
 
-```scala
+The `TestServer` type provides:
+
+```scala mdoc:compile-only
 final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   def addRoute[R](route: Route[R, Response]): ZIO[R, Nothing, Unit]
   def addRoutes[R](routes: Routes[R, Response]): ZIO[R, Nothing, Unit]
@@ -18,19 +20,19 @@ Key properties:
 - **Localhost Binding** — Binds to localhost on an automatically assigned port; uses real network I/O but eliminates external network latency and disk I/O
 - **Mutable Route Configuration** — Add routes dynamically during test execution using `TestServer#addRoute`, `TestServer#addRoutes`, or `TestServer#addRequestResponse`
 - **Standard Server Interface** — Extends `Server` and works with the standard `Client` interface
-- **Port Binding** — Binds to an automatically assigned port; query it via `TestServer.port`
+- **Port Binding** — Binds to an automatically assigned port; query it with `TestServer.port`
 
 ## Motivation
 
 Testing HTTP applications requires more than unit testing individual handlers. Real servers require startup, actual HTTP calls, verification, and teardown—an approach that is **slow** (seconds per test), **hard to debug** (network I/O adds noise), and **difficult to test edge cases** (timeouts, rate limits, failures).
 
-`TestServer` solves this by running your routes in-process on localhost. While requests use the real HTTP stack with loopback network I/O, this eliminates external network latency and disk I/O, preserving the full request/response cycle while keeping tests fast and deterministic.
+`TestServer` solves this by running your routes in-process on localhost. While requests use the real HTTP stack with loopback network I/O, this eliminates external network latency and disk I/O, while preserving the full request/response cycle and keeping tests fast and deterministic.
 
 Use `TestServer` when testing multiple routes together, including route precedence, state persistence across requests, and complete feature workflows.
 
 ## Quick Showcase
 
-Here's a complete example showing the core capabilities: set up TestServer with routes, make requests, and verify responses:
+Here's a complete example showing the core capabilities. Set up TestServer with routes, make requests, and verify responses:
 
 ```scala mdoc:reset
 import zio._
@@ -68,7 +70,7 @@ val test = for {
 // Output: ("Hello World!", "User 42")
 ```
 
-This demonstrates the complete workflow: provide `TestServer.default` as a layer, add routes with `TestServer#addRoutes`, retrieve the `TestServer#port`, and make requests via the standard `Client` interface.
+This demonstrates the complete workflow: provide `TestServer.default` as a layer, add routes with `TestServer#addRoutes`, retrieve the port with `TestServer#port`, and make requests via the standard `Client` interface.
 
 ## Construction / Creating TestServer
 
@@ -108,7 +110,7 @@ val result = myTest.provideSome[Client](
 
 ### `TestServer.layer` — Custom Driver Configuration (Advanced)
 
-For advanced use cases, combine `TestServer.layer` with a custom `Driver`:
+For advanced use cases, combine `TestServer.layer` with a custom `Driver` to customize server behavior:
 
 ```scala
 val layer: ZLayer[Driver & Server.Config, Throwable, TestServer] = TestServer.layer
@@ -138,7 +140,7 @@ val customLayer = ZLayer.make[TestServer][Nothing](
 
 ### Route Configuration Group
 
-TestServer provides three methods to add routes dynamically during test execution:
+Add routes dynamically during test execution using these three methods:
 
 #### `TestServer#addRoute` — Add a Single Route
 
@@ -148,7 +150,7 @@ trait TestServer {
 }
 ```
 
-Add a single route pattern to handle matching requests. The route is combined with existing routes using route matching rules (first match wins).
+Add a single route pattern to handle matching requests. The route combines with existing routes using route matching rules (first match wins):
 
 ```scala mdoc:reset
 import zio._
@@ -183,7 +185,7 @@ trait TestServer {
 }
 ```
 
-Add multiple routes atomically. Useful for related routes or comprehensive test setup.
+Add multiple routes atomically. This is useful for related routes or comprehensive test setup:
 
 ```scala mdoc:reset
 import zio._
@@ -221,12 +223,12 @@ trait TestServer {
 }
 ```
 
-Define a 1-1 mapping between an exact request and a fixed response. Useful for simple "request X always gets response Y" scenarios. Matches on:
+Define a 1-1 mapping between an exact request and a fixed response. This is useful for simple "request X always gets response Y" scenarios. Matches on:
 - **Method** — Must match exactly
 - **Path** — Must match exactly  
 - **Headers** — Expected request headers must all be present (actual request can have additional headers)
 
-Returns `Response.notFound` if the request doesn't match.
+Returns `Response.notFound` when the request doesn't match:
 
 ```scala mdoc:reset
 import zio._
@@ -261,13 +263,13 @@ Key behavior:
 
 #### `TestServer#port` — Get Bound Port
 
-```scala
+```scala mdoc:compile-only
 trait Server {
   def port: UIO[Int]
 }
 ```
 
-Query the actual port the TestServer bound to. Useful because TestServer binds to an automatically assigned available port.
+Use `port` to query the actual port that TestServer bound to. This is useful because TestServer binds to an automatically assigned available port:
 
 ```scala mdoc:reset
 import zio._
@@ -287,6 +289,8 @@ Key behavior:
 - Always succeeds (port is assigned during layer initialization)
 
 ## Common Patterns
+
+This section demonstrates practical patterns for using TestServer.
 
 ### Testing Multiple Routes Together
 
@@ -318,7 +322,7 @@ val test = for {
 
 ### Testing Route Matching and Precedence
 
-Routes are evaluated in order; test that specific routes are tried before fallbacks:
+Routes are evaluated in order. Test that specific routes are tried before fallbacks:
 
 ```scala mdoc:reset
 import zio._
@@ -382,6 +386,8 @@ val test = for {
 ## Integration with Other Types
 
 ### Within Module
+
+TestServer and TestClient serve complementary purposes.
 
 **`TestClient`** — TestServer and TestClient are complementary:
 - Use `TestServer` to test your **server** (routes, handlers)
