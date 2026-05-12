@@ -100,8 +100,9 @@ object ErrorHandlingExamples extends ZIOSpecDefault {
               }
             }
           }
+          _ <- errorOccurred.set(true)
           resp <- client(Request.get(URL.root.port(port) / "dangerous"))
-        } yield assertTrue(resp.status == Status.Ok)
+        } yield assertTrue(resp.status == Status.InternalServerError)
       },
     ),
     suite("Input validation errors")(
@@ -307,7 +308,14 @@ object ErrorHandlingExamples extends ZIOSpecDefault {
           // Data available
           normalResp <- client(Request.get(URL.root.port(port) / "data"))
           normalBody <- normalResp.body.asString
-        } yield assertTrue(normalBody.contains("data"))
+          // Simulate data source becoming unavailable — handler falls back to cached response
+          _ <- dataAvailable.set(false)
+          degradedResp <- client(Request.get(URL.root.port(port) / "data"))
+          degradedBody <- degradedResp.body.asString
+        } yield assertTrue(
+          normalBody.contains("data"),
+          degradedBody.contains("cached"),
+        )
       },
     ),
   ).provide(TestServer.default, Client.default, Scope.default)
