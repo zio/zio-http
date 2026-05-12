@@ -5,7 +5,9 @@ title: "TestClient"
 
 `TestClient` is an in-memory HTTP client driver for mocking external API dependencies in tests. Instead of making real HTTP calls to external services, TestClient intercepts requests and returns configured responses. All communication happens in-memory and synchronously, enabling fast, deterministic tests without external dependencies.
 
-```scala
+The `TestClient` type provides:
+
+```scala mdoc:compile-only
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
@@ -42,7 +44,7 @@ Key properties:
 Many applications depend on external HTTP APIs: payment processors, auth services, third-party data sources. Testing code that calls these APIs is challenging:
 
 1. **Real API calls are slow** — Each request waits for network I/O, making tests slow (seconds per test)
-2. **Real APIs are unreliable** — External services may be down, rate-limited, or unavailable during CI
+2. **Real APIs are unreliable** — External services may go down, become rate-limited, or be unavailable during CI
 3. **Hard to test edge cases** — How do you test timeout behavior, 5xx errors, or rate-limit responses without actually calling the API?
 4. **Mocking is naive** — Hand-mocked responses often diverge from real API behavior, letting bugs slip through
 
@@ -86,7 +88,9 @@ TestClient instances are created via ZIO layers that provide both `TestClient` a
 val testClientLayer: ZLayer[Any, Nothing, TestClient & Client] = TestClient.layer
 ```
 
-Creates a TestClient instance with an empty behavior (no routes configured) and a default fallback handler that logs warnings for unexpected requests.
+This creates a TestClient instance with an empty behavior (no routes configured) and a default fallback handler that logs warnings for unexpected requests.
+
+To use `TestClient.layer`, set up routes and make requests:
 
 ```scala mdoc:compile-only
 import zio._
@@ -154,7 +158,7 @@ val result = test.provideLayer(customFallbackLayer >+> Scope.default)
 
 ### Route Configuration Group
 
-TestClient provides multiple methods to configure how it responds to HTTP requests:
+Configure how TestClient responds to HTTP requests using these methods:
 
 #### `TestClient#addRoute` — Add Dynamic Route Handler
 
@@ -164,7 +168,7 @@ trait TestClient {
 }
 ```
 
-Add a route with a handler function that computes responses dynamically based on the request. Useful for logic-based responses.
+Add a route with a handler function that computes responses dynamically based on the request. This is useful for logic-based responses:
 
 ```scala mdoc:reset
 import zio._
@@ -203,7 +207,7 @@ trait TestClient {
 }
 ```
 
-Add multiple routes with handler functions. Useful for comprehensive API mocking.
+Add multiple routes with handler functions. This is useful for comprehensive API mocking:
 
 ```scala mdoc:reset
 import zio._
@@ -244,12 +248,12 @@ trait TestClient {
 }
 ```
 
-Define a 1-1 mapping between an exact request and a fixed response. Simplest form of mocking for fixed scenarios. Matches on:
+Define a 1-1 mapping between an exact request and a fixed response. This is the simplest form of mocking for fixed scenarios. Matches on:
 - **Method** — Must match exactly
 - **Path** — Must match exactly
 - **Headers** — Expected request headers must all be present (actual request can have additional)
 
-Throws `MatchError` if request doesn't match.
+The request must match exactly, or the TestClient throws `MatchError`:
 
 ```scala mdoc:reset
 import zio._
@@ -287,7 +291,7 @@ trait TestClient {
 }
 ```
 
-Set a handler for requests that don't match any configured route. Useful for default behavior or error handling.
+Set a handler for requests that don't match any configured route. This is useful for default behavior or error handling:
 
 ```scala mdoc:reset
 import zio._
@@ -332,13 +336,13 @@ Key behavior:
 
 #### `TestClient#installSocketApp` — Mock WebSocket Server
 
-```scala
+```scala mdoc:compile-only
 trait TestClient {
   def installSocketApp[Env1](app: WebSocketApp[Any]): ZIO[Env1, Nothing, Unit]
 }
 ```
 
-Configure TestClient to handle WebSocket upgrade requests. When your code initiates a WebSocket connection, TestClient will run the configured WebSocket app, allowing bidirectional message exchange via TestChannel.
+Use `installSocketApp` to configure TestClient to handle WebSocket upgrade requests. When your code initiates a WebSocket connection, TestClient runs the configured WebSocket app, allowing bidirectional message exchange via TestChannel:
 
 ```scala mdoc:compile-only
 import zio._
@@ -367,6 +371,8 @@ Key behavior:
 - Both client and server handlers run concurrently
 
 ## Common Patterns
+
+This section shows practical patterns for using TestClient.
 
 ### Mocking External REST API
 
@@ -451,6 +457,8 @@ val test = for {
 ## Integration with Other Types
 
 ### Within Module
+
+TestClient and TestServer work together in several ways.
 
 **`TestServer`** — TestClient and TestServer work together:
 - TestServer tests your routes
