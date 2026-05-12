@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.LongAdder
 import scala.util.control.NonFatal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Body.WebsocketBody
 import zio.http._
@@ -202,31 +201,38 @@ private[zio] final case class ServerInboundHandler(
               }
 
             ctx.writeAndFlush(jResponse)
-            NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
-              case Some(bodyTask) =>
-                // Disable auto-read while the response body is being streamed to prevent
-                // the next request's headers from being read and interleaved.
-                // All autoRead manipulation must happen on the event loop thread to avoid
-                // racing with AsyncBodyReader (used for request streaming)
-                val channel          = ctx.channel()
-                val previousAutoRead = new java.util.concurrent.atomic.AtomicBoolean(true)
-                channel
-                  .eventLoop()
-                  .execute(() => {
-                    val prev = channel.config().isAutoRead
-                    previousAutoRead.set(prev)
-                    if (prev) channel.config().setAutoRead(false): Unit
-                  })
-                Some(bodyTask.ensuring(ZIO.async[Any, Nothing, Unit] { cb =>
-                  channel.eventLoop().execute { () =>
-                    if (previousAutoRead.get()) {
-                      channel.config().setAutoRead(true)
-                      channel.read()
+            if (request.method == Method.HEAD) {
+              // RFC 9110 §9.3.2: the response to a HEAD request MUST NOT include message content.
+              // Send only the terminator so the connection stays usable for keep-alive.
+              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              None
+            } else {
+              NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx) match {
+                case Some(bodyTask) =>
+                  // Disable auto-read while the response body is being streamed to prevent
+                  // the next request's headers from being read and interleaved.
+                  // All autoRead manipulation must happen on the event loop thread to avoid
+                  // racing with AsyncBodyReader (used for request streaming)
+                  val channel          = ctx.channel()
+                  val previousAutoRead = new java.util.concurrent.atomic.AtomicBoolean(true)
+                  channel
+                    .eventLoop()
+                    .execute(() => {
+                      val prev = channel.config().isAutoRead
+                      previousAutoRead.set(prev)
+                      if (prev) channel.config().setAutoRead(false): Unit
+                    })
+                  Some(bodyTask.ensuring(ZIO.async[Any, Nothing, Unit] { cb =>
+                    channel.eventLoop().execute { () =>
+                      if (previousAutoRead.get()) {
+                        channel.config().setAutoRead(true)
+                        channel.read()
+                      }
+                      cb(Exit.unit)
                     }
-                    cb(Exit.unit)
-                  }
-                }))
-              case None           => None
+                  }))
+                case None           => None
+              }
             }
           } else {
             ctx.writeAndFlush(jResponse)
