@@ -44,7 +44,7 @@ final case class TestClient(
       //    expectedRequest == realRequest
       expectedRequest.url.relative == realRequest.url &&
       expectedRequest.method == realRequest.method &&
-      expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
+      expectedRequest.headers.toList.toSet.forall(expectedHeader => realRequest.headers.toList.toSet.contains(expectedHeader))
     }
     addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
       if (!isDefinedAt(realRequest))
@@ -129,9 +129,9 @@ final case class TestClient(
 
   def sslConfig: Option[ClientSSLConfig] = None
 
-  def url: URL = URL(Path.root)
+  def url: URL = URL(None, None, None, Path.root, QueryParams.empty, None)
 
-  def version: Version = Version.Http_1_1
+  def version: Version = Version.`HTTP/1.1`
 
   override def request(
     version: Version,
@@ -146,12 +146,11 @@ final case class TestClient(
       missingRouteBehavior <- missingRouteHandler.get.map(_.toRoutes)
       currentBehavior      <- behavior.get.map(missingRouteBehavior ++ _)
       request = Request(
-        body = body,
-        headers = headers,
         method = if (method == Method.ANY) Method.GET else method,
         url = url.relative,
+        headers = headers,
+        body = body,
         version = version,
-        remoteAddress = None,
       )
       response <- currentBehavior(request).merge
     } yield response

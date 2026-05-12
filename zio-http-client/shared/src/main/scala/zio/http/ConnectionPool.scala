@@ -23,7 +23,7 @@ import zio.{Duration, Scope, Trace, ZIO}
 trait ConnectionPool[Connection] {
 
   def get(
-    location: URL.Location.Absolute,
+    location: URL,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
     maxInitialLineLength: Int,

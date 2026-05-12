@@ -20,12 +20,11 @@ import zio.{Config, Duration}
 
 sealed trait ConnectionPoolConfig
 object ConnectionPoolConfig {
-  case object Disabled                                                                    extends ConnectionPoolConfig
-  final case class Fixed(size: Int)                                                       extends ConnectionPoolConfig
-  final case class FixedPerHost(sizes: Map[URL.Location.Absolute, Fixed], default: Fixed) extends ConnectionPoolConfig
-  final case class Dynamic(minimum: Int, maximum: Int, ttl: Duration)                     extends ConnectionPoolConfig
-  final case class DynamicPerHost(configs: Map[URL.Location.Absolute, Dynamic], default: Dynamic)
-      extends ConnectionPoolConfig
+  case object Disabled                                                          extends ConnectionPoolConfig
+  final case class Fixed(size: Int)                                             extends ConnectionPoolConfig
+  final case class FixedPerHost(sizes: Map[URL, Fixed], default: Fixed)         extends ConnectionPoolConfig
+  final case class Dynamic(minimum: Int, maximum: Int, ttl: Duration)           extends ConnectionPoolConfig
+  final case class DynamicPerHost(configs: Map[URL, Dynamic], default: Dynamic) extends ConnectionPoolConfig
 
   def config: Config[ConnectionPoolConfig] = {
     val disabled       = Config.string.mapOrFail {
@@ -45,14 +44,12 @@ object ConnectionPoolConfig {
           "per-host",
           (Config.string("url") ++ fixed).mapOrFail { case (s, fixed) =>
             URL
-              .decode(s)
+              .parse(s)
               .left
-              .map(error => Config.Error.InvalidData(message = error.getMessage))
+              .map(error => Config.Error.InvalidData(message = error))
               .flatMap { url =>
-                url.kind match {
-                  case url: URL.Location.Absolute => Right(url -> fixed)
-                  case _ => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
-                }
+                if (url.isAbsolute) Right(url -> fixed)
+                else Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
               }
           },
         ) ++
@@ -65,14 +62,12 @@ object ConnectionPoolConfig {
           "per-host",
           (Config.string("url") ++ dynamic).mapOrFail { case (s, fixed) =>
             URL
-              .decode(s)
+              .parse(s)
               .left
-              .map(error => Config.Error.InvalidData(message = error.getMessage))
+              .map(error => Config.Error.InvalidData(message = error))
               .flatMap { url =>
-                url.kind match {
-                  case url: URL.Location.Absolute => Right(url -> fixed)
-                  case _ => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
-                }
+                if (url.isAbsolute) Right(url -> fixed)
+                else Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
               }
           },
         ) ++

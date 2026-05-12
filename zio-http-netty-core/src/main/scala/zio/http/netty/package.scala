@@ -50,7 +50,7 @@ package object netty {
 
     final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
       body match {
-        case _ => body.asArray.map { buf => new AsciiString(buf, false) }
+        case _ => ZIO.attempt(new AsciiString(body.toArray, false))
       }
   }
 }

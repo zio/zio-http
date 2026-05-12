@@ -45,16 +45,16 @@ object Proxy {
     (
       Config
         .string("url")
-        .mapOrFail(s => URL.decode(s).left.map(error => Config.Error.InvalidData(message = error.getMessage))) ++
+        .mapOrFail(s => URL.parse(s).left.map(error => Config.Error.InvalidData(message = error))) ++
         (Config.string("user") ++ Config
           .secret("password")).nested("credentials").map { case (u, p) => Credentials(u, p) }.optional ++
         Config.chunkOf("headers", Config.string("name").zip(Config.string("value"))).optional.map {
-          case Some(headers) => Headers(headers.map { case (name, value) => Header.Custom(name, value) }: _*)
+          case Some(headers) => Headers(headers: _*)
           case None          => Headers.empty
         }
     ).map { case (url, creds, headers) =>
       Proxy(url, creds, headers)
     }
 
-  val empty: Proxy = Proxy(URL.empty)
+  val empty: Proxy = Proxy(URL(None, None, None, Path.empty, QueryParams.empty, None))
 }

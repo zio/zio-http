@@ -20,7 +20,7 @@ import java.nio.charset.Charset
 
 import scala.jdk.CollectionConverters._
 
-import zio.http.QueryParams
+import zio.http.{QueryParams, QueryParamsBuilder}
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
@@ -30,20 +30,28 @@ private[http] object NettyQueryParamEncoding {
       QueryParams.empty
     } else {
       val decoder = new QueryStringDecoder(queryStringFragment, charset, false)
-      QueryParams(decoder.parameters())
+      val params  = decoder.parameters()
+      val builder = QueryParamsBuilder.make(params.size())
+      params.asScala.foreach { case (key, values) =>
+        values.asScala.foreach(v => builder.add(key, v))
+      }
+      builder.build()
     }
   }
 
   final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
     val encoder = new QueryStringEncoder(baseUri, charset)
-    queryParams.seq.foreach { entry =>
-      val key    = entry.getKey
-      val values = entry.getValue.asScala
+    queryParams.toMap.foreach { case (key, values) =>
       if (key != "") {
         if (values.isEmpty) {
           encoder.addParam(key, "")
-        } else
-          values.foreach(value => encoder.addParam(key, value))
+        } else {
+          var i = 0
+          while (i < values.length) {
+            encoder.addParam(key, values(i))
+            i += 1
+          }
+        }
       }
     }
 

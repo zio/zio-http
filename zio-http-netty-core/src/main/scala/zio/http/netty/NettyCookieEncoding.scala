@@ -16,42 +16,40 @@
 
 package zio.http.netty
 
-import java.time.Duration
-
 import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Cookie.SameSite
-import zio.http.{Cookie, Path}
+import zio.http.SameSite
+import zio.http.{Cookie, Path, RequestCookie, ResponseCookie}
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 
 private[http] object NettyCookieEncoding {
-  final def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String = {
+  final def encodeRequestCookie(cookie: RequestCookie, validate: Boolean): String = {
     val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
-    val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
+    val builder = new jCookie.DefaultCookie(cookie.name, cookie.value)
     encoder.encode(builder)
   }
 
-  final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie.Request] = {
+  final def decodeRequestCookie(header: String, validate: Boolean): Chunk[RequestCookie] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
     Chunk.fromJavaIterable(decoder.decodeAll(header)).map { cookie =>
-      Cookie.Request(cookie.name(), cookie.value())
+      RequestCookie(cookie.name(), cookie.value())
     }
   }
 
-  final def encodeResponseCookie(cookie: Cookie.Response, validate: Boolean): String = {
-    val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
+  final def encodeResponseCookie(cookie: ResponseCookie, validate: Boolean): String = {
+    val builder = new jCookie.DefaultCookie(cookie.name, cookie.value)
 
     val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
 
     cookie.domain.foreach(builder.setDomain)
     cookie.path.foreach(i => builder.setPath(i.encode))
-    cookie.maxAge.foreach(i => builder.setMaxAge(i.getSeconds))
+    cookie.maxAge.foreach(i => builder.setMaxAge(i))
     cookie.sameSite.foreach {
       case SameSite.Strict => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.Strict)
       case SameSite.Lax    => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.Lax)
-      case SameSite.None   => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.None)
+      case SameSite.None_  => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.None)
     }
 
     builder.setHttpOnly(cookie.isHttpOnly)
@@ -60,23 +58,23 @@ private[http] object NettyCookieEncoding {
     encoder.encode(builder)
   }
 
-  final def decodeResponseCookie(header: String, validate: Boolean): Cookie.Response = {
+  final def decodeResponseCookie(header: String, validate: Boolean): ResponseCookie = {
     val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
     val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
 
-    Cookie.Response(
+    ResponseCookie(
       name = cookie.name(),
-      content = cookie.value(),
+      value = cookie.value(),
       domain = Option(cookie.domain()),
-      path = Option(cookie.path()).map(Path.decode),
-      maxAge = Option(cookie.maxAge()).filter(_ >= 0).map(i => Duration.ofSeconds(i)),
+      path = Option(cookie.path()).map(Path(_)),
+      maxAge = Option(cookie.maxAge()).filter(_ >= 0).map(_.toLong),
       isSecure = cookie.isSecure,
       isHttpOnly = cookie.isHttpOnly,
       sameSite = cookie.sameSite() match {
         case jCookie.CookieHeaderNames.SameSite.Strict => Option(SameSite.Strict)
         case jCookie.CookieHeaderNames.SameSite.Lax    => Option(SameSite.Lax)
-        case jCookie.CookieHeaderNames.SameSite.None   => Option(SameSite.None)
+        case jCookie.CookieHeaderNames.SameSite.None   => Option(SameSite.None_)
         case null                                      => None
       },
     )

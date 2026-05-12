@@ -39,7 +39,7 @@ final case class NettyClientDriver private[netty] (
 
   override def requestOnChannel(
     channel: Channel,
-    location: URL.Location.Absolute,
+    location: URL,
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],

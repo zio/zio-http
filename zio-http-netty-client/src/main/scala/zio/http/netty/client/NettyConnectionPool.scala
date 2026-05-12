@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.URL.Location
 import zio.http._
 import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy, NettyRuntime}
 
@@ -36,11 +35,17 @@ private[netty] trait NettyConnectionPool extends ConnectionPool[JChannel]
 
 private[netty] object NettyConnectionPool {
 
+  private def locationHost(url: URL): String =
+    url.host.getOrElse("localhost")
+
+   private def locationPort(url: URL): Int =
+     url.port.getOrElse(if (url.scheme.exists(_.isSecure)) 443 else 80)
+
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
     eventLoopGroup: JEventLoopGroup,
     nettyRuntime: NettyRuntime,
-    location: URL.Location.Absolute,
+    location: URL,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
     maxInitialLineLength: Int,
@@ -62,17 +67,17 @@ private[netty] object NettyConnectionPool {
               NettyProxy
                 .fromProxy(proxy)
                 .encode
-                .getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
+                .getOrElse(new HttpProxyHandler(new InetSocketAddress(locationHost(location), locationPort(location)))),
             )
           case None        =>
         }
 
-        if (location.scheme.isSecure.getOrElse(false)) {
+         if (location.scheme.exists(_.isSecure)) {
           pipeline.addLast(
             Names.SSLHandler,
             ClientSSLConverter
               .toNettySSLContext(sslOptions)
-              .newHandler(ch.alloc, location.host, location.port),
+              .newHandler(ch.alloc, locationHost(location), locationPort(location)),
           )
         }
 
@@ -110,7 +115,7 @@ private[netty] object NettyConnectionPool {
     }
 
     for {
-      resolvedHosts <- dnsResolver.resolve(location.host)
+      resolvedHosts <- dnsResolver.resolve(locationHost(location))
       hosts         <- Random.shuffle(resolvedHosts.toList)
       hostsNec      <- ZIO.succeed(NonEmptyChunk.fromIterable(hosts.head, hosts.tail))
       ch            <- collectFirstSuccess(hostsNec) { host =>
@@ -118,7 +123,7 @@ private[netty] object NettyConnectionPool {
           val bootstrap = new Bootstrap()
             .channelFactory(channelFactory)
             .group(eventLoopGroup)
-            .remoteAddress(new InetSocketAddress(host, location.port))
+            .remoteAddress(new InetSocketAddress(host, locationPort(location)))
             .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
             .handler(initializer)
           localAddress.foreach(bootstrap.localAddress)
@@ -228,7 +233,7 @@ private[netty] object NettyConnectionPool {
     dnsResolver: DnsResolver,
   ) extends NettyConnectionPool {
     override def get(
-      location: Location.Absolute,
+      location: URL,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
       maxInitialLineLength: Int,
@@ -261,23 +266,23 @@ private[netty] object NettyConnectionPool {
       false
   }
 
-  case class PoolKey(
-    location: Location.Absolute,
-    proxy: Option[Proxy],
-    sslOptions: ClientSSLConfig,
-    maxInitialLineLength: Int,
-    maxHeaderSize: Int,
-    decompression: Decompression,
-    idleTimeout: Option[Duration],
-    connectionTimeout: Option[Duration],
-  )
+   case class PoolKey(
+     location: URL,
+     proxy: Option[Proxy],
+     sslOptions: ClientSSLConfig,
+     maxInitialLineLength: Int,
+     maxHeaderSize: Int,
+     decompression: Decompression,
+     idleTimeout: Option[Duration],
+     connectionTimeout: Option[Duration],
+   )
 
   private final class ZioNettyConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
     maxItems: PoolKey => Int,
   ) extends NettyConnectionPool {
     override def get(
-      location: Location.Absolute,
+      location: URL,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
       maxInitialLineLength: Int,
@@ -366,7 +371,7 @@ private[netty] object NettyConnectionPool {
     createFixedPerHost(_ => size)
 
   private def createFixedPerHost(
-    size: URL.Location.Absolute => Int,
+    size: URL => Int,
   )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
@@ -399,9 +404,9 @@ private[netty] object NettyConnectionPool {
     createDynamicPerHost(_ => min, _ => max, _ => ttl)
 
   private def createDynamicPerHost(
-    min: URL.Location.Absolute => Int,
-    max: URL.Location.Absolute => Int,
-    ttl: URL.Location.Absolute => Duration,
+    min: URL => Int,
+    max: URL => Int,
+    ttl: URL => Duration,
   )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]

@@ -16,17 +16,11 @@
 
 package zio.http.netty
 
-import scala.annotation.tailrec
-
-import zio.Chunk.ByteArray
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.stream.ZStream
-
 import zio.http.Body
-import zio.http.Body._
-import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, UnsafeAsync}
+import zio.http.netty.NettyBody.UnsafeAsync
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
@@ -34,7 +28,6 @@ import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 
 private[netty] object NettyBodyWriter {
 
-  @tailrec
   def writeAndFlush(
     body: Body,
     contentLength: Option[Long],
@@ -43,8 +36,8 @@ private[netty] object NettyBodyWriter {
     trace: Trace,
   ): Option[Task[Unit]] = {
 
-    def writeArray(body: Array[Byte], isLast: Boolean) = {
-      val content = new DefaultHttpContent(Unpooled.wrappedBuffer(body))
+    def writeArray(bytes: Array[Byte], isLast: Boolean) = {
+      val content = new DefaultHttpContent(Unpooled.wrappedBuffer(bytes))
       if (isLast) {
         // Flushes the last body content and LastHttpContent together to avoid race conditions.
         ctx.write(content)
@@ -54,90 +47,30 @@ private[netty] object NettyBodyWriter {
       }
     }
 
-    body match {
-      case body: FileBody                  =>
-        // We need to stream the file when compression is enabled otherwise the response encoding fails
-        // Use body.asStream to respect offset/length for Range requests
-        // Pass None for content length to use chunked transfer encoding - the actual Content-Length
-        // header is already set by NettyResponseEncoder from body.knownContentLength before this runs.
-        // Passing content length here would interfere with response compression which changes the size.
-        val stream = body.asStream
-        val s      = StreamBody(stream, None, contentType = body.contentType)
-        NettyBodyWriter.writeAndFlush(s, None, ctx)
-      case AsyncBody(async, _, _, _)       =>
-        async(
-          new UnsafeAsync {
-            override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-              val arr = message match {
-                case b: ByteArray => b.array
-                case other        => other.toArray
-              }
-              writeArray(arr, isLast): Unit
+    val asyncState = NettyBody.asyncCallbacks.remove(body)
+    if (asyncState != null) {
+      asyncState.unsafeAsync(
+        new UnsafeAsync {
+          override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+            val arr = message match {
+              case b: Chunk.ByteArray => b.array
+              case other              => other.toArray
             }
+            writeArray(arr, isLast): Unit
+          }
 
-            override def fail(cause: Throwable): Unit =
-              ctx.fireExceptionCaught(cause): Unit
-          },
-        )
-        None
-      case AsciiStringBody(asciiString, _) =>
-        writeArray(asciiString.array(), isLast = true)
-        None
-      case sb: StringBody                  =>
-        writeArray(sb.unsafeAsArray(Unsafe.unsafe), isLast = true)
-        None
-      case StreamBody(stream, _, _)        =>
-        Some(
-          // Use the contentLength parameter directly - it comes from headers set by the encoder.
-          // Don't fall back to body.knownContentLength as compression may change the actual size.
-          contentLength match {
-            case Some(length) =>
-              stream.chunks
-                .runFoldZIO(length) { (remaining, bytes) =>
-                  remaining - bytes.size match {
-                    case 0L =>
-                      NettyFutureExecutor.executed {
-                        writeArray(bytes.toArray, isLast = true)
-                      }.as(0L)
-
-                    case n =>
-                      NettyFutureExecutor.executed {
-                        writeArray(bytes.toArray, isLast = false)
-                      }.as(n)
-                  }
-                }
-                .flatMap {
-                  case 0L        =>
-                    ZIO.unit
-                  case remaining =>
-                    val actualLength = length - remaining
-                    ZIO.logWarning(s"Expected Content-Length of $length, but sent $actualLength bytes") *>
-                      NettyFutureExecutor.executed {
-                        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                      }
-                }
-
-            case None =>
-              stream.chunks.mapZIO { bytes =>
-                NettyFutureExecutor.executed {
-                  writeArray(bytes.toArray, isLast = false)
-                }
-              }.runDrain.zipRight {
-                NettyFutureExecutor.executed {
-                  ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                }
-              }
-          },
-        )
-      case ArrayBody(data, _)              =>
-        writeArray(data, isLast = true)
-        None
-      case ChunkBody(data, _)              =>
-        writeArray(data.toArray, isLast = true)
-        None
-      case EmptyBody | ErrorBody(_)        =>
-        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-        None
+          override def fail(cause: Throwable): Unit =
+            ctx.fireExceptionCaught(cause): Unit
+        },
+      )
+      None
+    } else if (body.isEmpty) {
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+      None
+    } else {
+      val bytes = body.toArray
+      writeArray(bytes, isLast = true)
+      None
     }
   }
 }

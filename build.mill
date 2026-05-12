@@ -21,6 +21,13 @@ val wsRoot        = BuildCtx.workspaceRoot
 
 trait ZioHttpModule extends CrossScalaModule {
 
+  override def compileClasspath = Task {
+    val cp = super.compileClasspath()
+    val root = BuildCtx.workspaceRoot.toString
+    val (local, external) = cp.partition(p => p.path.toString.contains(root))
+    local ++ external
+  }
+
   override def scalacOptions = Task {
     val base = Seq("-deprecation", "-encoding", "UTF-8", "-feature", "-unchecked", "-language:postfixOps")
     crossScalaVersion match {

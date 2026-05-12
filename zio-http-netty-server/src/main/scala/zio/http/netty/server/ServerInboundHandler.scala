@@ -17,7 +17,6 @@
 package zio.http.netty.server
 
 import java.io.IOException
-import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
 import scala.util.control.NonFatal
@@ -28,11 +27,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
+import zio.http.{headers => typedHeaders}
 
+import io.netty.buffer.ByteBufUtil
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
 import io.netty.util.ReferenceCountUtil
 
@@ -49,7 +49,6 @@ private[zio] final case class ServerInboundHandler(
   private var runtime: NettyRuntime                             = _
 
   val inFlightRequests: LongAdder = new LongAdder()
-  private val readClientCert      = config.sslConfig.exists(_.includeClientCert)
   private val avoidCtxSwitching   = config.avoidContextSwitching
 
   def refreshApp(): Unit = {
@@ -80,7 +79,7 @@ private[zio] final case class ServerInboundHandler(
             attemptFastWrite(
               ctx,
               Conversions.methodFromNetty(jReq.method()),
-              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
+              withDefaultErrorResponse(throwable),
             )
             releaseRequest()
           } else {
@@ -155,14 +154,14 @@ private[zio] final case class ServerInboundHandler(
       true
     }
 
-    response.body match {
-      case body: Body.UnsafeBytes =>
+    response.body.stream.knownChunk match {
+      case Some(_) =>
         try {
-          fastEncode(response, body.unsafeAsArray)
+          fastEncode(response, response.body.toArray)
         } catch {
           case NonFatal(e) => fastEncode(withDefaultErrorResponse(e), Array.emptyByteArray)
         }
-      case _                      => false
+      case _       => false
     }
 
   }
@@ -225,53 +224,54 @@ private[zio] final case class ServerInboundHandler(
   private def makeZioRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest): Request = {
     val nettyHttpVersion = nettyReq.protocolVersion()
     val protocolVersion  = nettyHttpVersion match {
-      case HttpVersion.HTTP_1_0 => Version.Http_1_0
-      case HttpVersion.HTTP_1_1 => Version.Http_1_1
+      case HttpVersion.HTTP_1_0 => Version.`HTTP/1.0`
+      case HttpVersion.HTTP_1_1 => Version.`HTTP/1.1`
       case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $nettyHttpVersion")
     }
-    val clientCert       = if (readClientCert) {
-      val sslHandler = ctx.pipeline().get(classOf[SslHandler])
-      sslHandler.engine().getSession().getPeerCertificates().headOption
-    } else {
-      None
-    }
-    val remoteAddress    = ctx.channel().remoteAddress() match {
-      case m: InetSocketAddress => Option(m.getAddress)
-      case _                    => None
-    }
 
-    val headers           = Conversions.headersFromNetty(nettyReq.headers())
-    val contentTypeHeader = headers.get(Header.ContentType)
+    val headers     = Conversions.headersFromNetty(nettyReq.headers())
+    val contentType =
+      headers.get(typedHeaders.ContentType).map(_.value).getOrElse(ContentType.`application/octet-stream`)
+    val fallbackUrl = URL(None, None, None, Path.empty, QueryParams.empty, None)
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
+        val body = {
+          val byteBuf = nettyReq.content()
+          if (byteBuf.readableBytes() == 0) Body.empty
+          else Body.fromArray(ByteBufUtil.getBytes(byteBuf), contentType)
+        }
         Request(
-          body = NettyBody.fromByteBuf(nettyReq.content(), contentTypeHeader),
+          body = body,
           headers = headers,
           method = Conversions.methodFromNetty(nettyReq.method()),
-          url = { val decoded = URL.decodeOrNull(nettyReq.uri()); if (decoded ne null) decoded else URL.empty },
+          url = URL.parse(nettyReq.uri()).getOrElse(fallbackUrl),
           version = protocolVersion,
-          remoteAddress = remoteAddress,
-          remoteCertificate = clientCert,
         )
       case nettyReq: HttpRequest     =>
-        val knownContentLength = headers.get(Header.ContentLength).map(_.length)
+        val knownContentLength = headers.get(typedHeaders.ContentLength).map(_.length)
         val handler            = addAsyncBodyHandler(ctx)
-        val body               = NettyBody.fromAsync(
-          async => handler.connect(async),
-          knownContentLength,
-          contentTypeHeader,
-          () => ctx.read(): Unit,
-        )
+        val body               = {
+          val asyncBody = Body.fromStream(
+            zio.blocks.streams.Stream.fromChunk(zio.blocks.chunk.Chunk.empty[Byte]),
+            contentType,
+          )
+          NettyBody.asyncCallbacks.put(
+            asyncBody,
+            NettyBody.AsyncBodyState(
+              async => handler.connect(async),
+              () => ctx.read(): Unit,
+            ),
+          )
+          asyncBody
+        }
 
         Request(
           body = body,
           headers = headers,
           method = Conversions.methodFromNetty(nettyReq.method()),
-          url = { val decoded = URL.decodeOrNull(nettyReq.uri()); if (decoded ne null) decoded else URL.empty },
+          url = URL.parse(nettyReq.uri()).getOrElse(fallbackUrl),
           version = protocolVersion,
-          remoteAddress = remoteAddress,
-          remoteCertificate = clientCert,
         )
     }
 
@@ -318,8 +318,11 @@ private[zio] final case class ServerInboundHandler(
     runtime.run(ctx, ensured, preferOnCurrentThread = avoidCtxSwitching)(program)
   }
 
-  private def withDefaultErrorResponse(cause: Throwable): Response =
-    Response.internalServerError(cause.getMessage)
+  private def withDefaultErrorResponse(cause: Throwable): Response = {
+    val msg = cause.getMessage
+    if (msg ne null) Response(Status.InternalServerError, body = Body.fromString(msg))
+    else Response.internalServerError
+  }
 }
 
 object ServerInboundHandler {

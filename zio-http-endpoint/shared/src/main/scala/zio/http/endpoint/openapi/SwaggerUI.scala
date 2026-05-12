@@ -54,7 +54,7 @@ object SwaggerUI {
   //format: on
   def routes(path: PathCodec[Unit], version: String, api: OpenAPI, apis: OpenAPI*): Routes[Any, Response] = {
     import zio.blocks.html._
-    val basePath   = Method.GET / path
+    val basePath   = RoutePattern(Method.GET, path)
     val jsonRoutes = (api +: apis).map { api =>
       basePath / s"${URLEncoder.encode(api.info.title, Charsets.Utf8.name())}.json" -> handler { (_: Request) =>
         Response.json(api.toJson)
@@ -81,7 +81,7 @@ object SwaggerUI {
           div(id     := "swagger-ui"),
           script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-bundle.js"),
           script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-standalone-preset.js"),
-          script().inlineJs(s"""window.onload = () => {
+          script().inlineJs(zio.blocks.html.Js(s"""window.onload = () => {
                                |  window.ui = SwaggerUIBundle({
                                |    urls: ${jsonUrls.mkString("[\n", ",\n", "\n]")},
                                |    dom_id: '#swagger-ui',
@@ -91,7 +91,7 @@ object SwaggerUI {
                                |    ],
                                |    layout: "StandaloneLayout",
                                |  });
-                               |};""".stripMargin),
+                               |};""".stripMargin)),
         ),
       )
       Response(Status.Ok, Headers("content-type" -> "text/html"), Body.fromString("<!DOCTYPE html>" + page.render))

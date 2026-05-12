@@ -188,6 +188,12 @@ object BodySpec extends ZIOHttpSpec {
           val expected = data.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong
           assertTrue(body.knownContentLength == Some(expected))
         },
+        test("UTF-8 surrogate pair emoji counted correctly") {
+          val data     = "a😀b"
+          val body     = Body.fromString(data)
+          val expected = data.getBytes(java.nio.charset.StandardCharsets.UTF_8).length.toLong
+          assertTrue(body.knownContentLength == Some(expected))
+        },
       ),
       suite("materializedContent")(
         test("EmptyBody returns Some(Chunk.empty)") {

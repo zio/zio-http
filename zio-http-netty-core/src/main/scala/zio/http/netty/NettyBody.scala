@@ -17,14 +17,14 @@
 package zio.http.netty
 
 import java.nio.charset.Charset
+import java.util.{Collections, WeakHashMap}
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.stream.{Take, ZChannel, ZStream}
+import zio.stream.ZStream
 
-import zio.http.Body.UnsafeBytes
-import zio.http.{Body, Header}
+import zio.http.{Body, ContentType, Header}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
@@ -34,7 +34,8 @@ object NettyBody {
   /**
    * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
+  def fromAsciiString(asciiString: AsciiString): Body =
+    Body.fromArray(asciiString.array(), ContentType.`application/octet-stream`)
 
   private[zio] def fromAsync(
     unsafeAsync: UnsafeAsync => Unit,
@@ -42,148 +43,45 @@ object NettyBody {
     contentTypeHeader: Option[Header.ContentType] = None,
     readMore: () => Unit = () => (),
   ): Body = {
-    AsyncBody(
-      unsafeAsync,
-      knownContentLength,
-      contentTypeHeader.map(Body.ContentType.fromHeader),
-      readMore,
+    val ct   =
+      contentTypeHeader.map(_.value).getOrElse(ContentType.`application/octet-stream`)
+    val body = Body.fromStream(
+      zio.blocks.streams.Stream.fromChunk(zio.blocks.chunk.Chunk.empty[Byte]),
+      ct,
     )
+    asyncCallbacks.put(body, AsyncBodyState(unsafeAsync, readMore))
+    body
   }
 
   /**
    * Helper to create Body from ByteBuf
    */
   private[zio] def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType]): Body = {
-    if (byteBuf.readableBytes() == 0) Body.EmptyBody
+    if (byteBuf.readableBytes() == 0) Body.empty
     else {
-      Body.ArrayBody(ByteBufUtil.getBytes(byteBuf), contentTypeHeader.map(Body.ContentType.fromHeader))
+      val ct = contentTypeHeader.map(_.value).getOrElse(ContentType.`application/octet-stream`)
+      Body.fromArray(ByteBufUtil.getBytes(byteBuf), ct)
     }
   }
 
   def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
-  private[zio] final case class AsciiStringBody(
-    asciiString: AsciiString,
-    override val contentType: Option[Body.ContentType] = None,
-  ) extends UnsafeBytes {
-
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
-
-    override def isComplete: Boolean = true
-
-    override def isEmpty: Boolean = asciiString.isEmpty()
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      ZIO.succeed(Chunk.fromArray(asciiString.array()))
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
-
-    override def toString: String = s"Body.fromAsciiString($asciiString)"
-
-    private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
-
-    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
-
-    override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
-
-    override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(asciiString.toByteArray))
-  }
-
-  private[zio] final case class AsyncBody(
-    unsafeAsync: UnsafeAsync => Unit,
-    knownContentLength: Option[Long],
-    override val contentType: Option[Body.ContentType] = None,
-    nettyRead: () => Unit,
-  ) extends Body {
-
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map {
-      case b: Chunk.ByteArray => b.array
-      case other              => other.toArray
-    }
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      ZIO.async { cb =>
-        try {
-          // Cap at 100kB as a precaution in case the server sends an invalid content length
-          unsafeAsync(UnsafeAsync.Aggregating(bufferSize(1024 * 100))(cb))
-        } catch {
-          case e: Throwable => cb(ZIO.fail(e))
-        }
-      }
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = {
-      asyncUnboundedStream[Any, Throwable, Byte](
-        emit =>
-          try {
-            unsafeAsync(new UnsafeAsync.Streaming(emit))
-          } catch {
-            case e: Throwable => emit(ZIO.fail(Option(e)))
-          },
-        ZIO.succeed(nettyRead()),
-      )
-    }
-
-    // No need to create a large buffer when we know the response is small
-    private[this] def bufferSize(maxSize: Int): Int = {
-      val cl = knownContentLength.getOrElse(4096L)
-      if (cl <= 16L) 16
-      else if (cl >= maxSize) maxSize
-      else Integer.highestOneBit(cl.toInt - 1) << 1 // Round to next power of 2
-    }
-
-    override def isComplete: Boolean = false
-
-    override def isEmpty: Boolean = false
-
-    override def toString: String = s"AsyncBody($unsafeAsync)"
-
-    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
-
-    override def materializedContent: Option[Chunk[Byte]] = None
-  }
+  /**
+   * Stores async body callbacks for Body instances that represent async
+   * (streaming) bodies. Uses a WeakHashMap so that entries are cleaned up when
+   * the Body is garbage collected.
+   */
+  private[zio] val asyncCallbacks: java.util.Map[Body, AsyncBodyState] =
+    Collections.synchronizedMap(new WeakHashMap[Body, AsyncBodyState]())
 
   /**
-   * Code ported from zio.stream to use an unbounded queue On top of that the
-   * nettyRead() function is added. It is used to call netty ctx.read() when the
-   * queue is empty
+   * Holds the async callback and read-more function for an async body.
    */
-  private def asyncUnboundedStream[R, E, A](
-    register: ZStream.Emit[R, E, A, Unit] => Unit,
-    nettyRead: UIO[Unit],
-  )(implicit trace: Trace): ZStream[R, E, A] =
-    ZStream.unwrapScoped[R](for {
-      queue   <- ZIO.acquireRelease(Queue.unbounded[Take[E, A]])(_.shutdown)
-      runtime <- ZIO.runtime[R]
-    } yield {
-      val maybeRead = ZChannel.fromZIO(nettyRead.whenZIODiscard(queue.isEmpty))
-      val rtm       = runtime.unsafe
-      register { k =>
-        try {
-          rtm
-            .run(Take.fromPull(k).flatMap(queue.offer))(trace, Unsafe)
-            .getOrThrowFiberFailure()(Unsafe)
-          ()
-        } catch {
-          case FiberFailure(c) if c.isInterrupted =>
-        }
-      }
-
-      lazy val loop: ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit] =
-        ZChannel.unwrap(
-          queue.take
-            .flatMap(_.exit)
-            .fold(
-              maybeError =>
-                ZChannel.fromZIO(queue.shutdown) *>
-                  maybeError.fold[ZChannel[Any, Any, Any, Any, E, Chunk[A], Unit]](ZChannel.unit)(ZChannel.fail(_)),
-              a => ZChannel.write(a) *> maybeRead *> loop,
-            ),
-        )
-
-      ZStream.fromChannel(loop)
-    })
+  private[zio] final case class AsyncBodyState(
+    unsafeAsync: UnsafeAsync => Unit,
+    readMore: () => Unit,
+  )
 
   private[zio] trait UnsafeAsync {
     def apply(message: Chunk[Byte], isLast: Boolean): Unit

@@ -26,8 +26,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.ZStream
 
 import zio.http.ClientDriver.ChannelState
-import zio.http.Header.UserAgent
-import zio.http.URL.Location
 import zio.http.internal._
 
 final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
@@ -75,7 +73,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
     copy(url = url.addLeadingSlash)
 
   def addQueryParam(key: String, value: String): ZClient[Env, ReqEnv, In, Err, Out] =
-    copy(url = url.copy(queryParams = url.queryParams.addQueryParam(key, value)))
+    copy(url = url.copy(queryParams = url.queryParams.add(key, value)))
 
   def addQueryParams(params: QueryParams): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(queryParams = url.queryParams ++ params))
@@ -84,7 +82,7 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
     copy(url = url.addTrailingSlash)
 
   def addUrl(url: URL): ZClient[Env, ReqEnv, In, Err, Out] =
-    copy(url = self.url ++ url)
+    copy(url = ZClient.mergeUrls(self.url, url))
 
   def batched(
     request: Request,
@@ -191,9 +189,9 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] = {
     def makeRequest(body: Body) = {
       driver.request(
-        self.version ++ request.version,
+        request.version,
         request.method,
-        self.url ++ request.url,
+        ZClient.mergeUrls(self.url, request.url),
         self.headers ++ request.headers,
         body,
         sslConfig,
@@ -258,7 +256,9 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       driver,
     )
 
-  def uri(uri: URI): ZClient[Env, ReqEnv, In, Err, Out] = url(URL.fromURI(uri).getOrElse(URL.empty))
+  def uri(uri: URI): ZClient[Env, ReqEnv, In, Err, Out] = url(
+    URL.parse(uri.toString).getOrElse(URL(None, None, None, Path.empty, QueryParams.empty, None)),
+  )
 
   def url(url: URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = url)
 
@@ -272,9 +272,19 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
 
 object ZClient extends ZClientPlatformSpecific {
 
-  lazy val defaultUAHeader: UserAgent                  = UserAgent(
-    UserAgent.ProductOrComment.Product("Zio-Http-Client", zioHttpVersionNormalized),
-    List(UserAgent.ProductOrComment.Comment(s"Scala $scalaVersion")),
+  private[http] def mergeUrls(base: URL, overlay: URL): URL =
+    URL(
+      scheme = overlay.scheme.orElse(base.scheme),
+      host = overlay.host.orElse(base.host),
+      port = overlay.port.orElse(base.port),
+      path = base.path ++ overlay.path,
+      queryParams = base.queryParams ++ overlay.queryParams,
+      fragment = overlay.fragment.orElse(base.fragment),
+    )
+
+  lazy val defaultUAHeader: Header                     = Header.Custom(
+    "User-Agent",
+    s"Zio-Http-Client/${zioHttpVersionNormalized.getOrElse("unknown")} Scala/$scalaVersion",
   )
   private val zioHttpVersion: String                   = BuildInfo.version
   private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
@@ -297,8 +307,8 @@ object ZClient extends ZClientPlatformSpecific {
 
   def fromDriver[Env, ReqEnv, Err](driver: Driver[Env, ReqEnv, Err]): ZClient[Env, ReqEnv, Body, Err, Response] =
     ZClient(
-      Version.Default,
-      URL.empty,
+      Version.`HTTP/1.1`,
+      URL(None, None, None, Path.empty, QueryParams.empty, None),
       Headers.empty,
       None,
       None,
@@ -417,7 +427,7 @@ object ZClient extends ZClientPlatformSpecific {
           proxy: Option[Proxy],
         )(implicit trace: Trace): ZIO[Env, Err, Response] =
           ZIO.scoped[Env] {
-            self0.request(version, method, url, headers, body, sslConfig, proxy).flatMap(_.collect)
+            self0.request(version, method, url, headers, body, sslConfig, proxy)
           }
 
       }
@@ -570,12 +580,11 @@ object ZClient extends ZClientPlatformSpecific {
       sslConfig: Option[ClientSSLConfig],
       proxy: Option[Proxy],
     )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
-      val requestHeaders = body.mediaType match {
-        case None        => headers
-        case Some(value) => headers.removeHeader(Header.ContentType).addHeader(Header.ContentType(value))
-      }
+      val requestHeaders =
+        if (body.isEmpty) headers
+        else headers.remove("content-type").add("content-type", body.contentType.render)
 
-      val request = Request(version, method, url, requestHeaders, body, None)
+      val request = Request(method, url, requestHeaders, body, version)
       val cfg     =
         if (sslConfig.isDefined || proxy.isDefined)
           config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
@@ -591,81 +600,81 @@ object ZClient extends ZClientPlatformSpecific {
     )(implicit
       trace: Trace,
     ): ZIO[Scope, Throwable, Response] =
-      request.url.kind match {
-        case location: Location.Absolute =>
-          ZIO.uninterruptibleMask { restore =>
-            for {
-              connectionAcquired <- Ref.make(false)
-              onComplete         <- Promise.make[Throwable, ChannelState]
-              onResponse         <- Promise.make[Throwable, Response]
-              inChannelScope = outerScope match {
-                case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
-                case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
-              }
-              channelFiber <- inChannelScope {
-                for {
-                  connection       <- restore(
-                    connectionPool
-                      .get(
-                        location,
-                        clientConfig.proxy,
-                        clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
-                        clientConfig.maxInitialLineLength,
-                        clientConfig.maxHeaderSize,
-                        clientConfig.requestDecompression,
-                        clientConfig.idleTimeout,
-                        clientConfig.connectionTimeout,
-                        clientConfig.localAddress,
-                      ),
-                  )
-                    .zipLeft(connectionAcquired.set(true))
+      if (request.url.isAbsolute) {
+        val location = request.url
+        ZIO.uninterruptibleMask { restore =>
+          for {
+            connectionAcquired <- Ref.make(false)
+            onComplete         <- Promise.make[Throwable, ChannelState]
+            onResponse         <- Promise.make[Throwable, Response]
+            inChannelScope = outerScope match {
+              case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
+              case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
+            }
+            channelFiber <- inChannelScope {
+              for {
+                connection       <- restore(
+                  connectionPool
+                    .get(
+                      location,
+                      clientConfig.proxy,
+                      clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
+                      clientConfig.maxInitialLineLength,
+                      clientConfig.maxHeaderSize,
+                      clientConfig.requestDecompression,
+                      clientConfig.idleTimeout,
+                      clientConfig.connectionTimeout,
+                      clientConfig.localAddress,
+                    ),
+                )
+                  .zipLeft(connectionAcquired.set(true))
+                  .tapErrorCause(cause => onResponse.failCause(cause))
+                  .map(_.asInstanceOf[driver.Connection])
+                channelInterface <-
+                  driver
+                    .requestOnChannel(
+                      connection,
+                      location,
+                      request,
+                      onResponse,
+                      onComplete,
+                      connectionPool.enableKeepAlive,
+                      clientConfig.bodyReadTimeout.map(_.toMillis),
+                    )
                     .tapErrorCause(cause => onResponse.failCause(cause))
-                    .map(_.asInstanceOf[driver.Connection])
-                  channelInterface <-
-                    driver
-                      .requestOnChannel(
-                        connection,
-                        location,
-                        request,
-                        onResponse,
-                        onComplete,
-                        connectionPool.enableKeepAlive,
-                        clientConfig.bodyReadTimeout.map(_.toMillis),
-                      )
-                      .tapErrorCause(cause => onResponse.failCause(cause))
-                  _                <-
-                    onComplete.await.interruptible.exit.flatMap { exit =>
-                      if (exit.isInterrupted) {
-                        channelInterface.interrupt.ignore
-                          .zipRight(connectionPool.invalidate(connection))
-                          .uninterruptible
-                      } else {
-                        channelInterface.resetChannel
-                          .zip(exit)
-                          .map { case (s1, s2) => s1 && s2 }
-                          .catchAllCause(_ =>
-                            ZIO.succeed(ChannelState.Invalid),
-                          ) // In case resetting the channel fails we cannot reuse it
-                          .flatMap { channelState =>
-                            connectionPool
-                              .invalidate(connection)
-                              .when(channelState == ChannelState.Invalid)
-                          }
-                          .uninterruptible
-                      }
+                _                <-
+                  onComplete.await.interruptible.exit.flatMap { exit =>
+                    if (exit.isInterrupted) {
+                      channelInterface.interrupt.ignore
+                        .zipRight(connectionPool.invalidate(connection))
+                        .uninterruptible
+                    } else {
+                      channelInterface.resetChannel
+                        .zip(exit)
+                        .map { case (s1, s2) => s1 && s2 }
+                        .catchAllCause(_ =>
+                          ZIO.succeed(ChannelState.Invalid),
+                        ) // In case resetting the channel fails we cannot reuse it
+                        .flatMap { channelState =>
+                          connectionPool
+                            .invalidate(connection)
+                            .when(channelState == ChannelState.Invalid)
+                        }
+                        .uninterruptible
                     }
-                } yield ()
-              }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
-              _        <- ZIO.addFinalizer(onComplete.interrupt)
-              response <- restore(onResponse.await.onInterrupt {
-                ZIO.unlessZIO(connectionAcquired.get)(channelFiber.interrupt) *>
-                  onComplete.interrupt *>
-                  channelFiber.await
-              })
-            } yield response
-          }
-        case Location.Relative           =>
-          ZIO.fail(new IllegalArgumentException("Absolute URL is required"))
+                  }
+              } yield ()
+            }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
+            _        <- ZIO.addFinalizer(onComplete.interrupt)
+            response <- restore(onResponse.await.onInterrupt {
+              ZIO.unlessZIO(connectionAcquired.get)(channelFiber.interrupt) *>
+                onComplete.interrupt *>
+                channelFiber.await
+            })
+          } yield response
+        }
+      } else {
+        ZIO.fail(new IllegalArgumentException("Absolute URL is required"))
       }
   }
 

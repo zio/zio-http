@@ -26,7 +26,7 @@ trait ClientDriver {
 
   def requestOnChannel(
     connection: Connection,
-    location: URL.Location.Absolute,
+    location: URL,
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],

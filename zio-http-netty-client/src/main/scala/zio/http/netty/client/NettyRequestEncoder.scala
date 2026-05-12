@@ -34,8 +34,8 @@ private[zio] object NettyRequestEncoder {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Conversions.versionToNetty(req.version)
 
-    val path    = URL.encodeHttpPath(req.url)
-    val headers = Conversions.headersToNetty(req.allHeaders)
+    val path    = Conversions.urlToNetty(req.url)
+    val headers = Conversions.headersToNetty(req.headers)
 
     req.url.hostPort match {
       case Some(host) if !headers.contains(HttpHeaderNames.HOST) =>
@@ -43,23 +43,20 @@ private[zio] object NettyRequestEncoder {
       case _                                                     =>
     }
 
-    req.body match {
-      case body: Body.UnsafeBytes =>
-        val array   = body.unsafeAsArray(Unsafe.unsafe)
+    val body = req.body
+    body.length match {
+      case Some(length) if length <= 8192 =>
+        val array   = body.toArray
         val content = Unpooled.wrappedBuffer(array)
-
         headers.set(HttpHeaderNames.CONTENT_LENGTH, array.length.toString)
-
         val jReq = new DefaultFullHttpRequest(jVersion, method, path, content)
         jReq.headers().set(headers)
         jReq
-      case _                      =>
-        req.body.knownContentLength match {
-          case Some(length) =>
-            headers.set(HttpHeaderNames.CONTENT_LENGTH, length.toString)
-          case None         =>
-            headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
-        }
+      case Some(length) =>
+        headers.set(HttpHeaderNames.CONTENT_LENGTH, length.toString)
+        new DefaultHttpRequest(jVersion, method, path, headers)
+      case None =>
+        headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
         new DefaultHttpRequest(jVersion, method, path, headers)
     }
   }

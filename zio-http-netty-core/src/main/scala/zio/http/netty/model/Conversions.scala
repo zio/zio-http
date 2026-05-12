@@ -16,10 +16,6 @@
 
 package zio.http.netty.model
 
-import scala.collection.AbstractIterator
-
-import zio.Chunk
-
 import zio.http._
 
 import io.netty.handler.codec.compression.{BrotliMode, StandardCompressionOptions}
@@ -38,31 +34,27 @@ private[netty] object Conversions {
       case HttpMethod.DELETE  => Method.DELETE
       case HttpMethod.TRACE   => Method.TRACE
       case HttpMethod.CONNECT => Method.CONNECT
-      case method             => Method.CUSTOM(method.name())
+      case method             => Method.fromString(method.name()).getOrElse(Method.GET)
     }
 
   def methodToNetty(method: Method): HttpMethod =
     method match {
-      case Method.OPTIONS      => HttpMethod.OPTIONS
-      case Method.GET          => HttpMethod.GET
-      case Method.HEAD         => HttpMethod.HEAD
-      case Method.POST         => HttpMethod.POST
-      case Method.PUT          => HttpMethod.PUT
-      case Method.PATCH        => HttpMethod.PATCH
-      case Method.DELETE       => HttpMethod.DELETE
-      case Method.TRACE        => HttpMethod.TRACE
-      case Method.CONNECT      => HttpMethod.CONNECT
-      case Method.ANY          => HttpMethod.GET
-      case Method.CUSTOM(name) => new HttpMethod(name)
+      case Method.OPTIONS => HttpMethod.OPTIONS
+      case Method.GET     => HttpMethod.GET
+      case Method.HEAD    => HttpMethod.HEAD
+      case Method.POST    => HttpMethod.POST
+      case Method.PUT     => HttpMethod.PUT
+      case Method.PATCH   => HttpMethod.PATCH
+      case Method.DELETE  => HttpMethod.DELETE
+      case Method.TRACE   => HttpMethod.TRACE
+      case Method.CONNECT => HttpMethod.CONNECT
+      case Method.ANY     => HttpMethod.GET
+      case other          => new HttpMethod(other.name)
     }
 
   def headersToNetty(headers: Headers): HttpHeaders =
-    headers match {
-      case Headers.FromIterable(_)           => encodeHeaderListToNetty(headers)
-      case Headers.Native(value, _, _, _, _) => value.asInstanceOf[HttpHeaders]
-      case Headers.Concat(_, _)              => encodeHeaderListToNetty(headers)
-      case Headers.Empty                     => new DefaultHttpHeaders()
-    }
+    if (headers.isEmpty) new DefaultHttpHeaders()
+    else encodeHeaderListToNetty(headers)
 
   def urlToNetty(url: URL): String = {
     // As per the spec, the path should contain only the relative path.
@@ -71,27 +63,15 @@ private[netty] object Conversions {
     url0.relative.addLeadingSlash.encode
   }
 
-  private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
-    new AbstractIterator[Header] {
-      private val nettyIterator = headers.iteratorCharSequence()
-
-      override def hasNext: Boolean = nettyIterator.hasNext
-
-      override def next(): Header = {
-        val entry = nettyIterator.next()
-        Header.Custom(entry.getKey, entry.getValue)
-      }
+  def headersFromNetty(headers: HttpHeaders): Headers = {
+    val builder = HeadersBuilder.make(headers.size())
+    val iter    = headers.iteratorCharSequence()
+    while (iter.hasNext) {
+      val entry = iter.next()
+      builder.add(entry.getKey.toString, entry.getValue.toString)
     }
-
-  def headersFromNetty(headers: HttpHeaders): Headers =
-    Headers.Native(
-      headers,
-      (headers: HttpHeaders) => nettyHeadersIterator(headers),
-      // NOTE: Netty's headers.get is case-insensitive
-      (headers: HttpHeaders, key: CharSequence) => headers.get(key),
-      (headers: HttpHeaders, key: CharSequence) => Chunk.fromJavaIterable(headers.getAll(key)),
-      (headers: HttpHeaders, key: CharSequence) => headers.contains(key),
-    )
+    builder.build()
+  }
 
   private val multiValueHeaders: java.util.HashSet[String] = {
     val set = new java.util.HashSet[String](8)
@@ -102,34 +82,26 @@ private[netty] object Conversions {
     set
   }
 
-  private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
+  private def encodeHeaderListToNetty(headers: Headers): HttpHeaders = {
     val nettyHeaders = new DefaultHttpHeaders()
-    val iter         = headers.iterator
+    val entries      = headers.toList
+    val iter         = entries.iterator
     while (iter.hasNext) {
-      val header = iter.next()
-      val name   = header.headerName
+      val (name, value) = iter.next()
       if (multiValueHeaders.contains(name)) {
-        nettyHeaders.add(name, header.renderedValueAsCharSequence)
+        nettyHeaders.add(name, value)
       } else {
-        nettyHeaders.set(name, header.renderedValueAsCharSequence)
+        nettyHeaders.set(name, value)
       }
     }
     nettyHeaders
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =
-    status match {
-      case _: Status.Custom =>
-        HttpResponseStatus.valueOf(status.code, status.reasonPhrase)
-      case _                =>
-        HttpResponseStatus.valueOf(status.code)
-    }
+    HttpResponseStatus.valueOf(status.code)
 
   def statusFromNetty(status: HttpResponseStatus): Status =
-    Status.fromInt(status.code) match {
-      case Status.Custom(code, _) => Status.Custom(code, status.reasonPhrase)
-      case status                 => status
-    }
+    Status.fromInt(status.code)
 
   def schemeToNetty(scheme: Scheme): Option[HttpScheme] = scheme match {
     case Scheme.HTTP  => Option(HttpScheme.HTTP)
@@ -174,8 +146,8 @@ private[netty] object Conversions {
   }
 
   def versionToNetty(version: Version): HttpVersion = version match {
-    case Version.Http_1_0 => HttpVersion.HTTP_1_0
-    case Version.Http_1_1 => HttpVersion.HTTP_1_1
-    case Version.Default  => HttpVersion.HTTP_1_1
+    case Version.`HTTP/1.0` => HttpVersion.HTTP_1_0
+    case Version.`HTTP/1.1` => HttpVersion.HTTP_1_1
+    case _                  => HttpVersion.HTTP_1_1
   }
 }

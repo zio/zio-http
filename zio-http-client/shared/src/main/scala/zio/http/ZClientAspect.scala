@@ -19,8 +19,6 @@ import java.nio.charset.{Charset, StandardCharsets}
 
 import zio._
 
-import zio.http.Header.HeaderType
-
 /**
  * A `ZClientAspect` is capable on modifying some aspect of the execution of a
  * client, such as metrics, tracing, encoding, decoding, or logging.
@@ -178,15 +176,15 @@ object ZClientAspect {
   final def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     failureLevel: LogLevel = LogLevel.Warning,
-    loggedRequestHeaders: Set[HeaderType] = Set.empty,
-    loggedResponseHeaders: Set[HeaderType] = Set.empty,
+    loggedRequestHeaders: Set[String] = Set.empty,
+    loggedResponseHeaders: Set[String] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
   )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] = {
-    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
-    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
+    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.toLowerCase)
+    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.toLowerCase)
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
       /**
@@ -223,33 +221,33 @@ object ZClientAspect {
                   ZIO
                     .logLevel(level(response.status)) {
                       def requestHeaders =
-                        headers.collect {
-                          case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
-                            LogAnnotation(header.headerName, header.renderedValue)
+                        headers.toList.collect {
+                          case (name, value) if loggedRequestHeaderNames.contains(name.toLowerCase) =>
+                            LogAnnotation(name, value)
                         }.toSet
 
                       def responseHeaders =
-                        response.headers.collect {
-                          case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
-                            LogAnnotation(header.headerName, header.renderedValue)
+                        response.headers.toList.collect {
+                          case (name, value) if loggedResponseHeaderNames.contains(name.toLowerCase) =>
+                            LogAnnotation(name, value)
                         }.toSet
 
-                      val requestBody  = if (body.isComplete) body.asChunk.option else ZIO.none
-                      val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
+                      val requestBody  = ZIO.succeed(if (body.nonEmpty) Some(body.toArray) else None)
+                      val responseBody = ZIO.succeed(if (response.body.nonEmpty) Some(response.body.toArray) else None)
 
-                      requestBody.flatMap { requestBodyChunk =>
-                        responseBody.flatMap { responseBodyChunk =>
+                      requestBody.flatMap { requestBodyBytes =>
+                        responseBody.flatMap { responseBodyBytes =>
                           val bodyAnnotations = Set(
-                            requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
-                            requestBodyChunk.flatMap(chunk =>
+                            requestBodyBytes.map(bytes => LogAnnotation("request_size", bytes.length.toString)),
+                            requestBodyBytes.flatMap(bytes =>
                               if (logRequestBody)
-                                Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                                Some(LogAnnotation("request", new String(bytes, requestCharset)))
                               else None,
                             ),
-                            responseBodyChunk.map(chunk => LogAnnotation("response_size", chunk.size.toString)),
-                            responseBodyChunk.flatMap(chunk =>
+                            responseBodyBytes.map(bytes => LogAnnotation("response_size", bytes.length.toString)),
+                            responseBodyBytes.flatMap(bytes =>
                               if (logResponseBody)
-                                Some(LogAnnotation("response", new String(chunk.toArray, responseCharset)))
+                                Some(LogAnnotation("response", new String(bytes, responseCharset)))
                               else None,
                             ),
                           ).flatten
@@ -274,19 +272,19 @@ object ZClientAspect {
                   ZIO
                     .logLevel(failureLevel) {
                       val requestHeaders =
-                        headers.collect {
-                          case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
-                            LogAnnotation(header.headerName, header.renderedValue)
+                        headers.toList.collect {
+                          case (name, value) if loggedRequestHeaderNames.contains(name.toLowerCase) =>
+                            LogAnnotation(name, value)
                         }.toSet
 
-                      val requestBody = if (body.isComplete) body.asChunk.option else ZIO.none
+                      val requestBody = ZIO.succeed(if (body.nonEmpty) Some(body.toArray) else None)
 
-                      requestBody.flatMap { requestBodyChunk =>
+                      requestBody.flatMap { requestBodyBytes =>
                         val bodyAnnotations = Set(
-                          requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
-                          requestBodyChunk.flatMap(chunk =>
+                          requestBodyBytes.map(bytes => LogAnnotation("request_size", bytes.length.toString)),
+                          requestBodyBytes.flatMap(bytes =>
                             if (logRequestBody)
-                              Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                              Some(LogAnnotation("request", new String(bytes, requestCharset)))
                             else None,
                           ),
                         ).flatten
@@ -355,22 +353,17 @@ object ZClientAspect {
               oldDriver.request(version, method, url, headers, body, sslConfig, proxy).flatMap { resp =>
                 if (resp.status.isRedirection) {
                   if (attempt < max) {
-                    resp.headerOrFail(Header.Location) match {
-                      case Some(locOrError) =>
-                        locOrError match {
-                          case Left(locHeaderErr) =>
-                            scopedRedirectErr(resp, locHeaderErr)
+                    resp.headers.toList.collectFirst { case (n, v) if n.equalsIgnoreCase("location") => v } match {
+                      case Some(locValue) =>
+                        URL.parse(locValue) match {
+                          case Left(parseErr) =>
+                            scopedRedirectErr(resp, parseErr)
 
-                          case Right(loc) =>
-                            url.resolve(loc.url) match {
-                              case Left(relativeResolveErr) =>
-                                scopedRedirectErr(resp, relativeResolveErr)
-
-                              case Right(resolved) =>
-                                req(attempt + 1, version, method, resolved, headers, body, sslConfig, proxy)
-                            }
+                          case Right(locUrl) =>
+                            val resolved = if (locUrl.isAbsolute) locUrl else ZClient.mergeUrls(url, locUrl)
+                            req(attempt + 1, version, method, resolved, headers, body, sslConfig, proxy)
                         }
-                      case None             =>
+                      case None           =>
                         scopedRedirectErr(resp, "no location header to resolve redirect")
                     }
                   } else {
@@ -482,21 +475,17 @@ object ZClientAspect {
       verbose: Boolean,
     ): Task[String] = {
       val versionOpt = version match {
-        case Version.Default  => Chunk.empty
-        case Version.Http_1_0 => Chunk("--http1.0")
-        case Version.Http_1_1 => Chunk("--http1.1")
+        case Version.`HTTP/1.0` => Chunk("--http1.0")
+        case Version.`HTTP/1.1` => Chunk("--http1.1")
+        case _                  => Chunk.empty
       }
       val verboseOpt = if (verbose) Chunk("--verbose") else Chunk.empty
       val requestOpt = Chunk(s"--request ${method.name}")
-      val headerOpt  = Chunk.fromIterable(headers.map(h => s"--header '${h.headerName}:${h.renderedValue}'"))
-      val bodyOpt    = if (body.isComplete) {
-        body match {
-          case Body.empty => ZIO.succeed(Chunk.empty[String])
-          case body       => {
-            body.asString.map { bodyAsString =>
-              Chunk(s"--data '${bodyAsString.replace("'", "'\\''")}'")
-            }
-          }
+      val headerOpt  = Chunk.fromIterable(headers.toList.map { case (name, value) => s"--header '${name}:${value}'" })
+      val bodyOpt    = if (body.nonEmpty) {
+        ZIO.succeed {
+          val bodyAsString = body.asString(zio.http.Charset.UTF8)
+          Chunk(s"--data '${bodyAsString.replace("'", "'\\''")}'")
         }
       } else {
         ZIO.succeed(Chunk.empty[String])
@@ -506,7 +495,7 @@ object ZClientAspect {
           Chunk(
             s"--proxy '${proxy.url}'" +
               proxy.credentials.map(c => s" --proxy-user  '${c.uname}:${c.upassword}'") +
-              proxy.headers.map(h => s" --proxy-header '${h.headerName}:${h.renderedValue}'").mkString(" "),
+              proxy.headers.toList.map { case (name, value) => s" --proxy-header '${name}:${value}'" }.mkString(" "),
           )
         case None        => Chunk.empty
       }

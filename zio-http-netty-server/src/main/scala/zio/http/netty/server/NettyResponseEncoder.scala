@@ -29,11 +29,12 @@ import io.netty.handler.codec.http._
 private[netty] object NettyResponseEncoder {
   private val dateHeaderCache = CachedDateHeader.default
 
-  def encode(method: Method, response: Response)(implicit unsafe: Unsafe): HttpResponse =
-    response.body match {
-      case body: Body.UnsafeBytes =>
-        fastEncode(method, response, body.unsafeAsArray)
-      case body                   =>
+  def encode(method: Method, response: Response)(implicit unsafe: Unsafe): HttpResponse = {
+    val body = response.body
+    body.stream.knownChunk match {
+      case Some(_) =>
+        fastEncode(method, response, body.toArray)
+      case None    =>
         val status   = response.status
         val jHeaders = Conversions.headersToNetty(response.headers)
         val jStatus  = Conversions.statusToNetty(status)
@@ -44,7 +45,7 @@ private[netty] object NettyResponseEncoder {
         // See https://github.com/zio/zio-http/issues/3080
         if (method == Method.HEAD && hasContentLength) ()
         else
-          body.knownContentLength match {
+          body.length match {
             case Some(contentLength)    =>
               jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentLength)
             case _ if !hasContentLength =>
@@ -54,13 +55,10 @@ private[netty] object NettyResponseEncoder {
           }
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
-
-  def fastEncode(method: Method, response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
-    if (response.encoded eq null) {
-      response.encoded = doEncode(method, response, bytes)
-    }
-    response.encoded.asInstanceOf[FullHttpResponse]
   }
+
+  def fastEncode(method: Method, response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse =
+    doEncode(method, response, bytes)
 
   private def doEncode(method: Method, response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders = Conversions.headersToNetty(response.headers)
