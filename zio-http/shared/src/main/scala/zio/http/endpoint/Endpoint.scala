@@ -17,6 +17,7 @@
 package zio.http.endpoint
 
 import scala.annotation.{nowarn, tailrec}
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 import zio._
@@ -353,28 +354,25 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     // Backward-compat note: before typed `AuthType.Cookie`, the missing-header → unauth flow
     // hardcoded "authorization" regardless of auth type. We preserve that for `Custom` since
     // we can't introspect which header(s) the codec needs.
-    def authHeaderNames(authType: AuthType): Set[String] = {
-      @tailrec
-      def loop(
-        remaining: List[AuthType],
-        acc: scala.collection.mutable.Set[String],
-      ): scala.collection.mutable.Set[String] = remaining match {
-        case Nil                                                          => acc
-        case (AuthType.Basic | AuthType.Bearer | AuthType.Digest) :: rest =>
-          acc += "authorization"
-          loop(rest, acc)
-        case AuthType.Cookie(_) :: rest                                   =>
-          acc += "cookie"
-          loop(rest, acc)
-        case AuthType.Or(a1, a2, _) :: rest                               => loop(a1 :: a2 :: rest, acc)
-        case AuthType.WithStatus(a, _) :: rest                            => loop(a :: rest, acc)
-        case AuthType.ScopedAuth(a, _) :: rest                            => loop(a :: rest, acc)
-        case AuthType.None :: rest                                        => loop(rest, acc)
-        case AuthType.Custom(_) :: rest                                   =>
-          acc += "authorization"
-          loop(rest, acc)
-      }
-      loop(authType :: Nil, scala.collection.mutable.Set.empty[String]).toSet
+    @tailrec
+    def authHeaderNames(
+      remaining: List[AuthType],
+      acc: mutable.Set[String],
+    ): Set[String] = remaining match {
+      case Nil                                                          => acc.toSet
+      case (AuthType.Basic | AuthType.Bearer | AuthType.Digest) :: rest =>
+        acc += "authorization"
+        authHeaderNames(rest, acc)
+      case AuthType.Cookie(_) :: rest                                   =>
+        acc += "cookie"
+        authHeaderNames(rest, acc)
+      case AuthType.Or(a1, a2, _) :: rest                               => authHeaderNames(a1 :: a2 :: rest, acc)
+      case AuthType.WithStatus(a, _) :: rest                            => authHeaderNames(a :: rest, acc)
+      case AuthType.ScopedAuth(a, _) :: rest                            => authHeaderNames(a :: rest, acc)
+      case AuthType.None :: rest                                        => authHeaderNames(rest, acc)
+      case AuthType.Custom(_) :: rest                                   =>
+        acc += "authorization"
+        authHeaderNames(rest, acc)
     }
 
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
@@ -521,7 +519,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                   if maybeUnauthedResponse.isDefined && message.endsWith(" auth required") =>
                 maybeUnauthedResponse.get
               case Some(e: HttpCodecError.MissingHeader)
-                  if maybeUnauthedResponse.isDefined && authHeaderNames(authType).contains(e.headerName.toLowerCase) =>
+                  if maybeUnauthedResponse.isDefined &&
+                    authHeaderNames(authType :: Nil, mutable.Set.empty).contains(e.headerName.toLowerCase) =>
                 maybeUnauthedResponse.get
               case Some(_) =>
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
