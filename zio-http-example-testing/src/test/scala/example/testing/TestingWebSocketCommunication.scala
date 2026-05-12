@@ -16,7 +16,7 @@ object TestingWebSocketCommunication extends ZIOSpecDefault {
     }
 
     for {
-      receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+      receivedFrame <- Promise.make[Throwable, WebSocketFrame]
       testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
         for {
           // Skip handshake complete event

@@ -28,7 +28,7 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+          receivedFrame <- Promise.make[Throwable, WebSocketFrame]
 
           // Define the client handler - sends a message and receives the echo
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
@@ -74,8 +74,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          resp1Frame <- Promise.make[Nothing, WebSocketFrame]
-          resp2Frame <- Promise.make[Nothing, WebSocketFrame]
+          resp1Frame <- Promise.make[Throwable, WebSocketFrame]
+          resp2Frame <- Promise.make[Throwable, WebSocketFrame]
 
           // Client that sends multiple messages
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
@@ -86,12 +86,18 @@ object WebSocketExamples extends ZIOSpecDefault {
               _ <- channel.send(Read(WebSocketFrame.text("First")))
               // Receive response
               resp1 <- channel.receive
-              _ <- resp1Frame.succeed(resp1.asInstanceOf[Read].frame)
+              _ <- resp1 match {
+                case Read(frame) => resp1Frame.succeed(frame)
+                case _ => resp1Frame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               // Send second message
               _ <- channel.send(Read(WebSocketFrame.text("Second")))
               // Receive response
               resp2 <- channel.receive
-              _ <- resp2Frame.succeed(resp2.asInstanceOf[Read].frame)
+              _ <- resp2 match {
+                case Read(frame) => resp2Frame.succeed(frame)
+                case _ => resp2Frame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }
@@ -128,8 +134,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          greetingFrame <- Promise.make[Nothing, WebSocketFrame]
-          echoFrame <- Promise.make[Nothing, WebSocketFrame]
+          greetingFrame <- Promise.make[Throwable, WebSocketFrame]
+          echoFrame <- Promise.make[Throwable, WebSocketFrame]
 
           // Client that receives greeting then sends message
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
@@ -138,12 +144,18 @@ object WebSocketExamples extends ZIOSpecDefault {
               _ <- channel.receive
               // Receive greeting
               greeting <- channel.receive
-              _ <- greetingFrame.succeed(greeting.asInstanceOf[Read].frame)
+              _ <- greeting match {
+                case Read(frame) => greetingFrame.succeed(frame)
+                case _ => greetingFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               // Send a message
               _ <- channel.send(Read(WebSocketFrame.text("Hello!")))
               // Receive echo
               echo <- channel.receive
-              _ <- echoFrame.succeed(echo.asInstanceOf[Read].frame)
+              _ <- echo match {
+                case Read(frame) => echoFrame.succeed(frame)
+                case _ => echoFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }
@@ -176,8 +188,8 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          textRespFrame <- Promise.make[Nothing, WebSocketFrame]
-          binRespFrame <- Promise.make[Nothing, WebSocketFrame]
+          textRespFrame <- Promise.make[Throwable, WebSocketFrame]
+          binRespFrame <- Promise.make[Throwable, WebSocketFrame]
 
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
             for {
@@ -186,11 +198,17 @@ object WebSocketExamples extends ZIOSpecDefault {
               // Send text frame
               _ <- channel.send(Read(WebSocketFrame.text("Hello")))
               textResp <- channel.receive
-              _ <- textRespFrame.succeed(textResp.asInstanceOf[Read].frame)
+              _ <- textResp match {
+                case Read(frame) => textRespFrame.succeed(frame)
+                case _ => textRespFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               // Send binary frame
               _ <- channel.send(Read(WebSocketFrame.binary(Chunk.fromArray("binary".getBytes))))
               binResp <- channel.receive
-              _ <- binRespFrame.succeed(binResp.asInstanceOf[Read].frame)
+              _ <- binResp match {
+                case Read(frame) => binRespFrame.succeed(frame)
+                case _ => binRespFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }
@@ -204,7 +222,7 @@ object WebSocketExamples extends ZIOSpecDefault {
             case WebSocketFrame.Text(msg) => msg == "Text: Hello"
             case _ => false
           }) && (binFrame match {
-            case WebSocketFrame.Binary(bytes) => bytes.mkString == "binary"
+            case WebSocketFrame.Binary(bytes) => new String(bytes.toArray, java.nio.charset.StandardCharsets.UTF_8) == "binary"
             case _ => false
           })
         )
@@ -228,9 +246,9 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          count1Frame <- Promise.make[Nothing, WebSocketFrame]
-          count2Frame <- Promise.make[Nothing, WebSocketFrame]
-          count3Frame <- Promise.make[Nothing, WebSocketFrame]
+          count1Frame <- Promise.make[Throwable, WebSocketFrame]
+          count2Frame <- Promise.make[Throwable, WebSocketFrame]
+          count3Frame <- Promise.make[Throwable, WebSocketFrame]
 
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
             for {
@@ -239,13 +257,22 @@ object WebSocketExamples extends ZIOSpecDefault {
               // Send three messages
               _ <- channel.send(Read(WebSocketFrame.text("msg1")))
               count1 <- channel.receive
-              _ <- count1Frame.succeed(count1.asInstanceOf[Read].frame)
+              _ <- count1 match {
+                case Read(frame) => count1Frame.succeed(frame)
+                case _ => count1Frame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.send(Read(WebSocketFrame.text("msg2")))
               count2 <- channel.receive
-              _ <- count2Frame.succeed(count2.asInstanceOf[Read].frame)
+              _ <- count2 match {
+                case Read(frame) => count2Frame.succeed(frame)
+                case _ => count2Frame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.send(Read(WebSocketFrame.text("msg3")))
               count3 <- channel.receive
-              _ <- count3Frame.succeed(count3.asInstanceOf[Read].frame)
+              _ <- count3 match {
+                case Read(frame) => count3Frame.succeed(frame)
+                case _ => count3Frame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }
@@ -282,7 +309,7 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          echoFrame <- Promise.make[Nothing, WebSocketFrame]
+          echoFrame <- Promise.make[Throwable, WebSocketFrame]
 
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
             for {
@@ -290,7 +317,10 @@ object WebSocketExamples extends ZIOSpecDefault {
               _ <- channel.receive
               _ <- channel.send(Read(WebSocketFrame.text("hello")))
               echo <- channel.receive
-              _ <- echoFrame.succeed(echo.asInstanceOf[Read].frame)
+              _ <- echo match {
+                case Read(frame) => echoFrame.succeed(frame)
+                case _ => echoFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.send(Read(WebSocketFrame.text("close")))
               _ <- channel.shutdown
             } yield ()
@@ -322,7 +352,7 @@ object WebSocketExamples extends ZIOSpecDefault {
         }
 
         for {
-          broadcastFrame <- Promise.make[Nothing, WebSocketFrame]
+          broadcastFrame <- Promise.make[Throwable, WebSocketFrame]
 
           testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
             for {

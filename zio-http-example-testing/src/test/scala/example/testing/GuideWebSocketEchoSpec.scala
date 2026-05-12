@@ -27,7 +27,7 @@ object GuideWebSocketEchoSpec extends ZIOSpecDefault {
 
     for {
       // Use a Promise to coordinate between the forked client fiber and this test
-      receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+      receivedFrame <- Promise.make[Throwable, WebSocketFrame]
 
       // The client sends a message and expects to receive the echo
       testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
