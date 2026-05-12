@@ -70,7 +70,6 @@ Here's a complete example: create a WebSocket echo handler, test it with TestCha
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
-import zio.http.ChannelEvent._
 
 val test = for {
   // Create input and output queues

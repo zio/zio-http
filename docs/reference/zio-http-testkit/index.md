@@ -15,7 +15,11 @@ Here's what you can do with the testkit:
 val routes = Routes(Method.GET / "users" -> Handler.text("Alice"))
 
 // Test a client that calls external services
-val mockClient: Client = TestClient.layer
+val testMockClient = for {
+  _ <- TestClient.addRoute(Method.GET / "api" -> handler(Response.text("mock")))
+  client <- ZIO.service[Client]
+  response <- client(Request.get(URL.root / "api"))
+} yield assertTrue(response.status == Status.Ok)
 
 // Test WebSocket bidirectional messaging
 val echoServer: WebSocketApp[Any] = Handler.webSocket { channel =>
