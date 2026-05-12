@@ -33,7 +33,7 @@ ZIO HTTP solves this by treating routes as **pure, testable functions** that you
 
 To follow this guide, add these test dependencies to your `build.sbt`:
 
-```scala
+```scala mdoc:compile-only
 libraryDependencies ++= Seq(
   "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test,
   "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test,
@@ -55,9 +55,9 @@ ZIO HTTP provides three distinct testing patterns, each suited to different scen
 
 1. **Direct Route Testing**: Test a route function directly by calling `routes.runZIO(request)`. This is the simplest approach and ideal for unit testing individual handlers in isolation.
 
-2. **TestClient**: Mock the HTTP client by defining what responses should be returned for specific requests. This is useful when your application makes HTTP calls to external services and you want to mock those dependencies.
+2. **TestClient**: Mock the HTTP client by defining what responses to return for specific requests. Use when your application makes HTTP calls to external services and you want to mock those dependencies.
 
-3. **TestServer**: Start a test server that responds to HTTP requests according to defined routes. This is used for integration testing where you want to test multiple routes working together, or when you're testing code that makes HTTP requests and you want to verify the exact requests being made.
+3. **TestServer**: Start a test server that responds to HTTP requests according to defined routes. Use for integration testing multiple routes working together, or when testing code that makes HTTP requests and you want to verify the exact requests being made.
 
 Each pattern serves a different testing need — we'll explore them in order of complexity and show when to use each one.
 
@@ -107,7 +107,7 @@ Instead, you use `TestClient` to provide a mock implementation of the `Client` i
 
 **How TestClient works:**
 
-You provide the `TestClient.layer` in your test, which gives your code a `Client` instance. Instead of the real network-based client, it's a test implementation. Then you configure what responses should be returned for what requests using methods like `addRoute`, `addRequestResponse`, and `setFallbackHandler`.
+You provide the `TestClient.layer` in your test, which gives your code a `Client` instance. Instead of the real network-based client, it's a test implementation. Then you configure what responses to return for what requests using methods like `addRoute`, `addRequestResponse`, and `setFallbackHandler`.
 
 **Simple request/response mappings:**
 
@@ -160,7 +160,7 @@ TestClient is an **inverted dependency model**: instead of mocking the Client in
 
 ## Pattern 3: TestServer — Integration Testing
 
-`TestServer` is used when you need to test your HTTP application as a server responding to requests. Unlike `TestClient` which mocks the outbound client, `TestServer` is the inbound side — it receives HTTP requests and returns responses.
+Use `TestServer` when you need to test your HTTP application as a server responding to requests. Unlike `TestClient` which mocks the outbound client, `TestServer` is the inbound side — it receives HTTP requests and returns responses.
 
 **What is TestServer useful for?**
 
@@ -202,18 +202,18 @@ Notice that routes are evaluated in order — the specific `GET /users/{id}` rou
 
 **Key differences from TestClient:**
 
-- **TestClient** mocks the outbound `Client` — used when your code makes HTTP calls to external services
-- **TestServer** mocks the inbound `Server` — used when testing code that receives HTTP requests
+- **TestClient** mocks the outbound `Client` — use when your code makes HTTP calls to external services
+- **TestServer** mocks the inbound `Server` — use when testing code that receives HTTP requests
 - **TestServer is more like production** — you make real HTTP requests that go through the full routing logic
 - **TestServer is heavier** — it binds to a port and runs routing, so it's slower than direct route testing
 
 ## Testing Stateful Handlers
 
 Many real-world handlers maintain state across requests. For example:
-- An authentication handler might track login attempts to prevent brute force attacks
-- A rate limiting middleware might track how many requests each user has made
-- A caching handler might store computed results to avoid recomputing them
-- A checkout handler might maintain a shopping cart across multiple requests
+- An authentication handler tracks login attempts to prevent brute force attacks
+- A rate limiting middleware tracks how many requests each user makes
+- A caching handler stores computed results to avoid recomputing them
+- A checkout handler maintains a shopping cart across multiple requests
 
 When testing such handlers, you need to verify that state is correctly maintained as requests arrive.
 
@@ -265,6 +265,8 @@ When you call `client.socket(socketApp)`, the client sends a WebSocket upgrade r
 5. Messages sent by the server appear in the client's input queue
 
 **A simple echo server example:**
+
+To create a WebSocket handler that echoes messages back to clients:
 
 ```scala mdoc:passthrough
 import utils._
