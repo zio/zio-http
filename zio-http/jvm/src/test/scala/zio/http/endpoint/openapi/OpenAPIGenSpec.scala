@@ -316,7 +316,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
 
   private val endpointWithTypedCookieAuth =
     Endpoint(GET / "withTypedCookieAuth")
-      .auth(AuthType.Cookie("session"))
+      .auth(AuthType.Cookie("myAppAuthCookie"))
 
   private val endpointWithOrAuth =
     Endpoint(GET / "withOrAuth")
@@ -5110,7 +5110,7 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |        },
                              |        "security": [
                              |          {
-                             |            "session": []
+                             |            "myAppAuthCookie": []
                              |          }
                              |        ]
                              |      }
@@ -5118,16 +5118,16 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  },
                              |  "components": {
                              |    "securitySchemes": {
-                             |      "session": {
+                             |      "myAppAuthCookie": {
                              |        "type": "apiKey",
-                             |        "name": "session",
+                             |        "name": "myAppAuthCookie",
                              |        "in": "cookie"
                              |      }
                              |    }
                              |  },
                              |  "security": [
                              |    {
-                             |      "session": []
+                             |      "myAppAuthCookie": []
                              |    }
                              |  ]
                              |}""".stripMargin

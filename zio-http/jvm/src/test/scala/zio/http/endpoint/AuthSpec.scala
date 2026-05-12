@@ -43,7 +43,7 @@ object AuthSpec extends ZIOSpecDefault {
   private val sessionCookieAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
     r.header(Header.Cookie).flatMap { cookieHeader =>
       cookieHeader.value.collectFirst {
-        case c if c.name == "session" && c.content == "admin" => AuthContext("admin")
+        case c if c.name == "myAppAuthCookie" && c.content == "admin" => AuthContext("admin")
       }
     }
   }
@@ -55,7 +55,7 @@ object AuthSpec extends ZIOSpecDefault {
       .orElse {
         r.header(Header.Cookie).flatMap { cookieHeader =>
           cookieHeader.value.collectFirst {
-            case c if c.name == "session" && c.content == "admin" => AuthContext("cookie-admin")
+            case c if c.name == "myAppAuthCookie" && c.content == "admin" => AuthContext("cookie-admin")
           }
         }
       }
@@ -130,7 +130,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Auth from cookie") {
         val endpoint = Endpoint(Method.GET / "test")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Cookie("session"))
+          .auth(AuthType.Cookie("myAppAuthCookie"))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
@@ -140,7 +140,7 @@ object AuthSpec extends ZIOSpecDefault {
             method = Method.GET,
             url = url"/test",
             headers = Headers(
-              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("session", "admin"))),
+              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("myAppAuthCookie", "admin"))),
               Header.Accept(MediaType.text.`plain`),
             ),
           ),
@@ -154,7 +154,7 @@ object AuthSpec extends ZIOSpecDefault {
         val endpoint =
           Endpoint(Method.GET / "test-missing-cookie")
             .out[String](MediaType.text.`plain`)
-            .auth(AuthType.Cookie("session"))
+            .auth(AuthType.Cookie("myAppAuthCookie"))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => "Response")),
@@ -174,7 +174,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Missing cookie returns 401 when configured for AuthType.Cookie") {
         val endpoint = Endpoint(Method.GET / "test-cookie-401")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Cookie("session"))
+          .auth(AuthType.Cookie("myAppAuthCookie"))
           .unauthorizedStatus(Status.Unauthorized)
         val routes   =
           Routes(
@@ -195,7 +195,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Cookie header present but named cookie absent returns 401 when configured for AuthType.Cookie") {
         val endpoint = Endpoint(Method.GET / "test-cookie-wrong-name-401")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Cookie("session"))
+          .auth(AuthType.Cookie("myAppAuthCookie"))
           .unauthorizedStatus(Status.Unauthorized)
         val routes   =
           Routes(
@@ -219,7 +219,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Auth with Bearer | Cookie - Bearer present succeeds") {
         val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+          .auth(AuthType.Bearer | AuthType.Cookie("myAppAuthCookie"))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
@@ -242,7 +242,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Auth with Bearer | Cookie - Cookie present succeeds") {
         val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+          .auth(AuthType.Bearer | AuthType.Cookie("myAppAuthCookie"))
         val routes   =
           Routes(
             endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
@@ -252,7 +252,7 @@ object AuthSpec extends ZIOSpecDefault {
             method = Method.GET,
             url = url"/test-bearer-or-cookie",
             headers = Headers(
-              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("session", "admin"))),
+              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("myAppAuthCookie", "admin"))),
               Header.Accept(MediaType.text.`plain`),
             ),
           ),
@@ -265,7 +265,7 @@ object AuthSpec extends ZIOSpecDefault {
       test("Auth with Bearer | Cookie - neither present returns 401 when configured") {
         val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie-401")
           .out[String](MediaType.text.`plain`)
-          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+          .auth(AuthType.Bearer | AuthType.Cookie("myAppAuthCookie"))
           .unauthorizedStatus(Status.Unauthorized)
         val routes   =
           Routes(
