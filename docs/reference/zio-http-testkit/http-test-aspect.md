@@ -7,7 +7,7 @@ title: "HttpTestAspect"
 
 The public API provides three mode aspects:
 
-```scala
+```scala mdoc:compile-only
 object HttpTestAspect {
   val devMode: TestAspectAtLeastR[Scope]
   val preprodMode: TestAspectAtLeastR[Scope]
@@ -38,7 +38,7 @@ HTTP applications often have mode-dependent behavior: different error handling i
 
 `HttpTestAspect` solves this by providing composable aspects that set the mode for the duration of a test and restore the previous mode afterward:
 
-```scala
+```scala mdoc:compile-only
 test("handles errors in dev mode") {
   // Test logic here
   assertTrue(Mode.isDev)
@@ -262,7 +262,7 @@ The following test aspects and mode query functions comprise the complete public
 
 Apply all aspects using ZIO Test's `@@` operator:
 
-```scala
+```scala mdoc:compile-only
 test("my test") {
   // test logic
 } @@ HttpTestAspect.devMode
@@ -272,7 +272,7 @@ test("my test") {
 
 Use these functions to query the current mode in your handler code:
 
-```scala
+```scala mdoc:compile-only
 Mode.current      // Get current mode (Dev | Preprod | Prod)
 Mode.isDev        // Boolean check for Dev mode
 Mode.isPreprod    // Boolean check for Preprod mode
