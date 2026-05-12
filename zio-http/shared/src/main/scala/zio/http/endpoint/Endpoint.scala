@@ -349,15 +349,18 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
     // Header names whose absence should be treated as "auth missing" -- so the response
     // collapses to `unauthorizedStatus` instead of leaking a generic codec-decode error.
-    // Walks `Or` / `WithStatus` / `ScopedAuth` wrappers; returns `Nil` for `Custom`/`None`
-    // since we can't tell which header (if any) the codec needs.
+    // Walks `Or` / `WithStatus` / `ScopedAuth` wrappers.
     def authHeaderNames(authType: AuthType): List[String] = authType match {
       case AuthType.Basic | AuthType.Bearer | AuthType.Digest => List("authorization")
       case AuthType.Cookie(_)                                 => List("cookie")
       case AuthType.Or(a1, a2, _)                             => authHeaderNames(a1) ++ authHeaderNames(a2)
       case AuthType.WithStatus(a, _)                          => authHeaderNames(a)
       case AuthType.ScopedAuth(a, _)                          => authHeaderNames(a)
-      case AuthType.None | AuthType.Custom(_)                 => Nil
+      case AuthType.None                                      => Nil
+      // Backward-compat: before typed `AuthType.Cookie`, the missing-header → unauth flow
+      // hardcoded "authorization" regardless of auth type. Preserve that for Custom since
+      // we can't introspect which header(s) the codec needs.
+      case AuthType.Custom(_)                                 => List("authorization")
     }
 
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {

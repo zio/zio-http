@@ -48,6 +48,19 @@ object AuthSpec extends ZIOSpecDefault {
     }
   }
 
+  private val bearerOrSessionCookieAuthContext = HandlerAspect.customAuthProviding[AuthContext] { r =>
+    r.headers
+      .get(Header.Authorization)
+      .collect { case Header.Authorization.Bearer(token) if token == Secret("admin") => AuthContext("bearer-admin") }
+      .orElse {
+        r.header(Header.Cookie).flatMap { cookieHeader =>
+          cookieHeader.value.collectFirst {
+            case c if c.name == "session" && c.content == "admin" => AuthContext("cookie-admin")
+          }
+        }
+      }
+  }
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("AuthSpec")(
       test("Auth with context") {
@@ -196,6 +209,73 @@ object AuthSpec extends ZIOSpecDefault {
               Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("other", "value"))),
               Header.Accept(MediaType.text.`plain`),
             ),
+          ),
+        )
+        for {
+          response <- response
+          status = response.status
+        } yield assertTrue(status == Status.Unauthorized)
+      },
+      test("Auth with Bearer | Cookie - Bearer present succeeds") {
+        val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+          ) @@ bearerOrSessionCookieAuthContext
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-bearer-or-cookie",
+            headers = Headers(
+              Header.Authorization.Bearer("admin"),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          body     <- response.body.asString
+        } yield assertTrue(response.status.isSuccess, body == "bearer-admin")
+      },
+      test("Auth with Bearer | Cookie - Cookie present succeeds") {
+        val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => withContext((ctx: AuthContext) => ctx.value))),
+          ) @@ bearerOrSessionCookieAuthContext
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-bearer-or-cookie",
+            headers = Headers(
+              Header.Cookie(NonEmptyChunk(zio.http.Cookie.Request("session", "admin"))),
+              Header.Accept(MediaType.text.`plain`),
+            ),
+          ),
+        )
+        for {
+          response <- response
+          body     <- response.body.asString
+        } yield assertTrue(response.status.isSuccess, body == "cookie-admin")
+      },
+      test("Auth with Bearer | Cookie - neither present returns 401 when configured") {
+        val endpoint = Endpoint(Method.GET / "test-bearer-or-cookie-401")
+          .out[String](MediaType.text.`plain`)
+          .auth(AuthType.Bearer | AuthType.Cookie("session"))
+          .unauthorizedStatus(Status.Unauthorized)
+        val routes   =
+          Routes(
+            endpoint.implementHandler(handler((_: Unit) => "Response")),
+          )
+        val response = routes.run(
+          Request(
+            method = Method.GET,
+            url = url"/test-bearer-or-cookie-401",
+            headers = Headers(Header.Accept(MediaType.text.`plain`)),
           ),
         )
         for {
