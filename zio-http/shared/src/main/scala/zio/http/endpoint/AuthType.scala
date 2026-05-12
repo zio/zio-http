@@ -93,11 +93,12 @@ object AuthType {
    * -- e.g. one per `Domain`/`Path` scope), the first one in header order wins.
    *
    * Example: combine with `Bearer` so an endpoint accepts either an
-   * `Authorization` header or a session cookie:
+   * `Authorization` header or a cookie -- the cookie name is whatever your
+   * app sets:
    *
    * {{{
    * Endpoint(Method.GET / "download" / fileId)
-   *   .auth(AuthType.Bearer | AuthType.Cookie("session"))
+   *   .auth(AuthType.Bearer | AuthType.Cookie("myAppAuthCookie"))
    *   .unauthorizedStatus(Status.Unauthorized)
    * }}}
    */
