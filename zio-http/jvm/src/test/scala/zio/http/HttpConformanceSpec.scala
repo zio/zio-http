@@ -979,10 +979,12 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             output <- sendRawHttp(port, rawRequest, timeoutSeconds = 1, allowFailure = true)
           } yield assertTrue(output.contains("400") || output.isEmpty || output.length < 50)
         },
-        test("Transfer-Encoding: chunked with Content-Length → reject or process as chunked (security)") {
-          // RFC 9112 §6.3(3): Critical for request smuggling prevention.
-          // A server MAY reject the request OR process it according to Transfer-Encoding alone
-          // (ignoring Content-Length). Either behavior prevents smuggling.
+        test("Transfer-Encoding: chunked with Content-Length → rejected (security)") {
+          // RFC 9112 §6.3 permits a server to reject HTTP/1.1 requests that contain both
+          // Transfer-Encoding and Content-Length. Netty (since 4.2.13) does so by default,
+          // surfacing a ContentLengthNotAllowedException that zio-http currently maps to 500.
+          // The key security property is that the body bytes are never parsed as a follow-up
+          // request — so the smuggling vector is closed.
           val routes = (Method.POST / "te-cl-security" -> handler { (req: Request) =>
             for {
               body <- req.body.asString.orDie
@@ -995,11 +997,9 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             port <- Server.installRoutes(routes)
             rawRequest =
               s"""POST /te-cl-security HTTP/1.1\r\nHost: localhost:$port\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n"""
-            output <- sendRawHttp(port, rawRequest, allowFailure = true)
+            output <- sendRawHttp(port, rawRequest)
             status = statusCodeOf(output)
-          } yield assertTrue(
-            output.contains("body_len=5") || status.exists(code => code >= 400 && code < 600) || output.isEmpty,
-          )
+          } yield assertTrue(status.contains(500))
         },
         test("Multiple Transfer-Encoding values → reject or handle safely") {
           // RFC 9112 §6.3: Multiple TE values like "gzip, chunked"
