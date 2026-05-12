@@ -7,20 +7,20 @@ import zio.test._
 object TestServerMixed extends ZIOSpecDefault {
   def spec = test("server calling external service") {
     for {
-      // TestClient mocks external dependencies
-      externalClient <- ZIO.service[Client]
-      _ <- TestClient.addRequestResponse(
-        Request.get(URL.root / "external"),
-        Response.json("""{"data": "external"}""")
-      )
+      client <- ZIO.service[Client]
+      port   <- ZIO.serviceWithZIO[Server](_.port)
 
-      // TestServer provides the server being tested
-      serverClient <- ZIO.service[Client]
-      port <- ZIO.serviceWithZIO[Server](_.port)
+      // Add a route simulating the external dependency
+      _ <- TestServer.addRoute {
+        Method.GET / "external" -> handler { (_: Request) =>
+          ZIO.succeed(Response.json("""{"data": "external"}"""))
+        }
+      }
 
+      // Add the route under test: calls the external dependency then returns a result
       _ <- TestServer.addRoute {
         Method.GET / "api" -> handler { (_: Request) =>
-          externalClient(Request.get(URL.root / "external"))
+          client(Request.get(URL.root.port(port) / "external"))
             .flatMap(_.body.asString)
             .map(data => Response.text(s"Got: $data"))
             .catchAll { _ =>
@@ -29,8 +29,8 @@ object TestServerMixed extends ZIOSpecDefault {
         }
       }
 
-      response <- serverClient(Request.get(URL.root.port(port) / "api"))
-      body <- response.body.asString
+      response <- client(Request.get(URL.root.port(port) / "api"))
+      body     <- response.body.asString
     } yield assertTrue(body.contains("external"))
-  }.provide(TestServer.default, TestClient.layer, Scope.default)
+  }.provide(TestServer.default, Client.default, Scope.default)
 }
