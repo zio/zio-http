@@ -360,7 +360,10 @@ object WebSocketExamples extends ZIOSpecDefault {
               _ <- channel.receive
               _ <- channel.send(Read(WebSocketFrame.text("hello")))
               broadcast <- channel.receive
-              _ <- broadcastFrame.succeed(broadcast.asInstanceOf[Read].frame)
+              _ <- broadcast match {
+                case Read(frame) => broadcastFrame.succeed(frame)
+                case _ => broadcastFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }
