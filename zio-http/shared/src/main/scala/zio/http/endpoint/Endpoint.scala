@@ -16,7 +16,7 @@
 
 package zio.http.endpoint
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, tailrec}
 import scala.reflect.ClassTag
 
 import zio._
@@ -350,17 +350,30 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     // Header names whose absence should be treated as "auth missing" -- so the response
     // collapses to `unauthorizedStatus` instead of leaking a generic codec-decode error.
     // Walks `Or` / `WithStatus` / `ScopedAuth` wrappers.
-    def authHeaderNames(authType: AuthType): List[String] = authType match {
-      case AuthType.Basic | AuthType.Bearer | AuthType.Digest => List("authorization")
-      case AuthType.Cookie(_)                                 => List("cookie")
-      case AuthType.Or(a1, a2, _)                             => authHeaderNames(a1) ++ authHeaderNames(a2)
-      case AuthType.WithStatus(a, _)                          => authHeaderNames(a)
-      case AuthType.ScopedAuth(a, _)                          => authHeaderNames(a)
-      case AuthType.None                                      => Nil
-      // Backward-compat: before typed `AuthType.Cookie`, the missing-header → unauth flow
-      // hardcoded "authorization" regardless of auth type. Preserve that for Custom since
-      // we can't introspect which header(s) the codec needs.
-      case AuthType.Custom(_)                                 => List("authorization")
+    // Backward-compat note: before typed `AuthType.Cookie`, the missing-header → unauth flow
+    // hardcoded "authorization" regardless of auth type. We preserve that for `Custom` since
+    // we can't introspect which header(s) the codec needs.
+    def authHeaderNames(authType: AuthType): Set[String] = {
+      val acc                                   = scala.collection.mutable.Set.empty[String]
+      @tailrec
+      def loop(remaining: List[AuthType]): Unit = remaining match {
+        case Nil                                                          => ()
+        case (AuthType.Basic | AuthType.Bearer | AuthType.Digest) :: rest =>
+          acc += "authorization"
+          loop(rest)
+        case AuthType.Cookie(_) :: rest                                   =>
+          acc += "cookie"
+          loop(rest)
+        case AuthType.Or(a1, a2, _) :: rest                               => loop(a1 :: a2 :: rest)
+        case AuthType.WithStatus(a, _) :: rest                            => loop(a :: rest)
+        case AuthType.ScopedAuth(a, _) :: rest                            => loop(a :: rest)
+        case AuthType.None :: rest                                        => loop(rest)
+        case AuthType.Custom(_) :: rest                                   =>
+          acc += "authorization"
+          loop(rest)
+      }
+      loop(authType :: Nil)
+      acc.toSet
     }
 
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
