@@ -10,7 +10,7 @@ object IntegrationTestingMultipleRoutes extends ZIOSpecDefault {
       client <- ZIO.service[Client]
       port <- ZIO.serviceWithZIO[Server](_.port)
       users <- Ref.make(Map.empty[Int, String])
-      nextId <- Ref.make(1)
+      nextId <- Ref.make(0)
 
       // Configure create and read endpoints
       _ <- TestServer.addRoutes {
@@ -40,7 +40,7 @@ object IntegrationTestingMultipleRoutes extends ZIOSpecDefault {
 
       // Create a user
       createResp <- client(Request.post(URL.root.port(port) / "users", Body.fromString("Alice")))
-      userId = createResp.headers.get("X-ID").map(_.toIntOption.getOrElse(1)).getOrElse(1)
+      userId = createResp.headers.get("X-ID").flatMap(_.toIntOption).getOrElse(1)
 
       // Retrieve the user
       getResp <- client(Request.get(URL.root.port(port) / "users" / userId.toString))

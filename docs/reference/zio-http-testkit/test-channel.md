@@ -22,7 +22,7 @@ case class TestChannel(
 
 Key properties:
 - **Bidirectional** — Both client and server can send and receive messages independently
-- **In-Memory Queues** — Uses bounded queues for message buffering
+- **Queue-Based Coordination** — Uses queues (bounded or unbounded, depending on construction) to coordinate message delivery between paired handlers
 - **Frame Types** — Supports all WebSocket frame types: text, binary, control frames
 - **Lifecycle Management** — Handles connection handshakes and graceful shutdown
 - **Automatic Coordination** — Two TestChannels coordinate via shared queues and promises

@@ -27,25 +27,34 @@ object WebSocketExamples extends ZIOSpecDefault {
           }
         }
 
-        // Define the client handler - sends a message and receives the echo
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            // Send initial message
-            _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
-            // Receive the echo
-            response <- channel.receive
-            _ <- channel.shutdown
-          } yield response
-        }
-
         for {
+          receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+
+          // Define the client handler - sends a message and receives the echo
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              // Send initial message
+              _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
+              // Receive the echo
+              response <- channel.receive
+              _ <- receivedFrame.succeed(response.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           // Install the server handler
           _ <- TestClient.installSocketApp(echoServer)
           // The client connects and communicates with server through test channel
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          frame <- receivedFrame.await
+        } yield assertTrue(
+          frame match {
+            case WebSocketFrame.Text(msg) => msg == "Echo: Hello, Server!"
+            case _ => false
+          }
+        )
       },
     ),
     suite("Bidirectional communication")(
@@ -61,27 +70,42 @@ object WebSocketExamples extends ZIOSpecDefault {
           }
         }
 
-        // Client that sends multiple messages
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            // Send first message
-            _ <- channel.send(Read(WebSocketFrame.text("First")))
-            // Receive response
-            resp1 <- channel.receive
-            // Send second message
-            _ <- channel.send(Read(WebSocketFrame.text("Second")))
-            // Receive response
-            resp2 <- channel.receive
-            _ <- channel.shutdown
-          } yield (resp1, resp2)
-        }
-
         for {
+          resp1Frame <- Promise.make[Nothing, WebSocketFrame]
+          resp2Frame <- Promise.make[Nothing, WebSocketFrame]
+
+          // Client that sends multiple messages
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              // Send first message
+              _ <- channel.send(Read(WebSocketFrame.text("First")))
+              // Receive response
+              resp1 <- channel.receive
+              _ <- resp1Frame.succeed(resp1.asInstanceOf[Read].frame)
+              // Send second message
+              _ <- channel.send(Read(WebSocketFrame.text("Second")))
+              // Receive response
+              resp2 <- channel.receive
+              _ <- resp2Frame.succeed(resp2.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(countingServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          frame1 <- resp1Frame.await
+          frame2 <- resp2Frame.await
+        } yield assertTrue(
+          (frame1 match {
+            case WebSocketFrame.Text(msg) => msg == "Message count: 1"
+            case _ => false
+          }) && (frame2 match {
+            case WebSocketFrame.Text(msg) => msg == "Message count: 2"
+            case _ => false
+          })
+        )
       },
     ),
     suite("Server-initiated messages")(
@@ -100,25 +124,40 @@ object WebSocketExamples extends ZIOSpecDefault {
           } yield ()
         }
 
-        // Client that receives greeting then sends message
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            // Receive greeting
-            greeting <- channel.receive
-            // Send a message
-            _ <- channel.send(Read(WebSocketFrame.text("Hello!")))
-            // Receive echo
-            echo <- channel.receive
-            _ <- channel.shutdown
-          } yield (greeting, echo)
-        }
-
         for {
+          greetingFrame <- Promise.make[Nothing, WebSocketFrame]
+          echoFrame <- Promise.make[Nothing, WebSocketFrame]
+
+          // Client that receives greeting then sends message
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              // Receive greeting
+              greeting <- channel.receive
+              _ <- greetingFrame.succeed(greeting.asInstanceOf[Read].frame)
+              // Send a message
+              _ <- channel.send(Read(WebSocketFrame.text("Hello!")))
+              // Receive echo
+              echo <- channel.receive
+              _ <- echoFrame.succeed(echo.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(greetingServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          greeting <- greetingFrame.await
+          echo <- echoFrame.await
+        } yield assertTrue(
+          (greeting match {
+            case WebSocketFrame.Text(msg) => msg == "Welcome to the server!"
+            case _ => false
+          }) && (echo match {
+            case WebSocketFrame.Text(msg) => msg == "You said: Hello!"
+            case _ => false
+          })
+        )
       },
     ),
     suite("Different frame types")(
@@ -133,24 +172,39 @@ object WebSocketExamples extends ZIOSpecDefault {
           }
         }
 
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            // Send text frame
-            _ <- channel.send(Read(WebSocketFrame.text("Hello")))
-            textResp <- channel.receive
-            // Send binary frame
-            _ <- channel.send(Read(WebSocketFrame.binary(Chunk.fromArray("binary".getBytes))))
-            binResp <- channel.receive
-            _ <- channel.shutdown
-          } yield (textResp, binResp)
-        }
-
         for {
+          textRespFrame <- Promise.make[Nothing, WebSocketFrame]
+          binRespFrame <- Promise.make[Nothing, WebSocketFrame]
+
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              // Send text frame
+              _ <- channel.send(Read(WebSocketFrame.text("Hello")))
+              textResp <- channel.receive
+              _ <- textRespFrame.succeed(textResp.asInstanceOf[Read].frame)
+              // Send binary frame
+              _ <- channel.send(Read(WebSocketFrame.binary(Chunk.fromArray("binary".getBytes))))
+              binResp <- channel.receive
+              _ <- binRespFrame.succeed(binResp.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(frameServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          textFrame <- textRespFrame.await
+          binFrame <- binRespFrame.await
+        } yield assertTrue(
+          (textFrame match {
+            case WebSocketFrame.Text(msg) => msg == "Text: Hello"
+            case _ => false
+          }) && (binFrame match {
+            case WebSocketFrame.Binary(bytes) => bytes.mkString == "binary"
+            case _ => false
+          })
+        )
       },
     ),
     suite("Stateful WebSocket handlers")(
@@ -170,25 +224,46 @@ object WebSocketExamples extends ZIOSpecDefault {
           } yield ()
         }
 
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            // Send three messages
-            _ <- channel.send(Read(WebSocketFrame.text("msg1")))
-            count1 <- channel.receive
-            _ <- channel.send(Read(WebSocketFrame.text("msg2")))
-            count2 <- channel.receive
-            _ <- channel.send(Read(WebSocketFrame.text("msg3")))
-            count3 <- channel.receive
-            _ <- channel.shutdown
-          } yield (count1, count2, count3)
-        }
-
         for {
+          count1Frame <- Promise.make[Nothing, WebSocketFrame]
+          count2Frame <- Promise.make[Nothing, WebSocketFrame]
+          count3Frame <- Promise.make[Nothing, WebSocketFrame]
+
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              // Send three messages
+              _ <- channel.send(Read(WebSocketFrame.text("msg1")))
+              count1 <- channel.receive
+              _ <- count1Frame.succeed(count1.asInstanceOf[Read].frame)
+              _ <- channel.send(Read(WebSocketFrame.text("msg2")))
+              count2 <- channel.receive
+              _ <- count2Frame.succeed(count2.asInstanceOf[Read].frame)
+              _ <- channel.send(Read(WebSocketFrame.text("msg3")))
+              count3 <- channel.receive
+              _ <- count3Frame.succeed(count3.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(statefulServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          frame1 <- count1Frame.await
+          frame2 <- count2Frame.await
+          frame3 <- count3Frame.await
+        } yield assertTrue(
+          (frame1 match {
+            case WebSocketFrame.Text(msg) => msg == "Count: 1"
+            case _ => false
+          }) && (frame2 match {
+            case WebSocketFrame.Text(msg) => msg == "Count: 2"
+            case _ => false
+          }) && (frame3 match {
+            case WebSocketFrame.Text(msg) => msg == "Count: 3"
+            case _ => false
+          })
+        )
       },
     ),
     suite("Error handling in WebSockets")(
@@ -203,21 +278,30 @@ object WebSocketExamples extends ZIOSpecDefault {
           }
         }
 
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            _ <- channel.send(Read(WebSocketFrame.text("hello")))
-            _ <- channel.receive
-            _ <- channel.send(Read(WebSocketFrame.text("close")))
-            _ <- channel.shutdown
-          } yield ()
-        }
-
         for {
+          echoFrame <- Promise.make[Nothing, WebSocketFrame]
+
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              _ <- channel.send(Read(WebSocketFrame.text("hello")))
+              echo <- channel.receive
+              _ <- echoFrame.succeed(echo.asInstanceOf[Read].frame)
+              _ <- channel.send(Read(WebSocketFrame.text("close")))
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(closeServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          frame <- echoFrame.await
+        } yield assertTrue(
+          frame match {
+            case WebSocketFrame.Text(msg) => msg == "Echo: hello"
+            case _ => false
+          }
+        )
       },
     ),
     suite("Broadcast pattern")(
@@ -234,20 +318,29 @@ object WebSocketExamples extends ZIOSpecDefault {
           }
         }
 
-        val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-          for {
-            // Skip handshake complete event
-            _ <- channel.receive
-            _ <- channel.send(Read(WebSocketFrame.text("hello")))
-            broadcast <- channel.receive
-            _ <- channel.shutdown
-          } yield broadcast
-        }
-
         for {
+          broadcastFrame <- Promise.make[Nothing, WebSocketFrame]
+
+          testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+            for {
+              // Skip handshake complete event
+              _ <- channel.receive
+              _ <- channel.send(Read(WebSocketFrame.text("hello")))
+              broadcast <- channel.receive
+              _ <- broadcastFrame.succeed(broadcast.asInstanceOf[Read].frame)
+              _ <- channel.shutdown
+            } yield ()
+          }
+
           _ <- TestClient.installSocketApp(broadcastServer)
-          response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-        } yield assertTrue(response.status == Status.SwitchingProtocols)
+          _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+          frame <- broadcastFrame.await
+        } yield assertTrue(
+          frame match {
+            case WebSocketFrame.Text(msg) => msg == "Broadcast: hello"
+            case _ => false
+          }
+        )
       },
     ),
   ).provide(TestClient.layer, Scope.default)

@@ -15,19 +15,27 @@ object TestingWebSocketCommunication extends ZIOSpecDefault {
       }
     }
 
-    val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-      for {
-        // Skip handshake complete event
-        _ <- channel.receive
-        _ <- channel.send(Read(WebSocketFrame.text("Hello")))
-        response <- channel.receive
-        _ <- channel.shutdown
-      } yield response
-    }
-
     for {
+      receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+      testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+        for {
+          // Skip handshake complete event
+          _ <- channel.receive
+          _ <- channel.send(Read(WebSocketFrame.text("Hello")))
+          response <- channel.receive
+          _ <- receivedFrame.succeed(response.asInstanceOf[Read].frame)
+          _ <- channel.shutdown
+        } yield ()
+      }
+
       _ <- TestClient.installSocketApp(echoServer)
-      response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-    } yield assertTrue(response.status == Status.SwitchingProtocols)
+      _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+      frame <- receivedFrame.await
+    } yield assertTrue(
+      frame match {
+        case WebSocketFrame.Text(msg) => msg == "Echo: Hello"
+        case _ => false
+      }
+    )
   }.provide(TestClient.layer, Scope.default)
 }

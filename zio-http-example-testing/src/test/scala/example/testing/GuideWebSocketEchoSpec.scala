@@ -25,24 +25,36 @@ object GuideWebSocketEchoSpec extends ZIOSpecDefault {
       }
     }
 
-    // The client sends a message and expects to receive the echo
-    val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
-      for {
-        // Skip handshake complete event
-        _ <- channel.receive
-        // Send a message
-        _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
-        // Wait to receive the response
-        response <- channel.receive
-        _ <- channel.shutdown
-      } yield response
-    }
-
     for {
+      // Use a Promise to coordinate between the forked client fiber and this test
+      receivedFrame <- Promise.make[Nothing, WebSocketFrame]
+
+      // The client sends a message and expects to receive the echo
+      testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
+        for {
+          // Skip handshake complete event
+          _ <- channel.receive
+          // Send a message
+          _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
+          // Wait to receive the response
+          response <- channel.receive
+          // Signal the received frame to the outer test
+          _ <- receivedFrame.succeed(response.asInstanceOf[Read].frame)
+          _ <- channel.shutdown
+        } yield ()
+      }
+
       // Install the server handler in TestClient
       _ <- TestClient.installSocketApp(echoServer)
       // The client calls socket() with its handler
-      response <- ZIO.serviceWithZIO[Client](_.socket(testClient))
-    } yield assertTrue(response.status == Status.SwitchingProtocols)
+      _ <- ZIO.serviceWithZIO[Client](_.socket(testClient))
+      // Wait for the frame and verify it matches the expected echo
+      frame <- receivedFrame.await
+    } yield assertTrue(
+      frame match {
+        case WebSocketFrame.Text(msg) => msg == "Echo: Hello, Server!"
+        case _ => false
+      }
+    )
   }.provide(TestClient.layer, Scope.default)
 }

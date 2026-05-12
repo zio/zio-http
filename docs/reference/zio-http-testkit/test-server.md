@@ -3,7 +3,7 @@ id: test-server
 title: "TestServer"
 ---
 
-`TestServer` is an integration testing HTTP server that simulates a real server listening on localhost. Unlike a real production server, it skips disk I/O and network latency, keeping tests fast and deterministic. It accepts configured routes and responds to HTTP requests via a standard `Client`. All operations execute synchronously, enabling fast integration tests that verify multiple routes working together.
+`TestServer` is an integration testing HTTP server that simulates a real server listening on localhost. Unlike a real production server, it skips external network latency and disk I/O, keeping tests fast and deterministic. It accepts configured routes and responds to HTTP requests via a standard `Client`. Requests run through the full HTTP stack on localhost, ensuring realistic behavior while remaining deterministic.
 
 ```scala
 final case class TestServer(driver: Driver, bindPort: Int) extends Server {
