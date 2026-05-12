@@ -1,5 +1,3 @@
-# ZIO HTTP Testing Examples
-
 This example project demonstrates all testing patterns covered in the [Testing HTTP Applications guide](../../docs/guides/testing-http-apps.md).
 
 ## What's Included
@@ -51,12 +49,14 @@ This project contains comprehensive examples for:
 ## Running the Examples
 
 ### Run all tests:
-```bash
+
+```bash mdoc:compile-only
 sbt test
 ```
 
 ### Run a specific test suite:
-```bash
+
+```bash mdoc:compile-only
 sbt "testOnly example.testing.DirectRouteTestingExamples"
 sbt "testOnly example.testing.TestClientExamples"
 sbt "testOnly example.testing.TestServerExamples"
@@ -66,11 +66,14 @@ sbt "testOnly example.testing.ErrorHandlingExamples"
 ```
 
 ### Run a specific test:
-```bash
+
+```bash mdoc:compile-only
 sbt "testOnly example.testing.DirectRouteTestingExamples -- -t \"specific route matches\""
 ```
 
 ## Project Structure
+
+The project organizes example test suites by testing pattern:
 
 ```
 zio-http-example-testing/
@@ -86,6 +89,8 @@ zio-http-example-testing/
 ```
 
 ## Key Concepts
+
+ZIO HTTP provides three core testing patterns.
 
 ### Three Testing Patterns
 
@@ -123,8 +128,11 @@ zio-http-example-testing/
 
 ## Common Patterns
 
+Practical patterns for testing state and error cases:
+
 ### Testing state across requests
-```scala
+
+```scala mdoc:compile-only
 for {
   client <- ZIO.service[Client]
   port   <- ZIO.serviceWithZIO[Server](_.port)
@@ -141,7 +149,8 @@ for {
 ```
 
 ### Testing error paths
-```scala
+
+```scala mdoc:compile-only
 for {
   client <- ZIO.service[Client]
   port   <- ZIO.serviceWithZIO[Server](_.port)
