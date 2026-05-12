@@ -354,26 +354,27 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     // hardcoded "authorization" regardless of auth type. We preserve that for `Custom` since
     // we can't introspect which header(s) the codec needs.
     def authHeaderNames(authType: AuthType): Set[String] = {
-      val acc                                   = scala.collection.mutable.Set.empty[String]
       @tailrec
-      def loop(remaining: List[AuthType]): Unit = remaining match {
-        case Nil                                                          => ()
+      def loop(
+        remaining: List[AuthType],
+        acc: scala.collection.mutable.Set[String],
+      ): scala.collection.mutable.Set[String] = remaining match {
+        case Nil                                                          => acc
         case (AuthType.Basic | AuthType.Bearer | AuthType.Digest) :: rest =>
           acc += "authorization"
-          loop(rest)
+          loop(rest, acc)
         case AuthType.Cookie(_) :: rest                                   =>
           acc += "cookie"
-          loop(rest)
-        case AuthType.Or(a1, a2, _) :: rest                               => loop(a1 :: a2 :: rest)
-        case AuthType.WithStatus(a, _) :: rest                            => loop(a :: rest)
-        case AuthType.ScopedAuth(a, _) :: rest                            => loop(a :: rest)
-        case AuthType.None :: rest                                        => loop(rest)
+          loop(rest, acc)
+        case AuthType.Or(a1, a2, _) :: rest                               => loop(a1 :: a2 :: rest, acc)
+        case AuthType.WithStatus(a, _) :: rest                            => loop(a :: rest, acc)
+        case AuthType.ScopedAuth(a, _) :: rest                            => loop(a :: rest, acc)
+        case AuthType.None :: rest                                        => loop(rest, acc)
         case AuthType.Custom(_) :: rest                                   =>
           acc += "authorization"
-          loop(rest)
+          loop(rest, acc)
       }
-      loop(authType :: Nil)
-      acc.toSet
+      loop(authType :: Nil, scala.collection.mutable.Set.empty[String]).toSet
     }
 
     def authCodec(authType: AuthType): HttpCodec[HttpCodecType.RequestType, Unit] = authType match {
