@@ -50,7 +50,7 @@ object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
 
         res  <- Client.batched(Request(url = url, headers = headers, body = Body.fromString("some-body")))
         data <- res.body.asString
-      } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
+      } yield assertTrue(extractStatus(res) == Status.RequestHeaderFieldsTooLarge, data == "")
     }.provide(
       Client.default,
       Server.customized,

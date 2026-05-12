@@ -979,12 +979,12 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             output <- sendRawHttp(port, rawRequest, timeoutSeconds = 1, allowFailure = true)
           } yield assertTrue(output.contains("400") || output.isEmpty || output.length < 50)
         },
-        test("Transfer-Encoding: chunked with Content-Length → rejected (security)") {
-          // RFC 9112 §6.3 permits a server to reject HTTP/1.1 requests that contain both
-          // Transfer-Encoding and Content-Length. Netty (since 4.2.13) does so by default,
-          // surfacing a ContentLengthNotAllowedException that zio-http currently maps to 500.
-          // The key security property is that the body bytes are never parsed as a follow-up
-          // request — so the smuggling vector is closed.
+        test("Transfer-Encoding: chunked with Content-Length → 400 Bad Request (security)") {
+          // RFC 9112 §6.3 permits a server to reject HTTP/1.1 requests that carry both
+          // Transfer-Encoding and Content-Length. Netty (since 4.2.13) does so by default
+          // via ContentLengthNotAllowedException, and zio-http maps HTTP-decoder failures
+          // to 400 Bad Request. The body bytes are never parsed as a follow-up request,
+          // closing the smuggling vector.
           val routes = (Method.POST / "te-cl-security" -> handler { (req: Request) =>
             for {
               body <- req.body.asString.orDie
@@ -999,7 +999,7 @@ object HttpConformanceSpec extends ZIOSpecDefault {
               s"""POST /te-cl-security HTTP/1.1\r\nHost: localhost:$port\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n"""
             output <- sendRawHttp(port, rawRequest)
             status = statusCodeOf(output)
-          } yield assertTrue(status.contains(500))
+          } yield assertTrue(status.contains(400))
         },
         test("Multiple Transfer-Encoding values → reject or handle safely") {
           // RFC 9112 §6.3: Multiple TE values like "gzip, chunked"

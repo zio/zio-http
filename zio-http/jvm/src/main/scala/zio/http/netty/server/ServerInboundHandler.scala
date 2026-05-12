@@ -33,6 +33,7 @@ import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
+import io.netty.handler.codec.DecoderException
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.ssl.SslHandler
@@ -70,6 +71,14 @@ private[zio] final case class ServerInboundHandler(
 
   private val releaseRequest = () => inFlightRequests.decrement()
 
+  private def decoderFailureResponse(cause: Throwable): Response = cause match {
+    case _: TooLongHttpHeaderException  => Response.status(Status.RequestHeaderFieldsTooLarge)
+    case _: TooLongHttpLineException    => Response.status(Status.RequestUriTooLong)
+    case _: TooLongHttpContentException => Response.status(Status.RequestEntityTooLarge)
+    case _: DecoderException            => Response.status(Status.BadRequest)
+    case _                              => Response.fromThrowable(cause, runtime.getRef(ErrorResponseConfig.configRef))
+  }
+
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     msg match {
@@ -79,11 +88,10 @@ private[zio] final case class ServerInboundHandler(
 
         try {
           if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
             attemptFastWrite(
               ctx,
               Conversions.methodFromNetty(jReq.method()),
-              Response.fromThrowable(throwable, runtime.getRef(ErrorResponseConfig.configRef)),
+              decoderFailureResponse(jReq.decoderResult().cause()),
             )
             releaseRequest()
           } else {
