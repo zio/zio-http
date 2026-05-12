@@ -39,7 +39,10 @@ object WebSocketExamples extends ZIOSpecDefault {
               _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
               // Receive the echo
               response <- channel.receive
-              _ <- receivedFrame.succeed(response.asInstanceOf[Read].frame)
+              _ <- response match {
+                case Read(frame) => receivedFrame.succeed(frame)
+                case _ => receivedFrame.fail(new Exception("Expected ChannelEvent.Read"))
+              }
               _ <- channel.shutdown
             } yield ()
           }

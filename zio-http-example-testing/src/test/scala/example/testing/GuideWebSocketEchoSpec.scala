@@ -39,7 +39,10 @@ object GuideWebSocketEchoSpec extends ZIOSpecDefault {
           // Wait to receive the response
           response <- channel.receive
           // Signal the received frame to the outer test
-          _ <- receivedFrame.succeed(response.asInstanceOf[Read].frame)
+          _ <- response match {
+            case Read(frame) => receivedFrame.succeed(frame)
+            case _ => receivedFrame.fail(new Exception("Expected ChannelEvent.Read"))
+          }
           _ <- channel.shutdown
         } yield ()
       }

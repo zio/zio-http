@@ -205,7 +205,7 @@ object TestServerExamples extends ZIOSpecDefault {
           port <- ZIO.serviceWithZIO[Server](_.port)
           // Simulate a simple API that creates and retrieves items
           items <- Ref.make(Map.empty[Int, String])
-          nextId <- Ref.make(1)
+          nextId <- Ref.make(0)
           _ <- TestServer.addRoutes {
             Routes(
               Method.POST / "items" -> handler { (req: Request) =>
