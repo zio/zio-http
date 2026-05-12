@@ -19,6 +19,8 @@ object TestChannelShutdown extends ZIOSpecDefault {
 
     val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
       for {
+        // Skip handshake complete event
+        _ <- channel.receive
         _ <- channel.send(Read(WebSocketFrame.text("hello")))
         _ <- channel.receive
         _ <- channel.send(Read(WebSocketFrame.text("close")))

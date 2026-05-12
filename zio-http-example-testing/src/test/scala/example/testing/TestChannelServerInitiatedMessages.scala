@@ -22,6 +22,8 @@ object TestChannelServerInitiatedMessages extends ZIOSpecDefault {
 
     val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
       for {
+        // Skip handshake complete event
+        _ <- channel.receive
         // Receive greeting
         greeting <- channel.receive
         // Send a message

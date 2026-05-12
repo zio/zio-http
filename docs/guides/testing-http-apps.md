@@ -170,7 +170,7 @@ TestServer is ideal when:
 - You're testing middleware that applies to all routes
 - You want integration tests that exercise the full request/response cycle without network I/O
 
-TestServer binds to a port on localhost, but all I/O is in-memory and synchronous, making tests fast and deterministic. You make HTTP requests using the standard `Client` interface, which creates a realistic testing scenario.
+TestServer binds to a port on localhost; while it uses real network I/O on localhost, this eliminates external network latency and disk I/O, making tests fast and deterministic. You make HTTP requests using the standard `Client` interface, which creates a realistic testing scenario.
 
 **Basic server setup:**
 

@@ -28,6 +28,8 @@ object GuideWebSocketEchoSpec extends ZIOSpecDefault {
     // The client sends a message and expects to receive the echo
     val testClient: WebSocketApp[Any] = Handler.webSocket { channel =>
       for {
+        // Skip handshake complete event
+        _ <- channel.receive
         // Send a message
         _ <- channel.send(Read(WebSocketFrame.text("Hello, Server!")))
         // Wait to receive the response

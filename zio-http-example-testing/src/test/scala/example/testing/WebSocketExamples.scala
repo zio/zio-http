@@ -2,8 +2,7 @@ package example.testing
 
 import zio._
 import zio.http._
-import zio.http.ChannelEvent.{Read, UserEventTriggered}
-import zio.http.ChannelEvent.UserEvent.HandshakeComplete
+import zio.http.ChannelEvent.Read
 import zio.test._
 
 /**

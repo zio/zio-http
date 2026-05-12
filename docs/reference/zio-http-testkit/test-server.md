@@ -15,7 +15,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 ```
 
 Key properties:
-- **In-Memory** — No actual network I/O; all communication happens in-memory between test code and the server
+- **Localhost Binding** — Binds to localhost on an automatically assigned port; uses real network I/O but eliminates external network latency and disk I/O
 - **Mutable Route Configuration** — Add routes dynamically during test execution using `TestServer#addRoute`, `TestServer#addRoutes`, or `TestServer#addRequestResponse`
 - **Standard Server Interface** — Extends `Server` and works with the standard `Client` interface
 - **Port Binding** — Binds to an automatically assigned port; query it via `TestServer.port`
