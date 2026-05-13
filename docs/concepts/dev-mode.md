@@ -1,3 +1,8 @@
+---
+id: dev-mode
+title: "Dev / Preprod / Prod Modes"
+---
+
 ZIO HTTP provides a simple built-in notion of application "mode" so you can adapt behavior (e.g. enable extra diagnostics in development, stricter settings in production, other routes, different error handling) without wiring your own config keys everywhere.
 
 The available modes are:
