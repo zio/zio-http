@@ -489,4 +489,4 @@ val test = for {
 - [TestClient](./test-client.md) — Mocking external HTTP dependencies
 - [TestChannel](./test-channel.md) — Testing WebSocket handlers
 - [HttpTestAspect](./http-test-aspect.md) — Testing mode-dependent behavior
-- [Testing Guide](../../guides/testing-http-apps.md) — Comprehensive testing strategies
+- [Testing Guide](../../guides/testing-http-apps) — Comprehensive testing strategies

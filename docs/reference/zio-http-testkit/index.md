@@ -162,4 +162,4 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/TestingWebS
 - [TestChannel](./test-channel.md) — Full reference for WebSocket testing
 - [HttpTestAspect](./http-test-aspect.md) — Full reference for test aspects
 - [Running the Examples](./examples.md) — Runnable test examples and how to execute them
-- [Testing HTTP Applications](../../guides/testing-http-apps.md) — Comprehensive how-to guide with patterns
+- [Testing HTTP Applications](../../guides/testing-http-apps) — Comprehensive how-to guide with patterns

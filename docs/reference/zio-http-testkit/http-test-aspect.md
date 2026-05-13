@@ -292,4 +292,4 @@ Mode.isProd       // Boolean check for Prod mode
 - [Dev / Preprod / Prod Modes](../../concepts/dev-mode.md) — Comprehensive guide to application modes
 - [TestServer](./test-server.md) — Integration testing with mode configuration
 - [TestClient](./test-client.md) — Mocking external services for mode testing
-- [Testing HTTP Applications](../../guides/testing-http-apps.md) — Comprehensive testing guide
+- [Testing HTTP Applications](../../guides/testing-http-apps) — Comprehensive testing guide
