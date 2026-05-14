@@ -56,7 +56,7 @@ import zio._
 import zio.http._
 
 val extraRoutes: Routes[Any, Nothing] =
-  if (Mode.isDev) SwaggerUI.routes("docs", OpenAPIGen.empty)
+  if (Mode.isDev) Routes.empty  // In real code: SwaggerUI.routes("docs", OpenAPIGen.empty)
   else Routes.empty
 
 val baseRoutes: Routes[Any, Nothing] = Routes(
@@ -69,13 +69,13 @@ val appRoutes = baseRoutes ++ extraRoutes
 Or adapt server config:
 
 ```scala mdoc:compile-only
+import zio._
+import zio.http._
+
 val serverConfig =
   if (Mode.isProd) Server.Config.default
-    .leakDetection(false)
     .requestDecompression(true)
-  else Server.Config.default
-    .leakDetection(true)           // extra visibility in dev
-    .maxThreads(4)                 // keep lighter in local dev
+  else Server.Config.default          // lighter config in dev
 ```
 
 ## Testing Modes
