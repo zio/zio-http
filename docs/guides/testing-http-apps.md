@@ -33,7 +33,7 @@ ZIO HTTP solves this by treating routes as **pure, testable functions** that you
 
 To follow this guide, add these test dependencies to your `build.sbt`:
 
-```scala mdoc:compile-only
+```scala
 libraryDependencies ++= Seq(
   "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test,
   "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test,
