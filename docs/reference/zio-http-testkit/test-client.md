@@ -7,7 +7,7 @@ title: "TestClient"
 
 The `TestClient` type provides:
 
-```scala mdoc:compile-only
+```scala
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
   serverSocketBehavior: Ref[WebSocketApp[Any]],
@@ -118,7 +118,7 @@ Key behavior:
 
 ### `TestClient.withFallbackHandler` — Custom Fallback Behavior
 
-```scala mdoc:compile-only
+```scala
 def withFallbackHandler[R](
   fallbackHandler: Request => ZIO[R, Response, Response]
 ): ZLayer[R, Nothing, TestClient & Client]
