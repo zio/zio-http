@@ -7,7 +7,7 @@ title: "TestChannel"
 
 The `TestChannel` type provides:
 
-```scala mdoc:compile-only
+```scala
 case class TestChannel(
   in: Queue[WebSocketChannelEvent],
   out: Queue[WebSocketChannelEvent],
@@ -68,7 +68,7 @@ Use `TestChannel` when testing:
 
 Here's a complete example: create a WebSocket echo handler, test it with TestChannel:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -107,7 +107,7 @@ Create TestChannel instances via the factory method:
 
 ### `TestChannel.make` — Create Connected Channel Pair
 
-```scala mdoc:compile-only
+```scala
 def make(
   in: Queue[WebSocketChannelEvent],
   out: Queue[WebSocketChannelEvent],
@@ -117,7 +117,7 @@ def make(
 
 Use `TestChannel.make` to create a TestChannel from queues and a promise. This is useful for manual setup or advanced scenarios:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -158,7 +158,7 @@ TestChannel supports bidirectional message transmission using these operations:
 
 #### `WebSocketChannel#send` — Send Single Message to Channel
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def send(event: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit]
 }
@@ -166,7 +166,7 @@ trait WebSocketChannel {
 
 Use `send` to transmit a single WebSocket event (message or control frame) to the channel. Both client and server sides can send messages:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -193,7 +193,7 @@ Key behavior:
 
 #### `WebSocketChannel#sendAll` — Send Multiple Messages
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def sendAll(events: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit]
 }
@@ -201,7 +201,7 @@ trait WebSocketChannel {
 
 Use `sendAll` to transmit multiple WebSocket events atomically. This is useful for bulk message injection:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -229,7 +229,7 @@ Key behavior:
 
 #### `WebSocketChannel#receive` — Receive Single Message
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def receive(implicit trace: Trace): Task[WebSocketChannelEvent]
 }
@@ -237,7 +237,7 @@ trait WebSocketChannel {
 
 Use `receive` to get one WebSocket event from the channel. This blocks until an event becomes available:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -267,7 +267,7 @@ Key behavior:
 
 #### `WebSocketChannel#receiveAll` — Receive and Process All Messages
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def receiveAll[Env, Err](
     f: WebSocketChannelEvent => ZIO[Env, Err, Any]
@@ -277,7 +277,7 @@ trait WebSocketChannel {
 
 Use `receiveAll` to loop through messages and apply a function to each one. The loop continues until the channel shuts down (receives `Unregistered` event). This is the core pattern for WebSocket handlers:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -319,7 +319,7 @@ Manage channel lifecycle using shutdown operations.
 
 #### `WebSocketChannel#shutdown` — Gracefully Close Channel
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def shutdown(implicit trace: Trace): UIO[Unit]
 }
@@ -327,7 +327,7 @@ trait WebSocketChannel {
 
 Call `shutdown` to send shutdown signals to both input and output, clean up resources, and exit `WebSocketChannel#receiveAll` loops:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -358,7 +358,7 @@ Key behavior:
 
 #### `WebSocketChannel#awaitShutdown` — Wait for Shutdown
 
-```scala mdoc:compile-only
+```scala
 trait WebSocketChannel {
   def awaitShutdown(implicit trace: Trace): UIO[Unit]
 }
@@ -366,7 +366,7 @@ trait WebSocketChannel {
 
 Call `awaitShutdown` to block until the channel receives a shutdown signal from the other side:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -404,7 +404,7 @@ This section shows patterns for testing WebSocket handlers.
 
 Test a handler that echoes back all text messages:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -438,7 +438,7 @@ val test = for {
 
 Test a handler that maintains state (e.g., counter):
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -476,7 +476,7 @@ val test = for {
 
 Test a handler that broadcasts messages between two clients:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -517,7 +517,7 @@ val test = for {
 
 **`TestServer`** — TestServer automatically uses TestChannel when clients connect to WebSocket endpoints. When you add a WebSocket handler to TestServer and a client connects, TestServer creates TestChannels for bidirectional communication:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
@@ -537,7 +537,7 @@ val echoHandler = Handler.webSocket { channel: WebSocketChannel =>
 
 **`TestClient`** — TestClient's WebSocket clients use TestChannel for communication:
 
-```scala mdoc:compile-only
+```scala
 import zio._
 import zio.http._
 import zio.http.ChannelEvent._
