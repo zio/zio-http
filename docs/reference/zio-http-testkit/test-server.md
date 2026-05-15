@@ -7,7 +7,7 @@ title: "TestServer"
 
 The `TestServer` type provides:
 
-```scala mdoc:compile-only
+```scala
 final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   def addRoute[R](route: Route[R, Response]): ZIO[R, Nothing, Unit]
   def addRoutes[R](routes: Routes[R, Response]): ZIO[R, Nothing, Unit]
