@@ -391,6 +391,36 @@ object RouteSpec extends ZIOHttpSpec {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == expected)
       },
+      test("single Route aspects should compose with path params and request input (#3141)") {
+        case class WebSession(id: Int)
+
+        val sessionAspect: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunction[Request] { req =>
+              (req, Some(WebSession(7)))
+            },
+          )
+
+        val baseHandler: Handler[Option[WebSession], Response, (String, Request), Response] =
+          Handler.fromFunctionZIO[(String, Request)] { case (message, request) =>
+            withContext { (session: Option[WebSession]) =>
+              ZIO.succeed(Response.text(s"$message ${session.map(_.id).getOrElse(-1)} ${request.method.render}"))
+            }
+          }
+
+        val route =
+          Method.DELETE / string("message") -> (baseHandler.@@[Any, Option[WebSession], (String, Request)](
+            sessionAspect,
+          ))
+
+        for {
+          response <- Routes(route).runZIO(Request.delete(url"/twenty"))
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "twenty 7 DELETE",
+        )
+      },
       test("handleErrorCause should catch defects after handleErrorZIO (#3432)") {
         val route = Method.GET / "endpoint" -> handler { (_: Request) =>
           ZIO

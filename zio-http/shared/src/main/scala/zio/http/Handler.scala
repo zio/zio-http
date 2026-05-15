@@ -38,12 +38,22 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
-  }
+    trace: Trace,
+  ): Handler[Env1, Response, In1, Response] =
+    Handler.scoped[Env1] {
+      Handler.fromFunctionZIO[In1] { input =>
+        aspect.protocol.incoming(in.request(input)).flatMap { case (state, (request, _)) =>
+          self
+            .asInstanceOf[Handler[Env1, Response, In1, Response]](in.update(input, request))
+            .either
+            .flatMap { either =>
+              aspect.protocol
+                .outgoing(state, either.merge)
+                .flatMap(response => if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response))
+            }
+        }
+      }
+    }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
     in: Handler.IsRequest[In1],
@@ -51,14 +61,19 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+  ): Handler[Env0, Response, In1, Response] =
+    Handler.scoped[Env0] {
+      Handler.fromFunctionZIO[In1] { input =>
+        aspect.protocol.incoming(in.request(input)).flatMap { case (state, (request, ctx)) =>
+          self
+            .asInstanceOf[Handler[Ctx, Response, In1, Response]](in.update(input, request))
+            .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+            .either
+            .flatMap { either =>
+              aspect.protocol
+                .outgoing(state, either.merge)
+                .flatMap(response => if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response))
+            }
         }
       }
     }
@@ -703,10 +718,76 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A] {
+    def request(value: A): Request
+    def update(value: A, request: Request): A
+  }
 
-  object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  private[http] trait IsRequestLowPriority {
+    implicit def tuple2[A]: IsRequest[(A, Request)] = new IsRequest[(A, Request)] {
+      override def request(value: (A, Request)): Request                       = value._2
+      override def update(value: (A, Request), request: Request): (A, Request) =
+        (value._1, request)
+    }
+
+    implicit def tuple3[A, B]: IsRequest[(A, B, Request)] = new IsRequest[(A, B, Request)] {
+      override def request(value: (A, B, Request)): Request                          = value._3
+      override def update(value: (A, B, Request), request: Request): (A, B, Request) =
+        (value._1, value._2, request)
+    }
+
+    implicit def tuple4[A, B, C]: IsRequest[(A, B, C, Request)] = new IsRequest[(A, B, C, Request)] {
+      override def request(value: (A, B, C, Request)): Request                             = value._4
+      override def update(value: (A, B, C, Request), request: Request): (A, B, C, Request) =
+        (value._1, value._2, value._3, request)
+    }
+
+    implicit def tuple5[A, B, C, D]: IsRequest[(A, B, C, D, Request)] =
+      new IsRequest[(A, B, C, D, Request)] {
+        override def request(value: (A, B, C, D, Request)): Request = value._5
+        override def update(
+          value: (A, B, C, D, Request),
+          request: Request,
+        ): (A, B, C, D, Request) =
+          (value._1, value._2, value._3, value._4, request)
+      }
+
+    implicit def tuple6[A, B, C, D, E]: IsRequest[(A, B, C, D, E, Request)] =
+      new IsRequest[(A, B, C, D, E, Request)] {
+        override def request(value: (A, B, C, D, E, Request)): Request = value._6
+        override def update(
+          value: (A, B, C, D, E, Request),
+          request: Request,
+        ): (A, B, C, D, E, Request) =
+          (value._1, value._2, value._3, value._4, value._5, request)
+      }
+
+    implicit def tuple7[A, B, C, D, E, F]: IsRequest[(A, B, C, D, E, F, Request)] =
+      new IsRequest[(A, B, C, D, E, F, Request)] {
+        override def request(value: (A, B, C, D, E, F, Request)): Request = value._7
+        override def update(
+          value: (A, B, C, D, E, F, Request),
+          request: Request,
+        ): (A, B, C, D, E, F, Request) =
+          (value._1, value._2, value._3, value._4, value._5, value._6, request)
+      }
+
+    implicit def tuple8[A, B, C, D, E, F, G]: IsRequest[(A, B, C, D, E, F, G, Request)] =
+      new IsRequest[(A, B, C, D, E, F, G, Request)] {
+        override def request(value: (A, B, C, D, E, F, G, Request)): Request = value._8
+        override def update(
+          value: (A, B, C, D, E, F, G, Request),
+          request: Request,
+        ): (A, B, C, D, E, F, G, Request) =
+          (value._1, value._2, value._3, value._4, value._5, value._6, value._7, request)
+      }
+  }
+
+  object IsRequest extends IsRequestLowPriority {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {
+      override def request(value: Request): Request                  = value
+      override def update(value: Request, request: Request): Request = request
+    }
   }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
