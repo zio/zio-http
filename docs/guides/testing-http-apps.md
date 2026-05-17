@@ -154,7 +154,7 @@ This pattern is especially useful when testing code that makes HTTP calls to mul
 2. No unexpected calls are made to unrelated services
 3. The code handles specific error responses correctly
 
-:::tip[Inverted Dependency Model]
+:::note[Inverted Dependency Model]
 TestClient is an **inverted dependency model**: instead of mocking the Client interface itself (which is brittle), you configure TestClient routes just like you would configure real server routes. Your code gets a Client that works exactly like the real one, but backed by your test configuration. This makes tests more realistic and resistant to changes in the Client implementation.
 :::
 
@@ -239,7 +239,7 @@ Stateful handler testing reveals bugs that wouldn't be caught by testing a singl
 
 By making multiple requests in sequence and verifying the state changes at each step, you ensure your stateful logic is correct.
 
-:::tip[Modeling Application State]
+:::note[Modeling Application State]
 Use `Ref` for shared mutable state that handlers need to access. The test creates the `Ref` once, then handlers update it across multiple requests. This models how real applications maintain state — think of it as an in-memory database that all handlers have access to.
 :::
 
@@ -332,7 +332,7 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/GuideValida
 
 ([source](https://github.com/zio/zio-http/blob/main/zio-http-example-testing/src/test/scala/example/testing/GuideValidationErrorSpec.scala))
 
-:::tip[Error Testing Pays Off]
+:::note[Error Testing Pays Off]
 Error testing is where the investment in testing really pays off. A single unhandled error path in production can impact thousands of users. By testing error scenarios systematically, you gain confidence that your application degrades gracefully under failure.
 :::
 
