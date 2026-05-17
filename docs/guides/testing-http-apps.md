@@ -57,7 +57,7 @@ ZIO HTTP provides three distinct testing patterns, each suited to different scen
 
 2. **TestClient**: Mock the HTTP client by defining what responses to return for specific requests. Use when your application makes HTTP calls to external services and you want to mock those dependencies.
 
-3. **TestServer**: Start a test server that responds to HTTP requests according to defined routes. Use for integration testing multiple routes working together, or when testing code that makes HTTP requests and you want to verify the exact requests being made.
+3. **TestServer**: Start a test server that responds to HTTP requests based on your routes. Use for integration testing multiple routes working together, or when testing code that makes HTTP requests and you want to verify the exact requests being made.
 
 Each pattern serves a different testing need — we'll explore them in order of complexity and show when to use each one.
 
@@ -212,7 +212,7 @@ Notice that routes are evaluated in order — the specific `GET /users/{id}` rou
 Many real-world handlers maintain state across requests. For example:
 - An authentication handler tracks login attempts to prevent brute force attacks
 - A rate limiting middleware tracks how many requests each user makes
-- A caching handler stores computed results to avoid recomputing them
+- A caching handler caches values to avoid recomputing them
 - A checkout handler maintains a shopping cart across multiple requests
 
 When testing such handlers, you need to verify that state is correctly maintained as requests arrive.
@@ -240,7 +240,7 @@ Stateful handler testing reveals bugs that wouldn't be caught by testing a singl
 By making multiple requests in sequence and verifying the state changes at each step, you ensure your stateful logic is correct.
 
 ★ Insight ─────────────────────────────────────
-Use `Ref` for shared mutable state that handlers need to access. The `Ref` is created once in the test, then handlers can update it across multiple requests. This models how real applications maintain state — think of it as an in-memory database that all handlers have access to.
+Use `Ref` for shared mutable state that handlers need to access. The test creates the `Ref` once, then handlers update it across multiple requests. This models how real applications maintain state — think of it as an in-memory database that all handlers have access to.
 ─────────────────────────────────────────────────
 
 ## Testing WebSocket Connections
