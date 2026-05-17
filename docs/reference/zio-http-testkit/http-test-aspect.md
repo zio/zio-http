@@ -23,14 +23,9 @@ Key properties:
 
 ### Role in Module
 
-`HttpTestAspect` is the **test utility for mode-dependent behavior verification** in zio-http-testkit. It provides a way to test handlers that behave differently across deployment modes without requiring actual mode changes to the application.
+`HttpTestAspect` is the **test utility for mode-dependent behavior verification** in zio-http-testkit.
 
-**Use with:** TestServer (mode-dependent routes), TestClient (mode-dependent external calls), Mode (checks current mode in handlers)
-
-**Complementary types:**
-- TestServer — For integration testing mode-dependent routes
-- TestClient — For testing mode-dependent client calls
-- Mode — For reading current mode in handler logic
+**Complements:** TestServer (mode-dependent routes), TestClient (mode-dependent external calls), Mode (checks current mode in handlers)
 
 ## Motivation
 
@@ -46,10 +41,9 @@ test("handles errors in dev mode") {
 ```
 
 Use `HttpTestAspect` when:
-- Your handler behavior differs by deployment mode
-- You want to test mode-specific error handling
+- You want to test mode-specific error handling or resource allocation
 - You need to verify feature flags that depend on the mode
-- You want to ensure tests don't interfere with each other's mode settings
+- Your test suite tests multiple modes and needs isolation
 
 ## Mode Types
 
@@ -97,7 +91,7 @@ The following examples demonstrate testing different modes.
 
 ### Testing Dev Mode Behavior
 
-Verify handlers that enable extra diagnostics in development:
+Enable extra diagnostics and verbose error handling:
 
 ```scala mdoc:passthrough
 import utils._
@@ -108,7 +102,7 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/TestAspectD
 
 ### Testing Prod Mode Behavior
 
-Verify handlers that enforce stricter validation in production:
+Enforce stricter validation and optimized error handling:
 
 ```scala mdoc:passthrough
 import utils._
@@ -119,7 +113,7 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/TestAspectP
 
 ### Testing Preprod Mode Behavior
 
-Verify handlers that behave differently in staging environments:
+Test production-like behavior safely in staging:
 
 ```scala mdoc:passthrough
 import utils._
@@ -140,8 +134,6 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/TestAspectM
 ([source](https://github.com/zio/zio-http/blob/main/zio-http-example-testing/src/test/scala/example/testing/TestAspectMultiMode.scala))
 
 ## Common Patterns
-
-Here are practical patterns for using mode-dependent behavior.
 
 ### Mode-Conditional Routes
 
@@ -167,9 +159,6 @@ val appRoutes = Routes(
 Customize error responses based on mode:
 
 ```scala
-import zio._
-import zio.http._
-
 handler { (_: Request) =>
   ZIO.fail(new Exception("Something went wrong"))
     .catchAll { err =>
@@ -190,9 +179,6 @@ handler { (_: Request) =>
 Adapt server configuration and resources based on mode:
 
 ```scala
-import zio._
-import zio.http._
-
 // Use mode to determine resource allocation
 val resourcePoolSize = if (Mode.isProd) 16 else 4
 val enableVerboseLogging = Mode.isDev
@@ -270,14 +256,7 @@ test("my test") {
 
 ### Mode Queries in Handlers
 
-Use these functions to query the current mode in your handler code:
-
-```scala
-Mode.current      // Get current mode (Dev | Preprod | Prod)
-Mode.isDev        // Boolean check for Dev mode
-Mode.isPreprod    // Boolean check for Preprod mode
-Mode.isProd       // Boolean check for Prod mode
-```
+See [Reading the Mode](#reading-the-mode) above for available query functions.
 
 ## Implementation Details
 
