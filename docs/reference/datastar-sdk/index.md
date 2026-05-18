@@ -515,6 +515,62 @@ data: elements <script data-effect="el.remove">console.log('Sending substring(0,
 
 With this, the client will execute each script and log the messages to the console. Datastar finds the `<body>` element, appends the `<script>` tag to it, and the script executes immediately (logging to console). The `data-effect=el.remove` directive causes the script to remove itself from the DOM after execution, because the `autoRemove` is enabled by default.
 
+#### Dispatching Events
+
+The `ServerSentEventGenerator#dispatchEvent` is used to fire custom DOM events on the client. This enables you to trigger reactive behaviors defined in your HTML via `data-on` attributes or JavaScript event listeners. It takes the event name as a string and optionally the selector and event details:
+
+```scala mdoc:compile-only
+final case class DispatchEventOptions(
+  selector: Option[CssSelector] = None,
+  eventId: Option[String] = None,
+  retryDuration: Duration = 1000.millis,
+)
+```
+
+1. The `selector` specifies which element should receive the event. If `None`, the event is dispatched on `window`.
+2. The `eventId` is an optional identifier for the SSE event.
+3. The `retryDuration` specifies the duration the client should wait before retrying the connection in case of failure.
+
+Here is an example of dispatching a custom event from the server when a background operation completes:
+
+```scala mdoc:compile-only
+import zio.http.datastar._
+
+// Server: Dispatch a custom event after processing completes
+for {
+  _ <- ZIO.sleep(2.seconds)  // Simulate processing
+  _ <- ServerSentEventGenerator.dispatchEvent(
+    "dataProcessingComplete",
+    DispatchEventOptions(
+      selector = Some(CssSelector.id("data-container")),
+      retryDuration = 5.seconds
+    )
+  )
+} yield ()
+```
+
+On the client side, you can listen to this event using the `data-on` attribute:
+
+```scala mdoc:compile-only
+import zio.http.datastar._
+import zio.http.template2._
+
+div(
+  id("data-container"),
+  dataOn("dataProcessingComplete") := js"console.log('Data processing completed!')",
+  p("Waiting for data...")
+)
+```
+
+When the server dispatches the "dataProcessingComplete" event, Datastar fires the custom event on the element with `id="data-container"`, triggering any handlers attached to it. This is useful for:
+
+- Coordinating complex multi-step workflows between server and client
+- Triggering UI state changes based on background job completion
+- Implementing reactive patterns where the server controls when client-side actions occur
+- Building collaborative features where actions by one client need to trigger updates on others
+
+The dispatched event is a standard DOM `CustomEvent` with optional detail data that can be accessed in event handlers. The event propagates through the DOM tree, allowing you to attach listeners at any parent element.
+
 
 ## Examples
 
