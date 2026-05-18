@@ -284,6 +284,9 @@ final case class URL(
 object URL {
   val empty: URL = URL(path = Path.empty)
 
+  private val EncodedLeftBrace  = "%7B"
+  private val EncodedRightBrace = "%7D"
+
   /**
    * To better understand this implementation, read discussion:
    * https://github.com/zio/zio-http/pull/3017/files#r1716489733
@@ -319,7 +322,7 @@ object URL {
 
         Right(URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(rawQuery), fragment))
       } else {
-        val uri = new URI(rawUrl)
+        val uri = new URI(sanitizeAbsoluteUrlQuery(rawUrl))
         val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
         url match {
@@ -355,10 +358,50 @@ object URL {
 
   private[http] def decodeOrNull(rawUrl: String): URL = {
     try {
-      val uri = new URI(rawUrl)
-      if (uri.isAbsolute) fromAbsoluteURIOrNull(uri) else fromRelativeURIOrNull(uri)
+      if (rawUrl.isEmpty) URL.empty
+      else if (rawUrl.charAt(0) == '/') {
+        val fragmentIdx = rawUrl.indexOf('#')
+        val rawQueryIdx = rawUrl.indexOf('?')
+        val queryIdx    = if (fragmentIdx >= 0 && rawQueryIdx > fragmentIdx) -1 else rawQueryIdx
+
+        val pathEnd  = if (queryIdx >= 0) queryIdx else if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
+        val rawPath  = rawUrl.substring(0, pathEnd)
+        val rawQuery = if (queryIdx >= 0) {
+          val queryEnd = if (fragmentIdx > queryIdx) fragmentIdx else rawUrl.length
+          rawUrl.substring(queryIdx + 1, queryEnd)
+        } else null
+        val fragment = if (fragmentIdx >= 0) {
+          val rawFrag = rawUrl.substring(fragmentIdx + 1)
+          Some(Fragment.fromRaw(rawFrag))
+        } else None
+
+        URL(Path.decodeRaw(rawPath), Location.Relative, QueryParams.decode(rawQuery), fragment)
+      } else {
+        val uri = new URI(sanitizeAbsoluteUrlQuery(rawUrl))
+        if (uri.isAbsolute) fromAbsoluteURIOrNull(uri) else fromRelativeURIOrNull(uri)
+      }
     } catch {
       case NonFatal(_) => null
+    }
+  }
+
+  private def sanitizeAbsoluteUrlQuery(rawUrl: String): String = {
+    if (rawUrl.isEmpty || rawUrl.charAt(0) == '/') rawUrl
+    else {
+      val queryIdx = rawUrl.indexOf('?')
+      if (queryIdx < 0) rawUrl
+      else {
+        val fragmentIdx = rawUrl.indexOf('#', queryIdx + 1)
+        val queryEnd    = if (fragmentIdx >= 0) fragmentIdx else rawUrl.length
+        val rawQuery    = rawUrl.substring(queryIdx + 1, queryEnd)
+        if (rawQuery.indexOf('{') < 0 && rawQuery.indexOf('}') < 0) rawUrl
+        else {
+          val sanitizedQuery = rawQuery
+            .replace("{", EncodedLeftBrace)
+            .replace("}", EncodedRightBrace)
+          rawUrl.substring(0, queryIdx + 1) + sanitizedQuery + rawUrl.substring(queryEnd)
+        }
+      }
     }
   }
 
