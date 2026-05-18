@@ -6,7 +6,7 @@ object Dependencies {
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.26"
   val ZioCliVersion                = "0.8.1"
-  val ZioJsonVersion               = "0.9.1"
+  val ZioJsonVersion               = "0.9.2"
   val ZioSchemaVersion             = "1.8.5"
   val SttpVersion                  = "3.3.18"
   val ZioConfigVersion             = "4.0.7"
@@ -15,7 +15,7 @@ object Dependencies {
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.11.0"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.11.1"
   val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.7"
 
   val netty =
