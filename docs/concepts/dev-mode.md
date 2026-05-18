@@ -1,4 +1,7 @@
-# Dev / Preprod / Prod Modes
+---
+id: dev-mode
+title: "Dev / Preprod / Prod Modes"
+---
 
 ZIO HTTP provides a simple built-in notion of application "mode" so you can adapt behavior (e.g. enable extra diagnostics in development, stricter settings in production, other routes, different error handling) without wiring your own config keys everywhere.
 
@@ -12,7 +15,7 @@ The available modes are:
 
 Use any of the following helpers:
 
-```scala
+```scala mdoc:compile-only
 import zio.http.Mode
 
 // Full value
@@ -42,18 +45,18 @@ sbt "run -Dzio.http.mode=preprod"
 ZIO_HTTP_MODE=prod sbt run
 ```
 
-Unknown values cause a warning on stderr and the mode falls back to `dev`:
+Unknown values cause a warning on stderr and the mode falls back to `dev`.
 
 ## Typical Use Cases
 
 You can branch on the mode to enable / disable features:
 
-```scala
+```scala mdoc:compile-only
 import zio._
 import zio.http._
 
 val extraRoutes: Routes[Any, Nothing] =
-  if (Mode.isDev) SwaggerUI.routes("docs", OpenAPIGen.empty)
+  if (Mode.isDev) Routes.empty  // In real code: SwaggerUI.routes("docs", OpenAPIGen.empty)
   else Routes.empty
 
 val baseRoutes: Routes[Any, Nothing] = Routes(
@@ -65,14 +68,14 @@ val appRoutes = baseRoutes ++ extraRoutes
 
 Or adapt server config:
 
-```scala
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+
 val serverConfig =
   if (Mode.isProd) Server.Config.default
-    .leakDetection(false)
     .requestDecompression(true)
-  else Server.Config.default
-    .leakDetection(true)           // extra visibility in dev
-    .maxThreads(4)                 // keep lighter in local dev
+  else Server.Config.default          // lighter config in dev
 ```
 
 ## Testing Modes
@@ -87,22 +90,13 @@ Each aspect sets the mode for the duration of the test, restoring the previous m
 
 Example:
 
-```scala
-import zio.test._
-import zio.http._
+```scala mdoc:passthrough
+import utils._
 
-object ModeExamplesSpec extends ZIOSpecDefault {
-  def spec = suite("ModeExamplesSpec")(
-    test("enables preprod logic") {
-      assertTrue(Mode.current == Mode.Preprod)
-    } @@ HttpTestAspect.preprodMode,
-
-    test("enables prod logic") {
-      assertTrue(Mode.isProd)
-    } @@ HttpTestAspect.prodMode,
-  ) @@ TestAspect.sequential // IMPORTANT, see below
-}
+printSource("zio-http-example-testing/src/test/scala/example/testing/GuideModeExamplesSpec.scala")
 ```
+
+([source](https://github.com/zio/zio-http/blob/main/zio-http-example-testing/src/test/scala/example/testing/GuideModeExamplesSpec.scala))
 
 ### Why `TestAspect.sequential`?
 
