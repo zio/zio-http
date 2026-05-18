@@ -53,7 +53,7 @@ If you're new to ZIO or ZIO HTTP, start with those reference pages before diving
 
 ZIO HTTP provides three distinct testing patterns, each suited to different scenarios:
 
-1. **Direct Route Testing**: Test a route function directly by calling `routes.runZIO(request)`. This is the simplest approach and ideal for unit testing individual handlers in isolation.
+1. **Direct Route Testing**: Test a handler directly by converting it to routes and calling `runZIO(request)`. This is the simplest approach and ideal for unit testing individual handlers in isolation.
 
 2. **TestClient**: Mock the HTTP client by defining what responses to return for specific requests. Use when your application makes HTTP calls to external services and you want to mock those dependencies.
 
@@ -63,7 +63,7 @@ Each pattern serves a different testing need — we'll explore them in order of 
 
 ## Pattern 1: Direct Route Testing
 
-The simplest and fastest way to test is to invoke a route directly as a function, without any server infrastructure. In ZIO HTTP, a `Routes` object is just a function that takes a `Request` and returns a `ZIO` effect that produces a `Response`. You can call this function directly in your test.
+The simplest and fastest way to test is to invoke a handler directly as a function, without any server infrastructure. In ZIO HTTP, a `Handler` is a function that takes a `Request` and returns a `ZIO` effect that produces a `Response`. You can convert a handler to a `Routes` object using `.toRoutes`, then call `runZIO` directly in your test to invoke the routing logic.
 
 This approach is ideal when you're testing a single handler in isolation — for example, a handler that parses JSON, validates input, and returns a response. There's no networking, no port binding, no concurrent connections to worry about. Just pure ZIO effects.
 
@@ -88,9 +88,13 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/DirectRoute
 
 ([source](https://github.com/zio/zio-http/blob/main/zio-http-example-testing/src/test/scala/example/testing/DirectRouteExampleSpec.scala))
 
-The key here is `routes.runZIO(request)` — this invokes the route function directly and returns the response as a ZIO effect, which you then assert on.
+:::note[Example Source Code]
+The code examples below are linked directly from the ZIO HTTP test suite and can be run as-is. You can find, study, and execute these tests yourself in the repository.
+:::
 
-**Behind the scenes:** Routes are implemented as a function that pattern-matches on the request path and method, then invokes the appropriate handler. By calling `runZIO` directly, you skip the server entirely and invoke the routing logic as a pure function.
+The key here is `handler.toRoutes.runZIO(request)` — first, the handler is converted to a `Routes` object using `.toRoutes`, then `runZIO` invokes the route function directly and returns the response as a ZIO effect, which you then assert on.
+
+**Behind the scenes:** A `Routes` object is a function that pattern-matches on the request path and method, then invokes the appropriate handler. By calling `runZIO` directly on the routes, you skip the server entirely and invoke the routing logic as a pure function. The handler must first be converted to routes using `.toRoutes` before you can call `runZIO` on it.
 
 ## Pattern 2: TestClient — Mock HTTP Dependencies
 
@@ -170,7 +174,7 @@ TestServer is ideal when:
 - You're testing middleware that applies to all routes
 - You want integration tests that exercise the full request/response cycle without network I/O
 
-TestServer binds to a port on localhost; while it uses real network I/O on localhost, this eliminates external network latency and disk I/O, making tests fast and deterministic. You make HTTP requests using the standard `Client` interface, which creates a realistic testing scenario.
+TestServer binds to a localhost port and uses loopback network I/O, making it fast and deterministic without the latency of remote network calls. You make HTTP requests using the standard `Client` interface, which creates a realistic testing scenario without incurring actual network overhead.
 
 **Basic server setup:**
 
@@ -286,7 +290,7 @@ printSource("zio-http-example-testing/src/test/scala/example/testing/GuideWebSoc
 
 **The handshake:**
 
-When you upgrade to WebSocket, both sides automatically receive a `HandshakeComplete` event as the first message. This signals that the upgrade succeeded and bidirectional communication can begin.
+When you upgrade to WebSocket, both sides automatically receive a `HandshakeComplete` event as the first message. This signals that the upgrade succeeded and bidirectional communication can begin. You must consume this event before processing application messages — as shown in the example above where we skip it with `_ <- channel.receive` before entering the echo loop.
 
 :::warning
 WebSocket handlers run concurrently. Both the server and client handlers are running at the same time, each waiting to receive or send messages. Be careful about deadlocks — for example, if both sides wait to receive without sending first, they'll hang indefinitely.
