@@ -127,7 +127,17 @@ const sidebars = {
         "reference/configs/netty",
       ],
     },
-    "reference/datastar-sdk/index"
+    {
+      type: "category",
+      label: "Datastar SDK",
+      link: { type: "doc", id: "reference/datastar-sdk/index" },
+      items: [
+        "reference/datastar-sdk/attributes",
+        "reference/datastar-sdk/signals",
+        "reference/datastar-sdk/server-api",
+        "reference/datastar-sdk/examples",
+      ],
+    },
   ],
 
   examples: [
