@@ -3,7 +3,7 @@ id: signals
 title: Extracting Datastar Signals from Requests
 ---
 
-When the client sends a request to the server, it includes the current values of all signals in a special query parameter named `datastar`. You can extract these signals from the request.
+When the client sends a request to the server, it includes the current values of all signals. For GET requests, signals are sent in a special query parameter named `datastar`; for non-GET requests (POST, PUT, etc.), signals are sent in the request body. You can extract these signals from the request using `readSignals[T]`.
 
 ## Example: Form with Signal Binding
 
@@ -48,17 +48,18 @@ object Delay {
 val route =
   Method.GET / "hello-world" -> events {
     handler { (request: Request) =>
-      
-      // Use the extracted delay value in your logic 
-      val message = "Hello, world!"
-      ZIO.foreachDiscard(message.indices) { i =>
-        for {
-          delay <- request.readSignals[Delay].orElse(ZIO.succeed(Delay(100))) 
-          _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
-          _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
-          _ <- ZIO.sleep(delay.value.millis)
-        } yield ()
-      }
+      for {
+        // Extract delay once before the loop to avoid repeated JSON decoding
+        delay <- request.readSignals[Delay].orElse(ZIO.succeed(Delay(100)))
+        message = "Hello, world!"
+        _ <- ZIO.foreachDiscard(message.indices) { i =>
+          for {
+            _ <- ServerSentEventGenerator.executeScript(js"console.log('Sending substring(0, ${i + 1})')")
+            _ <- ServerSentEventGenerator.patchElements(div(id("message"), message.substring(0, i + 1)))
+            _ <- ZIO.sleep(delay.value.millis)
+          } yield ()
+        }
+      } yield ()
     }
   }
 ```

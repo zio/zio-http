@@ -13,14 +13,14 @@ The `zio-http-datastar-sdk` provides extensions to the templating module that al
 | `dataComputed`            | `data-computed`               | Computed values from expressions. [↗](https://data-star.dev/reference/attributes#data-computed)              |
 | `dataEffect`              | `data-effect`                 | Side effects from expressions. [↗](https://data-star.dev/reference/attributes#data-effect)                   |
 | `dataIgnore`              | `data-ignore`                 | Ignore this element and its children. [↗](https://data-star.dev/reference/attributes#data-ignore)            |
-| `dataIgnoreSelf`          | `data-ignore`                 | Ignore only this element, not children. [↗](https://data-star.dev/reference/attributes#data-ignore)          |
+| `dataIgnoreSelf`          | `data-ignore__self`           | Ignore only this element, not children. [↗](https://data-star.dev/reference/attributes#data-ignore)          |
 | `dataIgnoreMorph`         | `data-ignore-morph`           | Ignore morphing for this element. [↗](https://data-star.dev/reference/attributes#data-ignore-morph)          |
 | `dataIndicator`           | `data-indicator`              | Loading indicator. [↗](https://data-star.dev/reference/attributes#data-indicator)                            |
 | `dataJsonSignals`         | `data-json-signals`           | JSON signal declarations. [↗](https://data-star.dev/reference/attributes#data-json-signals)                  |
 | `dataOn`                  | `data-on`                     | Event listeners (click, input, etc.). [↗](https://data-star.dev/reference/attributes#data-on)                |
 | `dataOnIntersect`         | `data-on-intersect`           | Execute when element intersects viewport. [↗](https://data-star.dev/reference/attributes#data-on-intersect)  |
 | `dataOnInterval`          | `data-on-interval`            | Execute on interval. [↗](https://data-star.dev/reference/attributes#data-on-interval)                        |
-| `dataOnLoad`              | `data-on-load`                | Execute when element loads. [↗](https://data-star.dev/reference/attributes#data-on-load)                     |
+| `dataOnLoad`              | `data-init` (deprecated)      | Execute when element loads (generates `data-init`). [↗](https://data-star.dev/reference/attributes#data-on-load)                     |
 | `dataOnSignalPatch`       | `data-on-signal-patch`        | Execute when signal patches. [↗](https://data-star.dev/reference/attributes#data-on-signal-patch)            |
 | `dataOnSignalPatchFilter` | `data-on-signal-patch-filter` | Filter signal patch events. [↗](https://data-star.dev/reference/attributes#data-on-signal-patch-filter)      |
 | `dataPreserveAttr`        | `data-preserve-attr`          | Preserve attributes during morphing. [↗](https://data-star.dev/reference/attributes#data-preserve-attr)      |

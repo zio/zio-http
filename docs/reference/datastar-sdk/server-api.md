@@ -130,7 +130,7 @@ data: elements <div id="message">Hello, world!</div>
 
 As the server streams the response, the browser receives each event and updates the DOM accordingly using Datastar's built-in patching mechanism.
 
-You can generate and send three types of Datastar SSE events to the client using the `ServerSentEventGenerator`:
+You can generate and send four types of Datastar SSE events to the client using the `ServerSentEventGenerator`:
 1. **Patch Elements into the DOM** using `ServerSentEventGenerator#patchElements` methods
 2. **Patch Signals** which updates the values of reactive signals using `ServerSentEventGenerator#patchSignals` methods
 3. **Execute Scripts** which run JavaScript code on the client using `ServerSentEventGenerator#executeScript` method
@@ -339,7 +339,7 @@ final case class DispatchEventOptions(
 )
 ```
 
-1. The `source` specifies which element should receive the event. If `None`, the event is dispatched on `window`.
+1. The `source` specifies which element should receive the event. If `None`, the event is dispatched on `document`.
 2. The `bubbles` flag controls whether the event bubbles through the DOM tree (default: true).
 3. The `cancelable` flag indicates whether the event can be canceled (default: false).
 4. The `composed` flag determines if the event propagates across shadow DOM boundaries (default: false).
@@ -358,6 +358,7 @@ for {
   _ <- ZIO.sleep(2.seconds)  // Simulate processing
   _ <- ServerSentEventGenerator.dispatchEvent(
     "dataProcessingComplete",
+    Js("{}"),  // Event detail payload
     DispatchEventOptions(
       source = Some(CssSelector.id("data-container")),
       retryDuration = 5.seconds
