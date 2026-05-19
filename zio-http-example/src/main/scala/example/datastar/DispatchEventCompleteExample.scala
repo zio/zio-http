@@ -3,6 +3,7 @@ package example.datastar
 import zio._
 import zio.http._
 import zio.http.datastar._
+import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
 /**
@@ -19,18 +20,21 @@ import zio.http.template2._
  */
 object DispatchEventCompleteExample extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
-    Method.GET / Root                      -> event {
+    Method.GET / Root                        -> event {
       handler { (_: Request) =>
         DatastarEvent.patchElements(indexPage)
       }
     },
-    Method.POST / "api" / "data-processor" -> events {
+    Method.POST / "api" / "start-processing" -> handler { (_: Request) =>
+      Response.ok
+    },
+    Method.GET / "api" / "processing-stream" -> events {
       handler {
         for {
           // Update button state and status
           _ <- ServerSentEventGenerator.patchElements(
             button(
-              "Start Processing",
+              "Processing...",
               id("startBtn"),
               disabled,
             ),
@@ -107,7 +111,15 @@ object DispatchEventCompleteExample extends ZIOAppDefault {
         button(
           "Start Processing",
           id("startBtn"),
-          dataOn.click := js"@post('/api/data-processor')",
+          dataOn.click := js"""
+            fetch('/api/start-processing', { method: 'POST' });
+            const sse = new EventSource('/api/processing-stream');
+            sse.addEventListener('message', (e) => {
+              if (e.data.includes('processingComplete')) {
+                sse.close();
+              }
+            });
+          """,
         ),
         div(
           id("statusBox"),

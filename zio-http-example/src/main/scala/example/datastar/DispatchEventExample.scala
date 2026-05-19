@@ -16,7 +16,7 @@ import zio.http.template2._
  */
 object DispatchEventExample extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
-    Method.GET / Root               -> event {
+    Method.GET / Root                     -> event {
       handler { (_: Request) =>
         DatastarEvent.patchElements(
           html(
@@ -36,7 +36,10 @@ object DispatchEventExample extends ZIOAppDefault {
                 button(
                   "Start Processing",
                   id("processBtn"),
-                  dataOn.click := js"@post('/api/process')",
+                  dataOn.click := js"""
+                    fetch('/api/process', { method: 'POST' });
+                    const sse = new EventSource('/api/process-stream');
+                  """,
                 ),
                 div(
                   id("result"),
@@ -52,7 +55,10 @@ object DispatchEventExample extends ZIOAppDefault {
         )
       }
     },
-    Method.POST / "api" / "process" -> events {
+    Method.POST / "api" / "process"       -> handler { (_: Request) =>
+      Response.ok
+    },
+    Method.GET / "api" / "process-stream" -> events {
       handler {
         for {
           // Disable button
