@@ -592,25 +592,9 @@ cd zio-http
 
 **2. Run individual examples with sbt:**
 
-### Dispatch Event Simple Example
+### Dispatch Event Example
 
-This example demonstrates the basic pattern of dispatching a custom event from the server when an async operation completes, with the client listening for the event and updating the UI.
-
-```scala mdoc:passthrough
-import docs.SourceFile
-
-SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventExample.scala")
-```
-
-([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventExample.scala))
-
-```bash
-sbt "zioHttpExample/runMain example.datastar.DispatchEventExample"
-```
-
-### Dispatch Event Complete Example
-
-This is a more complete example showing a multi-step data processing workflow with real-time progress updates via SSE and event dispatching to coordinate client-side state changes.
+This example demonstrates a complete multi-step data processing workflow with real-time progress updates via Server-Sent Events and custom event dispatching to coordinate client-side state changes. It shows how to combine SSE streaming for live feedback with event dispatch for final state coordination.
 
 ```scala mdoc:passthrough
 import docs.SourceFile
