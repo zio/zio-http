@@ -15,6 +15,9 @@ Single-shot events are those responses that are sent once to the browser using t
 For example, assume you have written a form that takes a username and submits it to the server as follows:
 
 ```scala mdoc:compile-only
+import zio.http.template2._
+import zio.http.datastar._
+
 div(
   className := "container",
   h1("👋 Greeting Form 👋"),
@@ -32,6 +35,10 @@ div(
 The server responds with a single-shot event that updates a greeting message with the provided username:
 
 ```scala mdoc:compile-only
+import zio.http._
+import zio.http.template2._
+import zio.http.datastar._
+
 Method.GET / "greet" -> event {
   handler { (req: Request) =>
     DatastarEvent.patchElements(
@@ -63,6 +70,9 @@ Streaming events are those responses that are sent as a stream of events to the 
 Assume you call the `/hello-world` endpoint that streams a "Hello, World!" message once the page loads:
 
 ```scala mdoc:compile-only
+import zio.http.template2._
+import zio.http.datastar._
+
 body(
   dataOn.load := js"@get('/hello-world')",
   div(
@@ -76,6 +86,11 @@ body(
 The server responds with a streaming event that sends characters progressively:
 
 ```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.template2._
+import zio.http.datastar._
+
 val message = "Hello, world!"
 
 Method.GET / "hello-world" -> events {
@@ -125,7 +140,7 @@ You can generate and send three types of Datastar SSE events to the client using
 
 The `ServerSentEventGenerator#patchElements` takes an HTML fragment and sends it to the client to be merged into the DOM. As a second argument, it takes options of type `PatchElementOptions` to specify how the patching should be done:
 
-```scala mdoc:compile-only
+```scala
 final case class PatchElementOptions(
   selector: Option[CssSelector] = None,
   mode: ElementPatchMode = ElementPatchMode.Outer,
@@ -149,6 +164,10 @@ final case class PatchElementOptions(
 For example, if we run the following code on the server:
 
 ```scala mdoc:compile-only
+import zio._
+import zio.http.template2._
+import zio.http.datastar._
+
 val message = "Hello, world!"
 
 ZIO.foreachDiscard(message.indices) { i =>
@@ -195,7 +214,7 @@ More details about patching elements can be found in the [Datastar documentation
 
 The `ServerSentEventGenerator#patchSignals` is used to update the values of reactive signals on the client. As a second argument, it takes options of type `PatchSignalOptions` to specify how the patching should be done:
 
-```scala mdoc:compile-only
+```scala
 final case class PatchSignalOptions(
   onlyIfMissing: Boolean = false,
   eventId: Option[String] = None,
@@ -211,6 +230,8 @@ Here is an example of generating the current server time and sending it to the c
 
 ```scala mdoc:compile-only
 import java.time.format.DateTimeFormatter
+import zio._
+import zio.http.datastar._
 
 ZIO.clock
   .flatMap(_.currentDateTime)
@@ -250,7 +271,7 @@ More details about patching signals can be found in the [Datastar documentation]
 
 The `ServerSentEventGenerator#executeScript` is used to run JavaScript code on the client. It takes the script as a string and as a second argument, it takes options of type `ExecuteScriptOptions` to specify how the script should be executed:
 
-```scala mdoc:compile-only
+```scala
 final case class ExecuteScriptOptions(
   autoRemove: Boolean = true,
   attributes: Seq[(String, String)] = Seq.empty,
@@ -266,7 +287,10 @@ final case class ExecuteScriptOptions(
 
 Here is an example of generating console log scripts from the server and sending them to the client:
 
-```scala mdoc:compile-only
+```scala
+import zio._
+import zio.http.datastar._
+
 val message = "Hello, world!"
 ZIO.foreachDiscard(message.indices) { i =>
  for {
@@ -303,7 +327,7 @@ With this, the client will execute each script and log the messages to the conso
 
 The `ServerSentEventGenerator#dispatchEvent` is used to fire custom DOM events on the client. This enables you to trigger reactive behaviors defined in your HTML via `data-on` attributes or JavaScript event listeners. It takes the event name as a string and optionally the selector and event details:
 
-```scala mdoc:compile-only
+```scala
 final case class DispatchEventOptions(
   source: Option[CssSelector] = None,
   bubbles: Boolean = true,
@@ -325,7 +349,8 @@ final case class DispatchEventOptions(
 
 Here is an example of dispatching a custom event from the server when a background operation completes:
 
-```scala mdoc:compile-only
+```scala
+import zio._
 import zio.http.datastar._
 
 // Server: Dispatch a custom event after processing completes

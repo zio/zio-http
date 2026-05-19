@@ -154,9 +154,7 @@ For a more comprehensive example demonstrating multi-client real-time chat with 
 This example demonstrates a complete multi-step data processing workflow with real-time progress updates via Server-Sent Events and custom event dispatching to coordinate client-side state changes. It shows how to combine SSE streaming for live feedback with event dispatch for final state coordination.
 
 ```scala mdoc:passthrough
-import docs.SourceFile
-
-SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala")
+utils.printSource("zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala")
 ```
 
 ([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala))

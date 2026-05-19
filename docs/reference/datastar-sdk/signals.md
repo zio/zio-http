@@ -10,6 +10,11 @@ When the client sends a request to the server, it includes the current values of
 For example, the following HTML form binds an input field to a signal named `delay`; when the form is submitted, the current value of the `delay` signal is sent to the server:
 
 ```scala mdoc:compile-only
+import zio.http.template2._
+import zio.http.datastar._
+import zio.http.endpoint.Endpoint
+import zio.http._
+
 body(
   h1("Hello World Example"), {
     val $delay = Signal[Int]("delay")
@@ -32,6 +37,7 @@ The server can extract the signals from the request using the `readSignals[T]` m
 import zio._
 import zio.schema._
 import zio.http._
+import zio.http.template2._
 import zio.http.datastar._
 
 case class Delay(value: Int)
