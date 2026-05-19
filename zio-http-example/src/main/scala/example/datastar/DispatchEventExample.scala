@@ -36,20 +36,15 @@ object DispatchEventExample extends ZIOAppDefault {
                 button(
                   "Start Processing",
                   id("processBtn"),
-                  dataOn.click := js"fetch('/api/process', { method: 'POST' }); this.disabled = true; document.getElementById('status').style.display = 'block';",
-                ),
-                div(
-                  id("status"),
-                  className := "status",
-                  "Processing... (this will take 3 seconds)",
+                  dataOn.click := js"@post('/api/process')",
                 ),
                 div(
                   id("result"),
-                  className := "status complete",
+                  className    := "status complete",
                   "✓ Processing complete!",
                   dataOn(
                     "processingComplete",
-                  ) := js"this.style.display = 'block'; document.getElementById('processBtn').disabled = false; document.getElementById('status').style.display = 'none';",
+                  ) := js"this.style.display = 'block'; document.getElementById('processBtn').disabled = false;",
                 ),
               ),
             ),
@@ -60,7 +55,17 @@ object DispatchEventExample extends ZIOAppDefault {
     Method.POST / "api" / "process" -> events {
       handler {
         for {
+          // Disable button
+          _ <- ServerSentEventGenerator.patchElements(
+            button(
+              "Processing...",
+              id("processBtn"),
+              disabled,
+            ),
+          )
           _ <- ZIO.sleep(3.seconds)
+
+          // Dispatch custom event to show result
           _ <- ServerSentEventGenerator.dispatchEvent(
             "processingComplete",
             js"{}",
@@ -113,10 +118,12 @@ object DispatchEventExample extends ZIOAppDefault {
       border: 1px solid #ffeeba;
     }
     .status.complete {
-      display: none;
       background: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
+    }
+    #result {
+      display: none;
     }
   """
 

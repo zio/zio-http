@@ -27,6 +27,23 @@ object DispatchEventCompleteExample extends ZIOAppDefault {
     Method.POST / "api" / "data-processor" -> events {
       handler {
         for {
+          // Update button state and status
+          _ <- ServerSentEventGenerator.patchElements(
+            button(
+              "Start Processing",
+              id("startBtn"),
+              disabled,
+            ),
+          )
+          _ <- ServerSentEventGenerator.patchElements(
+            div(
+              id("statusBox"),
+              className := "status-box",
+              "Processing...",
+            ),
+          )
+          _ <- ZIO.sleep(300.millis)
+
           // Send initial log entry
           _ <- ServerSentEventGenerator.patchElements(
             div(className := "log-entry", "✓ Processing started"),
@@ -90,16 +107,16 @@ object DispatchEventCompleteExample extends ZIOAppDefault {
         button(
           "Start Processing",
           id("startBtn"),
-          dataOn.click := js"this.disabled = true; fetch('/api/data-processor', { method: 'POST' }); document.getElementById('statusBox').textContent = 'Processing...';",
+          dataOn.click := js"@post('/api/data-processor')",
         ),
         div(
           id("statusBox"),
-          className := "status-box",
+          className    := "status-box",
           "Ready to process",
         ),
         div(
           id("logContainer"),
-          className := "log-container",
+          className    := "log-container",
           div(className := "log-entry", "Waiting for processing to start..."),
         ),
         dataOn("processingComplete") := js"document.getElementById('startBtn').disabled = false;",
