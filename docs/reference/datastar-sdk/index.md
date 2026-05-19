@@ -521,15 +521,23 @@ The `ServerSentEventGenerator#dispatchEvent` is used to fire custom DOM events o
 
 ```scala mdoc:compile-only
 final case class DispatchEventOptions(
-  selector: Option[CssSelector] = None,
+  source: Option[CssSelector] = None,
+  bubbles: Boolean = true,
+  cancelable: Boolean = false,
+  composed: Boolean = false,
+  autoRemove: Boolean = true,
   eventId: Option[String] = None,
   retryDuration: Duration = 1000.millis,
 )
 ```
 
-1. The `selector` specifies which element should receive the event. If `None`, the event is dispatched on `window`.
-2. The `eventId` is an optional identifier for the SSE event.
-3. The `retryDuration` specifies the duration the client should wait before retrying the connection in case of failure.
+1. The `source` specifies which element should receive the event. If `None`, the event is dispatched on `window`.
+2. The `bubbles` flag controls whether the event bubbles through the DOM tree (default: true).
+3. The `cancelable` flag indicates whether the event can be canceled (default: false).
+4. The `composed` flag determines if the event propagates across shadow DOM boundaries (default: false).
+5. The `autoRemove` flag controls whether the event element is automatically removed after execution (default: true).
+6. The `eventId` is an optional identifier for the SSE event.
+7. The `retryDuration` specifies the duration the client should wait before retrying the connection in case of failure (default: 1 second).
 
 Here is an example of dispatching a custom event from the server when a background operation completes:
 
@@ -542,7 +550,7 @@ for {
   _ <- ServerSentEventGenerator.dispatchEvent(
     "dataProcessingComplete",
     DispatchEventOptions(
-      selector = Some(CssSelector.id("data-container")),
+      source = Some(CssSelector.id("data-container")),
       retryDuration = 5.seconds
     )
   )
@@ -570,6 +578,51 @@ When the server dispatches the "dataProcessingComplete" event, Datastar fires th
 - Building collaborative features where actions by one client need to trigger updates on others
 
 The dispatched event is a standard DOM `CustomEvent` with optional detail data that can be accessed in event handlers. The event propagates through the DOM tree, allowing you to attach listeners at any parent element.
+
+## Running the Examples
+
+All code from this section is available as runnable examples in the `zio-http-example` module.
+
+**1. Clone the repository and navigate to the project:**
+
+```bash
+git clone https://github.com/zio/zio-http.git
+cd zio-http
+```
+
+**2. Run individual examples with sbt:**
+
+### Dispatch Event Simple Example
+
+This example demonstrates the basic pattern of dispatching a custom event from the server when an async operation completes, with the client listening for the event and updating the UI.
+
+```scala mdoc:passthrough
+import docs.SourceFile
+
+SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventExample.scala")
+```
+
+([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventExample.scala))
+
+```bash
+sbt "zioHttpExample/runMain example.datastar.DispatchEventExample"
+```
+
+### Dispatch Event Complete Example
+
+This is a more complete example showing a multi-step data processing workflow with real-time progress updates via SSE and event dispatching to coordinate client-side state changes.
+
+```scala mdoc:passthrough
+import docs.SourceFile
+
+SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala")
+```
+
+([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala))
+
+```bash
+sbt "zioHttpExample/runMain example.datastar.DispatchEventCompleteExample"
+```
 
 
 ## Examples
