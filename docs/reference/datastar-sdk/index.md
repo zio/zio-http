@@ -579,36 +579,6 @@ When the server dispatches the "dataProcessingComplete" event, Datastar fires th
 
 The dispatched event is a standard DOM `CustomEvent` with optional detail data that can be accessed in event handlers. The event propagates through the DOM tree, allowing you to attach listeners at any parent element.
 
-## Running the Examples
-
-All code from this section is available as runnable examples in the `zio-http-example` module.
-
-**1. Clone the repository and navigate to the project:**
-
-```bash
-git clone https://github.com/zio/zio-http.git
-cd zio-http
-```
-
-**2. Run individual examples with sbt:**
-
-### Dispatch Event Example
-
-This example demonstrates a complete multi-step data processing workflow with real-time progress updates via Server-Sent Events and custom event dispatching to coordinate client-side state changes. It shows how to combine SSE streaming for live feedback with event dispatch for final state coordination.
-
-```scala mdoc:passthrough
-import docs.SourceFile
-
-SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala")
-```
-
-([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala))
-
-```bash
-sbt "zioHttpExample/runMain example.datastar.DispatchEventCompleteExample"
-```
-
-
 ## Examples
 
 ### Simple Hello World Example
@@ -743,3 +713,19 @@ For a more comprehensive example demonstrating multi-client real-time chat with 
 - Persistent SSE connections for real-time updates
 - Two-way signal binding with form inputs
 - Type-safe request handling with `readSignals[T]`
+- 
+### Dispatch Event Example
+
+This example demonstrates a complete multi-step data processing workflow with real-time progress updates via Server-Sent Events and custom event dispatching to coordinate client-side state changes. It shows how to combine SSE streaming for live feedback with event dispatch for final state coordination.
+
+```scala mdoc:passthrough
+import docs.SourceFile
+
+SourceFile.print("zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala")
+```
+
+([source](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/datastar/DispatchEventCompleteExample.scala))
+
+```bash
+sbt "zioHttpExample/runMain example.datastar.DispatchEventCompleteExample"
+```
