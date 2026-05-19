@@ -3,7 +3,6 @@ package example.datastar
 import zio._
 import zio.http._
 import zio.http.datastar._
-import zio.http.endpoint.Endpoint
 import zio.http.template2._
 
 /**
@@ -11,7 +10,7 @@ import zio.http.template2._
  *
  * This complete example demonstrates a data processing workflow where:
  *   1. Client initiates a long-running task via POST
- *   2. Server streams SSE updates with real-time log entries
+ *   2. Server streams SSE updates during processing
  *   3. Server dispatches a custom event when complete
  *   4. Client responds to the event with UI updates
  *
@@ -19,89 +18,81 @@ import zio.http.template2._
  * example.datastar.DispatchEventCompleteExample"
  */
 object DispatchEventCompleteExample extends ZIOAppDefault {
-  private val isProcessing = new java.util.concurrent.atomic.AtomicBoolean(false)
-
   val routes: Routes[Any, Response] = Routes(
-    Method.GET / Root                            -> event {
+    Method.GET / Root                      -> event {
       handler { (_: Request) =>
         DatastarEvent.patchElements(indexPage)
       }
     },
-    Method.POST / "api" / "data-processor"       -> event {
-      handler { (_: Request) =>
-        isProcessing.set(true)
-        DatastarEvent.patchElements(
-          div(
-            id("statusBox"),
-            className := "status-box",
-            "Processing...",
-          ),
-        )
-      }
-    },
-    Method.GET / "api" / "data-processor-stream" -> events {
+    Method.POST / "api" / "data-processor" -> events {
       handler {
-        if (isProcessing.get()) {
-          for {
-            // Send initial log entry
-            _ <- ServerSentEventGenerator.patchElements(
-              div(className := "log-entry", "✓ Processing started"),
-              PatchElementOptions(selector = Some(CssSelector.id("logContainer")), mode = ElementPatchMode.Append),
-            )
-            _ <- ZIO.sleep(500.millis)
+        for {
+          // Send initial log entry
+          _ <- ServerSentEventGenerator.patchElements(
+            div(className := "log-entry", "✓ Processing started"),
+            PatchElementOptions(
+              selector = Some(CssSelector.id("logContainer")),
+              mode = ElementPatchMode.Append,
+            ),
+          )
+          _ <- ZIO.sleep(500.millis)
 
-            // Simulate processing step 1
-            _ <- ServerSentEventGenerator.patchElements(
-              div(className := "log-entry", "✓ Step 1: Validating data"),
-              PatchElementOptions(selector = Some(CssSelector.id("logContainer")), mode = ElementPatchMode.Append),
-            )
-            _ <- ZIO.sleep(800.millis)
+          // Simulate processing step 1
+          _ <- ServerSentEventGenerator.patchElements(
+            div(className := "log-entry", "✓ Step 1: Validating data"),
+            PatchElementOptions(
+              selector = Some(CssSelector.id("logContainer")),
+              mode = ElementPatchMode.Append,
+            ),
+          )
+          _ <- ZIO.sleep(800.millis)
 
-            // Simulate processing step 2
-            _ <- ServerSentEventGenerator.patchElements(
-              div(className := "log-entry", "✓ Step 2: Processing records"),
-              PatchElementOptions(selector = Some(CssSelector.id("logContainer")), mode = ElementPatchMode.Append),
-            )
-            _ <- ZIO.sleep(800.millis)
+          // Simulate processing step 2
+          _ <- ServerSentEventGenerator.patchElements(
+            div(className := "log-entry", "✓ Step 2: Processing records"),
+            PatchElementOptions(
+              selector = Some(CssSelector.id("logContainer")),
+              mode = ElementPatchMode.Append,
+            ),
+          )
+          _ <- ZIO.sleep(800.millis)
 
-            // Simulate processing step 3
-            _ <- ServerSentEventGenerator.patchElements(
-              div(className := "log-entry", "✓ Step 3: Generating report"),
-              PatchElementOptions(selector = Some(CssSelector.id("logContainer")), mode = ElementPatchMode.Append),
-            )
-            _ <- ZIO.sleep(800.millis)
+          // Simulate processing step 3
+          _ <- ServerSentEventGenerator.patchElements(
+            div(className := "log-entry", "✓ Step 3: Generating report"),
+            PatchElementOptions(
+              selector = Some(CssSelector.id("logContainer")),
+              mode = ElementPatchMode.Append,
+            ),
+          )
+          _ <- ZIO.sleep(800.millis)
 
-            // Update status box
-            _ <- ServerSentEventGenerator.patchElements(
-              div(
-                id("statusBox"),
-                className := "status-box success",
-                "✓ Processing complete!",
-              ),
-              PatchElementOptions(selector = Some(CssSelector.id("statusBox"))),
-            )
+          // Update status box
+          _ <- ServerSentEventGenerator.patchElements(
+            div(
+              id("statusBox"),
+              className := "status-box success",
+              "✓ Processing complete!",
+            ),
+            PatchElementOptions(selector = Some(CssSelector.id("statusBox"))),
+          )
 
-            // Dispatch custom event to trigger client-side handler
-            _ <- ServerSentEventGenerator.dispatchEvent(
-              "processingComplete",
-              js"{}",
-              DispatchEventOptions(source = Some(CssSelector.id("startBtn"))),
-            )
+          // Dispatch custom event to trigger client-side handler
+          _ <- ServerSentEventGenerator.dispatchEvent(
+            "processingComplete",
+            js"{}",
+            DispatchEventOptions(source = Some(CssSelector.id("startBtn"))),
+          )
 
-            // Final log entry
-            _ <- ServerSentEventGenerator.patchElements(
-              div(
-                className := "log-entry success",
-                "✓ All steps completed successfully",
-              ),
-              PatchElementOptions(selector = Some(CssSelector.id("logContainer")), mode = ElementPatchMode.Append),
-            )
-
-            _ <- ZIO.succeed(isProcessing.set(false))
-          } yield ()
-        } else {
-          ZIO.unit
-        }
+          // Final log entry
+          _ <- ServerSentEventGenerator.patchElements(
+            div(className := "log-entry success", "✓ All steps completed successfully"),
+            PatchElementOptions(
+              selector = Some(CssSelector.id("logContainer")),
+              mode = ElementPatchMode.Append,
+            ),
+          )
+        } yield ()
       }
     },
   )
@@ -116,25 +107,21 @@ object DispatchEventCompleteExample extends ZIOAppDefault {
       div(
         className                    := "container",
         h1("📊 Data Processing with Server Events"),
-        p(
-          "Demonstrates server-side event dispatching for coordinating multi-step workflows.",
-        ),
+        p("Demonstrates server-side event dispatching for coordinating multi-step workflows."),
         button(
           "Start Processing",
           id("startBtn"),
-          dataOn.click := js"this.disabled = true;",
-          dataOn.click := Endpoint(Method.POST / "api" / "data-processor").out[String].datastarRequest(()),
+          dataOn.click := js"this.disabled = true; @post('/api/data-processor'); document.getElementById('statusBox').textContent = 'Processing...';",
         ),
         div(
           id("statusBox"),
-          className    := "status-box",
+          className := "status-box",
           "Ready to process",
         ),
         div(
           id("logContainer"),
-          className    := "log-container",
+          className := "log-container",
           div(className := "log-entry", "Waiting for processing to start..."),
-          dataOn.load  := Endpoint(Method.GET / "api" / "data-processor-stream").out[String].datastarRequest(()),
         ),
         dataOn("processingComplete") := js"document.getElementById('startBtn').disabled = false;",
       ),

@@ -36,7 +36,7 @@ object DispatchEventExample extends ZIOAppDefault {
                 button(
                   "Start Processing",
                   id("processBtn"),
-                  dataOn.click := js"fetch('/api/process', { method: 'POST' }); this.disabled = true; document.getElementById('status').style.display = 'block';",
+                  dataOn.click := js"@post('/api/process'); this.disabled = true; document.getElementById('status').style.display = 'block';",
                 ),
                 div(
                   id("status"),
