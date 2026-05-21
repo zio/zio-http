@@ -17,7 +17,6 @@
 package zio.http.netty.client
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.internal.ChannelState
 import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
@@ -68,7 +67,7 @@ private[netty] final class ClientInboundHandler(
     msg match {
       case response: HttpResponse =>
         val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
-        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis)
+        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis, req.method)
         onResponse.unsafe.done(Exit.succeed(resp))
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit

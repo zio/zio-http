@@ -17,12 +17,11 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.internal.ChannelState
 import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Header, Response}
+import zio.http.{Body, Header, Method, Response}
 
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
@@ -46,6 +45,7 @@ private[netty] object NettyResponse {
     onComplete: Promise[Throwable, ChannelState],
     keepAlive: Boolean,
     bodyReadTimeoutMillis: Option[Long] = None,
+    requestMethod: Method = Method.GET,
   )(implicit
     unsafe: Unsafe,
     trace: Trace,
@@ -54,7 +54,10 @@ private[netty] object NettyResponse {
     val headers            = Conversions.headersFromNetty(jRes.headers())
     val knownContentLength = headers.get(Header.ContentLength).map(_.length)
 
-    if (knownContentLength.contains(0L) || statusMustNotHaveBody(status)) {
+    // HEAD responses never carry a message body (RFC 9110 §9.3.2), even if the server
+    // advertises a Content-Length matching the GET-equivalent payload. Attaching the
+    // streaming body reader here would leave it waiting for bytes that never arrive.
+    if (knownContentLength.contains(0L) || statusMustNotHaveBody(status) || requestMethod == Method.HEAD) {
       onComplete.unsafe.done(Exit.succeed(ChannelState.forStatus(status)))
       Response(status, headers, Body.empty)
     } else {

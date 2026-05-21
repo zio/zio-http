@@ -979,9 +979,12 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             output <- sendRawHttp(port, rawRequest, timeoutSeconds = 1, allowFailure = true)
           } yield assertTrue(output.contains("400") || output.isEmpty || output.length < 50)
         },
-        test("Transfer-Encoding: chunked with Content-Length → CL must be ignored (security)") {
-          // RFC 9112 §6.3(3): Critical for request smuggling prevention
-          // If both TE and CL present, MUST ignore Content-Length
+        test("Transfer-Encoding: chunked with Content-Length → 400 Bad Request (security)") {
+          // RFC 9112 §6.3 permits a server to reject HTTP/1.1 requests that carry both
+          // Transfer-Encoding and Content-Length. Netty (since 4.2.13) does so by default
+          // via ContentLengthNotAllowedException, and zio-http maps HTTP-decoder failures
+          // to 400 Bad Request. The body bytes are never parsed as a follow-up request,
+          // closing the smuggling vector.
           val routes = (Method.POST / "te-cl-security" -> handler { (req: Request) =>
             for {
               body <- req.body.asString.orDie
@@ -995,7 +998,8 @@ object HttpConformanceSpec extends ZIOSpecDefault {
             rawRequest =
               s"""POST /te-cl-security HTTP/1.1\r\nHost: localhost:$port\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n"""
             output <- sendRawHttp(port, rawRequest)
-          } yield assertTrue(output.contains("body_len=5"))
+            status = statusCodeOf(output)
+          } yield assertTrue(status.contains(400))
         },
         test("Multiple Transfer-Encoding values → reject or handle safely") {
           // RFC 9112 §6.3: Multiple TE values like "gzip, chunked"
