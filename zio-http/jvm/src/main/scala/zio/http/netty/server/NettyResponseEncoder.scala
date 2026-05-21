@@ -17,7 +17,6 @@
 package zio.http.netty.server
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.netty.CachedDateHeader
@@ -55,12 +54,17 @@ private[netty] object NettyResponseEncoder {
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
 
-  def fastEncode(method: Method, response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
-    if (response.encoded eq null) {
-      response.encoded = doEncode(method, response, bytes)
+  def fastEncode(method: Method, response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse =
+    if (method == Method.HEAD) {
+      // RFC 9110 §9.3.2: the response to a HEAD request MUST NOT include message content.
+      // Don't cache the body-less variant, as the same Response could later serve a GET.
+      doEncode(method, response, bytes)
+    } else {
+      if (response.encoded eq null) {
+        response.encoded = doEncode(method, response, bytes)
+      }
+      response.encoded.asInstanceOf[FullHttpResponse]
     }
-    response.encoded.asInstanceOf[FullHttpResponse]
-  }
 
   private def doEncode(method: Method, response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders = Conversions.headersToNetty(response.headers)
@@ -69,14 +73,15 @@ private[netty] object NettyResponseEncoder {
 
     val jStatus = Conversions.statusToNetty(status)
 
-    val jContent = Unpooled.wrappedBuffer(bytes)
+    val isHead   = method == Method.HEAD
+    val jContent = if (isHead) Unpooled.EMPTY_BUFFER else Unpooled.wrappedBuffer(bytes)
 
     /*
      * The content-length MUST match the length of the content we are sending,
      * except for HEAD requests where the content-length must equal the length
      * of the content we would have sent if this was a GET request.
      */
-    if (method == Method.HEAD && jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)) ()
+    if (isHead && jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)) ()
     else jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, bytes.length)
 
     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, jHeaders, EmptyHttpHeaders.INSTANCE)

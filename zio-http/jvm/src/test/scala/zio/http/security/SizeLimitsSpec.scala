@@ -1,15 +1,10 @@
 package zio.http.security
 
 import zio._
-import zio.metrics._
-import zio.test.Assertion._
 import zio.test._
-
-import zio.schema._
 
 import zio.http._
 import zio.http.codec._
-import zio.http.endpoint._
 import zio.http.netty.NettyConfig
 
 /*
@@ -101,7 +96,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           100,
           200,
           port => path => Request.get(s"http://localhost:$port/$path"),
-          Status.InternalServerError,
+          Status.RequestUriTooLong,
         )
       },
       test("infinite number of small segments url") {
@@ -112,7 +107,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           fstUrl,
           _ => (_ ++ "/A"),
           port => path => Request.get(s"http://localhost:$port/$path"),
-          Status.InternalServerError,
+          Status.RequestUriTooLong,
         )
       },
       test("infinite header") {
@@ -122,7 +117,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           100,
           200,
           port => header => Request.get(s"http://localhost:$port").addHeader(Header.Custom("n", header)),
-          Status.InternalServerError,
+          Status.RequestHeaderFieldsTooLarge,
         )
       },
       test("infinite small headers") {
@@ -133,7 +128,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           (0 until n).toList.map(s => Header.Custom(s"Header$s", "A")),
           size => (_.+:(Header.Custom(size.toString, "A"))),
           port => headers => Request.get(s"http://localhost:$port").addHeaders(Headers(headers: _*)),
-          Status.InternalServerError,
+          Status.RequestHeaderFieldsTooLarge,
         )
       },
       test("infinite body") {
@@ -176,7 +171,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           100,
           200,
           port => path => Request.get(s"http://localhost:$port/$path"),
-          Status.InternalServerError,
+          Status.RequestUriTooLong,
         )
       },
       test("infinite number of small segments url") {
@@ -187,7 +182,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           fstUrl,
           _ => (_ ++ "/A"),
           port => path => Request.get(s"http://localhost:$port/$path"),
-          Status.InternalServerError,
+          Status.RequestUriTooLong,
         )
       },
       test("infinite header") {
@@ -197,7 +192,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           100,
           200,
           port => header => Request.get(s"http://localhost:$port").addHeader(Header.Custom("n", header)),
-          Status.InternalServerError,
+          Status.RequestHeaderFieldsTooLarge,
         )
       },
       test("infinite small headers") {
@@ -208,7 +203,7 @@ object SizeLimitsSpec extends ZIOHttpSpec {
           (0 until n).toList.map(s => Header.Custom(s"Header$s", "A")),
           size => (_.+:(Header.Custom(size.toString, "A"))),
           port => headers => Request.get(s"http://localhost:$port").addHeaders(Headers(headers: _*)),
-          Status.InternalServerError,
+          Status.RequestHeaderFieldsTooLarge,
         )
       },
       test("infinite body") {
