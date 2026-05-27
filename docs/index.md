@@ -5,22 +5,6 @@ sidebar_label: "Introduction"
 slug: /introduction
 ---
 
-## Teach Your Coding Agent Latest ZIO HTTP Knowledge
-
-The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
-
-**To install the skill:**
-
-```bash
-npx skills add zio/zio-skills --skill zio-http-knowledge
-```
-
-**This skill covers:**
-- ZIO HTTP core, routing, middleware, streaming, and more
-- Fetches current docs from ziohttp.com on ZIO HTTP development questions
-
----
-
 ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
 
 ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from a request to a response, with a focus on type safety, composability, and testability.
@@ -54,6 +38,14 @@ Some of the key features of ZIO HTTP are:
 **OpenAPI Support**: Built-in support is available for generating OpenAPI documentation for HTTP applications, and conversely, for generating HTTP endpoints from OpenAPI documentation.
 
 **ZIO HTTP CLI**: Command-line applications can be built to interact with HTTP APIs by leveraging the power of [ZIO CLI](https://zio.dev/zio-cli) and ZIO HTTP.
+
+## Teach Your Coding Agent Latest ZIO HTTP Knowledge
+
+The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
+
+```bash
+npx skills add zio/zio-skills --skill zio-http-knowledge
+```
 
 ## Installation
 
