@@ -23,7 +23,11 @@ export default function HomepageCodingAgent() {
             </ul>
           </div>
           <div className={styles.codeContainer}>
-            <div className={styles.codeWrapper}>
+            <div className={styles.codeWrapper} style={{
+              padding: '3rem',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              borderRadius: '8px'
+            }}>
               <CodeBlock language="bash">
                 {installCommand}
               </CodeBlock>
