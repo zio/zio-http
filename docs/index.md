@@ -7,7 +7,7 @@ slug: /introduction
 
 ## Teach Your Coding Agent Latest ZIO HTTP Knowledge
 
-The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from zio-http docs before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
+The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
 
 **To install the skill:**
 
@@ -17,7 +17,7 @@ npx skills add zio/zio-skills --skill zio-http-knowledge
 
 **This skill covers:**
 - ZIO HTTP core, routing, middleware, streaming, and more
-- Fetches current related docs from zio-http on ZIO HTTP related development questions
+- Fetches current docs from ziohttp.com on ZIO HTTP development questions
 
 ---
 

@@ -14,12 +14,12 @@ export default function HomepageCodingAgent() {
             <h2 className={clsx("sectionHeader", "text-4xl", "text-center")}>Teach Your Coding Agent Latest ZIO HTTP Knowledge</h2>
             <p>
               The <code>zio-http-knowledge</code> skill teaches your coding agent to fetch live documentation
-              from zio-http docs before answering any ZIO HTTP question — so you always get accurate, up-to-date
+              from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date
               answers, not guesses from stale training data.
             </p>
             <ul>
               <li>Covers ZIO HTTP core, routing, middleware, streaming, and more</li>
-              <li>Fetches current related docs from zio-http on ZIO HTTP related development questions</li>
+              <li>Fetches current docs from ziohttp.com on ZIO HTTP development questions</li>
             </ul>
           </div>
           <div className={styles.codeContainer}>
