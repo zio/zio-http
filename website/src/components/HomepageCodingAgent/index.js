@@ -23,9 +23,11 @@ export default function HomepageCodingAgent() {
             </ul>
           </div>
           <div className={styles.codeContainer}>
-            <CodeBlock language="bash">
-              {installCommand}
-            </CodeBlock>
+            <div className={styles.codeWrapper}>
+              <CodeBlock language="bash">
+                {installCommand}
+              </CodeBlock>
+            </div>
           </div>
         </div>
       </div>
