@@ -11,7 +11,7 @@ export default function HomepageCodingAgent() {
       <div className={styles.wideContainer}>
         <div className={styles.singleColumn}>
           <div className={styles.agentContent}>
-            <h2 className={clsx("sectionHeader", "text-4xl", "text-center")}>Teach Your Coding Agent Latest ZIO HTTP Knowledge</h2>
+            <h2 className={clsx("sectionHeader", "text-4xl", "text-center")}>Teach Your Coding Agent Latest ZIO&nbsp;HTTP Knowledge</h2>
             <p>
               The <code>zio-http-knowledge</code> skill teaches your coding agent to fetch live documentation
               from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date
