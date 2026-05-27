@@ -39,14 +39,6 @@ Some of the key features of ZIO HTTP are:
 
 **ZIO HTTP CLI**: Command-line applications can be built to interact with HTTP APIs by leveraging the power of [ZIO CLI](https://zio.dev/zio-cli) and ZIO HTTP.
 
-## Teach Your Coding Agent Latest ZIO HTTP Knowledge
-
-The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
-
-```bash
-npx skills add zio/zio-skills --skill zio-http-knowledge
-```
-
 ## Installation
 
 Setup via `build.sbt`:

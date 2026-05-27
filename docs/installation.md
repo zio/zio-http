@@ -10,6 +10,20 @@ Before we dive in, we should make sure that we have the following on our compute
 * JDK 17 or higher
 * sbt (scalaVersion >= 2.12)
 
+## Teach Your Coding Agent Latest ZIO HTTP Knowledge
+
+The `zio-http-knowledge` skill teaches your coding agent to fetch live documentation from ziohttp.com before answering any ZIO HTTP question — so you always get accurate, up-to-date answers, not guesses from stale training data.
+
+**To install the skill:**
+
+```bash
+npx skills add zio/zio-skills --skill zio-http-knowledge
+```
+
+**This skill covers:**
+- ZIO HTTP core, routing, middleware, streaming, and more
+- Fetches current docs from ziohttp.com on ZIO HTTP development questions
+
 ## Manual Installation
 
 To use ZIO HTTP, we should add the following dependencies in our project:
