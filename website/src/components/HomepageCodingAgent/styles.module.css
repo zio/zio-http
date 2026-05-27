@@ -3,7 +3,7 @@
   align-items: center;
   padding: 4rem 0;
   width: 100%;
-  background-color: var(--ifm-color-emphasis-0);
+  background-color: var(--ifm-color-emphasis-100);
 }
 
 .wideContainer {
@@ -44,26 +44,18 @@
 }
 
 .codeContainer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+  width: 100%;
+}
+
+.codeWrapper {
   position: relative;
   width: 100%;
   max-width: 590px;
   margin: 0 auto;
-  padding: 3rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-radius: 8px;
-}
-
-.codeContainer :global(.codeBlockContainer) {
-  width: 100%;
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.codeContainer :global(.codeBlockContainer code) {
-  font-size: 1.7rem;
-  line-height: 2.2;
-  font-weight: 500;
 }
 
 .copyButton {
@@ -99,6 +91,19 @@
 
 .copyButton.copied {
   background-color: #6b7280;
+}
+
+.codeContainer :global(.codeBlockContainer) {
+  width: 100%;
+  padding: 3rem !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.codeContainer :global(.codeBlockContainer code) {
+  font-size: 1.7rem;
+  line-height: 2.2;
+  font-weight: 500;
 }
 
 /* Responsive styles */
