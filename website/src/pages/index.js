@@ -3,6 +3,7 @@ import Layout from '@theme/Layout';
 import HomepageHero from '@site/src/components/HomepageHero';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import HomepageCodeSnippet from '@site/src/components/HomepageCodeSnippet';
+import HomepageCodingAgent from '@site/src/components/HomepageCodingAgent';
 import HomepageZionomicon from '@site/src/components/HomepageZionomicon';
 import HomepageEcosystem from '@site/src/components/HomepageEcosystem';
 import HomepageUsers from '@site/src/components/HomepageUsers';
@@ -15,6 +16,7 @@ export default function Home() {
       <HomepageHero />
       <main>
         <HomepageCodeSnippet />
+        <HomepageCodingAgent />
         <HomepageFeatures />
         <HomepageEcosystem />
         <HomepageZionomicon />
