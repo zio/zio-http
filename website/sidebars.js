@@ -207,7 +207,15 @@ const sidebars = {
       type: "category",
       collapsed: false,
       label: "Concepts",
-      items: ["concepts/routing", "concepts/middleware", "concepts/endpoint", "concepts/dev-mode"],
+      items: [
+        "concepts/server",
+        "concepts/client",
+        "concepts/routing",
+        "concepts/request-handling",
+        "concepts/middleware",
+        "concepts/endpoint",
+        "concepts/dev-mode"
+      ],
     },
   ],
 
