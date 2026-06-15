@@ -218,8 +218,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
       "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
-      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
-      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.7.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.7.0",
       "org.scala-js"           %%% "scalajs-dom"             % "2.8.1",
       "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
       "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
