@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.actor == 'dependabot[bot]' ||
-      github.actor == 'app/zio-scala-steward'
+      github.event.pull_request.user.login == 'app/dependabot' ||
+      github.event.pull_request.user.login == 'app/zio-scala-steward'
     steps:
       - name: Enable auto-merge for bot PR
         if: github.event_name == 'pull_request_target'
