@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.user.login == 'app/dependabot' ||
-      github.event.pull_request.user.login == 'app/zio-scala-steward'
+      github.event.pull_request.user.login == 'dependabot[bot]' ||
+      github.event.pull_request.user.login == 'zio-scala-steward[bot]'
     steps:
       - name: Approve PR
         if: github.event_name == 'pull_request_target'
@@ -27,7 +27,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
-          for actor in "app/zio-scala-steward" "app/dependabot"; do
+          for actor in "zio-scala-steward[bot]" "dependabot[bot]"; do
             gh pr list \
               --author "$actor" \
               --state open \
