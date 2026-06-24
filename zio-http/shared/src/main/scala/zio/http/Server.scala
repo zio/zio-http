@@ -318,6 +318,7 @@ object Server extends ServerPlatformSpecific {
       final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
       final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
       final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
+      final case class Zstd(cfg: ZstdConfig)       extends CompressionOptions { val name = "zstd"  }
 
       /**
        * @param level
@@ -357,6 +358,18 @@ object Server extends ServerPlatformSpecific {
         val DefaultQuality = 4
         val DefaultLgwin   = -1
         val DefaultMode    = Mode.Text
+      }
+
+      final case class ZstdConfig(
+        level: Int,
+        blockSize: Int,
+        maxEncodeSize: Int,
+      )
+
+      object ZstdConfig {
+        val DefaultLevel         = 3
+        val DefaultBlockSize     = Integer.MAX_VALUE
+        val DefaultMaxEncodeSize = 1 << 16
       }
 
       sealed trait Mode
@@ -406,6 +419,13 @@ object Server extends ServerPlatformSpecific {
       ): CompressionOptions =
         CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
+      def zstd(
+        level: Int = ZstdConfig.DefaultLevel,
+        blockSize: Int = ZstdConfig.DefaultBlockSize,
+        maxEncodeSize: Int = ZstdConfig.DefaultMaxEncodeSize,
+      ): CompressionOptions =
+        CompressionOptions.Zstd(ZstdConfig(level, blockSize, maxEncodeSize))
+
       def config: zio.Config[CompressionOptions] =
         (
           (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
@@ -414,12 +434,15 @@ object Server extends ServerPlatformSpecific {
             zio.Config.int("quantity").withDefault(BrotliConfig.DefaultQuality) ++
             zio.Config.int("lgwin").withDefault(BrotliConfig.DefaultLgwin) ++
             zio.Config.string("mode").map(Mode.fromString).withDefault(BrotliConfig.DefaultMode) ++
-            zio.Config.string("type")
-        ).map { case (level, bits, mem, quantity, lgwin, mode, typ) =>
+            zio.Config.string("type") ++
+            zio.Config.int("block").withDefault(ZstdConfig.DefaultBlockSize) ++
+            zio.Config.int("maxencode").withDefault(ZstdConfig.DefaultMaxEncodeSize)
+        ).map { case (level, bits, mem, quantity, lgwin, mode, typ, block, maxencode) =>
           typ.toLowerCase match {
             case "gzip"    => gzip(level, bits, mem)
             case "deflate" => deflate(level, bits, mem)
             case "brotli"  => brotli(quantity, lgwin, mode)
+            case "zstd"    => zstd(level, block, maxencode)
           }
         }
     }
