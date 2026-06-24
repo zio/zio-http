@@ -318,7 +318,7 @@ object Server extends ServerPlatformSpecific {
       final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
       final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
       final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
-      final case class Zstd(cfg: ZstdConfig)       extends CompressionOptions { val name = "zstd"  }
+      final case class Zstd(cfg: ZstdConfig)       extends CompressionOptions { val name = "zstd"    }
 
       /**
        * @param level
