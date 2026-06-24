@@ -215,7 +215,7 @@ jobs:
         java: [temurin@25]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -242,7 +242,7 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -282,7 +282,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -320,7 +320,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -358,7 +358,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -396,7 +396,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -434,7 +434,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -472,7 +472,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -510,7 +510,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -548,7 +548,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -586,7 +586,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -624,7 +624,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -662,7 +662,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -700,7 +700,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -738,7 +738,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -776,7 +776,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -814,7 +814,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -852,7 +852,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -890,7 +890,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -928,7 +928,7 @@ jobs:
         with:
           apps: sbt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -1089,7 +1089,7 @@ jobs:
       - name: Format_Main_UtilBenchmark
         run: cat Main_UtilBenchmark.txt >> Main_benchmarks.txt
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
@@ -1124,11 +1124,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
@@ -1203,11 +1203,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: zio-http
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
