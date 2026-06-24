@@ -170,6 +170,8 @@ private[netty] object Conversions {
         StandardCompressionOptions.deflate(cfg.level, cfg.bits, cfg.mem)
       case CompressionOptions.Brotli(cfg)  =>
         StandardCompressionOptions.brotli(cfg.quality, cfg.lgwin, brotliModeToJava(cfg.mode))
+      case CompressionOptions.Zstd(cfg)    =>
+        StandardCompressionOptions.zstd(cfg.level, cfg.blockSize, cfg.maxEncodeSize)
     }
 
   def brotliModeToJava(brotli: CompressionOptions.Mode): BrotliMode = brotli match {
