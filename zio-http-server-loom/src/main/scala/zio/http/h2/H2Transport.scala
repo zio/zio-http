@@ -1,5 +1,7 @@
 package zio.http.h2
 
+import java.util.concurrent.atomic.AtomicLong
+
 import scala.annotation.experimental
 
 import zio.blocks.chunk.Chunk
@@ -7,6 +9,7 @@ import zio.blocks.context.Context
 import zio.blocks.endpoint.RouteTree
 import zio.blocks.mux.{MuxError, MuxStream}
 import zio.blocks.scope.Scope
+import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
 import zio.http.h2.H2Frame.{Data, Headers, WindowUpdate}
 import zio.http.h2.hpack.{HeaderField, Hpack}
 import zio.http.{
@@ -42,6 +45,12 @@ final class H2Transport[Ctx](
       tree.add(route.pattern, route)
     }
 
+  private val requestCounter        = metric.counter("http.requests.total")
+  private val activeConnections     = metric.upDownCounter("http.connections.active")
+  private val activeConnectionCount = new AtomicLong(0L)
+  private val logger                =
+    LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.H2Transport")
+
   private val http2Config = connector.protocol match {
     case Protocol.H2C(http2)    => http2
     case Protocol.H2(_, http2)  => http2
@@ -56,8 +65,15 @@ final class H2Transport[Ctx](
           port,
           tlsConfig,
           (input, output) => {
-          val connection = new H2Connection(input, output, http2Config.maxConcurrentStreams)
-          connection.run(handleStream)
+          activeConnectionCount.incrementAndGet()
+          activeConnections.add(1L, "protocol" -> protocolName)
+          try {
+            val connection = new H2Connection(input, output, http2Config.maxConcurrentStreams)
+            connection.run(handleStream)
+          } finally {
+            activeConnectionCount.decrementAndGet()
+            activeConnections.add(-1L, "protocol" -> protocolName)
+          }
           },
         )
         val bound    = listener.start()
@@ -77,6 +93,13 @@ final class H2Transport[Ctx](
       case Protocol.H3(_, _, _)  => None
     }
 
+  private def protocolName: String =
+    connector.protocol match {
+      case Protocol.H2C(_)      => "h2c"
+      case Protocol.H2(_, _)    => "h2"
+      case Protocol.H3(_, _, _) => "h3"
+    }
+
   private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
     val flowController = new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
     flowController.registerStream(stream.id)
@@ -84,10 +107,44 @@ final class H2Transport[Ctx](
     try {
       val requestFrame = awaitHeaders(stream)
       val request      = decodeRequest(requestFrame, stream)
-      val response     = handleRequest(request)
+      val response     = instrumentRequest(request)
       sendResponse(stream, request.method, response, flowController)
     } finally {
       flowController.removeStream(stream.id)
+    }
+  }
+
+  private def instrumentRequest(request: Request): Response = {
+    val startedAtNanos = System.nanoTime()
+    val requestPath    = request.url.path.encode
+
+    trace.span("http.request", SpanKind.Server) { span =>
+      span.setAttribute("http.request.method", request.method.toString)
+      span.setAttribute("url.path", requestPath)
+      span.setAttribute("network.protocol.name", protocolName)
+
+      val response   = handleRequest(request)
+      val durationMs = nanosToMillis(System.nanoTime() - startedAtNanos)
+
+      span.setAttribute("http.response.status_code", response.status.code.toLong)
+      span.setAttribute("http.server.active_connections", activeConnectionCount.get())
+      span.setAttribute("http.server.duration_ms", durationMs)
+      requestCounter.add(
+        1L,
+        "method" -> request.method.toString,
+        "path" -> requestPath,
+        "status" -> response.status.code,
+        "protocol" -> protocolName,
+      )
+      logger.info(
+        "HTTP request",
+        "method" -> AttributeValue.StringValue(request.method.toString),
+        "path" -> AttributeValue.StringValue(requestPath),
+        "status" -> AttributeValue.LongValue(response.status.code.toLong),
+        "duration_ms" -> AttributeValue.LongValue(durationMs),
+      )
+
+      response
     }
   }
 
@@ -335,6 +392,8 @@ final class H2Transport[Ctx](
     catch {
       case _: InterruptedException => Thread.currentThread().interrupt()
     }
+
+  private def nanosToMillis(nanos: Long): Long = nanos / 1000000L
 
   private def toReceivedFrame(result: Any): Either[MuxError, H2Frame] =
     result match {
