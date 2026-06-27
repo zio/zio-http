@@ -19,6 +19,7 @@ package zio.http
 import scala.annotation.implicitNotFound
 
 import zio.http.ResultType._
+import zio.http.schema.{HeaderCodec, QueryCodec}
 
 @implicitNotFound("""
 The type ${H} cannot be converted into a zio.http.Handler.
@@ -89,5 +90,65 @@ object ToHandler {
 
       override def toHandler(h: () => Response | Halt): Handler[Ctx, Vars] =
         Handler.fromRequest(_ => h())
+    }
+
+  implicit def decodeQueryFunctionIsHandler[A](implicit queryCodec: QueryCodec[A]): Aux[DecodeQuery[A] => Response | Halt, Any, Any] =
+    new ToHandler[DecodeQuery[A] => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: DecodeQuery[A] => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeQuery.decode[A](request) match {
+            case Right(query) => h(query)
+            case Left(halt)   => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def decodeHeadersFunctionIsHandler[A](implicit headerCodec: HeaderCodec[A]): Aux[DecodeHeaders[A] => Response | Halt, Any, Any] =
+    new ToHandler[DecodeHeaders[A] => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: DecodeHeaders[A] => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeHeaders.decode[A](request) match {
+            case Right(headers) => h(headers)
+            case Left(halt)     => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def requestDecodeQueryFunctionIsHandler[A](implicit
+    queryCodec: QueryCodec[A],
+  ): Aux[(Request, DecodeQuery[A]) => Response | Halt, Any, Any] =
+    new ToHandler[(Request, DecodeQuery[A]) => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: (Request, DecodeQuery[A]) => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeQuery.decode[A](request) match {
+            case Right(query) => h(request, query)
+            case Left(halt)   => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def requestDecodeHeadersFunctionIsHandler[A](implicit
+    headerCodec: HeaderCodec[A],
+  ): Aux[(Request, DecodeHeaders[A]) => Response | Halt, Any, Any] =
+    new ToHandler[(Request, DecodeHeaders[A]) => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: (Request, DecodeHeaders[A]) => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeHeaders.decode[A](request) match {
+            case Right(headers) => h(request, headers)
+            case Left(halt)     => haltAsResult(halt)
+          }
+        }
     }
 }

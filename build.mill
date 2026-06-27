@@ -85,6 +85,7 @@ object core extends Module {
       mvn"dev.zio::zio-schema-protobuf:${Versions.ZioSchema}",
       blocksDep("schema"),
       blocksDep("http-model"),
+      blocksDep("http-model-schema"),
       blocksDep("html"),
       blocksDep("context"),
       blocksDep("scope"),
@@ -98,7 +99,6 @@ object core extends Module {
         core.jvm(),
         client.jvm(),
         server.jvm(),
-        endpoint.jvm(),
       )
       override def sources    = {
         val vDir =
@@ -235,6 +235,10 @@ object h2Codec extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       blocksDep("chunk"),
     )
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(h2Codec.jvm())
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+    }
   }
 }
 
@@ -251,6 +255,10 @@ object serverLoom extends Module {
       blocksDep("streams"),
       blocksDep("telemetry"),
     )
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(serverLoom.jvm(), clientJava.jvm())
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+    }
   }
 }
 
@@ -264,6 +272,10 @@ object clientJava extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       blocksDep("streams"),
     )
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(clientJava.jvm())
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+    }
   }
 }
 
@@ -277,6 +289,10 @@ object zio extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"dev.zio::zio:${Versions.Zio}",
     )
+    object test extends ScalaTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(zio.jvm(), serverLoom.jvm(), clientJava.jvm())
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+    }
   }
 }
 
