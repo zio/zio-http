@@ -3,10 +3,11 @@ package zio.http.h2
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.experimental
+import scala.collection.immutable.ListMap
 
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
-import zio.blocks.endpoint.RouteTree
+import zio.blocks.endpoint.{RouteTree, SegmentSubtree}
 import zio.blocks.mux.{MuxError, MuxStream}
 import zio.blocks.scope.Scope
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
@@ -41,9 +42,7 @@ final class H2Transport[Ctx](
   defectHandler: DefectHandler,
 ) {
   private val routeTree: RouteTree[Route[Ctx]] =
-    routes.routes.foldLeft(RouteTree.empty[Route[Ctx]]) { (tree, route) =>
-      tree.add(route.pattern, route)
-    }
+    H2Transport.buildRouteTree(routes)
 
   private val requestCounter        = metric.counter("http.requests.total")
   private val activeConnections     = metric.upDownCounter("http.connections.active")
@@ -416,6 +415,18 @@ final class H2Transport[Ctx](
 
 @experimental
 object H2Transport {
+  private def buildRouteTree[Ctx](routes: Routes[Ctx]): RouteTree[Route[Ctx]] =
+    routes.routes.foldLeft(RouteTree.empty[Route[Ctx]]) { (tree, route) =>
+      val alternatives = route.pattern.alternatives
+      if (alternatives.nonEmpty) tree.add(route.pattern, route)
+      else tree.merge(rootRouteTree(route))
+    }
+
+  private def rootRouteTree[Ctx](route: Route[Ctx]): RouteTree[Route[Ctx]] = {
+    val rootSubtree = SegmentSubtree[Route[Ctx]](Map.empty, ListMap.empty, Some(route))
+    RouteTree(Map(route.pattern.method -> rootSubtree))
+  }
+
   private final case class PseudoHeaders(
     method: String,
     path: String,

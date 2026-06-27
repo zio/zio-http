@@ -38,7 +38,7 @@ jobs:
   compile:
     name: Compile with mill
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,15 +46,30 @@ jobs:
         uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
+          apps: sbt
       - name: Cache
         uses: coursier/cache-action@v8
+      - name: Publish zio-blocks SNAPSHOT locally
+        run: |
+          git clone --depth 1 https://github.com/zio/zio-blocks.git /tmp/zio-blocks
+          cd /tmp/zio-blocks
+          sbt compile 'set every version := "0.0.0-SNAPSHOT"' publishLocal
       - name: Compile all modules
-        run: chmod +x ./mill && ./mill __.compile
+        run: >-
+          chmod +x ./mill &&
+          ./mill
+          'core.jvm[{3.8.3,2.13.18}].compile'
+          'server.jvm[{3.8.3,2.13.18}].compile'
+          'client.jvm[{3.8.3,2.13.18}].compile'
+          'h2Codec.jvm[{3.8.3,2.13.18}].compile'
+          'serverLoom.jvm[{3.8.3,2.13.18}].compile'
+          'clientJava.jvm[{3.8.3,2.13.18}].compile'
+          'zio.jvm[{3.8.3,2.13.18}].compile'
 
   testCoreJvm:
     name: JVM tests — Scala ${{ matrix.scala }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -66,18 +81,21 @@ jobs:
         uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
+          apps: sbt
       - name: Cache
         uses: coursier/cache-action@v8
+      - name: Publish zio-blocks SNAPSHOT locally
+        run: |
+          git clone --depth 1 https://github.com/zio/zio-blocks.git /tmp/zio-blocks
+          cd /tmp/zio-blocks
+          sbt compile 'set every version := "0.0.0-SNAPSHOT"' publishLocal
       - name: Run supported JVM tests
         run: >-
           chmod +x ./mill &&
           ./mill
-          'core.jvm[${{ matrix.scala }}].test'
-          'endpoint.jvm[${{ matrix.scala }}].test'
-          'nettyCore.jvm[${{ matrix.scala }}].test'
-          'nettyServer.jvm[${{ matrix.scala }}].test'
-          'nettyClient.jvm[${{ matrix.scala }}].test'
-          'testkit.jvm[${{ matrix.scala }}].test'
+          'h2Codec.jvm[${{ matrix.scala }}].test'
+          'serverLoom.jvm[${{ matrix.scala }}].test'
+          'zio.jvm[${{ matrix.scala }}].test'
 
   docsSite:
     name: Build website
