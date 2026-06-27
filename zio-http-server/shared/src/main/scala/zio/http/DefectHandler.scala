@@ -9,7 +9,7 @@ import zio.http.ResultType._
  * invokes [[handleDefect]] to produce a response or a deliberate [[Halt]].
  * This prevents raw exception leakage to clients.
  *
- * Register a custom handler via [[Server.routeDefectHandler]].
+ * Register a custom handler via [[LoomServer.withDefectHandler]].
  */
 trait DefectHandler {
 

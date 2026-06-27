@@ -1,40 +1,35 @@
 package zio.http
 
 import zio.blocks.context.Context
+import zio.blocks.context.IsNominalType
 
-final class Server[Ctx] private (
-  val routes: Routes[Ctx],
-  private val _connectors: List[Connector],
-  val routeDefectHandler: DefectHandler,
-  val gracefulShutdownTimeout: java.time.Duration,
-) {
-  def addConnector(connector: Connector): Server[Ctx] =
-    new Server(routes, _connectors :+ connector, routeDefectHandler, gracefulShutdownTimeout)
-
-  def connectors(connectors: List[Connector]): Server[Ctx] = {
-    require(connectors.nonEmpty, "At least one connector is required")
-    new Server(routes, connectors, routeDefectHandler, gracefulShutdownTimeout)
-  }
-
-  def routeDefectHandler(handler: DefectHandler): Server[Ctx] =
-    new Server(routes, _connectors, handler, gracefulShutdownTimeout)
-
-  def gracefulShutdown(timeout: java.time.Duration): Server[Ctx] =
-    new Server(routes, _connectors, routeDefectHandler, timeout)
-
-  def serve(context: Context[Ctx]): ServerHandle =
-    ServerRuntime.serve(this, context)
-
-  private[http] def connectorsList: List[Connector] = _connectors
-
-  override def toString: String =
-    s"Server(${_connectors.size} connectors, ${routes.size} routes)"
+/**
+ * Server runtime interface. Implementations live in backend modules.
+ *
+ * Usage:
+ * {{{
+ * val context = Context.empty
+ *   .add(LoomServer(Connector(port = 8080)))
+ *   .add(myDatabase)
+ *
+ * val handle = Server.serve(routes, context)
+ * }}}
+ */
+trait Server {
+  def serve[Ctx](routes: Routes[Ctx], context: Context[Ctx]): ServerHandle
 }
 
 object Server {
-  def apply[Ctx](
+
+  /**
+   * Serve routes using the Server implementation from context.
+   *
+   * The context must contain both a Server implementation and all
+   * dependencies required by the routes.
+   */
+  def serve[Ctx](
     routes: Routes[Ctx],
-    connector: Connector = Connector.default,
-  ): Server[Ctx] =
-    new Server(routes, List(connector), DefectHandler.default, java.time.Duration.ofSeconds(30))
+    context: Context[Server with Ctx],
+  )(implicit ev: IsNominalType[Server]): ServerHandle =
+    context.get[Server].serve(routes, context)
 }
