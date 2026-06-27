@@ -80,7 +80,8 @@ final class FlowController(initialConnectionWindow: Int, initialStreamWindow: In
   def registerStream(streamId: Int): Unit = {
     lock.lock()
     try {
-      val previous = streamStates.put(streamId, new FlowController.StreamState(initialStreamWindow, lock.newCondition()))
+      val previous =
+        streamStates.put(streamId, new FlowController.StreamState(initialStreamWindow, lock.newCondition()))
       if (previous.ne(null)) previous.updated.signalAll()
       connectionUpdated.signalAll()
     } finally lock.unlock()

@@ -383,7 +383,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       config: CodecConfig,
     ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
       def handleEncodingBodyErrorHandling(request: Request) = {
-        val acceptHeaders = request.headers
+        val acceptHeaders                 = request.headers
           .getAll(headers.Accept)
           .flatMap(a => a.mediaRanges)
         val mediaTypes: Chunk[MediaRange] =

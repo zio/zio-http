@@ -25,13 +25,13 @@ object FrameCodec {
   import H2Error._
   import H2Frame._
 
-  private val HeaderLength      = 9
-  private val MaxPayloadLength  = 16777215
-  private val FlagEndStream     = 0x1
-  private val FlagAck           = 0x1
-  private val FlagEndHeaders    = 0x4
-  private val FlagPadded        = 0x8
-  private val FlagPriority      = 0x20
+  private val HeaderLength     = 9
+  private val MaxPayloadLength = 16777215
+  private val FlagEndStream    = 0x1
+  private val FlagAck          = 0x1
+  private val FlagEndHeaders   = 0x4
+  private val FlagPadded       = 0x8
+  private val FlagPriority     = 0x20
 
   def decode(bytes: Chunk[Byte]): Either[H2Error, (H2Frame, Chunk[Byte])] =
     if (bytes.length < HeaderLength) Left(InsufficientData)
@@ -49,37 +49,37 @@ object FrameCodec {
     }
 
   def encode(frame: H2Frame): Chunk[Byte] = {
-    val encoded = frame match {
-      case Data(streamId, data, endStream, padLength)                         =>
-        val flags   = if (endStream) FlagEndStream else 0
+    val encoded                               = frame match {
+      case Data(streamId, data, endStream, padLength)                                  =>
+        val flags = if (endStream) FlagEndStream else 0
         (0x0, flagsWithPadding(flags, padLength), streamId, addPadding(data, padLength))
-      case Headers(streamId, headerBlock, endStream, endHeaders, priority, padLength) =>
-        val flags   = (if (endStream) FlagEndStream else 0) | (if (endHeaders) FlagEndHeaders else 0) |
+      case Headers(streamId, headerBlock, endStream, endHeaders, priority, padLength)  =>
+        val flags  = (if (endStream) FlagEndStream else 0) | (if (endHeaders) FlagEndHeaders else 0) |
           (if (priority.isDefined) FlagPriority else 0)
-        val prefix  = priority.fold(Chunk.empty: Chunk[Byte])(encodePriorityFields)
+        val prefix = priority.fold(Chunk.empty: Chunk[Byte])(encodePriorityFields)
         (0x1, flagsWithPadding(flags, padLength), streamId, addPadding(prefix ++ headerBlock, padLength))
-      case Priority(streamId, dependency, weight, exclusive)                  =>
+      case Priority(streamId, dependency, weight, exclusive)                           =>
         (0x2, 0, streamId, encodePriorityFields(zio.http.h2.Priority(dependency, weight, exclusive)))
-      case RstStream(streamId, errorCode)                                     =>
+      case RstStream(streamId, errorCode)                                              =>
         (0x3, 0, streamId, fromArray(int32(errorCode.value)))
-      case Settings(ack, settings)                                            =>
+      case Settings(ack, settings)                                                     =>
         val payload = if (ack) {
           require(settings.isEmpty, "SETTINGS ack frames must not carry settings")
           Chunk.empty
         } else encodeSettings(settings)
         (0x4, if (ack) FlagAck else 0, 0, payload)
       case PushPromise(streamId, promisedStreamId, headerBlock, endHeaders, padLength) =>
-        val prefix  = fromArray(int31(promisedStreamId))
-        val flags   = if (endHeaders) FlagEndHeaders else 0
+        val prefix = fromArray(int31(promisedStreamId))
+        val flags  = if (endHeaders) FlagEndHeaders else 0
         (0x5, flagsWithPadding(flags, padLength), streamId, addPadding(prefix ++ headerBlock, padLength))
-      case Ping(ack, data)                                                    =>
+      case Ping(ack, data)                                                             =>
         require(data.length == 8, "PING payload must be exactly 8 bytes")
         (0x6, if (ack) FlagAck else 0, 0, data)
-      case GoAway(lastStreamId, errorCode, debugData)                         =>
+      case GoAway(lastStreamId, errorCode, debugData)                                  =>
         (0x7, 0, 0, fromArray(int31(lastStreamId)) ++ fromArray(int32(errorCode.value)) ++ debugData)
-      case WindowUpdate(streamId, increment)                                  =>
+      case WindowUpdate(streamId, increment)                                           =>
         (0x8, 0, streamId, fromArray(int31(increment)))
-      case Continuation(streamId, headerBlock, endHeaders)                    =>
+      case Continuation(streamId, headerBlock, endHeaders)                             =>
         (0x9, if (endHeaders) FlagEndHeaders else 0, streamId, headerBlock)
     }
     val (frameType, flags, streamId, payload) = encoded
@@ -104,24 +104,31 @@ object FrameCodec {
 
   private def decodeData(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
-      _                 <- requireNonZeroStream(streamId, "DATA")
-      dataAndPadding    <- removePadding(payload, (flags & FlagPadded) != 0, "DATA")
+      _              <- requireNonZeroStream(streamId, "DATA")
+      dataAndPadding <- removePadding(payload, (flags & FlagPadded) != 0, "DATA")
       (data, padLength) = dataAndPadding
     } yield Data(streamId, data, (flags & FlagEndStream) != 0, padLength)
 
   private def decodeHeaders(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
-      _                             <- requireNonZeroStream(streamId, "HEADERS")
-      contentAndPadding             <- removePadding(payload, (flags & FlagPadded) != 0, "HEADERS")
-      (content, padLength)          = contentAndPadding
-      priorityAndHeaderBlock        <- splitPriority(content, (flags & FlagPriority) != 0, "HEADERS")
-      (priority, headerBlock)       = priorityAndHeaderBlock
-    } yield Headers(streamId, headerBlock, (flags & FlagEndStream) != 0, (flags & FlagEndHeaders) != 0, priority, padLength)
+      _                 <- requireNonZeroStream(streamId, "HEADERS")
+      contentAndPadding <- removePadding(payload, (flags & FlagPadded) != 0, "HEADERS")
+      (content, padLength) = contentAndPadding
+      priorityAndHeaderBlock <- splitPriority(content, (flags & FlagPriority) != 0, "HEADERS")
+      (priority, headerBlock) = priorityAndHeaderBlock
+    } yield Headers(
+      streamId,
+      headerBlock,
+      (flags & FlagEndStream) != 0,
+      (flags & FlagEndHeaders) != 0,
+      priority,
+      padLength,
+    )
 
   private def decodePriority(streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
-      _        <- requireNonZeroStream(streamId, "PRIORITY")
-      _        <- requirePayloadSize(payload, 5, "PRIORITY")
+      _ <- requireNonZeroStream(streamId, "PRIORITY")
+      _ <- requirePayloadSize(payload, 5, "PRIORITY")
       priority = decodePriorityValue(payload)
     } yield Priority(streamId, priority.dependency, priority.weight, priority.exclusive)
 
@@ -134,17 +141,20 @@ object FrameCodec {
   private def decodeSettings(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
       _        <- requireStreamId(streamId == 0, "SETTINGS frames must use stream 0")
-      _        <- requireFrameCondition((flags & FlagAck) == 0 || payload.isEmpty, "SETTINGS ack frames must have empty payload")
+      _        <- requireFrameCondition(
+        (flags & FlagAck) == 0 || payload.isEmpty,
+        "SETTINGS ack frames must have empty payload",
+      )
       _        <- requireFrameCondition(payload.length % 6 == 0, "SETTINGS payload must be a multiple of 6 bytes")
       settings <- decodeSettingsPayload(payload)
     } yield Settings((flags & FlagAck) != 0, settings)
 
   private def decodePushPromise(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
-      _                    <- requireNonZeroStream(streamId, "PUSH_PROMISE")
-      contentAndPadding    <- removePadding(payload, (flags & FlagPadded) != 0, "PUSH_PROMISE")
+      _                 <- requireNonZeroStream(streamId, "PUSH_PROMISE")
+      contentAndPadding <- removePadding(payload, (flags & FlagPadded) != 0, "PUSH_PROMISE")
       (content, padLength) = contentAndPadding
-      _                    <- requireFrameCondition(content.length >= 4, "PUSH_PROMISE payload must include a promised stream id")
+      _ <- requireFrameCondition(content.length >= 4, "PUSH_PROMISE payload must include a promised stream id")
     } yield PushPromise(streamId, readInt31(content, 0), content.drop(4), (flags & FlagEndHeaders) != 0, padLength)
 
   private def decodePing(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
@@ -161,13 +171,15 @@ object FrameCodec {
 
   private def decodeWindowUpdate(streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
     for {
-      _         <- requirePayloadSize(payload, 4, "WINDOW_UPDATE")
+      _ <- requirePayloadSize(payload, 4, "WINDOW_UPDATE")
       increment = readInt31(payload, 0)
-      _         <- requireFrameCondition(increment > 0, "WINDOW_UPDATE increment must be positive")
+      _ <- requireFrameCondition(increment > 0, "WINDOW_UPDATE increment must be positive")
     } yield WindowUpdate(streamId, increment)
 
   private def decodeContinuation(flags: Int, streamId: Int, payload: Chunk[Byte]): Either[H2Error, H2Frame] =
-    requireNonZeroStream(streamId, "CONTINUATION").map(_ => Continuation(streamId, payload, (flags & FlagEndHeaders) != 0))
+    requireNonZeroStream(streamId, "CONTINUATION").map(_ =>
+      Continuation(streamId, payload, (flags & FlagEndHeaders) != 0),
+    )
 
   private def decodeSettingsPayload(payload: Chunk[Byte]): Either[H2Error, List[Setting]] = {
     val builder = List.newBuilder[Setting]
@@ -185,12 +197,20 @@ object FrameCodec {
   }
 
   private def validateSetting(id: Int, value: Long): Either[H2Error, Unit] =
-    if (id == Setting.ENABLE_PUSH && value != 0L && value != 1L) Left(ProtocolViolation("SETTINGS_ENABLE_PUSH must be 0 or 1"))
-    else if (id == Setting.INITIAL_WINDOW_SIZE && value > Int.MaxValue.toLong) Left(ProtocolViolation("SETTINGS_INITIAL_WINDOW_SIZE exceeds 31 bits"))
-    else if (id == Setting.MAX_FRAME_SIZE && (value < H2Settings.MinimumMaxFrameSize || value > H2Settings.MaximumMaxFrameSize)) Left(ProtocolViolation("SETTINGS_MAX_FRAME_SIZE is out of range"))
+    if (id == Setting.ENABLE_PUSH && value != 0L && value != 1L)
+      Left(ProtocolViolation("SETTINGS_ENABLE_PUSH must be 0 or 1"))
+    else if (id == Setting.INITIAL_WINDOW_SIZE && value > Int.MaxValue.toLong)
+      Left(ProtocolViolation("SETTINGS_INITIAL_WINDOW_SIZE exceeds 31 bits"))
+    else if (
+      id == Setting.MAX_FRAME_SIZE && (value < H2Settings.MinimumMaxFrameSize || value > H2Settings.MaximumMaxFrameSize)
+    ) Left(ProtocolViolation("SETTINGS_MAX_FRAME_SIZE is out of range"))
     else Right(())
 
-  private def splitPriority(content: Chunk[Byte], hasPriority: Boolean, frameName: String): Either[H2Error, (Option[zio.http.h2.Priority], Chunk[Byte])] =
+  private def splitPriority(
+    content: Chunk[Byte],
+    hasPriority: Boolean,
+    frameName: String,
+  ): Either[H2Error, (Option[zio.http.h2.Priority], Chunk[Byte])] =
     if (!hasPriority) Right((None, content))
     else if (content.length < 5) Left(InvalidFrameSize(frameName + " priority segment must be 5 bytes"))
     else Right((Some(decodePriorityValue(content.take(5))), content.drop(5)))
@@ -209,15 +229,23 @@ object FrameCodec {
   private def encodeSettings(settings: List[Setting]): Chunk[Byte] = {
     val builder = new ChunkBuilder.Byte
     settings.foreach { setting =>
-      validateSetting(setting.id, setting.value).fold(error => throw new IllegalArgumentException(error.toString), _ => ())
-      require(setting.value >= 0L && setting.value <= 0xffffffffL, "HTTP/2 settings values are 32-bit unsigned integers")
+      validateSetting(setting.id, setting.value)
+        .fold(error => throw new IllegalArgumentException(error.toString), _ => ())
+      require(
+        setting.value >= 0L && setting.value <= 0xffffffffL,
+        "HTTP/2 settings values are 32-bit unsigned integers",
+      )
       builder.addAll(fromArray(short16(setting.id)))
       builder.addAll(fromArray(int32(setting.value.toInt)))
     }
     builder.result()
   }
 
-  private def removePadding(payload: Chunk[Byte], padded: Boolean, frameName: String): Either[H2Error, (Chunk[Byte], Int)] =
+  private def removePadding(
+    payload: Chunk[Byte],
+    padded: Boolean,
+    frameName: String,
+  ): Either[H2Error, (Chunk[Byte], Int)] =
     if (!padded) Right((payload, 0))
     else if (payload.isEmpty) Left(InvalidFrameSize(frameName + " padded payload must include pad length"))
     else {
@@ -250,7 +278,8 @@ object FrameCodec {
     requireStreamId(streamId != 0, frameName + " frames must use a non-zero stream id")
 
   private def requirePayloadSize(payload: Chunk[Byte], size: Int, frameName: String): Either[H2Error, Unit] =
-    if (payload.length == size) Right(()) else Left(InvalidFrameSize(frameName + " payload must be exactly " + size + " bytes"))
+    if (payload.length == size) Right(())
+    else Left(InvalidFrameSize(frameName + " payload must be exactly " + size + " bytes"))
 
   private def requireStreamId(condition: Boolean, message: String): Either[H2Error, Unit] =
     requireFrameCondition(condition, message)
@@ -273,7 +302,9 @@ object FrameCodec {
     readInt32(bytes, offset) & 0x7fffffff
 
   private def readInt32(bytes: Chunk[Byte], offset: Int): Int =
-    (unsigned(bytes(offset)) << 24) | (unsigned(bytes(offset + 1)) << 16) | (unsigned(bytes(offset + 2)) << 8) | unsigned(bytes(offset + 3))
+    (unsigned(bytes(offset)) << 24) | (unsigned(bytes(offset + 1)) << 16) | (unsigned(
+      bytes(offset + 2),
+    ) << 8) | unsigned(bytes(offset + 3))
 
   private def readUnsignedInt(bytes: Chunk[Byte], offset: Int): Long =
     readInt32(bytes, offset).toLong & 0xffffffffL
@@ -283,7 +314,12 @@ object FrameCodec {
   private def int31(value: Int): Array[Byte] = int32(value & 0x7fffffff)
 
   private def int32(value: Int): Array[Byte] =
-    Array(((value >>> 24) & 0xff).toByte, ((value >>> 16) & 0xff).toByte, ((value >>> 8) & 0xff).toByte, (value & 0xff).toByte)
+    Array(
+      ((value >>> 24) & 0xff).toByte,
+      ((value >>> 16) & 0xff).toByte,
+      ((value >>> 8) & 0xff).toByte,
+      (value & 0xff).toByte,
+    )
 
   private def short16(value: Int): Array[Byte] =
     Array(((value >>> 8) & 0xff).toByte, (value & 0xff).toByte)

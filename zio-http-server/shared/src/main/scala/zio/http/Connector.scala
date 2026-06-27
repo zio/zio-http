@@ -28,25 +28,25 @@ object BindAddress {
   import ConnectorSchemas._
 
   case class Tcp(host: String = "0.0.0.0", port: Int = 8080) extends BindAddress
-  case class Unix(path: Path) extends BindAddress
+  case class Unix(path: Path)                                extends BindAddress
 
   def localhost(port: Int): BindAddress = Tcp("127.0.0.1", port)
-  def anyHost(port: Int): BindAddress = Tcp("0.0.0.0", port)
+  def anyHost(port: Int): BindAddress   = Tcp("0.0.0.0", port)
 
-  implicit val tcpSchema: Schema[Tcp]   = Schema.derived[Tcp]
-  implicit val unixSchema: Schema[Unix] = Schema.derived[Unix]
+  implicit val tcpSchema: Schema[Tcp]      = Schema.derived[Tcp]
+  implicit val unixSchema: Schema[Unix]    = Schema.derived[Unix]
   implicit val schema: Schema[BindAddress] = Schema.derived[BindAddress]
 }
 
 sealed trait Protocol
 object Protocol {
-  case class H2C(http2: Http2Config = Http2Config()) extends Protocol
-  case class H2(tls: TlsConfig, http2: Http2Config = Http2Config()) extends Protocol
+  case class H2C(http2: Http2Config = Http2Config())                                                 extends Protocol
+  case class H2(tls: TlsConfig, http2: Http2Config = Http2Config())                                  extends Protocol
   case class H3(tls: TlsConfig, quic: QuicConfig = QuicConfig(), http3: Http3Config = Http3Config()) extends Protocol
 
-  implicit val h2cSchema: Schema[H2C] = Schema.derived[H2C]
-  implicit val h2Schema: Schema[H2]   = Schema.derived[H2]
-  implicit val h3Schema: Schema[H3]   = Schema.derived[H3]
+  implicit val h2cSchema: Schema[H2C]   = Schema.derived[H2C]
+  implicit val h2Schema: Schema[H2]     = Schema.derived[H2]
+  implicit val h3Schema: Schema[H3]     = Schema.derived[H3]
   implicit val schema: Schema[Protocol] = Schema.derived[Protocol]
 }
 
@@ -83,11 +83,11 @@ sealed trait TlsSource
 object TlsSource {
   import ConnectorSchemas._
 
-  case class FilePath(path: Path) extends TlsSource
-  case class PemString(pem: Secret) extends TlsSource
+  case class FilePath(path: Path)                      extends TlsSource
+  case class PemString(pem: Secret)                    extends TlsSource
   case class SslContext(ctx: javax.net.ssl.SSLContext) extends TlsSource
 
-  implicit val filePathSchema: Schema[FilePath] = Schema.derived[FilePath]
+  implicit val filePathSchema: Schema[FilePath]   = Schema.derived[FilePath]
   implicit val pemStringSchema: Schema[PemString] = Schema.derived[PemString]
 
   private final case class LoadableTlsSource(
@@ -102,10 +102,10 @@ object TlsSource {
     LoadableTlsSource.schema.transform(
       {
         case LoadableTlsSource(Some(path), None) => FilePath(path)
-        case LoadableTlsSource(None, Some(pem)) => PemString(pem)
+        case LoadableTlsSource(None, Some(pem))  => PemString(pem)
         case LoadableTlsSource(Some(_), Some(_)) =>
           throw new IllegalStateException("TlsSource config must provide either path or pem, not both")
-        case LoadableTlsSource(None, None) =>
+        case LoadableTlsSource(None, None)       =>
           throw new IllegalStateException("TlsSource config must provide either path or pem")
       },
       {

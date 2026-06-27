@@ -18,7 +18,7 @@ final case class ClientConfig(
   connectTimeout: Duration = Duration.ofSeconds(10),
   requestTimeout: Duration = Duration.ofSeconds(30),
   followRedirects: Boolean = true,
-  maxRedirects: Int        = 5,
+  maxRedirects: Int = 5,
 )
 
 object ClientConfig {

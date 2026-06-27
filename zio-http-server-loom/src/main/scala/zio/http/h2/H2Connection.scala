@@ -20,12 +20,12 @@ final class H2Connection(
   import H2Connection._
   import H2Frame._
 
-  private val mux                      = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
-  private val closed                   = new AtomicBoolean(false)
-  private val activeStreams            = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
-  private val writeLock                = new Object
-  private var readBuffer: Chunk[Byte]  = Chunk.empty
-  private var peerSettings: List[Setting] = Nil
+  private val mux                            = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
+  private val closed                         = new AtomicBoolean(false)
+  private val activeStreams                  = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val writeLock                      = new Object
+  private var readBuffer: Chunk[Byte]        = Chunk.empty
+  private var peerSettings: List[Setting]    = Nil
   private var pendingHeaders: PendingHeaders = null
   @volatile private var settingsAcknowledged = false
   @volatile private var highestStreamId      = 0
@@ -43,14 +43,14 @@ final class H2Connection(
         case Settings(false, settings) =>
           peerSettings = settings
           writeFrame(Settings(ack = true, Nil), flush = true)
-        case other                     => throw protocolError("Expected client SETTINGS after preface, received: " + other)
+        case other => throw protocolError("Expected client SETTINGS after preface, received: " + other)
       }
 
       while (!closed.get()) handleFrame(readFrame(), onStream)
     } catch {
-      case _: EOFException  => ()
-      case _: IOException   => ()
-      case NonFatal(error)  =>
+      case _: EOFException => ()
+      case _: IOException  => ()
+      case NonFatal(error) =>
         shutdown(connectionCancelled("failure: " + error.getMessage))
         throw error
     } finally {
@@ -72,34 +72,34 @@ final class H2Connection(
             pendingHeaders = null
             deliverStreamFrame(next.toHeaders, onStream)
           } else pendingHeaders = next
-        case _                                                                  =>
+        case _                                                                              =>
           throw protocolError("Expected CONTINUATION for stream " + pendingHeaders.streamId + ", received: " + frame)
       }
     } else {
       frame match {
         case headers: Headers if !headers.endHeaders => pendingHeaders = PendingHeaders(headers)
         case headers: Headers                        => deliverStreamFrame(headers, onStream)
-        case _: Continuation                         => throw protocolError("Unexpected CONTINUATION frame without open header block")
-        case other if other.streamId == 0           => handleConnectionFrame(other)
-        case other                                  => deliverStreamFrame(other, onStream)
+        case _: Continuation => throw protocolError("Unexpected CONTINUATION frame without open header block")
+        case other if other.streamId == 0 => handleConnectionFrame(other)
+        case other                        => deliverStreamFrame(other, onStream)
       }
     }
   }
 
   private def handleConnectionFrame(frame: H2Frame): Unit =
     frame match {
-      case Settings(false, settings) =>
+      case Settings(false, settings)  =>
         peerSettings = settings
         writeFrame(Settings(ack = true, Nil), flush = true)
-      case Settings(true, _)         => settingsAcknowledged = true
-      case Ping(false, data)         => writeFrame(Ping(ack = true, data), flush = true)
-      case Ping(true, _)             => ()
+      case Settings(true, _)          => settingsAcknowledged = true
+      case Ping(false, data)          => writeFrame(Ping(ack = true, data), flush = true)
+      case Ping(true, _)              => ()
       case GoAway(lastStreamId, _, _) =>
         lastGoAwayStreamId = lastStreamId
         closed.set(true)
       case WindowUpdate(0, increment) =>
         connectionWindow = checkedIncrement(connectionWindow, increment)
-      case _                           =>
+      case _                          =>
         throw protocolError("Unexpected connection-level frame: " + frame)
     }
 
@@ -112,16 +112,16 @@ final class H2Connection(
     offerInbound(stream, frame)
 
     frame match {
-      case _: RstStream           =>
+      case _: RstStream                          =>
         stream.close()
         activeStreams.remove(frame.streamId)
-      case data: Data if data.endStream =>
+      case data: Data if data.endStream          =>
         stream.signalRemoteClose()
         if (stream.isClosed) activeStreams.remove(frame.streamId)
       case headers: Headers if headers.endStream =>
         stream.signalRemoteClose()
         if (stream.isClosed) activeStreams.remove(frame.streamId)
-      case _                      => ()
+      case _                                     => ()
     }
   }
 
@@ -136,19 +136,21 @@ final class H2Connection(
     highestStreamId = streamId
     activeStreams.put(streamId, stream)
 
-    Thread.ofVirtual().name("zio-http-h2-stream-" + streamId).start(runnable {
-      var completed = false
-      try {
-        onStream(stream)
-        completed = true
-      }
-      finally {
-        if (!completed) {
-          if (!stream.isClosed) stream.close()
-          activeStreams.remove(streamId)
+    Thread
+      .ofVirtual()
+      .name("zio-http-h2-stream-" + streamId)
+      .start(runnable {
+        var completed = false
+        try {
+          onStream(stream)
+          completed = true
+        } finally {
+          if (!completed) {
+            if (!stream.isClosed) stream.close()
+            activeStreams.remove(streamId)
+          }
         }
-      }
-    })
+      })
 
     stream
   }
@@ -168,14 +170,14 @@ final class H2Connection(
 
           while (drain) {
             toOptionalFrame(stream.takeOutbound()) match {
-              case Left(_: MuxError)      =>
+              case Left(_: MuxError)  =>
                 activeStreams.remove(stream.id)
                 drain = false
-              case Right(Some(frame))     =>
+              case Right(Some(frame)) =>
                 writeFrame(frame, flush = false)
                 wrote = true
                 markLocalFrameWrite(stream, frame)
-              case Right(None)            => drain = false
+              case Right(None)        => drain = false
             }
           }
 
@@ -191,10 +193,10 @@ final class H2Connection(
 
   private def markLocalFrameWrite(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
     frame match {
-      case data: Data if data.endStream       => stream.halfClose()
+      case data: Data if data.endStream          => stream.halfClose()
       case headers: Headers if headers.endStream => stream.halfClose()
-      case _: RstStream                       => stream.close()
-      case _                                  => ()
+      case _: RstStream                          => stream.close()
+      case _                                     => ()
     }
     if (stream.isClosed) activeStreams.remove(stream.id)
   }
@@ -209,11 +211,11 @@ final class H2Connection(
   private def readFrame(): H2Frame = {
     while (true) {
       FrameCodec.decode(readBuffer) match {
-        case Right((frame, rest))         =>
+        case Right((frame, rest))           =>
           readBuffer = rest
           return frame
         case Left(H2Error.InsufficientData) => appendInput()
-        case Left(error)                  => throw protocolError("Failed to decode frame: " + error)
+        case Left(error)                    => throw protocolError("Failed to decode frame: " + error)
       }
     }
     throw protocolError("Unreachable frame read state")
@@ -247,7 +249,9 @@ final class H2Connection(
     writeLock.synchronized(output.flush())
 
   private def offerInbound(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit =
-    toUnit(stream.offerInbound(frame)).foreach(error => throw protocolError("Failed to deliver frame to stream " + stream.id + ": " + error))
+    toUnit(stream.offerInbound(frame)).foreach(error =>
+      throw protocolError("Failed to deliver frame to stream " + stream.id + ": " + error),
+    )
 
   private def isNewClientStream(streamId: Int): Boolean =
     mux.get(streamId).isEmpty && streamId > 0
@@ -257,8 +261,7 @@ final class H2Connection(
       mux.closeAll(reason)
       closeQuietly(input)
       closeQuietly(output)
-    }
-    else {
+    } else {
       mux.closeAll(reason)
       closeQuietly(input)
       closeQuietly(output)
@@ -319,10 +322,10 @@ private object H2Connection {
 
   private def toUnit(result: Any): Option[MuxError] =
     result match {
-      case Right(_)             => None
+      case Right(_)              => None
       case Left(error: MuxError) => Some(error)
       case error: MuxError       => Some(error)
-      case _                    => None
+      case _                     => None
     }
 
   private def toOptionalFrame(result: Any): Either[MuxError, Option[H2Frame]] =

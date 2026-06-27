@@ -3,8 +3,8 @@ package zio.http
 /**
  * Synchronous HTTP client backed by Project Loom virtual threads.
  *
- * [[send]] is a blocking call that returns a [[Response]] directly. Callers
- * run on virtual threads so the underlying platform thread is not pinned while
+ * [[send]] is a blocking call that returns a [[Response]] directly. Callers run
+ * on virtual threads so the underlying platform thread is not pinned while
  * waiting for I/O. There are no ZIO types on this interface; integration with
  * ZIO effect systems lives in `zio-http-zio`.
  */

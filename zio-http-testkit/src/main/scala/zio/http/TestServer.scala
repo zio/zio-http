@@ -28,21 +28,21 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *   TestServer.addRequestResponse(Request.get(url = URL.root.port(port = ???)), Response(Status.Ok))
    *   }}}
    */
-   def addRequestResponse(
-     expectedRequest: Request,
-     response: Response,
-   ): ZIO[Any, Nothing, Unit] = {
-     addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
-       if (
-         // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-         //    expectedRequest == realRequest
-         expectedRequest.url.relative == realRequest.url &&
-         expectedRequest.method == realRequest.method &&
-         expectedRequest.headers.toList.forall { case (name, value) => realRequest.headers.rawGet(name).contains(value) }
-       ) response
-       else Response.notFound
-     })
-   }
+  def addRequestResponse(
+    expectedRequest: Request,
+    response: Response,
+  ): ZIO[Any, Nothing, Unit] = {
+    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
+      if (
+        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+        //    expectedRequest == realRequest
+        expectedRequest.url.relative == realRequest.url &&
+        expectedRequest.method == realRequest.method &&
+        expectedRequest.headers.toList.forall { case (name, value) => realRequest.headers.rawGet(name).contains(value) }
+      ) response
+      else Response.notFound
+    })
+  }
 
   /**
    * Adds a new route to the Server

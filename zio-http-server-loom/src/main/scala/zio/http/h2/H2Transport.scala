@@ -10,7 +10,7 @@ import zio.blocks.context.Context
 import zio.blocks.endpoint.{RouteTree, SegmentSubtree}
 import zio.blocks.mux.{MuxError, MuxStream}
 import zio.blocks.scope.Scope
-import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
+
 import zio.http.h2.H2Frame.{Data, Headers, WindowUpdate}
 import zio.http.h2.hpack.{HeaderField, Hpack}
 import zio.http.{
@@ -44,16 +44,12 @@ final class H2Transport[Ctx](
   private val routeTree: RouteTree[Route[Ctx]] =
     H2Transport.buildRouteTree(routes)
 
-  private val requestCounter        = metric.counter("http.requests.total")
-  private val activeConnections     = metric.upDownCounter("http.connections.active")
   private val activeConnectionCount = new AtomicLong(0L)
-  private val logger                =
-    LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.H2Transport")
 
   private val http2Config = connector.protocol match {
-    case Protocol.H2C(http2)    => http2
-    case Protocol.H2(_, http2)  => http2
-    case Protocol.H3(_, _, _)   => throw new UnsupportedOperationException("H3/QUIC is not implemented yet")
+    case Protocol.H2C(http2)   => http2
+    case Protocol.H2(_, http2) => http2
+    case Protocol.H3(_, _, _)  => throw new UnsupportedOperationException("H3/QUIC is not implemented yet")
   }
 
   def start(): BoundConnectorHandle =
@@ -64,15 +60,13 @@ final class H2Transport[Ctx](
           port,
           tlsConfig,
           (input, output) => {
-          activeConnectionCount.incrementAndGet()
-          activeConnections.add(1L, "protocol" -> protocolName)
-          try {
-            val connection = new H2Connection(input, output, http2Config.maxConcurrentStreams)
-            connection.run(handleStream)
-          } finally {
-            activeConnectionCount.decrementAndGet()
-            activeConnections.add(-1L, "protocol" -> protocolName)
-          }
+            activeConnectionCount.incrementAndGet()
+            try {
+              val connection = new H2Connection(input, output, http2Config.maxConcurrentStreams)
+              connection.run(handleStream)
+            } finally {
+              activeConnectionCount.decrementAndGet()
+            }
           },
         )
         val bound    = listener.start()
@@ -87,16 +81,9 @@ final class H2Transport[Ctx](
 
   private def tlsConfig =
     connector.protocol match {
-      case Protocol.H2C(_)       => None
-      case Protocol.H2(tls, _)   => Some(tls)
-      case Protocol.H3(_, _, _)  => None
-    }
-
-  private def protocolName: String =
-    connector.protocol match {
-      case Protocol.H2C(_)      => "h2c"
-      case Protocol.H2(_, _)    => "h2"
-      case Protocol.H3(_, _, _) => "h3"
+      case Protocol.H2C(_)      => None
+      case Protocol.H2(tls, _)  => Some(tls)
+      case Protocol.H3(_, _, _) => None
     }
 
   private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
@@ -113,39 +100,8 @@ final class H2Transport[Ctx](
     }
   }
 
-  private def instrumentRequest(request: Request): Response = {
-    val startedAtNanos = System.nanoTime()
-    val requestPath    = request.url.path.encode
-
-    trace.span("http.request", SpanKind.Server) { span =>
-      span.setAttribute("http.request.method", request.method.toString)
-      span.setAttribute("url.path", requestPath)
-      span.setAttribute("network.protocol.name", protocolName)
-
-      val response   = handleRequest(request)
-      val durationMs = nanosToMillis(System.nanoTime() - startedAtNanos)
-
-      span.setAttribute("http.response.status_code", response.status.code.toLong)
-      span.setAttribute("http.server.active_connections", activeConnectionCount.get())
-      span.setAttribute("http.server.duration_ms", durationMs)
-      requestCounter.add(
-        1L,
-        "method" -> request.method.toString,
-        "path" -> requestPath,
-        "status" -> response.status.code,
-        "protocol" -> protocolName,
-      )
-      logger.info(
-        "HTTP request",
-        "method" -> AttributeValue.StringValue(request.method.toString),
-        "path" -> AttributeValue.StringValue(requestPath),
-        "status" -> AttributeValue.LongValue(response.status.code.toLong),
-        "duration_ms" -> AttributeValue.LongValue(durationMs),
-      )
-
-      response
-    }
-  }
+  private def instrumentRequest(request: Request): Response =
+    handleRequest(request)
 
   private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame]): Headers =
     awaitFrame(stream) match {
@@ -207,10 +163,10 @@ final class H2Transport[Ctx](
     response: Response,
     flowController: FlowController,
   ): Unit = {
-    val bodyBytes        = if (requestMethod == Method.HEAD) Chunk.empty[Byte] else response.body.toChunk
-    val bodyIsEmpty      = bodyBytes.isEmpty
-    val responseHeaders  = buildResponseHeaders(response, bodyBytes, bodyIsEmpty)
-    val encodedHeaders   = Hpack.encode(responseHeaders)
+    val bodyBytes       = if (requestMethod == Method.HEAD) Chunk.empty[Byte] else response.body.toChunk
+    val bodyIsEmpty     = bodyBytes.isEmpty
+    val responseHeaders = buildResponseHeaders(response, bodyBytes, bodyIsEmpty)
+    val encodedHeaders  = Hpack.encode(responseHeaders)
     sendFrame(stream, Headers(stream.id, encodedHeaders, endStream = bodyIsEmpty, endHeaders = true))
 
     if (!bodyIsEmpty) {
@@ -232,13 +188,13 @@ final class H2Transport[Ctx](
 
     while (!done) {
       awaitFrame(stream) match {
-        case data: Data         =>
+        case data: Data       =>
           builder ++= data.data
           done = data.endStream
-        case headers: Headers   =>
+        case headers: Headers =>
           done = headers.endStream
-        case _: WindowUpdate    => ()
-        case other              => throw new IllegalStateException("Unexpected HTTP/2 frame while reading request body: " + other)
+        case _: WindowUpdate  => ()
+        case other => throw new IllegalStateException("Unexpected HTTP/2 frame while reading request body: " + other)
       }
     }
 
@@ -249,9 +205,9 @@ final class H2Transport[Ctx](
     var frame: H2Frame = null
     while (frame == null) {
       toReceivedFrame(stream.receive()) match {
-        case Left(error)  => throw new IllegalStateException("HTTP/2 stream receive failed: " + error)
-        case Right(next)  => frame = next
-        case null         => park()
+        case Left(error) => throw new IllegalStateException("HTTP/2 stream receive failed: " + error)
+        case Right(next) => frame = next
+        case null        => park()
       }
     }
     frame
@@ -282,7 +238,7 @@ final class H2Transport[Ctx](
         case ":path"      => path = header.value
         case ":scheme"    => scheme = header.value
         case ":authority" => authority = header.value
-        case _             => ()
+        case _            => ()
       }
     }
 
@@ -319,7 +275,9 @@ final class H2Transport[Ctx](
     Method.fromString(name).getOrElse(throw new IllegalStateException("Unsupported HTTP method: " + name))
 
   private def parseUrl(pathValue: String, schemeValue: String, authorityValue: String): URL = {
-    val parsed = URL.parse(pathValue).getOrElse(throw new IllegalStateException("Invalid HTTP/2 :path pseudo-header: " + pathValue))
+    val parsed     = URL
+      .parse(pathValue)
+      .getOrElse(throw new IllegalStateException("Invalid HTTP/2 :path pseudo-header: " + pathValue))
     val withScheme =
       if (schemeValue == null) parsed
       else parsed.scheme(Scheme.fromString(schemeValue))
@@ -361,13 +319,16 @@ final class H2Transport[Ctx](
 
   private def toResponse(result: Any, request: Request): Response =
     result match {
-      case response: Response     => response
-      case halt: Halt             => halt.response
+      case response: Response       => response
+      case halt: Halt               => halt.response
       case Left(response: Response) => response
-      case Right(halt: Halt)      => halt.response
-      case other                  =>
+      case Right(halt: Halt)        => halt.response
+      case other                    =>
         try {
-          toResponse(defectHandler.handleDefect(request, new IllegalStateException("Unexpected handler result: " + other)), request)
+          toResponse(
+            defectHandler.handleDefect(request, new IllegalStateException("Unexpected handler result: " + other)),
+            request,
+          )
         } catch {
           case _: Throwable => Response.internalServerError
         }
@@ -392,16 +353,14 @@ final class H2Transport[Ctx](
       case _: InterruptedException => Thread.currentThread().interrupt()
     }
 
-  private def nanosToMillis(nanos: Long): Long = nanos / 1000000L
-
   private def toReceivedFrame(result: Any): Either[MuxError, H2Frame] =
     result match {
-      case Left(error: MuxError)         => Left(error)
-      case Right(Some(frame: H2Frame))   => Right(frame)
-      case Right(None)                   => Right(null)
-      case Some(frame: H2Frame)          => Right(frame)
-      case None                          => Right(null)
-      case other                         => Left(MuxError.ProtocolError("Unexpected mux receive result: " + other))
+      case Left(error: MuxError)       => Left(error)
+      case Right(Some(frame: H2Frame)) => Right(frame)
+      case Right(None)                 => Right(null)
+      case Some(frame: H2Frame)        => Right(frame)
+      case None                        => Right(null)
+      case other                       => Left(MuxError.ProtocolError("Unexpected mux receive result: " + other))
     }
 
   private def toSendError(result: Any): Option[MuxError] =

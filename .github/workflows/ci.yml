@@ -10,9 +10,6 @@ on:
   pull_request:
   push:
     branches: ['main', 'v4.x']
-    tags: ['v*']
-  release:
-    types: [published]
 
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
@@ -29,47 +26,16 @@ jobs:
       - name: Setup JDK
         uses: coursier/setup-action@v3
         with:
-          jvm: temurin:21
+          jvm: temurin:25
       - name: Cache
         uses: coursier/cache-action@v8
       - name: Check formatting
         run: chmod +x ./mill && ./mill mill.scalalib.scalafmt/checkFormatAll
 
-  compile:
-    name: Compile with mill
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup JDK
-        uses: coursier/setup-action@v3
-        with:
-          jvm: temurin:21
-          apps: sbt
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Publish zio-blocks SNAPSHOT locally
-        run: |
-          git clone --depth 1 https://github.com/zio/zio-blocks.git /tmp/zio-blocks
-          cd /tmp/zio-blocks
-          sbt compile 'set every version := "0.0.0-SNAPSHOT"' publishLocal
-      - name: Compile all modules
-        run: >-
-          chmod +x ./mill &&
-          ./mill
-          'core.jvm[{3.8.3,2.13.18}].compile'
-          'server.jvm[{3.8.3,2.13.18}].compile'
-          'client.jvm[{3.8.3,2.13.18}].compile'
-          'h2Codec.jvm[{3.8.3,2.13.18}].compile'
-          'serverLoom.jvm[{3.8.3,2.13.18}].compile'
-          'clientJava.jvm[{3.8.3,2.13.18}].compile'
-          'zio.jvm[{3.8.3,2.13.18}].compile'
-
-  testCoreJvm:
+  testJvm:
     name: JVM tests — Scala ${{ matrix.scala }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -80,22 +46,23 @@ jobs:
       - name: Setup JDK
         uses: coursier/setup-action@v3
         with:
-          jvm: temurin:21
-          apps: sbt
+          jvm: temurin:25
       - name: Cache
         uses: coursier/cache-action@v8
-      - name: Publish zio-blocks SNAPSHOT locally
-        run: |
-          git clone --depth 1 https://github.com/zio/zio-blocks.git /tmp/zio-blocks
-          cd /tmp/zio-blocks
-          sbt compile 'set every version := "0.0.0-SNAPSHOT"' publishLocal
-      - name: Run supported JVM tests
+      - name: Run JVM tests
         run: >-
           chmod +x ./mill &&
           ./mill
           'h2Codec.jvm[${{ matrix.scala }}].test'
           'serverLoom.jvm[${{ matrix.scala }}].test'
           'zio.jvm[${{ matrix.scala }}].test'
+
+      - name: Validate coverage minimums
+        run: |
+          chmod +x ./mill
+          ./mill 'h2Codec.jvm[${{ matrix.scala }}].scoverage.validateCoverageMinimums'
+          ./mill 'serverLoom.jvm[${{ matrix.scala }}].scoverage.validateCoverageMinimums'
+          ./mill 'zio.jvm[${{ matrix.scala }}].scoverage.validateCoverageMinimums'
 
   docsSite:
     name: Build website
@@ -117,13 +84,12 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, compile, testCoreJvm, docsSite]
+    needs: [lint, testJvm, docsSite]
     steps:
       - name: Check results
         run: |
           if [[ "${{ needs.lint.result }}" == "failure" || \
-                "${{ needs.compile.result }}" == "failure" || \
-                "${{ needs.testCoreJvm.result }}" == "failure" || \
+                "${{ needs.testJvm.result }}" == "failure" || \
                 "${{ needs.docsSite.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1

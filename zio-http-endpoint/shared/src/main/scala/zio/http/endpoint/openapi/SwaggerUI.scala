@@ -82,16 +82,16 @@ object SwaggerUI {
           script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-bundle.js"),
           script(src := s"https://unpkg.com/swagger-ui-dist@$version/swagger-ui-standalone-preset.js"),
           script().inlineJs(zio.blocks.html.Js(s"""window.onload = () => {
-                               |  window.ui = SwaggerUIBundle({
-                               |    urls: ${jsonUrls.mkString("[\n", ",\n", "\n]")},
-                               |    dom_id: '#swagger-ui',
-                               |    presets: [
-                               |      SwaggerUIBundle.presets.apis,
-                               |      SwaggerUIStandalonePreset
-                               |    ],
-                               |    layout: "StandaloneLayout",
-                               |  });
-                               |};""".stripMargin)),
+                                                  |  window.ui = SwaggerUIBundle({
+                                                  |    urls: ${jsonUrls.mkString("[\n", ",\n", "\n]")},
+                                                  |    dom_id: '#swagger-ui',
+                                                  |    presets: [
+                                                  |      SwaggerUIBundle.presets.apis,
+                                                  |      SwaggerUIStandalonePreset
+                                                  |    ],
+                                                  |    layout: "StandaloneLayout",
+                                                  |  });
+                                                  |};""".stripMargin)),
         ),
       )
       Response(Status.Ok, Headers("content-type" -> "text/html"), Body.fromString("<!DOCTYPE html>" + page.render))
