@@ -27,6 +27,7 @@ class LoomServer(
   }
 }
 
+@experimental
 object LoomServer {
   def apply(connector: Connector = Connector.default): LoomServer =
     new LoomServer(connector)

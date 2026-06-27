@@ -137,10 +137,16 @@ final class H2Connection(
     activeStreams.put(streamId, stream)
 
     Thread.ofVirtual().name("zio-http-h2-stream-" + streamId).start(runnable {
-      try onStream(stream)
+      var completed = false
+      try {
+        onStream(stream)
+        completed = true
+      }
       finally {
-        if (!stream.isClosed) stream.close()
-        activeStreams.remove(streamId)
+        if (!completed) {
+          if (!stream.isClosed) stream.close()
+          activeStreams.remove(streamId)
+        }
       }
     })
 
