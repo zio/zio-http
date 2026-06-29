@@ -1103,7 +1103,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_benchmarks.txt
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: Main.txt
           key: jmh_benchmarks_${{ github.sha }}
