@@ -271,7 +271,7 @@ object OpenAPI {
             val (k, v) = it.next()
             if (k == "default") transformed += StatusOrDefault.Default -> v
             else {
-              zio.http.Status.fromString(k) match {
+              scala.util.Try(k.toInt).toOption.map(zio.http.Status(_)) match {
                 case Some(key) => transformed += StatusOrDefault.StatusValue(key) -> v
                 case None      => error = Left(s"Invalid status: $k")
               }

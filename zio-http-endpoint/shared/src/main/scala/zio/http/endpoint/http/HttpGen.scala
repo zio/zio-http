@@ -130,7 +130,7 @@ object HttpGen {
       HttpVariable(
         headerType.names.head.capitalize,
         mc.examples.values.headOption.map(e =>
-          headerType.toHeaders(e.asInstanceOf[headerType.HeaderValue]).head.renderedValue,
+          headerType.toHeaders(e.asInstanceOf[headerType.HeaderValue]).toList.head._2,
         ),
       )
     }
