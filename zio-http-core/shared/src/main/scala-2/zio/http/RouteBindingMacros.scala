@@ -37,23 +37,41 @@ private[http] object RouteBindingMacros {
       sym.fullName.startsWith("scala.Tuple") && sym.fullName.matches("scala\\.Tuple[0-9]+")
     }
 
-    // Parses a PathVarTuples-encoded `PathVars` type (`Unit` | `PathVar[N,T]` TupleN, per
-    // zio-blocks' Scala 2.13 encoding) into an ordered `(name, type)` list - shared parsing logic
-    // for BOTH `PV` (the route pattern's registry) and `Req` (phase 1's open requirements), since
-    // both use the IDENTICAL encoding.
-    def parseEntries(whole: Type): List[(String, Type)] = {
+    // The sibling (NOT a subtype of `PathVar`) marker `zio.blocks.endpoint.PathVar.Ignored` that
+    // `SegmentCodec`'s `.unused` builder relabels a leaf segment's `PathVars` entry to (see
+    // zio-blocks' own `PathVar.scala` doc, and the Scala 3 sibling implementation in
+    // `RouteBinding.scala`'s `pathVarIgnoredSymbol`). Only ever appears on the PATTERN side (`PV`,
+    // parsed via `parseEntries(pvType)` below) - a `handler(fn)`'s own declared parameter can never
+    // itself be "marked unused", so `parseEntries(reqType)` never encounters it in practice, even
+    // though the same helper is used for both (see its own doc comment).
+    val pathVarIgnoredSym = typeOf[zio.blocks.endpoint.PathVar.Ignored[_, _]].typeSymbol
+
+    // Parses a PathVarTuples-encoded `PathVars` type (`Unit` | `PathVar[N,T]`/`PathVar.Ignored[N,T]`
+    // TupleN, per zio-blocks' Scala 2.13 encoding) into an ordered `(name, type, isIgnored)` list -
+    // shared parsing logic for BOTH `PV` (the route pattern's registry) and `Req` (phase 1's open
+    // requirements), since both use the IDENTICAL encoding. `isIgnored` is `true` for a
+    // `PathVar.Ignored[Name,Type]` element (a segment marked `.unused` in the route pattern DSL,
+    // e.g. `SegmentCodec.string("b").unused`) and `false` for a plain `PathVar[Name,Type]` element -
+    // `Req` entries are always `false` in practice (see above), so this flag is meaningful only for
+    // `pvEntries`. An `Ignored` entry occupies a REAL slot in the resulting list, at the SAME
+    // position it has in the pattern's real runtime value tuple - callers must never filter it out,
+    // since doing so would silently shift every subsequent entry's index and corrupt positional
+    // runtime binding (see `positions`/`isIdentity` below, which index into this list's FULL length).
+    def parseEntries(whole: Type): List[(String, Type, Boolean)] = {
       val w = whole.dealias
       if (w =:= typeOf[Unit]) Nil
       else {
         val elems = if (isTupleType(w)) w.typeArgs else List(w)
         elems.map { e =>
-          val args = e.dealias.typeArgs
-          val name = args.head match {
+          val dealiased = e.dealias
+          val args      = dealiased.typeArgs
+          val name      = args.head match {
             case ConstantType(Constant(s: String)) => s
             case other                              =>
               c.abort(c.enclosingPosition, s"Expected a literal String singleton type for a PathVar Name, but found: $other")
           }
-          (name, args(1).dealias)
+          val isIgnored = dealiased.typeSymbol == pathVarIgnoredSym
+          (name, args(1).dealias, isIgnored)
         }
       }
     }
@@ -76,7 +94,11 @@ private[http] object RouteBindingMacros {
       else q"$aVarsName.asInstanceOf[$aType].${TermName(s"_${pvIndex + 1}")}"
 
     val positions                = scala.collection.mutable.ListBuffer.empty[Int]
-    val accessExprs: List[Tree] = reqEntries.map { case (rName, rType) =>
+    val accessExprs: List[Tree] = reqEntries.map { case (rName, rType, _) =>
+      // Matching cares only about (name, type) equality, never about `isIgnored` - a `.unused`
+      // pattern segment (the whole point of `PathVar.Ignored`) remains perfectly bindable if a
+      // handler parameter actually references it; `isIgnored` only affects which warning (if any)
+      // is emitted below, never whether a match succeeds.
       val foundIdx = pvEntries.indices.find(i => !consumed(i) && pvEntries(i)._1 == rName && pvEntries(i)._2 =:= rType)
       foundIdx match {
         case Some(idx) =>
@@ -92,9 +114,25 @@ private[http] object RouteBindingMacros {
       }
     }
 
-    pvEntries.zipWithIndex.foreach { case ((name, tpe), idx) =>
-      if (!consumed(idx))
+    // Four `(isIgnored, consumed)` combinations, exactly per the `.unused` design (see
+    // `PathVar.Ignored`'s doc, and the identical Scala 3 sibling logic in `RouteBinding.scala`):
+    //   - plain, unconsumed   -> existing "defined in the path but is never used" warning.
+    //   - plain, consumed     -> no warning (unchanged existing behavior).
+    //   - ignored, unconsumed -> no warning (the whole point of `.unused`: suppress it).
+    //   - ignored, consumed   -> NEW "marked .unused but is referenced" warning (a lint, not an
+    //                            error - the segment still binds correctly either way, see
+    //                            `accessExprs` above which does not special-case `isIgnored`).
+    // `c.warning(pos, msg)` at the SAME `c.enclosingPosition` for multiple distinct entries is
+    // safe here, unlike dotc's `report.warning` on the Scala 3 sibling: Scala 2.13's blackbox
+    // macro reporter has no `UniqueMessagePositions`-style same-position dedup (confirmed
+    // empirically by the pre-existing test 14 below, which already asserts TWO distinct warnings
+    // fire from two entries sharing the same `c.enclosingPosition`) - so no per-entry position
+    // offset is needed here, unlike the Scala 3 macro.
+    pvEntries.zipWithIndex.foreach { case ((name, tpe, isIgnored), idx) =>
+      if (!isIgnored && !consumed(idx))
         c.warning(c.enclosingPosition, s"Variable $name:$tpe was defined in the path but is never used")
+      else if (isIgnored && consumed(idx))
+        c.warning(c.enclosingPosition, s"Variable $name:$tpe was marked .unused but is referenced by the handler")
     }
 
     // Todo 8 (D8 allocation-neutrality) finding, parity with the Scala 3 fix in
