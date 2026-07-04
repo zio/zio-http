@@ -221,6 +221,21 @@ object WebSocketSpec extends RoutesRunnableSpec {
           assertTrue(result == "immediate")
         }
       },
+      test("client socket fails if the server does not return a 101 Switching Protocols response") {
+        for {
+          url    <- DynamicServer.httpURL
+          id     <- DynamicServer.deploy(Handler.badRequest.toRoutes)
+          result <- ZIO.scoped {
+            Handler
+              .webSocket(_ => ZIO.unit)
+              .connect(url, Headers(DynamicServer.APP_ID, id))
+              .either
+          }
+        } yield assertTrue(
+          result.isLeft,
+          result.swap.toOption.exists(_.getMessage.contains("Switching Protocols")),
+        )
+      },
     )
 
   private val withStreamingEnabled =
