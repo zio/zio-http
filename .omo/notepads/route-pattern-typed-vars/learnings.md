@@ -344,3 +344,9 @@
 - Scope: `jj diff --stat` shows exactly 2 new files (`PathVarD7TiersSpec.scala`, both `scala-2` and `scala-3` test dirs under `zio-http-core/jvm/src/test/`) - zero production files touched, zero existing test files modified.
 - No mill scalafmt task/binary available in this environment (same finding as Todo 4/5's notepad entries - `build.mill` has no `ScalafmtModule` wiring despite `.scalafmt.conf` existing); code hand-formatted to match the existing file style (2-space indent, matching `PathVarHandlerBindingSpec.scala`/`RouteArrowOverloadSafetySpec.scala` conventions).
 - Commit: `3e5dac503cb1` (jj change `yosxowkpryok`), message `test(http): add comprehensive PathVar handler-binding test suite` (the plan's exact Todo 10 commit message), parented directly on Todo 7's `tzmzyprqwrtl`/`b46cb575b2ed`.
+
+## Todo 11 findings (docs update)
+
+- The public docs should stay strictly user-facing. The `customerId` / `basketId` example is the right way to explain the 4-tier resolution chain without leaking the macro machinery.
+- The exact warning text to show users is `warning: Variable postId:String was defined in the path but is never used`.
+- Middleware remains a `Routes(...) @@ mw` concern, so the docs should say that plainly and avoid implying any new route-level middleware surface.
