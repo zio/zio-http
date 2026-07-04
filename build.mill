@@ -1,9 +1,11 @@
+//| mvnDeps: ["com.lihaoyi::mill-contrib-jmh:$MILL_VERSION"]
 package build
 
 import mill.*
 import mill.api.BuildCtx
 import mill.scalajslib.*
 import mill.scalalib.*
+import mill.contrib.jmh.JmhModule
 
 object Versions {
   val Scala213              = "2.13.18"
@@ -314,6 +316,26 @@ object testkit extends Module {
         Seq(testkit.jvm(), endpoint.jvm())
       override def sources    = Task.Sources(r / "src" / "test" / "scala")
       override def resources  = Task.Sources(r / "src" / "test" / "resources")
+    }
+  }
+}
+
+object benchmarks extends Module {
+  val r = wsRoot / "zio-http-benchmarks"
+  object jvm      extends Cross[JvmModule](scalaVersions)
+  trait JvmModule extends ZioHttpModule with JmhModule {
+    def artifactName     = "zio-http-benchmarks"
+    def jmhCoreVersion   = "1.37"
+    def moduleDeps       = Seq(core.jvm())
+    override def mvnDeps = super[ZioHttpModule].mvnDeps() ++ super[JmhModule].mvnDeps()
+    // NOTE: `r / "src" / "main" / "scala"` (the version-agnostic dir) intentionally excluded -
+    // it holds pre-existing legacy pre-v4 zhttp/sbt-jmh benchmark sources (untouched by this
+    // plan, not wired into any build before this todo, and not compiling against the current
+    // API - same class of pre-existing dormant code as zio-http-example/zio-http-testkit per
+    // Todo 7's findings). Only this todo's own new Scala-version-specific sources are compiled.
+    override def sources = {
+      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else "scala-3"
+      Task.Sources(r / "src" / "main" / vDir)
     }
   }
 }

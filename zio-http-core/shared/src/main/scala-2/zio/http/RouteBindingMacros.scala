@@ -75,11 +75,13 @@ private[http] object RouteBindingMacros {
       if (pvArity == 1) q"$aVarsName.asInstanceOf[$aType]"
       else q"$aVarsName.asInstanceOf[$aType].${TermName(s"_${pvIndex + 1}")}"
 
+    val positions                = scala.collection.mutable.ListBuffer.empty[Int]
     val accessExprs: List[Tree] = reqEntries.map { case (rName, rType) =>
       val foundIdx = pvEntries.indices.find(i => !consumed(i) && pvEntries(i)._1 == rName && pvEntries(i)._2 =:= rType)
       foundIdx match {
         case Some(idx) =>
           consumed(idx) = true
+          positions += idx
           accessAt(idx)
         case None      =>
           c.abort(
@@ -95,11 +97,25 @@ private[http] object RouteBindingMacros {
         c.warning(c.enclosingPosition, s"Variable $name:$tpe was defined in the path but is never used")
     }
 
-    val reqRuntimeShape: Tree = reqEntries.length match {
-      case 0 => q"()"
-      case 1 => accessExprs.head
-      case _ => q"(..$accessExprs)"
-    }
+    // Todo 8 (D8 allocation-neutrality) finding, parity with the Scala 3 fix in
+    // `RouteBinding.scala`: when `positions` is the IDENTITY permutation over ALL `pvArity`
+    // pattern vars (handler consumes every var, in the pattern's own declared order),
+    // `$aVarsName` is ALREADY the exact runtime shape `reqRuntimeShapeType` needs - building a
+    // fresh `(..$accessExprs)` tuple literal (which compiles to a real `new TupleN(...)`) is pure
+    // waste, confirmed via `javap` (a genuine extra `new scala/Tuple2` per call, absent from a
+    // hand-written baseline) and JMH `-prof gc`. Reusing `$aVarsName` via a zero-cost
+    // `asInstanceOf` is bit-for-bit identical. Any non-identity case (partial and/or reordered
+    // use) still needs a real reshape and is unaffected.
+    val isIdentity = pvArity >= 2 && positions.toList == List.range(0, pvArity)
+
+    val reqRuntimeShape: Tree =
+      if (isIdentity) q"$aVarsName.asInstanceOf[$aType]"
+      else
+        reqEntries.length match {
+          case 0 => q"()"
+          case 1 => accessExprs.head
+          case _ => q"(..$accessExprs)"
+        }
 
     // The REAL runtime shape backing `Req` (phase 1's phantom `RequiredVars`) - Unit for zero
     // open params, the bare type for exactly one, a real TupleN for two or more. Mirrors

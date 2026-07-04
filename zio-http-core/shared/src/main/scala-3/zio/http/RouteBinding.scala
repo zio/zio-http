@@ -366,6 +366,21 @@ private[http] object RouteBindingMacros {
 
             val n = pvEntries.length
 
+            // Todo 8 (D8 allocation-neutrality) finding: when `positions` is the IDENTITY
+            // permutation over ALL `n` pattern vars (handler consumes every var, in the pattern's
+            // own declared order - e.g. Worked Example 2's `GET / int("userId") / string("postId")
+            // -> handler((userId: Int, postId: String) => ...)`), `a` (the pattern's real runtime
+            // value tuple) is ALREADY the exact `Product` shape `varsT` needs - rebuilding a fresh
+            // tuple via `*:` (`buildTuple` below) is pure waste: a real `javap`+JMH-`-prof gc`
+            // regression (confirmed: 2 extra `scala.runtime.Tuples$.cons` allocations per call,
+            // +56 B/op vs. a hand-written baseline that accesses `a`'s fields directly) with zero
+            // behavioral benefit, since reusing `a` (relabeled to the phantom `varsT` via a
+            // zero-cost `asInstanceOf`) is bit-for-bit identical to what the rebuilt tuple would
+            // have contained. For any NON-identity case (partial use and/or reordered use), a real
+            // reshape is unavoidable - the pattern's positions must actually be reordered/dropped
+            // into the handler's own declared order, and rebuilding is kept exactly as before.
+            val isIdentity = n >= 2 && positions == List.range(0, n)
+
             def buildTuple(elems: List[Term]): Term = elems match {
               case Nil          => '{ EmptyTuple }.asTerm
               case head :: tail =>
@@ -382,12 +397,16 @@ private[http] object RouteBindingMacros {
                         $patternExpr,
                         Handler.extracted[ctxT, A]((request, context, a, scope) =>
                           ${
-                            val elemTerms: List[Term] = positions.map { pos =>
-                              if (n <= 1) '{ a }.asTerm
-                              else '{ a.asInstanceOf[Product].productElement(${ Expr(pos) }) }.asTerm
-                            }
-                            val varsTupleAny            = buildTuple(elemTerms).asExprOf[Any]
-                            val varsTuple: Expr[varsT] = '{ $varsTupleAny.asInstanceOf[varsT] }
+                            val varsTuple: Expr[varsT] =
+                              if (isIdentity) '{ a.asInstanceOf[varsT] }
+                              else {
+                                val elemTerms: List[Term] = positions.map { pos =>
+                                  if (n <= 1) '{ a }.asTerm
+                                  else '{ a.asInstanceOf[Product].productElement(${ Expr(pos) }) }.asTerm
+                                }
+                                val varsTupleAny = buildTuple(elemTerms).asExprOf[Any]
+                                '{ $varsTupleAny.asInstanceOf[varsT] }
+                              }
                             '{ $hE.handle(request, context, $varsTuple, scope) }
                           }
                         )
