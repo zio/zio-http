@@ -118,6 +118,21 @@ If a route declares a path variable that the handler never uses, the compiler pr
 warning: Variable postId:String was defined in the path but is never used
 ```
 
+If that variable is intentionally unused, mark it on the route pattern with `.unused`.
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.RouteBinding._
+import zio.blocks.endpoint.PathCodec._
+import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
+
+val route = Method.GET / int("userId") / string("postId").unused -> handler(
+  (userId: Int) => Response.text(s"user=$userId")
+)
+```
+
+That keeps the path shape the same, but suppresses the unused-path-variable warning for `postId`. If a handler later starts consuming a variable marked `.unused`, the compiler emits a warning so the stale marker can be removed.
+
 Middleware still stays at the `Routes(...) @@ mw` level. This handler syntax does not add route-level middleware.
 
 ## Handler Constructors

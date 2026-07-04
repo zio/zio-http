@@ -83,6 +83,21 @@ val partial = Method.GET / int("userId") / string("postId") -> handler(
 
 The warning is informational only. It does not block compilation.
 
+If a route variable is intentionally unused, mark it with `.unused` on the path codec itself.
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.RouteBinding._
+import zio.blocks.endpoint.PathCodec._
+import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
+
+val route = Method.GET / int("userId") / string("postId").unused -> handler(
+  (userId: Int) => Response.text(s"user=$userId")
+)
+```
+
+That suppresses the usual "defined in the path but is never used" warning for `postId`. If a handler later starts consuming a `.unused` variable anyway, the compiler warns so the marker can be removed.
+
 ## Building RoutePatterns
 
 Typically, the entry point for creating a route pattern is `Method`:
@@ -93,7 +108,7 @@ val pattern: RoutePattern[Unit] =
   Method.GET / "users"   
 ```
 
-To match a path segment, various methods like `string`, `int`, `long`, and `uuid` are available.
+To match a path segment, various methods like `string`, `int`, `long`, and `uuid` are available. Each named capturing codec also supports `.unused` when you want to keep the segment in the route shape but intentionally not bind it in the handler.
 
 For example, let's enhance the previous example to match a user id of type `Int`:
 
