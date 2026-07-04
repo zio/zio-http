@@ -346,9 +346,22 @@ private[http] object RouteBindingMacros {
               }
             }
 
+            // Each unconsumed entry must be reported at a DISTINCT `Position`: dotc's default
+            // reporter (`UniqueMessagePositions`) silently drops any diagnostic whose position was
+            // already seen, regardless of message text - calling `report.warning(msg)` (no explicit
+            // position) for every entry reports them all at the SAME default macro-expansion
+            // position, so only the FIRST of several unused-var warnings ever surfaced (confirmed via
+            // a real `-Werror` compile: 2 unused vars produced only 1 warning, not 2 - a real Todo 6
+            // finding, not a hypothetical). Fix: nudge each entry's position by its index within the
+            // macro-expansion range (clamped to stay inside that range) so every entry gets a position
+            // the reporter has not already recorded.
+            val macroPos = Position.ofMacroExpansion
             pvEntries.zipWithIndex.foreach { case ((name, tpe), idx) =>
-              if (!consumed.contains(idx))
-                report.warning(s"Variable $name:${tpe.show.split('.').last} was defined in the path but is never used")
+              if (!consumed.contains(idx)) {
+                val offset      = math.min(macroPos.start + idx, macroPos.end)
+                val distinctPos = Position(macroPos.sourceFile, offset, offset)
+                report.warning(s"Variable $name:${tpe.show.split('.').last} was defined in the path but is never used", distinctPos)
+              }
             }
 
             val n = pvEntries.length

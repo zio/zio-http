@@ -129,5 +129,152 @@ object PathVarHandlerBindingSpec extends ZIOSpecDefault {
         """)
       )(Assertion.isLeft)
     },
+    test("12. multiple unused vars in a 3-segment pattern still run correctly (separateness of the warnings is verified below via a real -Xfatal-warnings compile)") {
+      val route  = GET / int("userId") / string("postId") / string("tag") ->
+        handler((userId: Int) => Response.text(s"user=$userId"))
+      val result = route.handler.handle(req, Context.empty, (3, "ignored-post", "ignored-tag"), scope)
+      assertTrue(result == ResultType.responseAsResult(Response.text("user=3")))
+    },
+    test("13. a Context capability declared-but-body-unused never triggers the path-var warning") {
+      // `basketId` must be DECLARED to be resolved from Context at all (D7 tier 2) - "unused" here
+      // means its VALUE is never referenced in the function body, which is ordinary Scala and must
+      // NOT trigger the macro's "was defined in the path" warning (reserved for PathVar entries the
+      // ROUTE PATTERN declares, never for Context capabilities). Confirmed at the real
+      // compiler-diagnostic level (not just observed absence) by test 16 below.
+      val route  = GET / int("id") -> handler((id: Int, basketId: BasketId) => Response.text(s"user=$id"))
+      val result = route.handler.handle(req, Context(BasketId("unused-basket")), 7, scope)
+      assertTrue(result == ResultType.responseAsResult(Response.text("user=7")))
+    },
+    test(
+      "14 (-Xfatal-warnings build-level proof). a 3-segment pattern with only 1 var consumed FAILS to compile under fatal-warnings with exactly 2 distinct warnings naming the other 2 vars",
+    ) {
+      val code =
+        """package zio.http.scratch14
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |object Scratch14 {
+          |  val route = GET / int("userId") / string("postId") / string("tag") ->
+          |    handler((userId: Int) => Response.text(s"user=$userId"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      val postIdWarnings     = "Variable postId:String was defined in the path but is never used".r.findAllIn(output).length
+      val tagWarnings        = "Variable tag:String was defined in the path but is never used".r.findAllIn(output).length
+      assertTrue(exitCode != 0, postIdWarnings == 1, tagWarnings == 1)
+    },
+    test("15 (-Xfatal-warnings build-level proof). the SAME pattern with full use compiles cleanly (zero warnings) under fatal-warnings") {
+      val code =
+        """package zio.http.scratch15
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |object Scratch15 {
+          |  val route = GET / int("userId") / string("postId") / string("tag") ->
+          |    handler((userId: Int, postId: String, tag: String) => Response.text(s"$userId $postId $tag"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      assertTrue(exitCode == 0, !output.contains("was defined in the path"))
+    },
+    test(
+      "16 (-Xfatal-warnings build-level proof). a Context capability declared-but-body-unused does NOT fail under fatal-warnings (D7 exemption is a real compiler-diagnostic guarantee)",
+    ) {
+      val code =
+        """package zio.http.scratch16
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |final case class ScratchBasketId(value: String)
+          |object Scratch16 {
+          |  val route = GET / int("id") ->
+          |    handler((id: Int, basketId: ScratchBasketId) => Response.text(s"user=$id"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      assertTrue(exitCode == 0, !output.contains("was defined in the path"))
+    },
   )
+}
+
+/**
+ * Drives the REAL `scalac` compiler (out-of-process, `-Xfatal-warnings`) against a scratch
+ * snippet, using this test JVM's own `java.class.path` (the exact classpath mill resolved for
+ * `core.jvm[2.13.18].test`) plus the Scala 2.13 compiler's own jar (located under the same
+ * coursier cache the running JVM's `scala-library` jar came from). This proves the unused-PathVar
+ * warning is a REAL compiler diagnostic participating in a warnings-as-errors build (Todo 6's
+ * deliverable 3) - not an informational side effect - since a genuine external `scalac` process,
+ * given the real production `RouteBindingMacros.scala`, either fails or succeeds to compile based
+ * on it.
+ */
+private object FatalWarningsProof {
+
+  private def coursierRoot(): java.io.File = {
+    val cp = sys.props("java.class.path").split(java.io.File.pathSeparatorChar)
+    val libEntry = cp
+      .find(_.replace('\\', '/').contains("/org/scala-lang/scala-library/"))
+      .getOrElse(
+        throw new IllegalStateException(s"scala-library not found on java.class.path: ${cp.mkString(", ")}"),
+      )
+    // .../org/scala-lang/scala-library/<version>/scala-library-<version>.jar -> cache root is 4 dirs up
+    new java.io.File(libEntry).getParentFile.getParentFile.getParentFile.getParentFile.getParentFile
+  }
+
+  private def findJar(root: java.io.File, groupPath: String, artifactPrefix: String): String = {
+    val dir = new java.io.File(root, groupPath)
+    def search(d: java.io.File): List[java.io.File] =
+      Option(d.listFiles()).toList.flatten.flatMap { f =>
+        if (f.isDirectory) search(f)
+        else if (
+          f.getName.startsWith(artifactPrefix) && f.getName.endsWith(".jar") && !f.getName.contains("sources") &&
+          !f.getName.contains("javadoc")
+        )
+          List(f)
+        else Nil
+      }
+    search(dir).sortBy(_.getName).lastOption
+      .map(_.getAbsolutePath)
+      .getOrElse(throw new IllegalStateException(s"Could not locate $artifactPrefix*.jar under $dir"))
+  }
+
+  /** Compiles `source` with `scalac -usejavacp -Xfatal-warnings`. Returns (exitCode, combined
+    * stdout+stderr).
+    */
+  def compileScala2(source: String): (Int, String) = {
+    val root          = coursierRoot()
+    val compilerJar   = findJar(root, "org/scala-lang", "scala-compiler-")
+    val fullClasspath = Seq(compilerJar, sys.props("java.class.path")).mkString(java.io.File.pathSeparator)
+
+    val workDir = java.nio.file.Files.createTempDirectory("fatal-warnings-proof")
+    val srcFile = workDir.resolve("Scratch.scala")
+    val outDir  = java.nio.file.Files.createDirectory(workDir.resolve("out"))
+    java.nio.file.Files.write(srcFile, source.getBytes("UTF-8"))
+
+    val cmd = Seq(
+      "java",
+      "-cp",
+      fullClasspath,
+      "scala.tools.nsc.Main",
+      "-usejavacp",
+      "-Xfatal-warnings",
+      "-d",
+      outDir.toString,
+      srcFile.toString,
+    )
+
+    import scala.sys.process._
+    val buffer = new StringBuilder
+    val logger = ProcessLogger(line => buffer.append(line).append('\n'), line => buffer.append(line).append('\n'))
+    val exit   = cmd.!(logger)
+    (exit, buffer.toString)
+  }
 }

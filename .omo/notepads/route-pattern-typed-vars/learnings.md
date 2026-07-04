@@ -223,6 +223,70 @@
   `.omo/notepads/route-pattern-typed-vars/learnings.md` as a new file with different content (a
   real two-sided "both sides add" conflict, not a code conflict) - resolved by hand-merging both
   texts into one file (this file) via `jj new` + edit + `jj squash`.
-- A NEW workspace (`zio-http-handler-macro-s2-todo6`) was created off the merged tip so both
+- A NEW workspace (`zio-http-todo6-warning-proof`) was created off the merged tip so both
   Scala 3's `RouteBinding.scala` (scala-3 sources) and Scala 2.13's `RouteBinding*.scala`/
   `PathVarHandler*.scala` (scala-2 sources) are simultaneously present and buildable in one place.
+- **Real, merge-exposed bug (fixed as part of this todo)**: Todo 4's Scala 3 test file
+  (`PathVarHandlerBindingSpec.scala`) was placed at `zio-http-core/jvm/src/test/scala/...` (the
+  version-AGNOSTIC "scala" dir, compiled into BOTH Scala 2.13 and Scala 3 builds) instead of
+  `.../test/scala-3/...` (mirroring Todo 5's correct `.../test/scala-2/...`). Invisible while Todo
+  4/5 lived on separate branches; the moment both are present in one workspace,
+  `mill 'core.jvm[2.13.18].test'` fails immediately with `PathVarHandlerBindingSpec is already
+  defined as object PathVarHandlerBindingSpec` (duplicate object name, same package). Fixed via a
+  `jj`-tracked file rename to `.../test/scala-3/...`. Confirmed before/after: Scala 3 baseline
+  71/71, Scala 2.13 baseline 70/70, both unaffected by the move.
+- **Real, PROVEN Scala-3-ONLY bug in the warning mechanism, found via a genuine `-Werror` (dotc's
+  spelling of `-Xfatal-warnings`) out-of-process compile, fixed minimally in `RouteBinding.scala`
+  (scala-3)**: `RouteBindingMacros.arrowImpl` called `report.warning(msg)` (no explicit position)
+  once per unconsumed PathVar in a loop - every call shared the exact SAME default
+  "macro expansion" position. Dotty's default reporter mixes in `UniqueMessagePositions`
+  (`compiler/src/dotty/tools/dotc/reporting/UniqueMessagePositions.scala`), which SILENTLY DROPS
+  any diagnostic whose `(SourceFile, pointOffset)` key was already seen - so only the FIRST of N
+  unused-var warnings ever surfaced, regardless of differing message text. Confirmed empirically: a
+  3-segment pattern consuming only 1 var showed only 1 of the 2 expected warnings in real
+  `mill test` output (matches Todo 4's own recorded uncertainty). **Scala-3-SPECIFIC**: the parallel
+  Scala 2.13 `c.warning(c.enclosingPosition, msg)` does NOT dedupe (scalac has no equivalent
+  position-based warning suppression) - proven by an identical scratch snippet under real
+  `scalac -Xfatal-warnings`, which showed both warnings distinctly, zero fix needed there. **Fix**
+  (Scala 3 only): construct a distinct zero-width `Position(macroPos.sourceFile, offset, offset)`
+  per unconsumed entry, `offset = macroPos.start + idx` (clamped to `macroPos.end`), instead of a
+  position-less `report.warning(msg)` call. Re-verified via the same raw `-Werror` compile: all N
+  warnings now surface distinctly, zero regression to the 71-test Scala 3 baseline.
+- **Raw `-Werror`/`-Xfatal-warnings` build-level proof, embedded as real `mill test`-participating
+  ZIO tests (not just manual evidence)**: a `FatalWarningsProof` helper object per spec file shells
+  out (`scala.sys.process`) to a genuine separate `java -cp <classpath> dotty.tools.dotc.Main` /
+  `scala.tools.nsc.Main` process. Classpath assembled from `sys.props("java.class.path")` (verified
+  via a real diagnostic print to be the FULL ~7400-char mill-resolved test classpath inside the
+  forked test JVM, NOT a manifest-jar/args-file wrapper - `testUseArgsFile.json` was `false` for
+  this module) plus the Scala compiler's own jars, located by finding `scala-library`'s own jar on
+  that classpath and deriving the coursier cache root 4 parent-dirs up from
+  `.../org/scala-lang/scala-library/<version>/scala-library-<version>.jar`, then globbing sibling
+  artifacts under that root. Non-obvious extra jars needed: Scala 3 needs `scala3-interfaces`,
+  `tasty-core_3`, `scala-asm` (under `org/scala-lang/modules`), AND `org.scala-sbt:compiler-interface`
+  (dotc's `CompilationUnit` statically references `xsbti.UseScope` even in plain standalone-driver
+  mode - confirmed via a real `NoClassDefFoundError: xsbti/UseScope` without it). Scala 3 additionally
+  needs `-usejavacp -experimental -Werror` (mirrors this module's own `scalacOptions`, since
+  `RouteBinding`/`RouteBindingMacros` are `@experimental`); Scala 2.13 needs `-usejavacp
+  -Xfatal-warnings`. dotc 3.8.3 reports `-Xfatal-warnings` as "a deprecated alias: use -Werror
+  instead" but it still functions.
+- **Final proof results** (both platforms, real compiler output, real exit codes): (1) a 3-segment
+  pattern consuming only 1 var FAILS under fatal-warnings with exactly 2 distinct warning messages
+  naming the other 2 vars; (2) the SAME pattern with full use compiles with exit code 0 and zero
+  "was defined in the path" text; (3) a handler with an extra Context-resolved parameter whose
+  VALUE is never referenced in the body (declared, since that's required for Context resolution to
+  trigger - D7 tier 2) compiles with exit code 0 under fatal-warnings and zero "was defined in the
+  path" warnings - the Context exemption is a real compiler-diagnostic-level guarantee.
+- Added tests 12-16 to BOTH `PathVarHandlerBindingSpec.scala` files (12: multi-unused-var runtime
+  correctness; 13: Context-declared-but-unused runtime correctness; 14/15/16: the three
+  `-Werror`/`-Xfatal-warnings` build-level proofs above).
+- Final verification (fresh `mill clean` + rebuild, both platforms): `mill 'core.jvm[3.8.3].test'`
+  = 245/245 mill tasks, 76/76 tests (71 baseline + 5 new), 0 failures.
+  `mill 'core.jvm[2.13.18].test'` = 245/245 mill tasks, 75/75 tests (70 baseline + 5 new), 0
+  failures. Zero regressions; the full pre-existing suite
+  (`HandlerV4Spec`/`RouteV4Spec`/`RoutesV4Spec`/`MiddlewareV4Spec`) passes unchanged on both.
+- Scope: `jj diff --stat` for this todo shows exactly 4 changed files - the Todo 4 test-file rename
+  (`.../test/scala/...` -> `.../test/scala-3/...`, with its 5 new tests + `FatalWarningsProof`
+  helper added), the Scala 2.13 spec's 5 new tests + `FatalWarningsProof` helper, and the ONE
+  minimal `RouteBinding.scala` (scala-3) fix (17 lines) for the position-dedup bug.
+  `RouteBindingMacros.scala`/`PathVarHandler.scala`/`PathVarHandlerMacros.scala` (scala-2)
+  untouched - Scala 2's warning mechanism was already correct.
