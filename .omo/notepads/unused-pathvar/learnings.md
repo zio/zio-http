@@ -8,121 +8,130 @@
   the freshly-republished jars under
   `/home/nabil_abdel-hafeez.guest/.ivy2/local/dev.zio/zio-blocks-next-endpoint_3/0.0.0-SNAPSHOT/`
   with no cache-clearing needed - a normal fresh `./mill` invocation picked it up automatically, as
-  the task predicted. Confirmed the jar actually contains the new marker BEFORE writing any code
-  against it, per the task's explicit instruction: `unzip -l .../zio-blocks-next-endpoint_3.jar`
-  showed `zio/blocks/endpoint/PathVar$Ignored.class` (Scala 3) and
-  `zio/blocks/endpoint/PathVar$Ignored.class` (Scala 2.13 jar too, for the sibling s2 task).
-- Multiple STALE, non-`0.0.0-SNAPSHOT`-versioned zio-blocks jars (timestamped/hash-suffixed
-  versions like `0.0.43+16-3755c7c5+20260704-1709-SNAPSHOT`) also exist side-by-side in
-  `~/.ivy2/local` from other concurrent work in this environment - harmless, since the build only
-  ever resolves the exact `0.0.0-SNAPSHOT` coordinate `build.mill` pins, but worth knowing they're
-  there so as not to be confused by `find`/`unzip -l` output showing several candidate jars.
+  the task predicted.
+- Multiple STALE, non-`0.0.0-SNAPSHOT`-versioned zio-blocks jars also exist side-by-side in
+  `~/.ivy2/local` from other concurrent work - harmless, since the build only ever resolves the
+  exact `0.0.0-SNAPSHOT` coordinate `build.mill` pins.
 
-## `PathVar.Ignored` shape (zio-blocks side, read directly from published sources jar)
+## `PathVar.Ignored` shape (zio-blocks side)
 
 - `zio.blocks.endpoint.PathVar.Ignored[Name <: String, Type]` is a SIBLING `sealed trait` nested in
-  the `PathVar` companion object - deliberately NOT a subtype of `PathVar[Name,Type]` itself, per
-  the plan. Compiles to `PathVar$Ignored.class`.
-- `Symbol.requiredClass("zio.blocks.endpoint.PathVar.Ignored")` (dot notation, exactly like writing
-  the type in source) resolves correctly for this nested trait in `quotes.reflect` - no need for the
-  bytecode `$`-separated form (`PathVar$Ignored`). Confirmed by a clean compile; no trial-and-error
-  needed since the dot form is the same convention already used for `pathVarSymbol`
-  (`"zio.blocks.endpoint.PathVar"`).
+  the `PathVar` companion object - deliberately NOT a subtype of `PathVar[Name,Type]` itself.
+- `Symbol.requiredClass("zio.blocks.endpoint.PathVar.Ignored")` (dot notation) resolves correctly
+  for this nested trait in `quotes.reflect`.
 - `SegmentCodec`'s `.unused` (on `IntSeg`/`LongSeg`/`StringSeg`/`BoolSeg`/`UUIDSeg`) returns a
   same-instance `asInstanceOf`-refined codec whose `PathVars` is relabeled from
-  `OnePathVar[PathVar[N,T]]` to `OnePathVar[PathVar.Ignored[N,T]]` - zero runtime cost, matching the
-  "runtime-identical to the non-`.unused` version" guarantee documented on the zio-blocks side.
-- **Real DSL gotcha worth flagging**: `.unused` lives on `SegmentCodec`'s concrete case classes
-  (`SegmentCodec.string("b").unused`), NOT on `PathCodec`'s smart constructors
-  (`PathCodec.string("b")`, the ones `import zio.blocks.endpoint.PathCodec._` brings in as bare
-  `string(...)` for the rest of the DSL). Writing `string("b").unused` with only `PathCodec._`
-  imported does NOT compile (`PathCodec[String]` has no `.unused` member) - the correct usage is
-  `SegmentCodec.string("b").unused` (qualified, to avoid a same-name-`string` ambiguity with
-  `PathCodec._`'s wildcard import), which then implicitly converts back to a `PathCodec` via
-  `PathCodec.segmentToPathCodec` when used with `/`. Confirmed empirically via a throwaway scratch
-  file compiled with `mill core.jvm[3.8.3].test.compile` before committing to this shape in the real
-  tests - worth flagging since the task's own "Inherited Wisdom" section's worked example
-  (`string("b").unused`) is only valid if `string` there resolves to `SegmentCodec.string`, not
-  `PathCodec.string` (both are wildcard-importable under the same bare name, which is exactly the
-  trap to avoid in real usage).
+  `OnePathVar[PathVar[N,T]]` to `OnePathVar[PathVar.Ignored[N,T]]` - zero runtime cost.
+- **Real DSL gotcha**: `.unused` lives on `SegmentCodec`'s concrete case classes
+  (`SegmentCodec.string("b").unused`), NOT on `PathCodec`'s smart constructors (`string("b")`
+  brought in by `import zio.blocks.endpoint.PathCodec._`). Use the qualified `SegmentCodec.string`.
 
 ## Production change (`RouteBinding.scala`)
 
 - `decomposePathVarTuple`'s return type changed from `List[(String, TypeRepr)]` to
-  `List[(String, TypeRepr, Boolean)]` (third element = `isIgnored`). Chose a plain tuple over a case
-  class to keep the diff minimal and match the file's existing "plain tuple, no ceremony" style for
-  this kind of small positional data.
-- Extended the `head.dealias match` inside `decomposePathVarTuple`'s `loop` with a second case
-  matching `pvIgnoredSym` (alongside the existing `pvSym` case), factoring the shared
-  `literalName(nameTpe)` extraction into a tiny local helper to avoid duplicating the
-  `ConstantType(StringConstant(s))` match/error-message twice. Both cases still fall through to the
-  same catch-all `errorAndAbort` for anything else - so the hard-fail-on-`Ignored` bug the task
-  described no longer triggers, and the catch-all's message was updated to mention both accepted
-  shapes.
-- `tryDecomposePathVarTuple` (handler-side decomposition) was **intentionally left completely
-  untouched** except for one doc-comment addition explaining why: a `handler(fn)`'s own
-  `RequiredVars` tuple is built exclusively from plain `PathVar[Name,Type]` entries by
-  `handlerImpl`'s `pathVarEntryType` - there is no code path that could ever produce an `Ignored`
-  entry on the handler side, so recognizing it there would be dead code, not a fix. No zio-blocks or
-  `PathVarHandlerMacros.scala`/`PathVarHandler.scala` changes were needed for this - matches the
-  task's own stated expectation exactly.
-- `arrowImpl`'s matching loop (`positions`) needed only a destructuring update
-  (`(pvName, pvType, _)` instead of `(pvName, pvType)`) - matching genuinely does not care about
-  `isIgnored` at all, confirming the task's stated semantics (an `.unused` segment remains fully
-  bindable).
+  `List[(String, TypeRepr, Boolean)]` (third element = `isIgnored`).
+- Extended the `head.dealias match` with a second case matching `pvIgnoredSym` alongside the
+  existing `pvSym` case; catch-all `errorAndAbort` message updated to mention both shapes.
+- `tryDecomposePathVarTuple` (handler-side decomposition) intentionally left untouched except for
+  a doc-comment: a handler's own `RequiredVars` tuple is built exclusively from plain
+  `PathVar[Name,Type]` by `handlerImpl`, so it can never contain an `Ignored` entry.
+- `arrowImpl`'s matching loop needed only a destructuring update (`(pvName, pvType, _)`) - matching
+  ignores `isIgnored` entirely, so `.unused` segments stay bindable if referenced.
 - Merged the "unconsumed -> warn" loop and the new "ignored-but-consumed -> warn" loop into a
-  SINGLE `pvEntries.zipWithIndex.foreach`, using an `if`/`else if` over the four
-  `(isIgnored, consumed)` combinations. This was a deliberate choice over two separate loops: since
-  every `pvEntries` index is unique and each entry can trigger AT MOST one of the two warnings, a
-  single loop keeps the existing `distinctPos` per-index-offset technique trivially safe (no risk of
-  two DIFFERENT warnings ever computing the same offset for two DIFFERENT entries, since the offset
-  is keyed off the entry's own unique index, and an entry only ever contributes zero or one
-  diagnostic).
-- New warning text: `"Variable $name:$type was marked .unused but is referenced by the handler"` -
-  matches the OLD warning's exact formatting convention (`$name:$type`, `type.show.split('.').last`
-  for a bare display name, e.g. `String` not `java.lang.String` / `scala.Predef.String`).
-- Zero runtime/allocation impact: `isIgnored` is a plain `Boolean` resolved entirely inside
-  `decomposePathVarTuple`/`arrowImpl`'s macro-expansion-time logic (used only to decide whether/which
-  `report.warning` fires) - it never appears in any of the generated `Expr`/`Term` code the macro
-  splices into the call site. The generated runtime code for `positions`/`buildTuple`/`isIdentity` is
-  BYTE-FOR-BYTE the same shape as before this change (same functions, same inputs beyond the
-  now-ignored third tuple element) - confirmed by inspection, no `javap` re-run was needed since no
-  new runtime-level branch was introduced at all (this is a pure "extra compile-time boolean feeding
-  two `if`/`else if` branches inside `report.warning` calls" change).
+  SINGLE `pvEntries.zipWithIndex.foreach` over the four `(isIgnored, consumed)` combinations,
+  reusing the existing `distinctPos` per-index-offset technique (dotc's `UniqueMessagePositions`
+  reporter drops same-position diagnostics).
+- New warning text: `"Variable $name:$type was marked .unused but is referenced by the handler"`.
+- Zero runtime/allocation impact: `isIgnored` is resolved entirely at macro-expansion time; the
+  generated runtime code for `positions`/`buildTuple`/`isIdentity` is byte-for-byte unchanged.
 
-## Positional-correctness verification (real test, not just a claim)
+## Positional-correctness verification (real tests)
 
-- Test 17 (`int("a") / SegmentCodec.string("b").unused / int("c") -> handler((a: Int, c: Int) =>
-  ...)`, per the task's required case (d)) - confirms `c`'s runtime position is correctly `2` (not
-  `1`) even though the handler never references `b`, i.e. the `Ignored` entry still occupies its
-  real slot in `pvEntries` (and therefore in `positions`' indexing space) and is never filtered out.
-  Passed with `a=1 c=3` for input path `/1/ignored-b/3`.
-- Test 18 - same pattern, handler now ALSO consumes `b` (`(a: Int, b: String, c: Int)`) - confirms
-  `b`'s decoded value binds correctly (`a=1 b=hello c=3` for `/1/hello/3`) while ALSO emitting the
-  new warning (verified separately via the compile-warning output, not asserted in this runtime
-  test - runtime correctness and compile-diagnostic content are deliberately split into separate
-  tests, mirroring the existing file's own test 4/14 split).
+- Test 17: `int("a") / SegmentCodec.string("b").unused / int("c") -> handler((a, c) => ...)` -
+  confirms `c`'s runtime position is correctly `2` (not `1`); `Ignored` entries are never filtered
+  out of the indexing space. Passed `a=1 c=3` for `/1/ignored-b/3`.
+- Test 18: same pattern with `b` also consumed - confirms correct binding (`a=1 b=hello c=3`) while
+  the new warning fires (checked separately via compile-warning tests).
 
 ## Test technique (mirrored, not invented)
 
-- Reused the file's existing `FatalWarningsProof.compileScala3(code)` out-of-process `dotc -Werror`
-  harness verbatim (zero changes to that object) for tests 19/20/21 - exactly per the task's
-  instruction to mirror the existing "capture unused-var warning" technique rather than invent a new
-  one. Confirmed the harness's own doc comment already generalizes correctly to any warning this
-  macro emits (it just execs `dotc` and captures stdout/stderr), so no harness changes were needed.
-- Test numbering continued from the existing file's own scheme (1-16 pre-existing, 17-21 new) rather
-  than renumbering/reorganizing anything - matches the file's own incremental-numbering convention
-  build up across prior Todos (4/5/6/7/8/10/11) referenced in the sibling
-  `route-pattern-typed-vars` notepad.
-- Regression suite (fresh, both platforms, this workspace): `core.jvm[3.8.3].test` = 99 tests
-  passed, 0 failed (16 pre-existing + 6 new tests in `PathVarHandlerBindingSpec`, confirmed via
-  `testOnly zio.http.PathVarHandlerBindingSpec` = 22/22 passed). `mill 'core.jvm[2.13.18].test'` = 93
-  tests passed, 0 failed - completely unchanged, confirming this Scala-3-only production change has
-  zero cross-platform side effects (the parallel Scala 2.13 task in `zio-http-unused-pathvar-s2` is
-  fully independent, no file overlap).
-- Scope confirmed via `jj diff --stat`: exactly 2 files touched -
-  `zio-http-core/shared/src/main/scala-3/zio/http/RouteBinding.scala` (+92/-22) and
-  `zio-http-core/jvm/src/test/scala-3/zio/http/PathVarHandlerBindingSpec.scala` (+78 new lines,
-  0 deletions - purely additive). `PathVarHandlerMacros.scala`/`PathVarHandler.scala`,
-  `Middleware.scala`, `Routes.scala`, and all zio-blocks files are untouched, exactly per the task's
-  "MUST NOT DO" list.
+- Reused `FatalWarningsProof.compileScala3(code)` verbatim for tests 19/20/21 (mirrors the
+  existing unused-var-warning capture technique). Test numbering continued from 1-16 to 17-21.
+- Regression suite (this workspace): `core.jvm[3.8.3].test` = 99/99 passed (22/22 in
+  `PathVarHandlerBindingSpec`). `core.jvm[2.13.18].test` = 93/93 passed, unchanged.
+- Scope: exactly 2 files touched (`RouteBinding.scala` +92/-22,
+  `PathVarHandlerBindingSpec.scala` scala-3 +78/-0). No zio-blocks/`Middleware`/`Routes` changes.
+
+---
+
+# `.unused` PathVar support (Scala 2.13 `RouteBindingMacros.scala`) - learnings
+
+## Dependency resolution (zio-blocks `0.0.0-SNAPSHOT` republish)
+
+- `Versions.ZioBlocks = "0.0.0-SNAPSHOT"` did NOT need to change. A fresh
+  `./mill 'core.jvm[2.13.18].compile'` resolved straight to the freshly-republished jar with no
+  cache clearing needed. Confirmed via `unzip -l zio-blocks-endpoint_2.13.jar` that
+  `PathVar$Ignored.class` was present before writing any code against it.
+
+## `PathVar.Ignored` shape (zio-blocks side)
+
+- Same sibling `sealed trait` as the Scala 3 side, compiles to `PathVar$Ignored.class`
+  (`javap -p` confirms a plain zero-footprint interface, identical shape to `PathVar` itself).
+- `typeOf[zio.blocks.endpoint.PathVar.Ignored[_, _]].typeSymbol` (dot notation, wildcard type
+  args) resolves correctly in a Scala 2.13 blackbox macro on the first attempt.
+- `SegmentCodec`'s `.unused` relabels a leaf segment's `PathVars` entry from `PathVar[Name,Type]`
+  to `PathVar.Ignored[Name,Type]`, zero runtime cost - same API shape as the Scala 3 sibling jar.
+- Same DSL gotcha as the Scala 3 sibling: use qualified `SegmentCodec.string("b").unused`, not the
+  bare `string(...)` from `PathCodec._`.
+
+## Production change (`RouteBindingMacros.scala`)
+
+- `parseEntries`'s return type changed from `List[(String, Type)]` to
+  `List[(String, Type, Boolean)]` (third element = `isIgnored`), mirroring the Scala 3 sibling's
+  tuple-widening choice.
+- `isIgnored` computed via `dealiased.typeSymbol == pathVarIgnoredSym`, hoisted once outside
+  `parseEntries`.
+- `parseEntries` is shared by both `pvType` and `reqType`; `reqEntries`' `isIgnored` is always
+  `false` in practice (a handler's own parameter is built exclusively from plain `PathVar` by
+  `PathVarHandlerMacros.pathVarType` - confirmed by reading that file, zero changes needed there).
+- `accessExprs`'s matching loop needed only a destructuring update (`case (rName, rType, _)`) -
+  matching ignores `isIgnored` entirely.
+- The "unconsumed -> warn" loop extended in place to an `if`/`else if` over the four
+  `(isIgnored, consumed)` combinations, same four cases as the Scala 3 sibling.
+- New warning text matches the Scala 3 sibling verbatim (confirmed by reading their diff before
+  writing this file's tests): `"Variable $name:$tpe was marked .unused but is referenced by the
+  handler"`.
+- **Empirically confirmed Scala 2.13's blackbox macro reporter has NO `UniqueMessagePositions`-
+  style same-position warning dedup** (unlike dotc): all warnings here fire at the same
+  `c.enclosingPosition`, and the pre-existing test 14 already proves two distinct warnings can
+  fire from that same position - no per-entry position offset needed on this platform.
+- Zero runtime cost: `isIgnored` is resolved entirely at macro-expansion time; `accessAt`/
+  `positions`/`isIdentity`/`reqRuntimeShape` are unchanged in shape.
+
+## Positional-correctness verification (real tests)
+
+- Test 17: `int("a") / SegmentCodec.string("b").unused / int("c") -> handler((a, c) => ...)` -
+  confirms `c`'s runtime position is correctly `_3` (not `_2`). Passed `a=1 c=3` for the runtime
+  tuple `(1, "ignored-b", 3)`.
+- Test 18: same pattern with `b` also consumed - confirms correct binding (`a=1 b=hello c=3`).
+
+## Test technique (mirrored, not invented)
+
+- Reused `FatalWarningsProof.compileScala2(code)` verbatim for tests 19/20/21. Test numbering
+  continued from 1-16 to 17-21, matching the Scala 3 sibling's identical numbering for parity.
+- Regression suite (this workspace): `core.jvm[2.13.18].test` = 98/98 passed (93 pre-existing + 5
+  new). `core.jvm[3.8.3].test` = 94/94 passed, unchanged.
+- Scope: exactly 2 files touched (`RouteBindingMacros.scala` +60/-11,
+  `PathVarHandlerBindingSpec.scala` scala-2 +84/-0). No zio-blocks/`Middleware`/`Routes` changes.
+
+## Cross-platform merge note (Atlas)
+
+- Both platform changes were merged (`jj new <s3-commit> <s2-commit>`) into a single combined
+  commit on top of `8629534f55da`. Only this notepad conflicted (both sides independently
+  appended) - the production code files (`RouteBinding.scala`, `RouteBindingMacros.scala`, both
+  `PathVarHandlerBindingSpec.scala` test files) merged with ZERO conflicts, confirming the two
+  tasks were genuinely file-disjoint as designed.
+- Atlas independently re-ran `./mill 'core.jvm[3.8.3].test'` and `./mill 'core.jvm[2.13.18].test'`
+  in BOTH the `zio-http-unused-pathvar-s3` and `zio-http-unused-pathvar-s2` workspaces (4 runs
+  total) before merging: 99/99, 93/93, 98/98, 94/94 - all match subagent claims exactly, zero
+  discrepancies found.

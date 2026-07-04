@@ -23,6 +23,7 @@ import zio.test._
 import zio.blocks.context.Context
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.MethodSyntax
+import zio.blocks.endpoint.SegmentCodec
 import zio.blocks.scope.Scope
 import zio.http.Method.{GET, POST}
 import zio.http.PathVarHandler.handler
@@ -202,6 +203,89 @@ object PathVarHandlerBindingSpec extends ZIOSpecDefault {
           |""".stripMargin
       val (exitCode, output) = FatalWarningsProof.compileScala2(code)
       assertTrue(exitCode == 0, !output.contains("was defined in the path"))
+    },
+    test("17. an .unused segment sandwiched between two normal vars is silently skipped, positions stay correct") {
+      // Proves the positional runtime-access logic (`arrowImpl`'s `positions`/`accessAt`) is
+      // unaffected by an `Ignored` entry sitting in the MIDDLE of the pattern's real value tuple:
+      // `c`'s runtime position must be `_3` (not `_2`), since `b` still occupies a real slot in
+      // `pvEntries` and must never be filtered out (task requirement (d)).
+      val route  = GET / int("a") / SegmentCodec.string("b").unused / int("c") ->
+        handler((a: Int, c: Int) => Response.text(s"a=$a c=$c"))
+      val result = route.handler.handle(req, Context.empty, (1, "ignored-b", 3), scope)
+      assertTrue(result == ResultType.responseAsResult(Response.text("a=1 c=3")))
+    },
+    test(
+      "18. a handler referencing an .unused segment still binds its real decoded value (a lint, not a functional change)",
+    ) {
+      val route  = GET / int("a") / SegmentCodec.string("b").unused / int("c") ->
+        handler((a: Int, b: String, c: Int) => Response.text(s"a=$a b=$b c=$c"))
+      val result = route.handler.handle(req, Context.empty, (1, "hello", 3), scope)
+      assertTrue(result == ResultType.responseAsResult(Response.text("a=1 b=hello c=3")))
+    },
+    test(
+      "19 (-Xfatal-warnings build-level proof). an .unused segment never referenced by the handler compiles cleanly (zero warnings) - the whole point of .unused",
+    ) {
+      val code =
+        """package zio.http.scratch19
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.blocks.endpoint.SegmentCodec
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |object Scratch19 {
+          |  val route = GET / int("userId") / SegmentCodec.string("postId").unused ->
+          |    handler((userId: Int) => Response.text(s"user=$userId"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      assertTrue(exitCode == 0, !output.contains("was defined in the path"), !output.contains("was marked .unused"))
+    },
+    test(
+      "20 (-Xfatal-warnings build-level proof). an .unused segment referenced by the handler emits the new 'marked .unused but referenced' warning (a lint, not a compile failure of its own accord - it only fails here because -Xfatal-warnings escalates EVERY warning to an error, exactly like test 14's plain-unused case)",
+    ) {
+      val code =
+        """package zio.http.scratch20
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.blocks.endpoint.SegmentCodec
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |object Scratch20 {
+          |  val route = GET / int("userId") / SegmentCodec.string("postId").unused ->
+          |    handler((userId: Int, postId: String) => Response.text(s"user=$userId post=$postId"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      val postIdWarnings     =
+        "Variable postId:String was marked .unused but is referenced by the handler".r.findAllIn(output).length
+      assertTrue(exitCode != 0, postIdWarnings == 1, !output.contains("was defined in the path"))
+    },
+    test(
+      "21 (-Xfatal-warnings build-level proof). a plain unconsumed var and a referenced .unused var in the same pattern fire BOTH warnings independently, with correct distinct text each",
+    ) {
+      val code =
+        """package zio.http.scratch21
+          |import zio.blocks.endpoint.PathCodec._
+          |import zio.blocks.endpoint.RoutePattern.MethodSyntax
+          |import zio.blocks.endpoint.SegmentCodec
+          |import zio.http.Method.GET
+          |import zio.http.PathVarHandler.handler
+          |import zio.http.RouteBinding._
+          |import zio.http.Response
+          |object Scratch21 {
+          |  val route = GET / int("userId") / SegmentCodec.string("postId").unused / string("tag") ->
+          |    handler((userId: Int, postId: String) => Response.text(s"user=$userId post=$postId"))
+          |}
+          |""".stripMargin
+      val (exitCode, output) = FatalWarningsProof.compileScala2(code)
+      val postIdWarnings     =
+        "Variable postId:String was marked .unused but is referenced by the handler".r.findAllIn(output).length
+      val tagWarnings        = "Variable tag:String was defined in the path but is never used".r.findAllIn(output).length
+      assertTrue(exitCode != 0, postIdWarnings == 1, tagWarnings == 1)
     },
   )
 }
