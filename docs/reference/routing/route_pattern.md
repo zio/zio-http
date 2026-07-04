@@ -28,7 +28,7 @@ In the above example, `Method.Get / "health-check"` represents a `RoutePattern` 
 Captured path segments can now carry both a name and a type. That means a route can say not just "this segment is an `Int`", but also "this is the `page` segment".
 
 ```scala mdoc:compile-only
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
@@ -51,7 +51,7 @@ That means this works even though `basketId` is not a path variable at all. It i
 
 ```scala mdoc:compile-only
 import java.util.UUID
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
@@ -66,7 +66,7 @@ val route = Method.GET / uuid("customerId") -> handler(
 Handler parameter order does not matter. The same route can bind the same values in any order, and unused path variables produce a compiler warning.
 
 ```scala mdoc:compile-only
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
@@ -119,7 +119,7 @@ With more path segments, the type of the `RoutePattern` becomes a tuple of the t
 Path-variable metadata stays attached to the pattern through composition too, so a prefixed pattern can still be bound later with `pattern -> handler(...)`.
 
 ```scala mdoc:compile-only
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
@@ -133,7 +133,7 @@ val route = fullPattern -> handler((userId: Int, postId: String) => Response.tex
 Middleware still lives at the `Routes(...) @@ mw` level. This syntax does not introduce route-level middleware.
 
 ```scala mdoc:compile-only
-import zio.http._
+import zio.http.{Response, Method, Routes, Middleware}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}

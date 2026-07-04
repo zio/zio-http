@@ -87,7 +87,7 @@ You can also mix path variables with values resolved from `Context`, plus the bu
 
 ```scala mdoc:compile-only
 import java.util.UUID
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
@@ -102,7 +102,7 @@ val route = Method.GET / uuid("customerId") -> handler(
 Handler parameter order is flexible.
 
 ```scala mdoc:compile-only
-import zio.http._
+import zio.http.{Response, Method}
 import zio.http.RouteBinding._
 import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
