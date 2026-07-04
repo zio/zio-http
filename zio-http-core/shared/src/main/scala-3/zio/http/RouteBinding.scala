@@ -139,13 +139,32 @@ private[http] object RouteBindingMacros {
   private def pathVarSymbol(using q: Quotes) =
     q.reflect.Symbol.requiredClass("zio.blocks.endpoint.PathVar")
 
-  /** Decomposes an ordered `PathVar[N0,T0] *: PathVar[N1,T1] *: ... *: EmptyTuple` tuple type (or
-    * `EmptyTuple`) into a `List[(name, type)]`, preserving order.
+  /** The sibling (NOT a subtype of [[pathVarSymbol]]) marker `zio.blocks.endpoint.PathVar.Ignored`
+    * that `SegmentCodec`'s `.unused` builder relabels a leaf segment's `PathVars` entry to (see
+    * zio-blocks' own `PathVar.scala` doc). Only ever appears on the PATTERN side (a `PV` decomposed
+    * by [[decomposePathVarTuple]]) - a `handler(fn)`'s own declared parameter can never itself be
+    * "marked unused", so [[tryDecomposePathVarTuple]] (which decomposes the HANDLER's `RequiredVars`
+    * tuple) deliberately does NOT recognize this symbol.
     */
-  private def decomposePathVarTuple(using q: Quotes)(tpe: q.reflect.TypeRepr): List[(String, q.reflect.TypeRepr)] = {
+  private def pathVarIgnoredSymbol(using q: Quotes) =
+    q.reflect.Symbol.requiredClass("zio.blocks.endpoint.PathVar.Ignored")
+
+  /** Decomposes an ordered `PathVar[N0,T0] *: PathVar.Ignored[N1,T1] *: ... *: EmptyTuple` tuple
+    * type (or `EmptyTuple`) into a `List[(name, type, isIgnored)]`, preserving order. `isIgnored`
+    * is `true` for a `PathVar.Ignored[Name,Type]` element (a segment marked `.unused` in the route
+    * pattern DSL, e.g. `string("b").unused`) and `false` for a plain `PathVar[Name,Type]` element.
+    * An `Ignored` entry occupies a REAL slot in the resulting list, at the SAME position it has in
+    * the pattern's real runtime value tuple - callers must never filter it out, since doing so
+    * would silently shift every subsequent entry's index and corrupt positional runtime binding
+    * (see `arrowImpl`'s `positions`/`isIdentity` logic, which indexes into this list's FULL length).
+    */
+  private def decomposePathVarTuple(using
+    q: Quotes
+  )(tpe: q.reflect.TypeRepr): List[(String, q.reflect.TypeRepr, Boolean)] = {
     import q.reflect._
 
-    val pvSym = pathVarSymbol
+    val pvSym         = pathVarSymbol
+    val pvIgnoredSym   = pathVarIgnoredSymbol
 
     // `PV` is frequently a deeply-nested, un-reduced `PathVarTuples.Concat[L, R]` match-type
     // alias (from chained `/`/`~` composition, often over path-dependent operands like
@@ -156,7 +175,14 @@ private[http] object RouteBindingMacros {
       if (next =:= t) next else fullyReduce(next)
     }
 
-    def loop(t: TypeRepr): List[(String, TypeRepr)] = {
+    def literalName(nameTpe: TypeRepr): String =
+      nameTpe.dealias match {
+        case ConstantType(StringConstant(s)) => s
+        case other                            =>
+          report.errorAndAbort(s"Expected a literal string Name in PathVar, got: ${other.show}")
+      }
+
+    def loop(t: TypeRepr): List[(String, TypeRepr, Boolean)] = {
       val dt = fullyReduce(t)
       if (dt =:= TypeRepr.of[EmptyTuple]) Nil
       else
@@ -164,13 +190,13 @@ private[http] object RouteBindingMacros {
           case AppliedType(consTycon, List(head, tail)) if consTycon.typeSymbol.name == "*:" =>
             head.dealias match {
               case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvSym =>
-                nameTpe.dealias match {
-                  case ConstantType(StringConstant(s)) => (s, valTpe) :: loop(tail)
-                  case other                            =>
-                    report.errorAndAbort(s"Expected a literal string Name in PathVar, got: ${other.show}")
-                }
+                (literalName(nameTpe), valTpe, false) :: loop(tail)
+              case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvIgnoredSym =>
+                (literalName(nameTpe), valTpe, true) :: loop(tail)
               case other =>
-                report.errorAndAbort(s"Expected a PathVar[Name,Type] tuple element, got: ${other.show}")
+                report.errorAndAbort(
+                  s"Expected a PathVar[Name,Type] or PathVar.Ignored[Name,Type] tuple element, got: ${other.show}"
+                )
             }
           case other =>
             report.errorAndAbort(s"Expected an ordered PathVar tuple, got: ${other.show}")
@@ -274,6 +300,12 @@ private[http] object RouteBindingMacros {
     * (whose `Vars` is ALWAYS such a tuple, by construction in [[handlerImpl]]) apart from an
     * already-built `Handler[Ctx, V]` value (e.g. `Handler.succeed(...)`), whose `Vars` generally
     * is not.
+    *
+    * Deliberately does NOT recognize `PathVar.Ignored` (unlike [[decomposePathVarTuple]]): this
+    * decomposes the HANDLER's own declared parameter tuple (built exclusively from plain
+    * `PathVar[Name,Type]` entries by [[handlerImpl]]'s `pathVarEntryType`), never the route
+    * pattern's `PathVars` registry - a handler parameter can never itself be "marked unused", only
+    * a pattern-side `PathVars` entry can be.
     */
   private def tryDecomposePathVarTuple(using quotes: Quotes)(tpe: quotes.reflect.TypeRepr): Option[List[(String, quotes.reflect.TypeRepr)]] = {
     import quotes.reflect._
@@ -330,8 +362,12 @@ private[http] object RouteBindingMacros {
         tryDecomposePathVarTuple(varsArg) match {
           case Some(reqEntries) =>
             var consumed = Set.empty[Int]
+            // Matching cares only about (name, type) equality, never about `isIgnored` - a
+            // `.unused` pattern segment (D-Ignored's whole point) remains perfectly bindable if a
+            // handler parameter actually references it; `isIgnored` only affects which WARNING (if
+            // any) is emitted below, never whether a match succeeds.
             val positions: List[Int] = reqEntries.map { case (name, tpe) =>
-              pvEntries.zipWithIndex.find { case ((pvName, pvType), idx) =>
+              pvEntries.zipWithIndex.find { case ((pvName, pvType, _), idx) =>
                 pvName == name && pvType =:= tpe && !consumed.contains(idx)
               } match {
                 case Some((_, idx)) =>
@@ -340,13 +376,13 @@ private[http] object RouteBindingMacros {
                 case None            =>
                   report.errorAndAbort(
                     s"PathVar `$name: ${tpe.show}` is required by this handler but is not provided by the " +
-                      s"route pattern (which declares: ${pvEntries.map { case (n, t) => s"$n: ${t.show}" }.mkString(", ")})."
+                      s"route pattern (which declares: ${pvEntries.map { case (n, t, _) => s"$n: ${t.show}" }.mkString(", ")})."
                   )
                   -1
               }
             }
 
-            // Each unconsumed entry must be reported at a DISTINCT `Position`: dotc's default
+            // Each warned-about entry must be reported at a DISTINCT `Position`: dotc's default
             // reporter (`UniqueMessagePositions`) silently drops any diagnostic whose position was
             // already seen, regardless of message text - calling `report.warning(msg)` (no explicit
             // position) for every entry reports them all at the SAME default macro-expansion
@@ -354,14 +390,26 @@ private[http] object RouteBindingMacros {
             // a real `-Werror` compile: 2 unused vars produced only 1 warning, not 2 - a real Todo 6
             // finding, not a hypothetical). Fix: nudge each entry's position by its index within the
             // macro-expansion range (clamped to stay inside that range) so every entry gets a position
-            // the reporter has not already recorded.
+            // the reporter has not already recorded. Since every `pvEntries` index is unique and each
+            // entry emits AT MOST one of the two warnings below (an entry is either consumed or not,
+            // never both), this single index-keyed offset scheme keeps BOTH warning kinds mutually
+            // distinct too, with no extra bookkeeping needed.
+            //
+            // Four `(isIgnored, consumed)` combinations, exactly per the `.unused` design:
+            //   - plain, unconsumed  -> existing "defined in the path but is never used" warning.
+            //   - plain, consumed    -> no warning (unchanged existing behavior).
+            //   - ignored, unconsumed-> no warning (the whole point of `.unused`: suppress it).
+            //   - ignored, consumed  -> NEW "marked .unused but is referenced" warning (a lint, not
+            //                           an error - the segment still binds correctly either way).
             val macroPos = Position.ofMacroExpansion
-            pvEntries.zipWithIndex.foreach { case ((name, tpe), idx) =>
-              if (!consumed.contains(idx)) {
-                val offset      = math.min(macroPos.start + idx, macroPos.end)
-                val distinctPos = Position(macroPos.sourceFile, offset, offset)
-                report.warning(s"Variable $name:${tpe.show.split('.').last} was defined in the path but is never used", distinctPos)
-              }
+            pvEntries.zipWithIndex.foreach { case ((name, tpe, isIgnored), idx) =>
+              val offset      = math.min(macroPos.start + idx, macroPos.end)
+              val distinctPos = Position(macroPos.sourceFile, offset, offset)
+              val displayType = tpe.show.split('.').last
+              if (!isIgnored && !consumed.contains(idx))
+                report.warning(s"Variable $name:$displayType was defined in the path but is never used", distinctPos)
+              else if (isIgnored && consumed.contains(idx))
+                report.warning(s"Variable $name:$displayType was marked .unused but is referenced by the handler", distinctPos)
             }
 
             val n = pvEntries.length
