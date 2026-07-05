@@ -135,3 +135,65 @@
   in BOTH the `zio-http-unused-pathvar-s3` and `zio-http-unused-pathvar-s2` workspaces (4 runs
   total) before merging: 99/99, 93/93, 98/98, 94/94 - all match subagent claims exactly, zero
   discrepancies found.
+
+---
+
+# zio-blocks BARE `PathVars` encoding compatibility fix (Scala 3 `RouteBinding.scala`)
+
+## Dependency shape change (already shipped in zio-blocks `0.0.0-SNAPSHOT`)
+
+- Confirmed `PathVarTuples` classes are GONE from both republished jars before touching code:
+  `unzip -l` of `~/.ivy2/local/dev.zio/zio-blocks-next-endpoint_3/0.0.0-SNAPSHOT/jars/*.jar` and
+  `zio-blocks-endpoint_2.13/0.0.0-SNAPSHOT/jars/*.jar` show only `PathVar`/`PathVar$Ignored`
+  (`.class`/`.tasty`) and `PathCodec$SinglePathVarPathCodecOps` - NO `PathVarTuples*`. A fresh
+  `./mill` invocation resolved the new snapshot automatically, no cache clearing.
+
+## THREE distinct `PathVars` shapes `decomposePathVarTuple`'s `loop` must now handle
+
+The old code only handled `EmptyTuple` + native `*:`-cons. Atlas's reproduced compile errors
+proved three shapes the new encoding produces:
+1. **BARE** `PathVar["id", Int]` (single captured var, NO wrapper) - was hitting the catch-all
+   `errorAndAbort` ("Expected an ordered PathVar tuple, got: ...PathVar[\"id\", Int]").
+2. **Nominal `TupleN`** - `scala.Tuple2[PathVar[..], PathVar[..]]`, `scala.Tuple1[PathVar[..]]`,
+   `scala.Tuple3[...]` etc. `combinators.Tuples`' Scala 3 givens emit multi-value results as
+   literal `(L,R)`/`Tuple2` nominal case classes. CONFIRMED empirically: `.dealias`/`.simplified`
+   does NOT collapse a `Tuple2[A,B]` `TypeRepr` into an `A *: B *: EmptyTuple` chain - it stays an
+   `AppliedType` whose `typeSymbol.name` is `"Tuple2"` (not `"*:"`), so the existing `*:` case
+   never matched it and it fell through to the catch-all error.
+3. **`EmptyTuple` + native `*:`-cons** - kept working unchanged (some givens may still fire a
+   genuine `*:`-chain, so the case was retained, not replaced).
+
+## The fix (`decomposePathVarTuple` only - `tryDecomposePathVarTuple` NOT touched)
+
+- Factored the inline `PathVar`/`PathVar.Ignored` element matching out of the `*:` case into a
+  shared local `resolveEntry(elem)` helper, reused by ALL three element-producing cases (no
+  triplication).
+- Added `isNominalTuple(sym)` via `sym.fullName.matches("scala\\.Tuple[0-9]+")` - PORTED verbatim
+  in style from the Scala 2.13 sibling's `RouteBindingMacros.isTupleType`, for cross-macro
+  consistency.
+- New `loop` case order (most-specific-first): `EmptyTuple` -> `*:`-cons -> nominal `TupleN`
+  (`dt.typeArgs.map(resolveEntry)`) -> BARE `PathVar`/`PathVar.Ignored` application
+  (`List(resolveEntry(dt))`) -> catch-all `errorAndAbort` (now only a true last-resort for a
+  genuinely malformed type).
+- `tryDecomposePathVarTuple` (handler-side `RequiredVars`) was READ and left UNCHANGED: its input
+  is built exclusively by `handlerImpl` itself as an explicit `PathVar[N,T] *: ... *: EmptyTuple`
+  chain (see `reqVarsType` fold in `handlerImpl`), never consumed from zio-blocks' `PathVars`, so
+  it never sees the bare/nominal-TupleN shapes. Confirmed by reading, not assumed.
+- Zero runtime/allocation impact: only the TYPE-LEVEL `pvEntries` derivation changed;
+  `arrowImpl`'s `positions`/`isIdentity`/`buildTuple`/warning-emission logic is byte-for-byte
+  unchanged (it already operates generically on the `pvEntries` list).
+
+## Scala 2.13 side: confirmed NO change needed (Atlas was right)
+
+- `RouteBindingMacros.parseEntries` already does `if (isTupleType(w)) w.typeArgs else List(w)` -
+  structurally tolerant of BOTH bare types AND nominal `TupleN`. `core.jvm[2.13.18].test` passed
+  UNCHANGED against the new snapshot. Zero edits to the Scala 2.13 file.
+
+## Verification (real `./mill` runs, this workspace)
+
+- `./mill 'core.jvm[3.8.3].test'` = **99/99 passed** (matches the pre-existing baseline exactly;
+  `PathVarD7TiersSpec` bare-single-var, multi-var-Tuple2, and 3-var `int/string/bool` (`Tuple3`)
+  cases all green - these exercise all three new shapes).
+- `./mill 'core.jvm[2.13.18].test'` = **98/98 passed** (matches baseline, no code change).
+- Scope: exactly 1 production file touched (`RouteBinding.scala`, `decomposePathVarTuple` only).
+  No test files, no zio-blocks, no `Middleware`/`Routes`, no `RouteBindingMacros.scala` edits.

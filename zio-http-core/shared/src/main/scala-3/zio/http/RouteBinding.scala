@@ -182,22 +182,55 @@ private[http] object RouteBindingMacros {
           report.errorAndAbort(s"Expected a literal string Name in PathVar, got: ${other.show}")
       }
 
+    // Resolves ONE element type to a single `(name, type, isIgnored)` entry. Shared by all three
+    // element-producing cases in `loop` below (native `*:`-cons, nominal `TupleN`, and the bare
+    // single-value case), so the `PathVar`/`PathVar.Ignored` matching logic is written once, not
+    // triplicated. `elem` is expected to be a `PathVar[Name,Type]` or `PathVar.Ignored[Name,Type]`
+    // application; anything else is a genuinely malformed `PathVars` type and aborts.
+    def resolveEntry(elem: TypeRepr): (String, TypeRepr, Boolean) =
+      elem.dealias match {
+        case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvSym =>
+          (literalName(nameTpe), valTpe, false)
+        case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvIgnoredSym =>
+          (literalName(nameTpe), valTpe, true)
+        case other =>
+          report.errorAndAbort(
+            s"Expected a PathVar[Name,Type] or PathVar.Ignored[Name,Type] entry, got: ${other.show}"
+          )
+      }
+
+    // `true` iff `sym` is one of `scala.Tuple1` .. `scala.Tuple22` (a NOMINAL tuple case class),
+    // detected by fully-qualified symbol name - mirroring the Scala 2.13 sibling's
+    // `RouteBindingMacros.isTupleType` (`sym.fullName.matches("scala\\.Tuple[0-9]+")`) so both
+    // macros use the identical detection style. This is DISTINCT from the `*:`-cons chain handled
+    // separately below: zio-blocks' `combinators.Tuples` Scala 3 givens produce their multi-value
+    // results as literal `(L, R)`/`Tuple2`/... syntax (nominal case classes), and `.dealias`/
+    // `.simplified` does NOT collapse a `Tuple2[A,B]` TypeRepr into an `A *: B *: EmptyTuple` chain -
+    // it stays an `AppliedType` whose type symbol name is `"Tuple2"` (etc.), never `"*:"`.
+    def isNominalTuple(sym: Symbol): Boolean =
+      sym.fullName.matches("scala\\.Tuple[0-9]+")
+
     def loop(t: TypeRepr): List[(String, TypeRepr, Boolean)] = {
       val dt = fullyReduce(t)
       if (dt =:= TypeRepr.of[EmptyTuple]) Nil
       else
         dt match {
+          // Native `*:`-cons chain (`A *: B *: EmptyTuple`) - some `combinators.Tuples` givens may
+          // still produce genuine cons-chains depending on which given fires, so keep handling it.
           case AppliedType(consTycon, List(head, tail)) if consTycon.typeSymbol.name == "*:" =>
-            head.dealias match {
-              case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvSym =>
-                (literalName(nameTpe), valTpe, false) :: loop(tail)
-              case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvIgnoredSym =>
-                (literalName(nameTpe), valTpe, true) :: loop(tail)
-              case other =>
-                report.errorAndAbort(
-                  s"Expected a PathVar[Name,Type] or PathVar.Ignored[Name,Type] tuple element, got: ${other.show}"
-                )
-            }
+            resolveEntry(head) :: loop(tail)
+          // Nominal `TupleN` (N = 1..22), e.g. `scala.Tuple2[PathVar[..], PathVar[..]]` or
+          // `scala.Tuple1[PathVar[..]]` - the shape `combinators.Tuples`' Scala 3 multi-value
+          // fallback givens produce now that the old `*:`-chain-producing `PathVarTuples` type is
+          // gone. Each `typeArg` is one ordered `PathVar`/`PathVar.Ignored` element.
+          case _ if isNominalTuple(dt.typeSymbol) =>
+            dt.typeArgs.map(resolveEntry)
+          // A BARE single captured var: a lone `PathVar[Name,Type]` / `PathVar.Ignored[Name,Type]`
+          // with NO tuple wrapper at all - zio-blocks now encodes a single captured segment's
+          // `PathVars` as the bare `PathVar`, not `Tuple1[PathVar]`/`PathVar *: EmptyTuple`. Treat
+          // `dt` itself as the sole entry.
+          case AppliedType(pvTycon, _) if pvTycon.typeSymbol == pvSym || pvTycon.typeSymbol == pvIgnoredSym =>
+            List(resolveEntry(dt))
           case other =>
             report.errorAndAbort(s"Expected an ordered PathVar tuple, got: ${other.show}")
         }
