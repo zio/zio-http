@@ -30,6 +30,12 @@ trait ZioHttpModule extends CrossScalaModule {
   /** zio-blocks is currently only published to Sonatype Central Snapshots, not Maven Central. */
   override def repositories = super.repositories() ++ Seq("https://central.sonatype.com/repository/maven-snapshots/")
 
+  override def repositoriesTask = Task.Anon {
+    super.repositoriesTask() ++ Seq(
+      coursier.MavenRepository("https://central.sonatype.com/repository/maven-snapshots/")
+    )
+  }
+
   override def compileClasspath = Task {
     val cp                    = super.compileClasspath()
     val root                  = BuildCtx.workspaceRoot.toString
@@ -238,6 +244,9 @@ object endpoint extends Module {
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName     = "zio-http-endpoint"
     def moduleDeps       = Seq(core.jvm(), client.jvm())
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      blocksDep("endpoint"),
+    )
     override def sources = {
       val vDir =
         if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
@@ -266,6 +275,9 @@ object endpoint extends Module {
   trait JsModule  extends ZioHttpJSModule {
     def artifactName     = "zio-http-endpoint"
     def moduleDeps       = Seq(core.js(), client.js())
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      blocksDep("endpoint"),
+    )
     override def sources = {
       val vDir =
         if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
@@ -385,7 +397,7 @@ object testkit extends Module {
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName       = "zio-http-testkit"
     def moduleDeps         =
-      Seq(core.jvm(), server.jvm(), client.jvm(), endpoint.jvm())
+      Seq(core.jvm(), server.jvm(), client.jvm())
     override def mvnDeps   = super.mvnDeps() ++ Seq(
       mvn"dev.zio::zio:${Versions.Zio}",
       mvn"dev.zio::zio-test:${Versions.Zio}",
@@ -394,7 +406,7 @@ object testkit extends Module {
     override def resources = Task.Sources(r / "src" / "main" / "resources")
     object test extends ScoverageTests with ZioHttpTestModule {
       override def moduleDeps =
-        Seq(testkit.jvm(), endpoint.jvm())
+        Seq(testkit.jvm())
       override def sources    = Task.Sources(r / "src" / "test" / "scala")
       override def resources  = Task.Sources(r / "src" / "test" / "resources")
     }
