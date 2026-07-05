@@ -19,16 +19,17 @@ package zio.http
 import scala.reflect.macros.blackbox
 
 /**
- * Blackbox macro implementation backing [[RouteBinding.RoutePatternArrowOps]]'s macro-derived
- * `->` overload - BLACKBOX (unlike [[PathVarHandlerMacros]]) because its return type, `Route[Ctx]`,
- * is already the exact, final declared type: no return-type refinement is needed, only AST
- * inspection of two already-fully-known phantom Tuple types (`PV`, `Req`) plus `c.warning`/
+ * Blackbox macro implementation backing [[RouteBinding.RoutePatternArrowOps]]'s
+ * macro-derived `->` overload - BLACKBOX (unlike [[PathVarHandlerMacros]])
+ * because its return type, `Route[Ctx]`, is already the exact, final declared
+ * type: no return-type refinement is needed, only AST inspection of two
+ * already-fully-known phantom Tuple types (`PV`, `Req`) plus `c.warning`/
  * `c.abort` diagnostics.
  */
 private[http] object RouteBindingMacros {
 
   def arrowImpl[A: c.WeakTypeTag, PV: c.WeakTypeTag, Ctx: c.WeakTypeTag, Req: c.WeakTypeTag](
-    c: blackbox.Context
+    c: blackbox.Context,
   )(h: c.Expr[Handler[Ctx, Req]]): c.Tree = {
     import c.universe._
 
@@ -67,8 +68,11 @@ private[http] object RouteBindingMacros {
           val args      = dealiased.typeArgs
           val name      = args.head match {
             case ConstantType(Constant(s: String)) => s
-            case other                              =>
-              c.abort(c.enclosingPosition, s"Expected a literal String singleton type for a PathVar Name, but found: $other")
+            case other                             =>
+              c.abort(
+                c.enclosingPosition,
+                s"Expected a literal String singleton type for a PathVar Name, but found: $other",
+              )
           }
           val isIgnored = dealiased.typeSymbol == pathVarIgnoredSym
           (name, args(1).dealias, isIgnored)
@@ -93,7 +97,7 @@ private[http] object RouteBindingMacros {
       if (pvArity == 1) q"$aVarsName.asInstanceOf[$aType]"
       else q"$aVarsName.asInstanceOf[$aType].${TermName(s"_${pvIndex + 1}")}"
 
-    val positions                = scala.collection.mutable.ListBuffer.empty[Int]
+    val positions               = scala.collection.mutable.ListBuffer.empty[Int]
     val accessExprs: List[Tree] = reqEntries.map { case (rName, rType, _) =>
       // Matching cares only about (name, type) equality, never about `isIgnored` - a `.unused`
       // pattern segment (the whole point of `PathVar.Ignored`) remains perfectly bindable if a
@@ -109,7 +113,7 @@ private[http] object RouteBindingMacros {
           c.abort(
             c.enclosingPosition,
             s"No path variable named `$rName` of type $rType is declared by this route pattern " +
-              s"(or it was already consumed by an earlier handler parameter of the same name and type)."
+              s"(or it was already consumed by an earlier handler parameter of the same name and type).",
           )
       }
     }

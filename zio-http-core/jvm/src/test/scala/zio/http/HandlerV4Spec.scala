@@ -48,14 +48,14 @@ object HandlerV4Spec extends ZIOSpecDefault {
       },
       test("constructs from request function via requestFunctionIsHandler") {
         val fn: Request => Response | Halt = _ => responseAsResult(Response.ok)
-        val h      = Handler(fn)
-        val result = h.handle(req, Context.empty, (), Scope.global)
+        val h                              = Handler(fn)
+        val result                         = h.handle(req, Context.empty, (), Scope.global)
         assertTrue(result == responseAsResult(Response.ok))
       },
       test("constructs from thunk via thunkIsHandler") {
         val fn: () => Response | Halt = () => responseAsResult(Response.ok)
-        val h      = Handler(fn)
-        val result = h.handle(req, Context.empty, (), Scope.global)
+        val h                         = Handler(fn)
+        val result                    = h.handle(req, Context.empty, (), Scope.global)
         assertTrue(result == responseAsResult(Response.ok))
       },
     ),
@@ -99,10 +99,10 @@ object HandlerV4Spec extends ZIOSpecDefault {
         assertTrue(result == haltAsResult(Halt(forbidden)))
       },
       test("Halt result differs from response result") {
-        val resp   = Response.ok
-        val halt   = Halt(resp)
-        val rRes   = responseAsResult(resp)
-        val hRes   = haltAsResult(halt)
+        val resp = Response.ok
+        val halt = Halt(resp)
+        val rRes = responseAsResult(resp)
+        val hRes = haltAsResult(halt)
         assertTrue(rRes != hRes)
       },
     ),
@@ -116,11 +116,11 @@ object HandlerV4Spec extends ZIOSpecDefault {
         val fn: Request => Response | Halt = r =>
           if (r.method == Method.GET) responseAsResult(Response.ok)
           else responseAsResult(Response.notFound)
-        val h        = Handler(fn)
-        val getReq   = Request.get(URL.root)
-        val postReq  = Request.post(URL.root, Body.empty)
-        val getRes   = h.handle(getReq, Context.empty, (), Scope.global)
-        val postRes  = h.handle(postReq, Context.empty, (), Scope.global)
+        val h                              = Handler(fn)
+        val getReq                         = Request.get(URL.root)
+        val postReq                        = Request.post(URL.root, Body.empty)
+        val getRes                         = h.handle(getReq, Context.empty, (), Scope.global)
+        val postRes                        = h.handle(postReq, Context.empty, (), Scope.global)
         assertTrue(
           getRes == responseAsResult(Response.ok),
           postRes == responseAsResult(Response.notFound),

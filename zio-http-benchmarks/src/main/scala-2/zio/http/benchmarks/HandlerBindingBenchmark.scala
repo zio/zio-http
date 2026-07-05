@@ -32,10 +32,11 @@ import zio.http.RouteBinding._
 import zio.http._
 
 /**
- * Todo 8 (route-pattern-typed-vars, D8) - Scala 2.13 parity JMH allocation-neutrality
- * verification. Mirrors the Scala 3 benchmark in `scala-3/.../HandlerBindingBenchmark.scala`
- * exactly (same three shapes, same input, same rationale) - see that file's doc comment for the
- * full explanation.
+ * Todo 8 (route-pattern-typed-vars, D8) - Scala 2.13 parity JMH
+ * allocation-neutrality verification. Mirrors the Scala 3 benchmark in
+ * `scala-3/.../HandlerBindingBenchmark.scala` exactly (same three shapes, same
+ * input, same rationale) - see that file's doc comment for the full
+ * explanation.
  */
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -69,14 +70,16 @@ class HandlerBindingBenchmark {
   def handWritten(bh: Blackhole): Unit =
     bh.consume(handWrittenRoute.handler.handle(request, context, vars, scope))
 
-  /** Harness self-test (D8's required "confirm the harness has teeth" check): deliberately
-    * allocates a `Map` per invocation, so `-prof gc` MUST show a nonzero B/op delta vs
-    * `handWritten` - if it did not, the harness itself would be broken.
-    */
+  /**
+   * Harness self-test (D8's required "confirm the harness has teeth" check):
+   * deliberately allocates a `Map` per invocation, so `-prof gc` MUST show a
+   * nonzero B/op delta vs `handWritten` - if it did not, the harness itself
+   * would be broken.
+   */
   @Benchmark
   def naiveMapAllocating(bh: Blackhole): Unit = {
     val (userId, postId) = vars
-    val paramsMap         = scala.collection.immutable.Map("userId" -> userId, "postId" -> postId)
+    val paramsMap        = scala.collection.immutable.Map("userId" -> userId, "postId" -> postId)
     bh.consume(Response.text(s"user=${paramsMap("userId")} post=${paramsMap("postId")}"))
   }
 }

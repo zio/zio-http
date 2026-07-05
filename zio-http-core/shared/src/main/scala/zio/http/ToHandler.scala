@@ -92,7 +92,9 @@ object ToHandler {
         Handler.fromRequest(_ => h())
     }
 
-  implicit def decodeQueryFunctionIsHandler[A](implicit queryCodec: QueryCodec[A]): Aux[DecodeQuery[A] => Response | Halt, Any, Any] =
+  implicit def decodeQueryFunctionIsHandler[A](implicit
+    queryCodec: QueryCodec[A],
+  ): Aux[DecodeQuery[A] => Response | Halt, Any, Any] =
     new ToHandler[DecodeQuery[A] => Response | Halt] {
       type Ctx  = Any
       type Vars = Any
@@ -106,7 +108,9 @@ object ToHandler {
         }
     }
 
-  implicit def decodeHeadersFunctionIsHandler[A](implicit headerCodec: HeaderCodec[A]): Aux[DecodeHeaders[A] => Response | Halt, Any, Any] =
+  implicit def decodeHeadersFunctionIsHandler[A](implicit
+    headerCodec: HeaderCodec[A],
+  ): Aux[DecodeHeaders[A] => Response | Halt, Any, Any] =
     new ToHandler[DecodeHeaders[A] => Response | Halt] {
       type Ctx  = Any
       type Vars = Any

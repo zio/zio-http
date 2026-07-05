@@ -26,37 +26,43 @@ import zio.http.Method.GET
 import zio.http.PathVarHandler.handler
 import zio.http.RouteBinding._
 
-/** Tier-2-only capability types: never a `SegmentCodec`-capturable primitive (Int/Long/String/
-  * Boolean/UUID), so they can NEVER be classified as a PathVar candidate - always
-  * Context-resolved. Declared at package scope (matching this package's existing convention, e.g.
-  * `PathVarHandlerBindingSpec.scala`'s own package-level `BasketId`) with distinct names to avoid
-  * any collision with that unrelated case class.
-  */
+/**
+ * Tier-2-only capability types: never a `SegmentCodec`-capturable primitive
+ * (Int/Long/String/ Boolean/UUID), so they can NEVER be classified as a PathVar
+ * candidate - always Context-resolved. Declared at package scope (matching this
+ * package's existing convention, e.g. `PathVarHandlerBindingSpec.scala`'s own
+ * package-level `BasketId`) with distinct names to avoid any collision with
+ * that unrelated case class.
+ */
 final case class D7TierCartId(value: String)
 final case class D7TierUserRef(value: String)
 
 /**
- * Todo 10 (route-pattern-typed-vars): a dedicated, single-file, per-tier ISOLATION suite for D7's
- * 4-tier handler-parameter resolution chain, plus the D6 order-independence PROPERTY test, on
- * Scala 2.13.
+ * Todo 10 (route-pattern-typed-vars): a dedicated, single-file, per-tier
+ * ISOLATION suite for D7's 4-tier handler-parameter resolution chain, plus the
+ * D6 order-independence PROPERTY test, on Scala 2.13.
  *
- * `PathVarHandlerBindingSpec.scala` and `RouteArrowOverloadSafetySpec.scala` already exercise
- * these mechanisms as part of reproducing the draft's Worked Examples and proving overload-
- * resolution safety, but every case there mixes at least two tiers together (e.g. Worked Example
- * 9 combines PathVar + Context + Request in one handler). THIS file's job is different: each test
- * below isolates exactly ONE D7 tier - the other tiers/capabilities are verifiably absent from
- * both the route pattern and the handler signature, not merely unused - so a future reader can
- * point at a single, minimal test per tier instead of reverse-engineering tier boundaries out of a
- * combined example.
+ * `PathVarHandlerBindingSpec.scala` and `RouteArrowOverloadSafetySpec.scala`
+ * already exercise these mechanisms as part of reproducing the draft's Worked
+ * Examples and proving overload- resolution safety, but every case there mixes
+ * at least two tiers together (e.g. Worked Example 9 combines PathVar + Context
+ * + Request in one handler). THIS file's job is different: each test below
+ * isolates exactly ONE D7 tier - the other tiers/capabilities are verifiably
+ * absent from both the route pattern and the handler signature, not merely
+ * unused - so a future reader can point at a single, minimal test per tier
+ * instead of reverse-engineering tier boundaries out of a combined example.
  *
  * This file DELIBERATELY does NOT re-prove:
- *   - the unused-PathVar WARNING CONTENT, per-var separateness, or the real `-Xfatal-warnings`
- *     build-level proofs (see `PathVarHandlerBindingSpec.scala`, tests 14-16, and its
+ *   - the unused-PathVar WARNING CONTENT, per-var separateness, or the real
+ *     `-Xfatal-warnings` build-level proofs (see
+ *     `PathVarHandlerBindingSpec.scala`, tests 14-16, and its
  *     `FatalWarningsProof` helper object - Todo 6's deliverable), or
- *   - the `->` OVERLOAD-RESOLUTION SAFETY between the macro-derived and pre-built-`Handler` call
- *     shapes, or the D12 "no Route-level middleware" boundary (see
- *     `RouteArrowOverloadSafetySpec.scala` - Todo 7's deliverable).
- * Those two files remain the single source of truth for warning text and overload safety.
+ *   - the `->` OVERLOAD-RESOLUTION SAFETY between the macro-derived and
+ *     pre-built-`Handler` call shapes, or the D12 "no Route-level middleware"
+ *     boundary (see `RouteArrowOverloadSafetySpec.scala` - Todo 7's
+ *     deliverable).
+ * Those two files remain the single source of truth for warning text and
+ * overload safety.
  */
 object PathVarD7TiersSpec extends ZIOSpecDefault {
 
@@ -70,7 +76,9 @@ object PathVarD7TiersSpec extends ZIOSpecDefault {
         val result = route.handler.handle(req, Context.empty, 42, scope)
         assertTrue(result == ResultType.responseAsResult(Response.text("id=42")))
       },
-      test("multiple PathVars matched purely by name+type, handler fn order differs from the pattern's declared order") {
+      test(
+        "multiple PathVars matched purely by name+type, handler fn order differs from the pattern's declared order",
+      ) {
         val route  = GET / int("width") / string("label") ->
           handler((label: String, width: Int) => Response.text(s"$label:$width"))
         val result = route.handler.handle(req, Context.empty, (10, "box"), scope)
@@ -90,7 +98,7 @@ object PathVarD7TiersSpec extends ZIOSpecDefault {
         assertTrue(result == ResultType.responseAsResult(Response.text("cart=cart-42")))
       },
       test("multiple distinct Context capabilities resolve together, pattern still has ZERO PathVars") {
-        val route  = GET / "checkout" ->
+        val route   = GET / "checkout" ->
           handler((cart: D7TierCartId, user: D7TierUserRef) => Response.text(s"${user.value}:${cart.value}"))
         val context = Context(D7TierCartId("c-1"), D7TierUserRef("u-1"))
         val result  = route.handler.handle(req, context, (), scope)
@@ -104,20 +112,24 @@ object PathVarD7TiersSpec extends ZIOSpecDefault {
         assertTrue(result == ResultType.responseAsResult(Response.text("method=GET")))
       },
       test("Scope alone, zero PathVars, zero Context") {
-        val route  =
+        val route =
           GET / "warmup" -> handler((s: Scope) => Response.text(if (s != null) "scope-received" else "no-scope"))
         val result = route.handler.handle(req, Context.empty, (), scope)
         assertTrue(result == ResultType.responseAsResult(Response.text("scope-received")))
       },
       test("Request AND Scope together, zero PathVars, zero Context") {
         val route  = GET / "combined" ->
-          handler((request: Request, s: Scope) => Response.text(s"${request.method}+${if (s != null) "scope" else "none"}"))
+          handler((request: Request, s: Scope) =>
+            Response.text(s"${request.method}+${if (s != null) "scope" else "none"}"),
+          )
         val result = route.handler.handle(req, Context.empty, (), scope)
         assertTrue(result == ResultType.responseAsResult(Response.text("GET+scope")))
       },
     ),
     suite("D7 tier 4 ONLY: unmatched name+type compile error - isolated from every other concern")(
-      test("a PathVar-eligible-typed param whose name matches nothing in the pattern fails to compile at `->`, with no Context/Request/Scope param present to confuse the diagnosis") {
+      test(
+        "a PathVar-eligible-typed param whose name matches nothing in the pattern fails to compile at `->`, with no Context/Request/Scope param present to confuse the diagnosis",
+      ) {
         assertZIO(
           typeCheck("""
             import zio.blocks.endpoint.PathCodec._
@@ -127,12 +139,14 @@ object PathVarD7TiersSpec extends ZIOSpecDefault {
             import zio.http.RouteBinding._
 
             GET / int("id") -> handler((totallyUnrelatedName: Int) => Response.text("unreachable"))
-          """)
+          """),
         )(Assertion.isLeft)
       },
     ),
     suite("D6 order-independence PROPERTY: the SAME pattern, 3 different handler param orderings, IDENTICAL results")(
-      test("3 distinct-typed PathVars, bound via 3 different declaration orderings, all produce the byte-identical response for the same input") {
+      test(
+        "3 distinct-typed PathVars, bound via 3 different declaration orderings, all produce the byte-identical response for the same input",
+      ) {
         val pattern = GET / int("a") / string("b") / bool("c")
 
         val routeDeclOrder   = pattern -> handler((a: Int, b: String, c: Boolean) => Response.text(s"$a-$b-$c"))

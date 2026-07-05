@@ -32,11 +32,14 @@ object Server {
    *
    * The context must contain both a [[Server]] implementation and all
    * dependencies required by the routes. If any component is missing,
-   * [[zio.blocks.context.ContextHas]] emits a clear compile-time error
-   * listing the missing types.
+   * [[zio.blocks.context.ContextHas]] emits a clear compile-time error listing
+   * the missing types.
    *
-   * @tparam ReqCtx the context type required by the routes
-   * @tparam Ctx    the actual context type provided — must be a supertype of `ReqCtx & Server`
+   * @tparam ReqCtx
+   *   the context type required by the routes
+   * @tparam Ctx
+   *   the actual context type provided — must be a supertype of
+   *   `ReqCtx & Server`
    */
   def serve[ReqCtx, Ctx](
     routes: Routes[ReqCtx],

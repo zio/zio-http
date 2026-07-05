@@ -47,7 +47,7 @@ object FlowControllerSpec extends ZIOSpecDefault {
         )
       },
       test("registerStream and removeStream control stream visibility") {
-        val fc = new FlowController(initialConnectionWindow = 65535, initialStreamWindow = 65535)
+        val fc               = new FlowController(initialConnectionWindow = 65535, initialStreamWindow = 65535)
         fc.registerStream(1)
         val registeredWindow = fc.streamWindow(1)
         fc.removeStream(1)

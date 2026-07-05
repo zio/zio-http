@@ -62,7 +62,7 @@ object StaticTable {
     HeaderField("user-agent", ""),
     HeaderField("vary", ""),
     HeaderField("via", ""),
-    HeaderField("www-authenticate", "")
+    HeaderField("www-authenticate", ""),
   )
 
   val length: Int = Entries.length

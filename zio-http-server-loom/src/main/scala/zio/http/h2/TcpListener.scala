@@ -76,7 +76,7 @@ class TcpListener(
           .start(() => handleConnection(channel, activeConnections, sslContext))
       } catch {
         case _: java.nio.channels.AsynchronousCloseException if !running.get() || !serverChannel.isOpen => ()
-        case _: java.net.SocketException if !running.get() || !serverChannel.isOpen                      => ()
+        case _: java.net.SocketException if !running.get() || !serverChannel.isOpen                     => ()
       }
     }
   }
@@ -127,10 +127,10 @@ case class BoundListener(
 )
 
 private object TcpListener {
-  private val PrivateKeyHeader  = "-----BEGIN PRIVATE KEY-----"
-  private val PrivateKeyFooter  = "-----END PRIVATE KEY-----"
-  private val RsaKeyHeader      = "-----BEGIN RSA PRIVATE KEY-----"
-  private val RsaKeyFooter      = "-----END RSA PRIVATE KEY-----"
+  private val PrivateKeyHeader = "-----BEGIN PRIVATE KEY-----"
+  private val PrivateKeyFooter = "-----END PRIVATE KEY-----"
+  private val RsaKeyHeader     = "-----BEGIN RSA PRIVATE KEY-----"
+  private val RsaKeyFooter     = "-----END RSA PRIVATE KEY-----"
 
   def createSslContext(tls: TlsConfig): SSLContext =
     firstSslContext(tls).getOrElse {
@@ -191,7 +191,8 @@ private object TcpListener {
 
   private def loadCertificates(source: TlsSource): Array[X509Certificate] = {
     val bytes        = readSourceBytes(source)
-    val certificates = CertificateFactory.getInstance("X.509").generateCertificates(new ByteArrayInputStream(bytes)).asScala
+    val certificates =
+      CertificateFactory.getInstance("X.509").generateCertificates(new ByteArrayInputStream(bytes)).asScala
 
     certificates.collect { case certificate: X509Certificate => certificate }.toArray
   }
@@ -222,7 +223,7 @@ private object TcpListener {
     source match {
       case TlsSource.FilePath(path)    => Files.readAllBytes(path)
       case TlsSource.PemString(secret) => Secret.unwrap(secret).getBytes(StandardCharsets.UTF_8)
-      case TlsSource.SslContext(_)     => throw new IllegalArgumentException("SSLContext source does not expose PEM bytes")
+      case TlsSource.SslContext(_) => throw new IllegalArgumentException("SSLContext source does not expose PEM bytes")
     }
 
   private def readSourceString(source: TlsSource): String =
@@ -260,9 +261,9 @@ private object TcpListener {
       0x05.toByte,
       0x00.toByte,
     )
-    val version                  = Array[Byte](0x02.toByte, 0x01.toByte, 0x00.toByte)
-    val privateKeyOctetString    = derEncode(0x04, pkcs1Bytes)
-    val privateKeyInfoContent    = version ++ rsaAlgorithmIdentifier ++ privateKeyOctetString
+    val version                = Array[Byte](0x02.toByte, 0x01.toByte, 0x00.toByte)
+    val privateKeyOctetString  = derEncode(0x04, pkcs1Bytes)
+    val privateKeyInfoContent  = version ++ rsaAlgorithmIdentifier ++ privateKeyOctetString
 
     derEncode(0x30, privateKeyInfoContent)
   }

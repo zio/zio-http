@@ -7,10 +7,13 @@ object MiddlewareV4Spec extends ZIOSpecDefault {
 
   private def mkRoutes(n: Int): Routes[Any] = {
     val patterns = List(
-      RoutePattern.GET, RoutePattern.POST, RoutePattern.PUT,
-      RoutePattern.DELETE, RoutePattern.PATCH,
+      RoutePattern.GET,
+      RoutePattern.POST,
+      RoutePattern.PUT,
+      RoutePattern.DELETE,
+      RoutePattern.PATCH,
     )
-    val routes = patterns.take(n).map(p => Route(p, Handler.succeed(Response.ok)))
+    val routes   = patterns.take(n).map(p => Route(p, Handler.succeed(Response.ok)))
     Routes.fromIterable(routes)
   }
 
@@ -38,7 +41,7 @@ object MiddlewareV4Spec extends ZIOSpecDefault {
     ),
     suite("Middleware.andThen")(
       test("m1.andThen(m2) calls m1 first, then m2") {
-        val callOrder   = new scala.collection.mutable.ArrayBuffer[Int]()
+        val callOrder                = new scala.collection.mutable.ArrayBuffer[Int]()
         val m1: Middleware[Any, Any] = new Middleware[Any, Any] {
           def apply(routes: Routes[Any]): Routes[Any] = {
             callOrder += 1
@@ -51,13 +54,13 @@ object MiddlewareV4Spec extends ZIOSpecDefault {
             routes
           }
         }
-        val composed = m1.andThen(m2)
+        val composed                 = m1.andThen(m2)
         composed(mkRoutes(1))
         assertTrue(callOrder.toList == List(1, 2))
       },
       test("m1.andThen(m2) applies both middlewares") {
-        var m1Applied = false
-        var m2Applied = false
+        var m1Applied                = false
+        var m2Applied                = false
         val m1: Middleware[Any, Any] = new Middleware[Any, Any] {
           def apply(routes: Routes[Any]): Routes[Any] = { m1Applied = true; routes }
         }
@@ -76,21 +79,21 @@ object MiddlewareV4Spec extends ZIOSpecDefault {
     ),
     suite("Custom middleware")(
       test("middleware that prepends a route increases size by 1") {
-        val extraRoute = Route(RoutePattern.OPTIONS, Handler.succeed(Response.ok))
+        val extraRoute                     = Route(RoutePattern.OPTIONS, Handler.succeed(Response.ok))
         val addRoute: Middleware[Any, Any] = new Middleware[Any, Any] {
           def apply(routes: Routes[Any]): Routes[Any] =
             Routes(extraRoute) ++ routes
         }
-        val base   = mkRoutes(2)
-        val result = base @@ addRoute
+        val base                           = mkRoutes(2)
+        val result                         = base @@ addRoute
         assertTrue(result.size == 3)
       },
       test("middleware that filters to empty still applies") {
         val clearAll: Middleware[Any, Any] = new Middleware[Any, Any] {
           def apply(routes: Routes[Any]): Routes[Any] = Routes.empty[Any]
         }
-        val base   = mkRoutes(3)
-        val result = base @@ clearAll
+        val base                           = mkRoutes(3)
+        val result                         = base @@ clearAll
         assertTrue(result.size == 0)
       },
       test("composed middlewares chain transformations") {
@@ -98,8 +101,8 @@ object MiddlewareV4Spec extends ZIOSpecDefault {
           def apply(routes: Routes[Any]): Routes[Any] =
             routes ++ Routes(Route(RoutePattern.HEAD, Handler.succeed(Response.ok)))
         }
-        val base   = mkRoutes(1)
-        val result = base @@ addOne.andThen(addOne)
+        val base                         = mkRoutes(1)
+        val result                       = base @@ addOne.andThen(addOne)
         assertTrue(result.size == 3)
       },
     ),

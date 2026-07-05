@@ -16,7 +16,24 @@ import zio.test._
 
 import zio.http.h2.H2Frame.{Data, GoAway, Headers, Settings, WindowUpdate}
 import zio.http.h2.hpack.{HeaderField, Hpack}
-import zio.http.{BindAddress, Body, BoundAddress, Connector, DefectHandler, Halt, Handler, Method, Middleware, Request, Response, Route, Routes, ServerHandle, Status, handler}
+import zio.http.{
+  BindAddress,
+  Body,
+  BoundAddress,
+  Connector,
+  DefectHandler,
+  Halt,
+  Handler,
+  Method,
+  Middleware,
+  Request,
+  Response,
+  Route,
+  Routes,
+  ServerHandle,
+  Status,
+  handler,
+}
 import zio.http.ResultType._
 
 @experimental
@@ -29,7 +46,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         ) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(response.status == 200, response.body.isEmpty)
           }
         }
@@ -64,7 +83,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "HEAD", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "HEAD", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(
               response.status == 200,
               response.body.isEmpty,
@@ -105,7 +126,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "POST", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "POST", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(response.status == 200, response.body.isEmpty)
           }
         }
@@ -121,7 +144,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(
               response.status == 200,
               response.headerValue("x-custom").contains("foo"),
@@ -140,7 +165,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(
               response.status == 200,
               response.bodyText == "auto",
@@ -160,7 +187,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/api/v1/users", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/api/v1/users", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(response.status == 200, response.bodyText == "users")
           }
         }
@@ -175,9 +204,13 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              put    <- ZIO.attemptBlocking(client.roundTrip(method = "PUT", path = "/", body = Chunk.empty, streamId = 1))
-              delete <- ZIO.attemptBlocking(client.roundTrip(method = "DELETE", path = "/", body = Chunk.empty, streamId = 3))
-              patch  <- ZIO.attemptBlocking(client.roundTrip(method = "PATCH", path = "/", body = Chunk.empty, streamId = 5))
+              put <- ZIO.attemptBlocking(client.roundTrip(method = "PUT", path = "/", body = Chunk.empty, streamId = 1))
+              delete <- ZIO.attemptBlocking(
+                client.roundTrip(method = "DELETE", path = "/", body = Chunk.empty, streamId = 3),
+              )
+              patch  <- ZIO.attemptBlocking(
+                client.roundTrip(method = "PATCH", path = "/", body = Chunk.empty, streamId = 5),
+              )
             } yield assertTrue(
               put.status == 200,
               put.bodyText == "put",
@@ -204,9 +237,15 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              hello   <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/hello", body = Chunk.empty, streamId = 1))
-              world   <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/world", body = Chunk.empty, streamId = 3))
-              unknown <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/unknown", body = Chunk.empty, streamId = 5))
+              hello   <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/hello", body = Chunk.empty, streamId = 1),
+              )
+              world   <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/world", body = Chunk.empty, streamId = 3),
+              )
+              unknown <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/unknown", body = Chunk.empty, streamId = 5),
+              )
             } yield assertTrue(
               hello.status == 200,
               hello.bodyText == "hello",
@@ -235,13 +274,17 @@ object H2IntegrationSpec extends ZIOSpecDefault {
 
               for {
                 responses <- ZIO.collectAllPar(
-                               List(
-                                 ZIO.attemptBlocking(firstClient.roundTrip(method = "POST", path = "/", body = firstBody, streamId = 1)),
-                                 ZIO.attemptBlocking(secondClient.roundTrip(method = "POST", path = "/", body = secondBody, streamId = 1)),
-                               ),
-                             )
-                first      = responses.head
-                second     = responses(1)
+                  List(
+                    ZIO.attemptBlocking(
+                      firstClient.roundTrip(method = "POST", path = "/", body = firstBody, streamId = 1),
+                    ),
+                    ZIO.attemptBlocking(
+                      secondClient.roundTrip(method = "POST", path = "/", body = secondBody, streamId = 1),
+                    ),
+                  ),
+                )
+                first  = responses.head
+                second = responses(1)
               } yield assertTrue(
                 first.status == 200,
                 first.body == firstBody,
@@ -265,13 +308,15 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(response.status == 500)
           }
         }
       },
       test("custom defect handler can produce 503") {
-        val routes = Routes(
+        val routes        = Routes(
           Route(
             RoutePattern.GET,
             handler { (_: Request) =>
@@ -287,7 +332,9 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(routes, defectHandler = defectHandler) { port =>
           withClient(port) { client =>
             for {
-              response <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1))
+              response <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/", body = Chunk.empty, streamId = 1),
+              )
             } yield assertTrue(response.status == 503)
           }
         }
@@ -295,34 +342,45 @@ object H2IntegrationSpec extends ZIOSpecDefault {
       test("server shutdown cleanly closes listener") {
         val routes = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
-        ZIO.acquireRelease(startServer(routes)) { handle =>
-          ZIO.succeed(handle.shutdownAndWait())
-        }.flatMap { handle =>
-          val port = tcpPort(handle)
-          for {
-            _              <- ZIO.attempt(handle.isRunning).map(running => assertTrue(running))
-            _              <- ZIO.attempt(handle.shutdownAndWait())
-            stoppedRunning <- ZIO.attempt(handle.isRunning)
-            connectResult  <- ZIO.attemptBlocking(attemptSocketConnect(port)).either
-          } yield assertTrue(!stoppedRunning, connectResult.isLeft)
-        }
+        ZIO
+          .acquireRelease(startServer(routes)) { handle =>
+            ZIO.succeed(handle.shutdownAndWait())
+          }
+          .flatMap { handle =>
+            val port = tcpPort(handle)
+            for {
+              _              <- ZIO.attempt(handle.isRunning).map(running => assertTrue(running))
+              _              <- ZIO.attempt(handle.shutdownAndWait())
+              stoppedRunning <- ZIO.attempt(handle.isRunning)
+              connectResult  <- ZIO.attemptBlocking(attemptSocketConnect(port)).either
+            } yield assertTrue(!stoppedRunning, connectResult.isLeft)
+          }
       },
       test("multiple concurrent requests on one H2C connection all succeed") {
         val routes = Routes(
-          Route(RoutePattern(Method.GET, "/one"), Handler.succeed(Response(status = Status.Ok, body = Body.fromString("one")))),
-          Route(RoutePattern(Method.GET, "/two"), Handler.succeed(Response(status = Status.Ok, body = Body.fromString("two")))),
-          Route(RoutePattern(Method.GET, "/three"), Handler.succeed(Response(status = Status.Ok, body = Body.fromString("three")))),
+          Route(
+            RoutePattern(Method.GET, "/one"),
+            Handler.succeed(Response(status = Status.Ok, body = Body.fromString("one"))),
+          ),
+          Route(
+            RoutePattern(Method.GET, "/two"),
+            Handler.succeed(Response(status = Status.Ok, body = Body.fromString("two"))),
+          ),
+          Route(
+            RoutePattern(Method.GET, "/three"),
+            Handler.succeed(Response(status = Status.Ok, body = Body.fromString("three"))),
+          ),
         )
 
         withServer(routes) { port =>
           withClient(port) { client =>
             for {
               responses <- ZIO.attemptBlocking {
-                             client.sendRequest(method = "GET", path = "/one", body = Chunk.empty, streamId = 1)
-                             client.sendRequest(method = "GET", path = "/two", body = Chunk.empty, streamId = 3)
-                             client.sendRequest(method = "GET", path = "/three", body = Chunk.empty, streamId = 5)
-                             client.awaitResponses(Set(1, 3, 5))
-                           }
+                client.sendRequest(method = "GET", path = "/one", body = Chunk.empty, streamId = 1)
+                client.sendRequest(method = "GET", path = "/two", body = Chunk.empty, streamId = 3)
+                client.sendRequest(method = "GET", path = "/three", body = Chunk.empty, streamId = 5)
+                client.awaitResponses(Set(1, 3, 5))
+              }
             } yield assertTrue(
               responses(1).status == 200,
               responses(1).bodyText == "one",
@@ -336,7 +394,10 @@ object H2IntegrationSpec extends ZIOSpecDefault {
       },
       test("middleware-transformed routes are served") {
         val baseRoutes = Routes(
-          Route(RoutePattern(Method.GET, "/base"), Handler.succeed(Response(status = Status.Ok, body = Body.fromString("base")))),
+          Route(
+            RoutePattern(Method.GET, "/base"),
+            Handler.succeed(Response(status = Status.Ok, body = Body.fromString("base"))),
+          ),
         )
         val middleware = new Middleware[Any, Any] {
           override def apply(routes: Routes[Any]): Routes[Any] =
@@ -351,8 +412,12 @@ object H2IntegrationSpec extends ZIOSpecDefault {
         withServer(baseRoutes @@ middleware) { port =>
           withClient(port) { client =>
             for {
-              base       <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/base", body = Chunk.empty, streamId = 1))
-              middleware <- ZIO.attemptBlocking(client.roundTrip(method = "GET", path = "/middleware", body = Chunk.empty, streamId = 3))
+              base       <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/base", body = Chunk.empty, streamId = 1),
+              )
+              middleware <- ZIO.attemptBlocking(
+                client.roundTrip(method = "GET", path = "/middleware", body = Chunk.empty, streamId = 3),
+              )
             } yield assertTrue(
               base.status == 200,
               base.bodyText == "base",
@@ -368,17 +433,30 @@ object H2IntegrationSpec extends ZIOSpecDefault {
     routes: Routes[Any],
     defectHandler: DefectHandler = DefectHandler.default,
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
-    ZIO.acquireRelease(startServer(routes, defectHandler)) { handle =>
-      ZIO.succeed(handle.shutdownAndWait())
-    }.flatMap(handle => use(tcpPort(handle)))
+    ZIO
+      .acquireRelease(startServer(routes, defectHandler)) { handle =>
+        ZIO.succeed(handle.shutdownAndWait())
+      }
+      .flatMap(handle => use(tcpPort(handle)))
 
-  private def withClient[R](port: Int)(use: H2cTestClient => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
-    ZIO.acquireRelease(
-      ZIO.attemptBlocking(new H2cTestClient(port)),
-    )(client => ZIO.succeed(client.close())).flatMap(use)
+  private def withClient[R](
+    port: Int,
+  )(use: H2cTestClient => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
+    ZIO
+      .acquireRelease(
+        ZIO.attemptBlocking(new H2cTestClient(port)),
+      )(client => ZIO.succeed(client.close()))
+      .flatMap(use)
 
-  private def startServer(routes: Routes[Any], defectHandler: DefectHandler = DefectHandler.default): Task[ServerHandle] =
-    ZIO.attempt(ServerHandle.live(List(new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), defectHandler).start())))
+  private def startServer(
+    routes: Routes[Any],
+    defectHandler: DefectHandler = DefectHandler.default,
+  ): Task[ServerHandle] =
+    ZIO.attempt(
+      ServerHandle.live(
+        List(new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), defectHandler).start()),
+      ),
+    )
 
   private def tcpPort(handle: ServerHandle): Int =
     handle.bindings.head.address match {
@@ -438,8 +516,8 @@ object H2IntegrationSpec extends ZIOSpecDefault {
 
       while (pending.nonEmpty) {
         input.readFrame() match {
-          case Settings(true, _)                 => ()
-          case Settings(false, _)                =>
+          case Settings(true, _)                                                                  => ()
+          case Settings(false, _)                                                                 =>
             output.write(FrameCodec.encode(Settings(ack = true, Nil)).toArray)
             output.flush()
           case Headers(streamId, headerBlock, endStream, _, _, _) if streamIds.contains(streamId) =>
@@ -447,15 +525,15 @@ object H2IntegrationSpec extends ZIOSpecDefault {
             val builder = builders.getOrElseUpdate(streamId, ResponseBuilder.empty(decoded))
             builders.update(streamId, builder.withHeaders(decoded))
             if (endStream) pending -= streamId
-          case Data(streamId, data, endStream, _) if streamIds.contains(streamId)                  =>
+          case Data(streamId, data, endStream, _) if streamIds.contains(streamId)                 =>
             val builder = builders.getOrElseUpdate(streamId, ResponseBuilder.empty(Nil))
             builders.update(streamId, builder.appendBody(data))
             if (endStream) pending -= streamId
-          case WindowUpdate(_, _)                => ()
-          case GoAway(_, errorCode, debugData)   =>
+          case WindowUpdate(_, _)                                                                 => ()
+          case GoAway(_, errorCode, debugData)                                                    =>
             val debug = new String(debugData.toArray, StandardCharsets.UTF_8)
             throw new AssertionError(s"Server sent GOAWAY: error=$errorCode debug=$debug")
-          case other                             =>
+          case other                                                                              =>
             throw new AssertionError("Unexpected frame while waiting for response: " + other)
         }
       }

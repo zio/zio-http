@@ -33,22 +33,28 @@ import zio.http.{Handler, Method, Request, Response, Route, URL}
 import zio.http.RouteBinding._
 
 /**
- * Todo 8 (route-pattern-typed-vars, D8) - Scala 3 JMH allocation-neutrality verification.
+ * Todo 8 (route-pattern-typed-vars, D8) - Scala 3 JMH allocation-neutrality
+ * verification.
  *
- * Isolates the macro-generated `Extracted`/handler-invocation call site (the ONLY thing this
- * benchmark measures - `pattern.decode` URL-parsing overhead is deliberately excluded from every
- * benchmark method by pre-building the already-decoded `vars` value, matching how zio-http's real
- * request-dispatch path calls `handler.handle` with an already-decoded value) for Worked Example 2
- * (2-var full-use handler, `GET / int("userId") / string("postId") -> handler((userId: Int,
- * postId: String) => ...)`), comparing THREE handler-invocation shapes over the IDENTICAL
- * `(Int, String)` input:
- *   - `macroGenerated`: the real `pattern -> handler(fn)` macro output (Todo 4's `RouteBinding`).
- *   - `handWritten`: a hand-written `Handler.extracted[Ctx, (Int, String)]` baseline that accesses
- *     the real value tuple directly (`vars._1`/`vars._2`), with NO reshaping - the allocation floor
- *     any macro-generated call site should match exactly (D8: zero delta, not "close enough").
- *   - `naiveMapAllocating`: a DELIBERATELY non-optimized variant that boxes the extracted vars into
- *     a `scala.collection.immutable.Map[String, Any]` before use - the harness self-test proving a
- *     real regression (a genuine `Map` allocation) is NOT masked/averaged-away by JMH noise.
+ * Isolates the macro-generated `Extracted`/handler-invocation call site (the
+ * ONLY thing this benchmark measures - `pattern.decode` URL-parsing overhead is
+ * deliberately excluded from every benchmark method by pre-building the
+ * already-decoded `vars` value, matching how zio-http's real request-dispatch
+ * path calls `handler.handle` with an already-decoded value) for Worked Example
+ * 2 (2-var full-use handler, `GET / int("userId") / string("postId") ->
+ * handler((userId: Int, postId: String) => ...)`), comparing THREE
+ * handler-invocation shapes over the IDENTICAL `(Int, String)` input:
+ *   - `macroGenerated`: the real `pattern -> handler(fn)` macro output (Todo
+ *     4's `RouteBinding`).
+ *   - `handWritten`: a hand-written `Handler.extracted[Ctx, (Int, String)]`
+ *     baseline that accesses the real value tuple directly
+ *     (`vars._1`/`vars._2`), with NO reshaping - the allocation floor any
+ *     macro-generated call site should match exactly (D8: zero delta, not
+ *     "close enough").
+ *   - `naiveMapAllocating`: a DELIBERATELY non-optimized variant that boxes the
+ *     extracted vars into a `scala.collection.immutable.Map[String, Any]`
+ *     before use - the harness self-test proving a real regression (a genuine
+ *     `Map` allocation) is NOT masked/averaged-away by JMH noise.
  */
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -69,10 +75,10 @@ class HandlerBindingBenchmark {
     },
   )
 
-  private val request: Request         = Request.get(URL.root)
-  private val context: Context[Any]    = Context.empty
-  private val scope: BlocksScope       = BlocksScope.global
-  private val vars: (Int, String)      = (42, "abc")
+  private val request: Request      = Request.get(URL.root)
+  private val context: Context[Any] = Context.empty
+  private val scope: BlocksScope    = BlocksScope.global
+  private val vars: (Int, String)   = (42, "abc")
 
   @Benchmark
   def macroGenerated(bh: Blackhole): Unit =
@@ -82,14 +88,16 @@ class HandlerBindingBenchmark {
   def handWritten(bh: Blackhole): Unit =
     bh.consume(handWrittenRoute.handler.handle(request, context, vars, scope))
 
-  /** Harness self-test (D8's required "confirm the harness has teeth" check): deliberately
-    * allocates a `Map` per invocation, so `-prof gc` MUST show a nonzero B/op delta vs
-    * `handWritten` - if it did not, the harness itself would be broken.
-    */
+  /**
+   * Harness self-test (D8's required "confirm the harness has teeth" check):
+   * deliberately allocates a `Map` per invocation, so `-prof gc` MUST show a
+   * nonzero B/op delta vs `handWritten` - if it did not, the harness itself
+   * would be broken.
+   */
   @Benchmark
   def naiveMapAllocating(bh: Blackhole): Unit = {
     val (userId, postId) = vars
-    val paramsMap         = scala.collection.immutable.Map("userId" -> userId, "postId" -> postId)
+    val paramsMap        = scala.collection.immutable.Map("userId" -> userId, "postId" -> postId)
     bh.consume(Response.text(s"user=${paramsMap("userId")} post=${paramsMap("postId")}"))
   }
 }

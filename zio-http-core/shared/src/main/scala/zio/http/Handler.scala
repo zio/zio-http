@@ -85,8 +85,7 @@ object Handler {
 
   private[http] final case class Extracted[Ctx, Vars](
     f: (Request, Context[Ctx], Vars, Scope) => Response | Halt,
-  )
-      extends Handler[Ctx, Vars] {
+  ) extends Handler[Ctx, Vars] {
     override def handle(
       request: Request,
       context: Context[Ctx],

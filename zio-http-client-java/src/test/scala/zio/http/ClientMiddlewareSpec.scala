@@ -52,12 +52,12 @@ object ClientMiddlewareSpec extends ZIOSpecDefault {
       test("m1.andThen(m2) applies both middlewares") {
         var m1Called = false
         var m2Called = false
-        val m1 = ClientMiddleware { c =>
+        val m1       = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { m1Called = true; c.send(r) }
           }
         }
-        val m2 = ClientMiddleware { c =>
+        val m2       = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { m2Called = true; c.send(r) }
           }
@@ -67,12 +67,12 @@ object ClientMiddlewareSpec extends ZIOSpecDefault {
       },
       test("m1.andThen(m2) calls m1 first then m2") {
         val callOrder = new scala.collection.mutable.ArrayBuffer[Int]()
-        val m1 = ClientMiddleware { c =>
+        val m1        = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { callOrder += 1; c.send(r) }
           }
         }
-        val m2 = ClientMiddleware { c =>
+        val m2        = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { callOrder += 2; c.send(r) }
           }
@@ -106,17 +106,17 @@ object ClientMiddlewareSpec extends ZIOSpecDefault {
       test("client @@ m1 @@ m2 chains correctly") {
         var m1Called = false
         var m2Called = false
-        val m1 = ClientMiddleware { c =>
+        val m1       = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { m1Called = true; c.send(r) }
           }
         }
-        val m2 = ClientMiddleware { c =>
+        val m2       = ClientMiddleware { c =>
           new Client {
             def send(r: Request): Response = { m2Called = true; c.send(r) }
           }
         }
-        val client = alwaysOk @@ m1 @@ m2
+        val client   = alwaysOk @@ m1 @@ m2
         client.send(testReq)
         assertTrue(m1Called && m2Called)
       },
@@ -129,7 +129,7 @@ object ClientMiddlewareSpec extends ZIOSpecDefault {
             def send(r: Request): Response = { callCount += 1; c.send(r) }
           }
         }
-        val client = alwaysOk @@ counter
+        val client    = alwaysOk @@ counter
         client.send(testReq)
         client.send(testReq)
         assertTrue(callCount == 2)
@@ -143,8 +143,8 @@ object ClientMiddlewareSpec extends ZIOSpecDefault {
             }
           }
         }
-        val client = alwaysOk @@ transformer
-        val resp   = client.send(testReq)
+        val client      = alwaysOk @@ transformer
+        val resp        = client.send(testReq)
         assertTrue(resp.status == Status.Created)
       },
     ),

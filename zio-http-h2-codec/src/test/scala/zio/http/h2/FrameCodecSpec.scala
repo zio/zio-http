@@ -6,7 +6,18 @@ import zio.blocks.chunk.Chunk
 import zio.test._
 
 import zio.http.h2.H2Error.Code
-import zio.http.h2.H2Frame.{Continuation, Data, GoAway, Headers, Ping, Priority => PriorityFrame, PushPromise, RstStream, Settings, WindowUpdate}
+import zio.http.h2.H2Frame.{
+  Continuation,
+  Data,
+  GoAway,
+  Headers,
+  Ping,
+  Priority => PriorityFrame,
+  PushPromise,
+  RstStream,
+  Settings,
+  WindowUpdate,
+}
 
 @experimental
 object FrameCodecSpec extends ZIOSpecDefault {
@@ -88,7 +99,8 @@ object FrameCodecSpec extends ZIOSpecDefault {
           assertRoundTrip(frame)
         },
         test("GOAWAY roundtrip preserves debug payload") {
-          val frame = GoAway(lastStreamId = 13, errorCode = Code.ENHANCE_YOUR_CALM, debugData = bytes(0xde, 0xad, 0xbe, 0xef))
+          val frame =
+            GoAway(lastStreamId = 13, errorCode = Code.ENHANCE_YOUR_CALM, debugData = bytes(0xde, 0xad, 0xbe, 0xef))
 
           assertRoundTrip(frame)
         },

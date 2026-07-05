@@ -44,7 +44,9 @@ final case class TestClient(
       //    expectedRequest == realRequest
       expectedRequest.url.relative == realRequest.url &&
       expectedRequest.method == realRequest.method &&
-      expectedRequest.headers.toList.toSet.forall(expectedHeader => realRequest.headers.toList.toSet.contains(expectedHeader))
+      expectedRequest.headers.toList.toSet.forall(expectedHeader =>
+        realRequest.headers.toList.toSet.contains(expectedHeader),
+      )
     }
     addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
       if (!isDefinedAt(realRequest))

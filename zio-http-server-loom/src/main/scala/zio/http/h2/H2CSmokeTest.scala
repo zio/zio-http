@@ -20,7 +20,8 @@ object H2CSmokeTest {
 
   def main(args: Array[String]): Unit = {
     val routes    = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
-    val transport = new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
+    val transport =
+      new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
     val handle    = transport.start()
 
     try {
@@ -90,18 +91,18 @@ object H2CSmokeTest {
 
     while (!done) {
       input.readFrame() match {
-        case Settings(true, _)                          => ()
-        case Settings(false, _)                         => throw new AssertionError("Unexpected non-ack SETTINGS frame after handshake")
+        case Settings(true, _)  => ()
+        case Settings(false, _) => throw new AssertionError("Unexpected non-ack SETTINGS frame after handshake")
         case Headers(StreamId, headerBlock, _, _, _, _) =>
           responseFields = Hpack.decode(headerBlock) match {
             case Right(fields) => fields
             case Left(error)   => throw new AssertionError("Failed to decode response headers: " + error)
           }
           done = true
-        case GoAway(_, errorCode, debugData)           =>
+        case GoAway(_, errorCode, debugData)            =>
           val debug = new String(debugData.toArray, StandardCharsets.UTF_8)
           throw new AssertionError(s"Server sent GOAWAY: error=$errorCode debug=$debug")
-        case other                                     =>
+        case other                                      =>
           throw new AssertionError("Unexpected frame while waiting for response headers: " + other)
       }
     }
@@ -115,7 +116,7 @@ object H2CSmokeTest {
     def readFrame(): H2Frame = {
       while (true) {
         FrameCodec.decode(buffer) match {
-          case Right((decoded, rest))      =>
+          case Right((decoded, rest))         =>
             buffer = rest
             return decoded
           case Left(H2Error.InsufficientData) =>

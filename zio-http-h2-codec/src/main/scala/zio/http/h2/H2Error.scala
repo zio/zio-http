@@ -38,8 +38,8 @@ object H2Error {
     val HTTP_1_1_REQUIRED: Code   = Code(0xd)
   }
 
-  case object InsufficientData extends H2Error
-  final case class InvalidFrameSize(msg: String) extends H2Error
-  case object InvalidPadding extends H2Error
+  case object InsufficientData                    extends H2Error
+  final case class InvalidFrameSize(msg: String)  extends H2Error
+  case object InvalidPadding                      extends H2Error
   final case class ProtocolViolation(msg: String) extends H2Error
 }

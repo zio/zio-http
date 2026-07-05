@@ -22,58 +22,69 @@ import zio.blocks.scope.Scope
 import scala.quoted._
 
 /**
- * Scala 3 implementation of the FINAL two-phase `pattern -> handler(fn)` design (D9/D12 in
- * `.omo/drafts/route-pattern-typed-vars.md`).
+ * Scala 3 implementation of the FINAL two-phase `pattern -> handler(fn)` design
+ * (D9/D12 in `.omo/drafts/route-pattern-typed-vars.md`).
  *
  * ==Why this is ONE macro pass triggered at `->`, not two independently-typed phases==
  *
- * The draft describes `handler(fn)` as returning a precisely-typed `Handler[Ctx, RequiredVars]`
- * that `->` then matches against the pattern by INSPECTING THAT TYPE. That is not implementable
- * as written on Scala 3: `handler`'s precise return type is only known after inlining it (it is a
- * `transparent inline` macro), but Scala resolves which `->` overload/extension applies to its
- * result BEFORE forcing that inlining, using `handler`'s non-transparent declared type (`Any`) for
- * the applicability check. Every overload of `->` requiring `h: Handler[Ctx, Req]` therefore fails
- * to apply to a `handler(fn)` argument, and calls silently fall back to `scala.Predef.ArrowAssoc`
- * (building a plain `(RoutePattern, Handler)` tuple instead of a `Route`) - a real, reproduced
- * failure mode during this implementation, not a hypothetical one.
+ * The draft describes `handler(fn)` as returning a precisely-typed
+ * `Handler[Ctx, RequiredVars]` that `->` then matches against the pattern by
+ * INSPECTING THAT TYPE. That is not implementable as written on Scala 3:
+ * `handler`'s precise return type is only known after inlining it (it is a
+ * `transparent inline` macro), but Scala resolves which `->` overload/extension
+ * applies to its result BEFORE forcing that inlining, using `handler`'s
+ * non-transparent declared type (`Any`) for the applicability check. Every
+ * overload of `->` requiring `h: Handler[Ctx, Req]` therefore fails to apply to
+ * a `handler(fn)` argument, and calls silently fall back to
+ * `scala.Predef.ArrowAssoc` (building a plain `(RoutePattern, Handler)` tuple
+ * instead of a `Route`) - a real, reproduced failure mode during this
+ * implementation, not a hypothetical one.
  *
- * The fix: `->` is a SINGLE macro over an unconstrained `inline h: Any` parameter (so it always
- * applies, and - being an explicit-import extension - takes priority over `Predef.ArrowAssoc`
- * regardless of `h`'s shape). It inspects `h`'s raw syntax tree: if `h` is itself a call to
- * [[RouteBinding.handler]], `->` extracts the ORIGINAL function literal from that call and runs
- * the full name/type classification (D7) and pattern-matching (D6) in one pass, directly building
- * the final `Handler[Ctx, A]`. Otherwise `h` is treated as an already-built `Handler[Ctx, A]`
- * value (e.g. `Handler.succeed(...)`) and passed straight through to `Route.apply`, unmodified.
- * [[RouteBinding.handler]] itself remains a correct, independently-typed `transparent inline`
- * macro for any OTHER (non-`->`) use of its result.
+ * The fix: `->` is a SINGLE macro over an unconstrained `inline h: Any`
+ * parameter (so it always applies, and - being an explicit-import extension -
+ * takes priority over `Predef.ArrowAssoc` regardless of `h`'s shape). It
+ * inspects `h`'s raw syntax tree: if `h` is itself a call to
+ * [[RouteBinding.handler]], `->` extracts the ORIGINAL function literal from
+ * that call and runs the full name/type classification (D7) and
+ * pattern-matching (D6) in one pass, directly building the final
+ * `Handler[Ctx, A]`. Otherwise `h` is treated as an already-built
+ * `Handler[Ctx, A]` value (e.g. `Handler.succeed(...)`) and passed straight
+ * through to `Route.apply`, unmodified. [[RouteBinding.handler]] itself remains
+ * a correct, independently-typed `transparent inline` macro for any OTHER
+ * (non-`->`) use of its result.
  *
  * ==Why the Context-vs-PathVar decision is safe without seeing the pattern==
  *
- * For every parameter of `fn` that is not `Request`/`Scope`-typed, the classifier must decide
- * whether it is an open path-variable requirement (matched against the pattern below) or a
- * `Context`-tier capability (resolved via `Context[Ctx].get[T]`, D7 tier 2). This is decidable
- * without the pattern because zio-blocks' `SegmentCodec` can only ever capture a path variable as
- * one of exactly five primitive types: `Int`, `Long`, `String`, `Boolean`, `java.util.UUID` (see
- * `SegmentCodec.int`/`long`/`string`/`bool`/`uuid`). A parameter typed as one of those five is
- * therefore ALWAYS a path-variable candidate (it can never legitimately be a `Context` capability,
- * since `PathVar`'s own `Type` parameter is restricted to that same set); a parameter typed as
- * anything else (e.g. a custom `BasketId`) can NEVER be a path variable, so it is ALWAYS resolved
- * from `Context`. A path-variable candidate that the pattern does not provide is unsatisfiable (no
- * further `Context` fallback applies to it) and is reported as a compile error at the `->` call
+ * For every parameter of `fn` that is not `Request`/`Scope`-typed, the
+ * classifier must decide whether it is an open path-variable requirement
+ * (matched against the pattern below) or a `Context`-tier capability (resolved
+ * via `Context[Ctx].get[T]`, D7 tier 2). This is decidable without the pattern
+ * because zio-blocks' `SegmentCodec` can only ever capture a path variable as
+ * one of exactly five primitive types: `Int`, `Long`, `String`, `Boolean`,
+ * `java.util.UUID` (see `SegmentCodec.int`/`long`/`string`/`bool`/`uuid`). A
+ * parameter typed as one of those five is therefore ALWAYS a path-variable
+ * candidate (it can never legitimately be a `Context` capability, since
+ * `PathVar`'s own `Type` parameter is restricted to that same set); a parameter
+ * typed as anything else (e.g. a custom `BasketId`) can NEVER be a path
+ * variable, so it is ALWAYS resolved from `Context`. A path-variable candidate
+ * that the pattern does not provide is unsatisfiable (no further `Context`
+ * fallback applies to it) and is reported as a compile error at the `->` call
  * site - this is the plan's required negative-test behavior.
  */
 object RouteBinding {
 
   /**
-   * Reads `fn`'s parameter names and types via `quotes.reflect`, resolves `Request`/`Scope`-typed
-   * parameters (D7 tier 3) and any parameter whose type is NOT one of the five path-var-eligible
-   * primitives (D7 tier 2, via `Context[Ctx].get[T]`) EAGERLY, independent of any route pattern,
-   * and leaves every remaining (path-var-eligible-typed) parameter as an open `PathVar[Name,Type]`
-   * entry in the returned `Handler`'s `Vars` tuple type, in `fn`'s own declared parameter order.
-   * When combined immediately with `->` (as in every worked example), `->` bypasses this
-   * intermediate `Handler` entirely and re-derives the same classification directly against the
-   * pattern in one pass (see the module doc above) - this method also stands on its own for any
-   * other use of a name+type-classified `Handler`.
+   * Reads `fn`'s parameter names and types via `quotes.reflect`, resolves
+   * `Request`/`Scope`-typed parameters (D7 tier 3) and any parameter whose type
+   * is NOT one of the five path-var-eligible primitives (D7 tier 2, via
+   * `Context[Ctx].get[T]`) EAGERLY, independent of any route pattern, and
+   * leaves every remaining (path-var-eligible-typed) parameter as an open
+   * `PathVar[Name,Type]` entry in the returned `Handler`'s `Vars` tuple type,
+   * in `fn`'s own declared parameter order. When combined immediately with `->`
+   * (as in every worked example), `->` bypasses this intermediate `Handler`
+   * entirely and re-derives the same classification directly against the
+   * pattern in one pass (see the module doc above) - this method also stands on
+   * its own for any other use of a name+type-classified `Handler`.
    */
   transparent inline def handler[H](inline fn: H): Any =
     ${ RouteBindingMacros.handlerImpl[H]('fn) }
@@ -81,13 +92,15 @@ object RouteBinding {
   extension [A, PV](pattern: RoutePattern[A] { type PathVars = PV }) {
 
     /**
-     * Builds a `Route[Ctx]` from `pattern` and `h`. If `h` is a `handler(fn)` call, matches `fn`'s
-     * open path-variable requirements against `PV` by (name, type), in any order (D6), rewires
-     * each match to direct positional access into the pattern's real runtime value tuple, warns
-     * (via `quotes.reporting.warning`) on every `PV` entry no requirement consumes (D4), and
-     * raises a compile error if a requirement has no match. Otherwise `h` is treated as an
-     * already-built `Handler[Ctx, A]` value (e.g. `Handler.succeed(...)`) and passed straight
-     * through to the existing `Route.apply`.
+     * Builds a `Route[Ctx]` from `pattern` and `h`. If `h` is a `handler(fn)`
+     * call, matches `fn`'s open path-variable requirements against `PV` by
+     * (name, type), in any order (D6), rewires each match to direct positional
+     * access into the pattern's real runtime value tuple, warns (via
+     * `quotes.reporting.warning`) on every `PV` entry no requirement consumes
+     * (D4), and raises a compile error if a requirement has no match. Otherwise
+     * `h` is treated as an already-built `Handler[Ctx, A]` value (e.g.
+     * `Handler.succeed(...)`) and passed straight through to the existing
+     * `Route.apply`.
      */
     transparent inline def ->(inline h: Any): Route[Nothing] =
       ${ RouteBindingMacros.arrowImpl[A, PV]('pattern, 'h) }
@@ -123,15 +136,15 @@ private[http] object RouteBindingMacros {
 
     unwrapTerm(term) match {
       case Block(List(defdef: DefDef), Closure(_, _)) => paramsOf(defdef)
-      case Block(stats, Closure(_, _)) =>
+      case Block(stats, Closure(_, _))                =>
         stats.collectFirst { case defdef: DefDef => defdef } match {
           case Some(defdef) => paramsOf(defdef)
           case None         =>
             report.errorAndAbort("handler(...) requires a plain function literal, e.g. handler((id: Int) => ...)")
         }
-      case other =>
+      case other                                      =>
         report.errorAndAbort(
-          s"handler(...) requires a plain function literal, e.g. handler((id: Int) => ...); got: ${other.show}"
+          s"handler(...) requires a plain function literal, e.g. handler((id: Int) => ...); got: ${other.show}",
         )
     }
   }
@@ -139,32 +152,40 @@ private[http] object RouteBindingMacros {
   private def pathVarSymbol(using q: Quotes) =
     q.reflect.Symbol.requiredClass("zio.blocks.endpoint.PathVar")
 
-  /** The sibling (NOT a subtype of [[pathVarSymbol]]) marker `zio.blocks.endpoint.PathVar.Ignored`
-    * that `SegmentCodec`'s `.unused` builder relabels a leaf segment's `PathVars` entry to (see
-    * zio-blocks' own `PathVar.scala` doc). Only ever appears on the PATTERN side (a `PV` decomposed
-    * by [[decomposePathVarTuple]]) - a `handler(fn)`'s own declared parameter can never itself be
-    * "marked unused", so [[tryDecomposePathVarTuple]] (which decomposes the HANDLER's `RequiredVars`
-    * tuple) deliberately does NOT recognize this symbol.
-    */
+  /**
+   * The sibling (NOT a subtype of [[pathVarSymbol]]) marker
+   * `zio.blocks.endpoint.PathVar.Ignored` that `SegmentCodec`'s `.unused`
+   * builder relabels a leaf segment's `PathVars` entry to (see zio-blocks' own
+   * `PathVar.scala` doc). Only ever appears on the PATTERN side (a `PV`
+   * decomposed by [[decomposePathVarTuple]]) - a `handler(fn)`'s own declared
+   * parameter can never itself be "marked unused", so
+   * [[tryDecomposePathVarTuple]] (which decomposes the HANDLER's `RequiredVars`
+   * tuple) deliberately does NOT recognize this symbol.
+   */
   private def pathVarIgnoredSymbol(using q: Quotes) =
     q.reflect.Symbol.requiredClass("zio.blocks.endpoint.PathVar.Ignored")
 
-  /** Decomposes an ordered `PathVar[N0,T0] *: PathVar.Ignored[N1,T1] *: ... *: EmptyTuple` tuple
-    * type (or `EmptyTuple`) into a `List[(name, type, isIgnored)]`, preserving order. `isIgnored`
-    * is `true` for a `PathVar.Ignored[Name,Type]` element (a segment marked `.unused` in the route
-    * pattern DSL, e.g. `string("b").unused`) and `false` for a plain `PathVar[Name,Type]` element.
-    * An `Ignored` entry occupies a REAL slot in the resulting list, at the SAME position it has in
-    * the pattern's real runtime value tuple - callers must never filter it out, since doing so
-    * would silently shift every subsequent entry's index and corrupt positional runtime binding
-    * (see `arrowImpl`'s `positions`/`isIdentity` logic, which indexes into this list's FULL length).
-    */
+  /**
+   * Decomposes an ordered
+   * `PathVar[N0,T0] *: PathVar.Ignored[N1,T1] *: ... *: EmptyTuple` tuple type
+   * (or `EmptyTuple`) into a `List[(name, type, isIgnored)]`, preserving order.
+   * `isIgnored` is `true` for a `PathVar.Ignored[Name,Type]` element (a segment
+   * marked `.unused` in the route pattern DSL, e.g. `string("b").unused`) and
+   * `false` for a plain `PathVar[Name,Type]` element. An `Ignored` entry
+   * occupies a REAL slot in the resulting list, at the SAME position it has in
+   * the pattern's real runtime value tuple - callers must never filter it out,
+   * since doing so would silently shift every subsequent entry's index and
+   * corrupt positional runtime binding (see `arrowImpl`'s
+   * `positions`/`isIdentity` logic, which indexes into this list's FULL
+   * length).
+   */
   private def decomposePathVarTuple(using
-    q: Quotes
+    q: Quotes,
   )(tpe: q.reflect.TypeRepr): List[(String, q.reflect.TypeRepr, Boolean)] = {
     import q.reflect._
 
-    val pvSym         = pathVarSymbol
-    val pvIgnoredSym   = pathVarIgnoredSymbol
+    val pvSym        = pathVarSymbol
+    val pvIgnoredSym = pathVarIgnoredSymbol
 
     // `PV` is frequently a deeply-nested, un-reduced `PathVarTuples.Concat[L, R]` match-type
     // alias (from chained `/`/`~` composition, often over path-dependent operands like
@@ -178,7 +199,7 @@ private[http] object RouteBindingMacros {
     def literalName(nameTpe: TypeRepr): String =
       nameTpe.dealias match {
         case ConstantType(StringConstant(s)) => s
-        case other                            =>
+        case other                           =>
           report.errorAndAbort(s"Expected a literal string Name in PathVar, got: ${other.show}")
       }
 
@@ -189,13 +210,13 @@ private[http] object RouteBindingMacros {
     // application; anything else is a genuinely malformed `PathVars` type and aborts.
     def resolveEntry(elem: TypeRepr): (String, TypeRepr, Boolean) =
       elem.dealias match {
-        case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvSym =>
+        case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvSym        =>
           (literalName(nameTpe), valTpe, false)
         case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pvIgnoredSym =>
           (literalName(nameTpe), valTpe, true)
-        case other =>
+        case other                                                                             =>
           report.errorAndAbort(
-            s"Expected a PathVar[Name,Type] or PathVar.Ignored[Name,Type] entry, got: ${other.show}"
+            s"Expected a PathVar[Name,Type] or PathVar.Ignored[Name,Type] entry, got: ${other.show}",
           )
       }
 
@@ -217,13 +238,13 @@ private[http] object RouteBindingMacros {
         dt match {
           // Native `*:`-cons chain (`A *: B *: EmptyTuple`) - some `combinators.Tuples` givens may
           // still produce genuine cons-chains depending on which given fires, so keep handling it.
-          case AppliedType(consTycon, List(head, tail)) if consTycon.typeSymbol.name == "*:" =>
+          case AppliedType(consTycon, List(head, tail)) if consTycon.typeSymbol.name == "*:"                =>
             resolveEntry(head) :: loop(tail)
           // Nominal `TupleN` (N = 1..22), e.g. `scala.Tuple2[PathVar[..], PathVar[..]]` or
           // `scala.Tuple1[PathVar[..]]` - the shape `combinators.Tuples`' Scala 3 multi-value
           // fallback givens produce now that the old `*:`-chain-producing `PathVarTuples` type is
           // gone. Each `typeArg` is one ordered `PathVar`/`PathVar.Ignored` element.
-          case _ if isNominalTuple(dt.typeSymbol) =>
+          case _ if isNominalTuple(dt.typeSymbol)                                                           =>
             dt.typeArgs.map(resolveEntry)
           // A BARE single captured var: a lone `PathVar[Name,Type]` / `PathVar.Ignored[Name,Type]`
           // with NO tuple wrapper at all - zio-blocks now encodes a single captured segment's
@@ -231,7 +252,7 @@ private[http] object RouteBindingMacros {
           // `dt` itself as the sole entry.
           case AppliedType(pvTycon, _) if pvTycon.typeSymbol == pvSym || pvTycon.typeSymbol == pvIgnoredSym =>
             List(resolveEntry(dt))
-          case other =>
+          case other                                                                                        =>
             report.errorAndAbort(s"Expected an ordered PathVar tuple, got: ${other.show}")
         }
     }
@@ -252,8 +273,8 @@ private[http] object RouteBindingMacros {
     val contextTypeOf: List[Option[TypeRepr]] = params.map { case (_, tpe) =>
       if (tpe =:= requestTpe || tpe =:= scopeTpe || isPathVarEligible(tpe)) None else Some(tpe)
     }
-    var pvCounter = 0
-    val pathVarIndexOf: List[Int] = params.map { case (_, tpe) =>
+    var pvCounter                             = 0
+    val pathVarIndexOf: List[Int]             = params.map { case (_, tpe) =>
       if (isPathVarEligible(tpe)) { val i = pvCounter; pvCounter += 1; i }
       else -1
     }
@@ -263,7 +284,7 @@ private[http] object RouteBindingMacros {
       contextTypeOf.flatten.foreach(t => if (!seen.exists(_ =:= t)) seen += t)
       seen.toList
     }
-    val ctxType: TypeRepr = ctxTypes match {
+    val ctxType: TypeRepr        = ctxTypes match {
       case Nil          => TypeRepr.of[Any]
       case head :: tail => tail.foldLeft(head)((acc, t) => AndType(acc, t))
     }
@@ -288,7 +309,7 @@ private[http] object RouteBindingMacros {
               requestE: Expr[Request],
               contextE: Expr[Context[ctxT]],
               varsE: Expr[reqVarsT],
-              scopeE: Expr[Scope]
+              scopeE: Expr[Scope],
             ): Term =
               if (tpe =:= requestTpe) requestE.asTerm
               else if (tpe =:= scopeTpe) scopeE.asTerm
@@ -307,7 +328,8 @@ private[http] object RouteBindingMacros {
                     // directly (see PathVar.scala's "always a tuple" invariant) - so `vars` is
                     // ALWAYS accessed positionally here, regardless of arity.
                     tpe.asType match {
-                      case '[tt] => '{ $varsE.asInstanceOf[Product].productElement(${ Expr(pvIndex) }).asInstanceOf[tt] }.asTerm
+                      case '[tt] =>
+                        '{ $varsE.asInstanceOf[Product].productElement(${ Expr(pvIndex) }).asInstanceOf[tt] }.asTerm
                     }
                 }
 
@@ -319,28 +341,33 @@ private[http] object RouteBindingMacros {
                     buildArg(tpe, contextTypeOf(i), pathVarIndexOf(i), 'request, 'context, 'vars, 'scope)
                   }
                   Apply(Select.unique(fnExpr.asTerm, "apply"), argTerms).asExprOf[Response | Halt]
-                }
+                },
               )
             }
         }
     }
   }
 
-  /** Like [[decomposePathVarTuple]], but returns `None` (via ordinary pattern matching, never
-    * `report.errorAndAbort` - which aborts the whole compilation and is not something a
-    * `try`/`catch` can intercept) instead of a compile error when `tpe` does not reduce to an
-    * ordered `PathVar` tuple. Used to tell a `handler(fn)`-derived `Handler[Ctx, RequiredVars]`
-    * (whose `Vars` is ALWAYS such a tuple, by construction in [[handlerImpl]]) apart from an
-    * already-built `Handler[Ctx, V]` value (e.g. `Handler.succeed(...)`), whose `Vars` generally
-    * is not.
-    *
-    * Deliberately does NOT recognize `PathVar.Ignored` (unlike [[decomposePathVarTuple]]): this
-    * decomposes the HANDLER's own declared parameter tuple (built exclusively from plain
-    * `PathVar[Name,Type]` entries by [[handlerImpl]]'s `pathVarEntryType`), never the route
-    * pattern's `PathVars` registry - a handler parameter can never itself be "marked unused", only
-    * a pattern-side `PathVars` entry can be.
-    */
-  private def tryDecomposePathVarTuple(using quotes: Quotes)(tpe: quotes.reflect.TypeRepr): Option[List[(String, quotes.reflect.TypeRepr)]] = {
+  /**
+   * Like [[decomposePathVarTuple]], but returns `None` (via ordinary pattern
+   * matching, never `report.errorAndAbort` - which aborts the whole compilation
+   * and is not something a `try`/`catch` can intercept) instead of a compile
+   * error when `tpe` does not reduce to an ordered `PathVar` tuple. Used to
+   * tell a `handler(fn)`-derived `Handler[Ctx, RequiredVars]` (whose `Vars` is
+   * ALWAYS such a tuple, by construction in [[handlerImpl]]) apart from an
+   * already-built `Handler[Ctx, V]` value (e.g. `Handler.succeed(...)`), whose
+   * `Vars` generally is not.
+   *
+   * Deliberately does NOT recognize `PathVar.Ignored` (unlike
+   * [[decomposePathVarTuple]]): this decomposes the HANDLER's own declared
+   * parameter tuple (built exclusively from plain `PathVar[Name,Type]` entries
+   * by [[handlerImpl]]'s `pathVarEntryType`), never the route pattern's
+   * `PathVars` registry - a handler parameter can never itself be "marked
+   * unused", only a pattern-side `PathVars` entry can be.
+   */
+  private def tryDecomposePathVarTuple(using
+    quotes: Quotes,
+  )(tpe: quotes.reflect.TypeRepr): Option[List[(String, quotes.reflect.TypeRepr)]] = {
     import quotes.reflect._
 
     def fullyReduce(t: TypeRepr): TypeRepr = {
@@ -358,11 +385,11 @@ private[http] object RouteBindingMacros {
               case AppliedType(pvTycon, List(nameTpe, valTpe)) if pvTycon.typeSymbol == pathVarSymbol =>
                 nameTpe.dealias match {
                   case ConstantType(StringConstant(s)) => loop(tail).map((s, valTpe) :: _)
-                  case _                                => None
+                  case _                               => None
                 }
-              case _ => None
+              case _                                                                                  => None
             }
-          case _ => None
+          case _                                                                             => None
         }
     }
 
@@ -370,19 +397,22 @@ private[http] object RouteBindingMacros {
   }
 
   /**
-   * Note on why this inspects `h`'s TYPE rather than its syntax tree: an earlier version tried to
-   * detect "is `h` syntactically a call to `RouteBinding.handler`" from the raw AST. That does not
-   * work: since [[RouteBinding.handler]] is itself `transparent inline`, Scala fully expands it
-   * (to determine its precise type) as an ordinary part of elaborating `->`'s `inline h: Any`
-   * argument, BEFORE this macro body ever runs - by the time `arrowImpl` inspects `h`, its syntax
-   * tree is already the fully-expanded `Handler.extracted[Ctx, RequiredVars](...)` call, not the
-   * original `handler(fn)` call. Inspecting `h`'s resulting TYPE instead is exactly as precise
-   * (`RequiredVars` is uniquely and only ever a `PathVar` tuple when produced by [[handlerImpl]])
-   * and is robust to however the expansion happens to be represented.
+   * Note on why this inspects `h`'s TYPE rather than its syntax tree: an
+   * earlier version tried to detect "is `h` syntactically a call to
+   * `RouteBinding.handler`" from the raw AST. That does not work: since
+   * [[RouteBinding.handler]] is itself `transparent inline`, Scala fully
+   * expands it (to determine its precise type) as an ordinary part of
+   * elaborating `->`'s `inline h: Any` argument, BEFORE this macro body ever
+   * runs - by the time `arrowImpl` inspects `h`, its syntax tree is already the
+   * fully-expanded `Handler.extracted[Ctx, RequiredVars](...)` call, not the
+   * original `handler(fn)` call. Inspecting `h`'s resulting TYPE instead is
+   * exactly as precise (`RequiredVars` is uniquely and only ever a `PathVar`
+   * tuple when produced by [[handlerImpl]]) and is robust to however the
+   * expansion happens to be represented.
    */
   def arrowImpl[A: Type, PV: Type](
     patternExpr: Expr[RoutePattern[A] { type PathVars = PV }],
-    hExpr: Expr[Any]
+    hExpr: Expr[Any],
   )(using quotes: Quotes): Expr[Route[Nothing]] = {
     import quotes.reflect._
 
@@ -394,7 +424,7 @@ private[http] object RouteBindingMacros {
       case AppliedType(_, List(ctxArg, varsArg)) =>
         tryDecomposePathVarTuple(varsArg) match {
           case Some(reqEntries) =>
-            var consumed = Set.empty[Int]
+            var consumed             = Set.empty[Int]
             // Matching cares only about (name, type) equality, never about `isIgnored` - a
             // `.unused` pattern segment (D-Ignored's whole point) remains perfectly bindable if a
             // handler parameter actually references it; `isIgnored` only affects which WARNING (if
@@ -406,10 +436,10 @@ private[http] object RouteBindingMacros {
                 case Some((_, idx)) =>
                   consumed += idx
                   idx
-                case None            =>
+                case None           =>
                   report.errorAndAbort(
                     s"PathVar `$name: ${tpe.show}` is required by this handler but is not provided by the " +
-                      s"route pattern (which declares: ${pvEntries.map { case (n, t, _) => s"$n: ${t.show}" }.mkString(", ")})."
+                      s"route pattern (which declares: ${pvEntries.map { case (n, t, _) => s"$n: ${t.show}" }.mkString(", ")}).",
                   )
                   -1
               }
@@ -442,7 +472,10 @@ private[http] object RouteBindingMacros {
               if (!isIgnored && !consumed.contains(idx))
                 report.warning(s"Variable $name:$displayType was defined in the path but is never used", distinctPos)
               else if (isIgnored && consumed.contains(idx))
-                report.warning(s"Variable $name:$displayType was marked .unused but is referenced by the handler", distinctPos)
+                report.warning(
+                  s"Variable $name:$displayType was marked .unused but is referenced by the handler",
+                  distinctPos,
+                )
             }
 
             val n = pvEntries.length
@@ -473,7 +506,7 @@ private[http] object RouteBindingMacros {
                 varsArg.asType match {
                   case '[varsT] =>
                     val hE: Expr[Handler[ctxT, varsT]] = hExpr.asExprOf[Handler[ctxT, varsT]]
-                    val built: Expr[Route[ctxT]] = '{
+                    val built: Expr[Route[ctxT]]       = '{
                       Route(
                         $patternExpr,
                         Handler.extracted[ctxT, A]((request, context, a, scope) =>
@@ -485,12 +518,12 @@ private[http] object RouteBindingMacros {
                                   if (n <= 1) '{ a }.asTerm
                                   else '{ a.asInstanceOf[Product].productElement(${ Expr(pos) }) }.asTerm
                                 }
-                                val varsTupleAny = buildTuple(elemTerms).asExprOf[Any]
+                                val varsTupleAny          = buildTuple(elemTerms).asExprOf[Any]
                                 '{ $varsTupleAny.asInstanceOf[varsT] }
                               }
                             '{ $hE.handle(request, context, $varsTuple, scope) }
-                          }
-                        )
+                          },
+                        ),
                       )
                     }
                     built
@@ -504,10 +537,10 @@ private[http] object RouteBindingMacros {
                 built
             }
         }
-      case _ =>
+      case _                                     =>
         report.errorAndAbort(
           "`->` expects either a `handler(...)`-wrapped function or an existing `Handler[Ctx, V]` " +
-            s"value (e.g. `Handler.succeed(...)`); got a value of type: ${hType.show}"
+            s"value (e.g. `Handler.succeed(...)`); got a value of type: ${hType.show}",
         )
     }
   }

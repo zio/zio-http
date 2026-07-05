@@ -28,21 +28,21 @@ object Setting {
 }
 
 object H2Settings {
-  val DefaultHeaderTableSize: Long               = 4096L
-  val DefaultEnablePush: Long                    = 1L
-  val DefaultInitialWindowSize: Long             = 65535L
-  val DefaultMaxFrameSize: Long                  = 16384L
-  val MinimumMaxFrameSize: Long                  = 16384L
-  val MaximumMaxFrameSize: Long                  = 16777215L
-  val DefaultMaxConcurrentStreams: Option[Long]  = None
-  val DefaultMaxHeaderListSize: Option[Long]     = None
-  val DefaultSettings: List[Setting]             = List(
+  val DefaultHeaderTableSize: Long              = 4096L
+  val DefaultEnablePush: Long                   = 1L
+  val DefaultInitialWindowSize: Long            = 65535L
+  val DefaultMaxFrameSize: Long                 = 16384L
+  val MinimumMaxFrameSize: Long                 = 16384L
+  val MaximumMaxFrameSize: Long                 = 16777215L
+  val DefaultMaxConcurrentStreams: Option[Long] = None
+  val DefaultMaxHeaderListSize: Option[Long]    = None
+  val DefaultSettings: List[Setting]            = List(
     Setting(Setting.HEADER_TABLE_SIZE, DefaultHeaderTableSize),
     Setting(Setting.ENABLE_PUSH, DefaultEnablePush),
     Setting(Setting.INITIAL_WINDOW_SIZE, DefaultInitialWindowSize),
     Setting(Setting.MAX_FRAME_SIZE, DefaultMaxFrameSize),
   )
-  val KnownIdentifiers: Set[Int]                 = Set(
+  val KnownIdentifiers: Set[Int]                = Set(
     Setting.HEADER_TABLE_SIZE,
     Setting.ENABLE_PUSH,
     Setting.MAX_CONCURRENT_STREAMS,

@@ -25,7 +25,7 @@ case class BoundConnector(address: BoundAddress, protocol: Protocol)
 
 sealed trait BoundAddress
 object BoundAddress {
-  case class Tcp(host: String, port: Int) extends BoundAddress
+  case class Tcp(host: String, port: Int)   extends BoundAddress
   case class Unix(path: java.nio.file.Path) extends BoundAddress
 }
 

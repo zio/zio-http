@@ -19,7 +19,7 @@ object Hpack {
 
 @experimental
 final class HpackEncoder(initialMaxTableSize: Int = 4096) {
-  private val dynamicTable = new DynamicTable(initialMaxTableSize)
+  private val dynamicTable                  = new DynamicTable(initialMaxTableSize)
   private var pendingMinSize: Option[Int]   = None
   private var pendingFinalSize: Option[Int] = None
 
@@ -65,7 +65,11 @@ final class HpackEncoder(initialMaxTableSize: Int = 4096) {
   private def encodeIndexed(output: ByteArrayOutputStream, index: Int): Unit =
     writePrefixedInteger(output, index, 7, 0x80)
 
-  private def encodeLiteral(output: ByteArrayOutputStream, header: HeaderField, representation: LiteralRepresentation): Unit = {
+  private def encodeLiteral(
+    output: ByteArrayOutputStream,
+    header: HeaderField,
+    representation: LiteralRepresentation,
+  ): Unit = {
     val nameIndex = findNameIndex(header.name)
     writePrefixedInteger(output, if (nameIndex > 0) nameIndex else 0, representation.prefixBits, representation.mask)
     if (nameIndex <= 0) writeStringLiteral(output, header.name)
@@ -129,7 +133,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
 
       if ((current & 0x80) != 0) {
         decodeIndexed(input, offset) match {
-          case Left(error) => return Left(error)
+          case Left(error)               => return Left(error)
           case Right((header, consumed)) =>
             headers += header
             offset += consumed
@@ -137,7 +141,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
         }
       } else if ((current & 0x40) != 0) {
         decodeLiteral(input, offset, 6, shouldIndex = true, sensitive = false) match {
-          case Left(error) => return Left(error)
+          case Left(error)               => return Left(error)
           case Right((header, consumed)) =>
             headers += header
             dynamicTable.add(header.copy(sensitive = false))
@@ -147,7 +151,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
       } else if ((current & 0x20) != 0) {
         if (sawHead) return Left("HPACK dynamic table size update must appear before header fields in a block")
         IntegerCodec.decodeInt(input, offset, 5) match {
-          case Left(error) => return Left(error)
+          case Left(error)                => return Left(error)
           case Right((newSize, consumed)) =>
             if (newSize > maxAllowedTableSize) return Left(s"HPACK dynamic table size update exceeds limit: $newSize")
             dynamicTable.setMaxSize(newSize)
@@ -155,7 +159,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
         }
       } else if ((current & 0x10) != 0) {
         decodeLiteral(input, offset, 4, shouldIndex = false, sensitive = true) match {
-          case Left(error) => return Left(error)
+          case Left(error)               => return Left(error)
           case Right((header, consumed)) =>
             headers += header
             offset += consumed
@@ -163,7 +167,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
         }
       } else {
         decodeLiteral(input, offset, 4, shouldIndex = false, sensitive = false) match {
-          case Left(error) => return Left(error)
+          case Left(error)               => return Left(error)
           case Right((header, consumed)) =>
             headers += header
             offset += consumed
@@ -189,7 +193,7 @@ final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: I
     sensitive: Boolean,
   ): Either[String, (HeaderField, Int)] = {
     IntegerCodec.decodeInt(input, offset, prefixBits).flatMap { case (nameIndex, nameIndexBytes) =>
-      val nameStart = offset + nameIndexBytes
+      val nameStart                                 = offset + nameIndexBytes
       val nameResult: Either[String, (String, Int)] =
         if (nameIndex == 0) decodeStringLiteral(input, nameStart)
         else resolveHeader(nameIndex).map(header => (header.name, 0))

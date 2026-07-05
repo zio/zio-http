@@ -2,7 +2,15 @@ package zio.http.h2
 
 import java.io.OutputStream
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
-import java.util.concurrent.{CancellationException, ConcurrentHashMap, CountDownLatch, ExecutionException, ScheduledFuture, TimeUnit, TimeoutException}
+import java.util.concurrent.{
+  CancellationException,
+  ConcurrentHashMap,
+  CountDownLatch,
+  ExecutionException,
+  ScheduledFuture,
+  TimeUnit,
+  TimeoutException,
+}
 
 import scala.annotation.experimental
 import scala.util.control.NonFatal
@@ -24,9 +32,9 @@ final class H2ConnectionControl(
   private val lastStreamIdState = new AtomicInteger(Int.MaxValue)
   private val idleTimerState    = new AtomicBoolean(false)
   private val idleTimerThread   = new AtomicReference[Thread](null)
-  private val trackedStreams     = new ConcurrentHashMap[Int, java.lang.Boolean]()
+  private val trackedStreams    = new ConcurrentHashMap[Int, java.lang.Boolean]()
 
-  def trackStream(streamId: Int): Unit = trackedStreams.put(streamId, java.lang.Boolean.TRUE)
+  def trackStream(streamId: Int): Unit   = trackedStreams.put(streamId, java.lang.Boolean.TRUE)
   def untrackStream(streamId: Int): Unit = trackedStreams.remove(streamId)
 
   def sendGoAway(lastStreamId: Int, errorCode: H2Error.Code, debug: Chunk[Byte] = Chunk.empty): Unit = {
@@ -48,9 +56,9 @@ final class H2ConnectionControl(
 
   def handleRstStream(frame: H2Frame.RstStream): Unit =
     mux.cancel(frame.streamId, MuxError.Cancelled(frame.streamId, frame.errorCode.toString))
-  def isGoingAway: Boolean = goingAwayState.get()
-  def lastPeerStreamId: Int = lastStreamIdState.get()
-  def startIdleTimer(): Unit =
+  def isGoingAway: Boolean                            = goingAwayState.get()
+  def lastPeerStreamId: Int                           = lastStreamIdState.get()
+  def startIdleTimer(): Unit                          =
     if (idleTimeoutMs > 0L && idleTimerState.compareAndSet(false, true)) {
       lastActivityNanos.set(System.nanoTime())
       val thread = Thread
@@ -60,7 +68,7 @@ final class H2ConnectionControl(
       idleTimerThread.set(thread)
     }
 
-  def resetIdleTimer(): Unit = {
+  def resetIdleTimer(): Unit                               = {
     lastActivityNanos.set(System.nanoTime())
     val thread = idleTimerThread.get()
     if (thread != null) thread.interrupt()
@@ -93,7 +101,7 @@ final class H2ConnectionControl(
     future
   }
 
-  private def idleTimerLoop(): Unit = {
+  private def idleTimerLoop(): Unit                   = {
     val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(idleTimeoutMs)
     while (!closedState.get()) {
       val elapsed   = System.nanoTime() - lastActivityNanos.get()
@@ -120,14 +128,14 @@ final class H2ConnectionControl(
       if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
     }
 
-  private def writeFrame(frame: H2Frame, flush: Boolean): Unit = {
+  private def writeFrame(frame: H2Frame, flush: Boolean): Unit              = {
     val bytes = FrameCodec.encode(frame).toArray
     writeLock.synchronized {
       output.write(bytes)
       if (flush) output.flush()
     }
   }
-  private def recordLastStreamId(streamId: Int): Unit = {
+  private def recordLastStreamId(streamId: Int): Unit                       = {
     var done = false
     while (!done) {
       val current = lastStreamIdState.get()
@@ -135,7 +143,7 @@ final class H2ConnectionControl(
       else done = lastStreamIdState.compareAndSet(current, streamId)
     }
   }
-  private def isStreamOpen(streamId: Int): Boolean =
+  private def isStreamOpen(streamId: Int): Boolean                          =
     mux.get(streamId).exists(!_.isClosed)
   private def cancelStreamsAbove(lastStreamId: Int, reason: MuxError): Unit = {
     val iter = trackedStreams.keySet().iterator()
@@ -144,11 +152,11 @@ final class H2ConnectionControl(
       if (streamId > lastStreamId) mux.cancel(streamId, reason)
     }
   }
-  private def runnable(body: => Unit): Runnable =
+  private def runnable(body: => Unit): Runnable                             =
     new Runnable {
       def run(): Unit = body
     }
-  private def closeQuietly(resource: AutoCloseable): Unit =
+  private def closeQuietly(resource: AutoCloseable): Unit                   =
     if (resource != null) {
       try resource.close()
       catch {
@@ -156,25 +164,25 @@ final class H2ConnectionControl(
       }
     }
   private final class VirtualTimerFuture(deadlineNanos: Long) extends ScheduledFuture[Unit] {
-    private val doneRef      = new AtomicBoolean(false)
-    private val cancelledRef = new AtomicBoolean(false)
-    private val threadRef    = new AtomicReference[Thread](null)
-    private val failureRef   = new AtomicReference[Throwable](null)
-    private val doneLatch    = new CountDownLatch(1)
-    def attach(thread: Thread): Unit = threadRef.set(thread)
-    def complete(): Unit =
+    private val doneRef                                              = new AtomicBoolean(false)
+    private val cancelledRef                                         = new AtomicBoolean(false)
+    private val threadRef                                            = new AtomicReference[Thread](null)
+    private val failureRef                                           = new AtomicReference[Throwable](null)
+    private val doneLatch                                            = new CountDownLatch(1)
+    def attach(thread: Thread): Unit                                 = threadRef.set(thread)
+    def complete(): Unit                                             =
       if (doneRef.compareAndSet(false, true)) doneLatch.countDown()
-    def fail(error: Throwable): Unit = {
+    def fail(error: Throwable): Unit                                 = {
       failureRef.compareAndSet(null, error)
       complete()
     }
-    override def getDelay(unit: TimeUnit): Long =
+    override def getDelay(unit: TimeUnit): Long                      =
       unit.convert(deadlineNanos - System.nanoTime(), TimeUnit.NANOSECONDS)
     override def compareTo(other: java.util.concurrent.Delayed): Int = {
       val diff = getDelay(TimeUnit.NANOSECONDS) - other.getDelay(TimeUnit.NANOSECONDS)
       if (diff < 0L) -1 else if (diff > 0L) 1 else 0
     }
-    override def cancel(mayInterruptIfRunning: Boolean): Boolean = {
+    override def cancel(mayInterruptIfRunning: Boolean): Boolean     = {
       if (doneRef.get()) false
       else {
         val cancelled = cancelledRef.compareAndSet(false, true)
@@ -188,19 +196,19 @@ final class H2ConnectionControl(
         cancelled
       }
     }
-    override def isCancelled: Boolean = cancelledRef.get()
-    override def isDone: Boolean = doneRef.get()
-    override def get(): Unit = {
+    override def isCancelled: Boolean                                = cancelledRef.get()
+    override def isDone: Boolean                                     = doneRef.get()
+    override def get(): Unit                                         = {
       doneLatch.await()
       rethrowIfNeeded()
       ()
     }
-    override def get(timeout: Long, unit: TimeUnit): Unit = {
+    override def get(timeout: Long, unit: TimeUnit): Unit            = {
       if (!doneLatch.await(timeout, unit)) throw new TimeoutException("HTTP/2 request timer did not complete in time")
       rethrowIfNeeded()
       ()
     }
-    private def rethrowIfNeeded(): Unit = {
+    private def rethrowIfNeeded(): Unit                              = {
       if (isCancelled) throw new CancellationException("HTTP/2 request timer cancelled")
       val failure = failureRef.get()
       if (failure != null) throw new ExecutionException(failure)

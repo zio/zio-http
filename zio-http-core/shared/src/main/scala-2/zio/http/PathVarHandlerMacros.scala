@@ -19,22 +19,23 @@ package zio.http
 import scala.reflect.macros.whitebox
 
 /**
- * Whitebox macro implementation backing [[PathVarHandler.handler]] - WHITEBOX (not blackbox,
- * despite the plan's shorthand wording) because the macro must report a return type MORE PRECISE
- * than its declared `Handler[Any, Any]` signature (the exact `Ctx`/`RequiredVars` computed from
- * `fn`'s own parameter list) - mirrors zio-blocks' own Scala 2.13 precedent for this exact kind
- * of "compute-and-refine-a-type-from-inputs" macro (`PathVarTuples.Combine.concat`,
- * `Tuples.TuplesMacros.tuplesImpl`).
+ * Whitebox macro implementation backing [[PathVarHandler.handler]] - WHITEBOX
+ * (not blackbox, despite the plan's shorthand wording) because the macro must
+ * report a return type MORE PRECISE than its declared `Handler[Any, Any]`
+ * signature (the exact `Ctx`/`RequiredVars` computed from `fn`'s own parameter
+ * list) - mirrors zio-blocks' own Scala 2.13 precedent for this exact kind of
+ * "compute-and-refine-a-type-from-inputs" macro
+ * (`PathVarTuples.Combine.concat`, `Tuples.TuplesMacros.tuplesImpl`).
  */
 private[http] object PathVarHandlerMacros {
 
   def handlerImpl[H: c.WeakTypeTag](c: whitebox.Context)(fn: c.Expr[H]): c.Tree = {
     import c.universe._
 
-    val requestType = typeOf[zio.http.Request]
-    val scopeType   = typeOf[zio.blocks.scope.Scope]
+    val requestType           = typeOf[zio.http.Request]
+    val scopeType             = typeOf[zio.blocks.scope.Scope]
     val pathVarCandidateTypes = List(typeOf[Int], typeOf[Long], typeOf[String], typeOf[Boolean], typeOf[java.util.UUID])
-    val pathVarSym  = c.mirror.staticClass("zio.blocks.endpoint.PathVar")
+    val pathVarSym            = c.mirror.staticClass("zio.blocks.endpoint.PathVar")
 
     def isPathVarCandidate(tpe: Type): Boolean = pathVarCandidateTypes.exists(_ =:= tpe.dealias)
 
@@ -80,25 +81,25 @@ private[http] object PathVarHandlerMacros {
     // Unwrap the tree of the literal function value passed to `handler(...)` - required since
     // parameter NAMES (invisible in the static FunctionN type) can only be read from the AST.
     def asFunctionLiteral(tree: Tree): Function = tree match {
-      case fun: Function          => fun
+      case fun: Function             => fun
       case Block(Nil, fun: Function) => fun
-      case Typed(inner, _)        => asFunctionLiteral(inner)
-      case other                  =>
+      case Typed(inner, _)           => asFunctionLiteral(inner)
+      case other                     =>
         c.abort(
           other.pos,
           "handler(...) requires a literal function value (e.g. `(id: Int) => ...`) as its argument " +
             "so that parameter names are visible to the macro; a reference to a pre-declared function " +
-            "value is not supported."
+            "value is not supported.",
         )
     }
 
     val Function(vparams, _) = asFunctionLiteral(fn.tree)
 
     sealed trait ParamKind
-    case object IsRequest                       extends ParamKind
-    case object IsScope                         extends ParamKind
+    case object IsRequest                                   extends ParamKind
+    case object IsScope                                     extends ParamKind
     final case class IsOpenPathVar(name: String, tpe: Type) extends ParamKind
-    final case class IsContext(tpe: Type)       extends ParamKind
+    final case class IsContext(tpe: Type)                   extends ParamKind
 
     val kinds: List[ParamKind] = vparams.map { vp =>
       val name = vp.name.decodedName.toString
@@ -114,7 +115,7 @@ private[http] object PathVarHandlerMacros {
 
     val ctxType: Type =
       ctxTypes match {
-        case Nil       => typeOf[Any]
+        case Nil        => typeOf[Any]
         case one :: Nil => one
         case many       => internal.refinedType(many, c.internal.enclosingOwner)
       }
@@ -129,7 +130,7 @@ private[http] object PathVarHandlerMacros {
     val varsName    = TermName(c.freshName("vars"))
     val scopeName   = TermName(c.freshName("scope"))
 
-    var openIndex = 0
+    var openIndex            = 0
     val callArgs: List[Tree] = kinds.map {
       case IsRequest           => q"$requestName"
       case IsScope             => q"$scopeName"

@@ -97,7 +97,7 @@ object RoutesV4Spec extends ZIOSpecDefault {
         assertTrue(result.size == routes.size)
       },
       test("applying middleware that adds a route increases size") {
-        val extra = mkRoute(RoutePattern.PATCH)
+        val extra  = mkRoute(RoutePattern.PATCH)
         val addOne = new Middleware[Any, Any] {
           def apply(routes: Routes[Any]): Routes[Any] =
             routes ++ Routes(extra)
