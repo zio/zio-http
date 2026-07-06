@@ -11,6 +11,7 @@ import zio.blocks.endpoint.{RouteTree, SegmentSubtree}
 import zio.blocks.mux.{MuxError, MuxStream}
 import zio.blocks.scope.Scope
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
+
 import zio.http.h2.H2Frame.{Data, Headers, WindowUpdate}
 import zio.http.h2.hpack.{HeaderField, Hpack}
 import zio.http.{
@@ -92,13 +93,6 @@ final class H2Transport[Ctx](
       case Protocol.H3(_, _, _) => None
     }
 
-  private def protocolName: String =
-    connector.protocol match {
-      case Protocol.H2C(_)      => "h2c"
-      case Protocol.H2(_, _)    => "h2"
-      case Protocol.H3(_, _, _) => "h3"
-    }
-
   private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
     val flowController = new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
     flowController.registerStream(stream.id)
@@ -108,6 +102,24 @@ final class H2Transport[Ctx](
       val request      = decodeRequest(requestFrame, stream)
       val response     = instrumentRequest(request)
       sendResponse(stream, request.method, response, flowController)
+    } catch {
+      case e: Throwable =>
+        System.err.println(
+          s"[H2Transport] H2 stream error: stream_id=${stream.id} error=${e.getClass.getSimpleName}: ${e.getMessage}",
+        )
+        e.printStackTrace(System.err)
+        logger.error(
+          "H2 stream error",
+          "stream_id"     -> AttributeValue.LongValue(stream.id.toLong),
+          "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+          "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+          "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
+        )
+        try {
+          sendResponse(stream, Method.GET, Response.internalServerError, flowController)
+        } catch {
+          case _: Throwable => () // Best effort: if error response also fails, give up silently
+        }
     } finally {
       flowController.removeStream(stream.id)
     }
@@ -257,10 +269,27 @@ final class H2Transport[Ctx](
     frame
   }
 
-  private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit =
-    toSendError(stream.send(frame)).foreach { error =>
+  private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
+    logger.info(
+      "sendFrame",
+      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
+      "frame_type"  -> AttributeValue.StringValue(frame.getClass.getSimpleName),
+    )
+    val result  = stream.send(frame)
+    logger.info(
+      "sendFrame result",
+      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
+      "result"      -> AttributeValue.StringValue(s"$result (${result.getClass.getSimpleName})"),
+    )
+    toSendError(result).foreach { error =>
       throw new IllegalStateException("HTTP/2 stream send failed: " + error)
     }
+    logger.info(
+      "sendFrame completed",
+      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
+      "result_type" -> AttributeValue.StringValue(result.getClass.getSimpleName),
+    )
+  }
 
   private def decodeHeaderBlock(headerBlock: Chunk[Byte]): List[HeaderField] =
     Hpack.decode(headerBlock) match {
@@ -397,7 +426,20 @@ final class H2Transport[Ctx](
       case _: InterruptedException => Thread.currentThread().interrupt()
     }
 
+  private def protocolName: String =
+    connector.protocol match {
+      case Protocol.H2C(_)      => "h2c"
+      case Protocol.H2(_, _)    => "h2"
+      case Protocol.H3(_, _, _) => "h3"
+    }
+
   private def nanosToMillis(nanos: Long): Long = nanos / 1000000L
+
+  private def stackTraceToString(e: Throwable): String = {
+    val sw = new java.io.StringWriter()
+    e.printStackTrace(new java.io.PrintWriter(sw))
+    sw.toString
+  }
 
   private def toReceivedFrame(result: Any): Either[MuxError, H2Frame] =
     result match {
@@ -414,7 +456,10 @@ final class H2Transport[Ctx](
       case Left(error: MuxError) => Some(error)
       case Right(_)              => None
       case ()                    => None
-      case _                     => None
+      case unexpected            =>
+        throw new IllegalStateException(
+          s"Stream send failed with unexpected result: $unexpected (${unexpected.getClass.getSimpleName})",
+        )
     }
 }
 

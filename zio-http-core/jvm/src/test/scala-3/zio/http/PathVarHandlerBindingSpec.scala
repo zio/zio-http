@@ -316,8 +316,8 @@ private object FatalWarningsProof {
    * are themselves `@experimental`.
    */
   def compileScala3(source: String): (Int, String) = {
-    val root          = coursierRoot()
-    val compilerJars  = Seq(
+    val root             = coursierRoot()
+    val compilerJars     = Seq(
       findJar(root, "org/scala-lang", "scala3-compiler_3-"),
       findJar(root, "org/scala-lang", "scala3-library_3-"),
       findJar(root, "org/scala-lang", "scala-library-"),
@@ -338,7 +338,7 @@ private object FatalWarningsProof {
       normalized.contains("/org/scala-lang/modules/scala-asm/") ||
       normalized.contains("/org/scala-sbt/compiler-interface/")
     }
-    val fullClasspath = (compilerJars ++ runtimeClasspath).distinct.mkString(java.io.File.pathSeparator)
+    val fullClasspath    = (compilerJars ++ runtimeClasspath).distinct.mkString(java.io.File.pathSeparator)
 
     val workDir = java.nio.file.Files.createTempDirectory("fatal-warnings-proof")
     val srcFile = workDir.resolve("Scratch.scala")

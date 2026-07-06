@@ -10,9 +10,6 @@ on:
   pull_request:
   push:
     branches: ['main', 'v4.x']
-    tags: ['v*']
-  release:
-    types: [published]
 
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
@@ -29,29 +26,13 @@ jobs:
       - name: Setup JDK
         uses: coursier/setup-action@v3
         with:
-          jvm: temurin:21
+          jvm: temurin:25
       - name: Cache
         uses: coursier/cache-action@v8
       - name: Check formatting
         run: chmod +x ./mill && ./mill mill.scalalib.scalafmt/checkFormatAll
 
-  compile:
-    name: Compile with mill
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup JDK
-        uses: coursier/setup-action@v3
-        with:
-          jvm: temurin:21
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Compile all modules
-        run: chmod +x ./mill && ./mill __.compile
-
-  testCoreJvm:
+  testJvm:
     name: JVM tests — Scala ${{ matrix.scala }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -65,19 +46,18 @@ jobs:
       - name: Setup JDK
         uses: coursier/setup-action@v3
         with:
-          jvm: temurin:21
-      - name: Cache
-        uses: coursier/cache-action@v8
-      - name: Run supported JVM tests
-        run: >-
-          chmod +x ./mill &&
-          ./mill
-          'core.jvm[${{ matrix.scala }}].test'
-          'endpoint.jvm[${{ matrix.scala }}].test'
-          'nettyCore.jvm[${{ matrix.scala }}].test'
-          'nettyServer.jvm[${{ matrix.scala }}].test'
-          'nettyClient.jvm[${{ matrix.scala }}].test'
-          'testkit.jvm[${{ matrix.scala }}].test'
+          jvm: temurin:25
+      - name: Cache Coursier dependencies
+        uses: actions/cache@v5
+        with:
+          # Do NOT also cache Mill's out/ dir here: doing so previously made Mill
+          # treat serverLoom/zio test targets as up-to-date and skip re-running them.
+          path: ~/.cache/coursier
+          key: ${{ runner.os }}-coursier-${{ hashFiles('build.mill') }}
+          restore-keys: |
+            ${{ runner.os }}-coursier-
+      - name: Run engine tests and validate coverage minimums
+        run: chmod +x ./mill && ./mill testEngine --scalaVersion '${{ matrix.scala }}'
 
   docsSite:
     name: Build website
@@ -99,13 +79,12 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, compile, testCoreJvm, docsSite]
+    needs: [lint, testJvm, docsSite]
     steps:
       - name: Check results
         run: |
           if [[ "${{ needs.lint.result }}" == "failure" || \
-                "${{ needs.compile.result }}" == "failure" || \
-                "${{ needs.testCoreJvm.result }}" == "failure" || \
+                "${{ needs.testJvm.result }}" == "failure" || \
                 "${{ needs.docsSite.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1

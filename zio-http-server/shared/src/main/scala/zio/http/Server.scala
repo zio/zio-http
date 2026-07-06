@@ -13,13 +13,6 @@ import zio.blocks.context.{Context, ContextHas, IsNominalType}
  *
  * val handle = Server.serve(routes, context)
  * }}}
- *
- * When the context is missing a required type, the compiler emits:
- * {{{
- * Context[Server & Database] does not provide Database & Logger & Server.
- * Compare the two types — each component of ... not in ... must be added
- * via context.add(value).
- * }}}
  */
 trait Server {
   def serve[Ctx](routes: Routes[Ctx], context: Context[Ctx]): ServerHandle
@@ -39,7 +32,7 @@ object Server {
    *   the context type required by the routes
    * @tparam Ctx
    *   the actual context type provided — must be a supertype of
-   *   `ReqCtx & Server`
+   *   `ReqCtx with Server`
    */
   def serve[ReqCtx, Ctx](
     routes: Routes[ReqCtx],
@@ -48,7 +41,7 @@ object Server {
     ev: ContextHas[Ctx, ReqCtx with Server],
     nt: IsNominalType[Server],
   ): ServerHandle = {
-    // SAFETY: ContextHas[Ctx, ReqCtx with Server] proves Ctx <: ReqCtx & Server
+    // SAFETY: ContextHas[Ctx, ReqCtx with Server] proves Ctx <: ReqCtx with Server
     // at compile time. The cast is needed because Context.get[A >: R] requires a
     // subtype bound that Scala can't derive from implicit evidence alone.
     val ctx = context.asInstanceOf[Context[Server with ReqCtx]]

@@ -37,7 +37,7 @@ final class H2Connection(
 
     try {
       readConnectionPreface()
-      writeFrame(Settings(ack = false, H2Settings.DefaultSettings), flush = true)
+      writeFrame(Settings(ack = false, H2Settings.DefaultSettings.filterNot(_.id == Setting.ENABLE_PUSH)), flush = true)
 
       readFrame() match {
         case Settings(false, settings) =>
@@ -109,19 +109,28 @@ final class H2Connection(
       case _                                                       => existingStream(frame.streamId)
     }
 
-    offerInbound(stream, frame)
-
     frame match {
+      // RFC 9113 section 5.1 explicitly permits WINDOW_UPDATE/PRIORITY/RST_STREAM on a stream
+      // that is already half-closed(remote) or closed. Routing them through the mux's
+      // state-checked offerInbound (which rejects on HalfClosedRemote/Closed) would surface a
+      // spurious protocol error here, tearing down the whole connection - including any other
+      // stream with a legitimate response still in flight. They carry no payload this connection
+      // consumes, so skip mux delivery for them entirely instead of treating them as violations.
+      case _: WindowUpdate                       => ()
+      case _: Priority                           => ()
       case _: RstStream                          =>
         stream.close()
         activeStreams.remove(frame.streamId)
       case data: Data if data.endStream          =>
+        offerInbound(stream, frame)
         stream.signalRemoteClose()
         if (stream.isClosed) activeStreams.remove(frame.streamId)
       case headers: Headers if headers.endStream =>
+        offerInbound(stream, frame)
         stream.signalRemoteClose()
         if (stream.isClosed) activeStreams.remove(frame.streamId)
-      case _                                     => ()
+      case _                                     =>
+        offerInbound(stream, frame)
     }
   }
 
