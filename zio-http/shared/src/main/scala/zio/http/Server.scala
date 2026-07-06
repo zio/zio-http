@@ -368,8 +368,8 @@ object Server extends ServerPlatformSpecific {
 
       object ZstdConfig {
         val DefaultLevel         = 3
-        val DefaultBlockSize     = Integer.MAX_VALUE
-        val DefaultMaxEncodeSize = 1 << 16
+        val DefaultBlockSize     = 1 << 16
+        val DefaultMaxEncodeSize = Integer.MAX_VALUE
       }
 
       sealed trait Mode
