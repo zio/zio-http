@@ -103,10 +103,6 @@ final class H2Transport[Ctx](
       sendResponse(stream, request.method, response, flowController)
     } catch {
       case e: Throwable =>
-        System.err.println(
-          s"[H2Transport] H2 stream error: stream_id=${stream.id} error=${e.getClass.getSimpleName}: ${e.getMessage}",
-        )
-        e.printStackTrace(System.err)
         logger.error(
           "H2 stream error",
           "stream_id"     -> AttributeValue.LongValue(stream.id.toLong),
@@ -269,25 +265,10 @@ final class H2Transport[Ctx](
   }
 
   private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
-    logger.info(
-      "sendFrame",
-      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
-      "frame_type"  -> AttributeValue.StringValue(frame.getClass.getSimpleName),
-    )
-    val result  = stream.send(frame)
-    logger.info(
-      "sendFrame result",
-      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
-      "result"      -> AttributeValue.StringValue(s"$result (${result.getClass.getSimpleName})"),
-    )
+    val result = stream.send(frame)
     toSendError(result).foreach { error =>
       throw new IllegalStateException("HTTP/2 stream send failed: " + error)
     }
-    logger.info(
-      "sendFrame completed",
-      "stream_id"   -> AttributeValue.LongValue(stream.id.toLong),
-      "result_type" -> AttributeValue.StringValue(result.getClass.getSimpleName),
-    )
   }
 
   private def decodeHeaderBlock(headerBlock: Chunk[Byte]): List[HeaderField] =
