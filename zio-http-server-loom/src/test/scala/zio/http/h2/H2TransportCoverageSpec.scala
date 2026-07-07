@@ -25,7 +25,9 @@ import zio.http.{
   Halt,
   Handler,
   Header,
+  Http2Config,
   Method,
+  Protocol,
   Request,
   Response,
   Route,
@@ -450,20 +452,74 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
           }
         }
       },
+      // ── regression: stream-level WINDOW_UPDATE must actually unblock FlowController ──
+      test("response larger than the stream's initial window stalls, then completes once granted") {
+        val bodyBytes = Chunk.fromArray(Array.fill(2000)('x'.toByte))
+        val routes    = Routes(
+          Route(RoutePattern.GET, Handler.succeed(Response(status = Status.Ok, body = Body.fromChunk(bodyBytes)))),
+        )
+        withRawServer(routes, http2Config = Http2Config(initialWindowSize = 100)) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH2Client(port)
+            try {
+              client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true))
+
+              var sawHeaders          = false
+              var receivedBeforeGrant = Chunk.empty[Byte]
+              client.socket.setSoTimeout(1000)
+              try
+                while (true)
+                  client.readFrame() match {
+                    case Headers(1, _, false, _, _, _) => sawHeaders = true
+                    case Data(1, data, _, _)           => receivedBeforeGrant = receivedBeforeGrant ++ data
+                    case _: WindowUpdate | _: Settings => ()
+                    case other                         => throw new AssertionError("Unexpected frame: " + other)
+                  }
+              catch { case _: SocketTimeoutException => () }
+
+              // The 2000-byte body exceeds the 100-byte initial stream window: the server must
+              // send HEADERS (not flow-controlled) but block on DATA until WINDOW_UPDATE arrives.
+              assertTrue(sawHeaders, receivedBeforeGrant.isEmpty)
+
+              client.socket.setSoTimeout(20000)
+              client.sendFrame(WindowUpdate(streamId = 1, increment = 65535))
+
+              var body = receivedBeforeGrant
+              var done = false
+              while (!done)
+                client.readFrame() match {
+                  case Data(1, data, end, _)         => body = body ++ data; done = end
+                  case _: WindowUpdate | _: Settings => ()
+                  case other                         => throw new AssertionError("Unexpected frame: " + other)
+                }
+
+              assertTrue(body == bodyBytes)
+            } finally {
+              try client.close()
+              catch { case _: Exception => () }
+            }
+          }
+        }
+      },
     ) @@ sequential
 
   // ─── helpers (copied from H2ConnectionSpec pattern) ───────────────────────
 
   private def withRawServer[R](
     routes: Routes[Any],
+    http2Config: Http2Config = Http2Config(),
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
         ZIO.attempt(
           ServerHandle.live(
             List(
-              new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
-                .start(),
+              new H2Transport(
+                routes,
+                Context.empty,
+                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config)),
+                DefectHandler.default,
+              ).start(),
             ),
           ),
         ),

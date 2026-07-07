@@ -68,8 +68,10 @@ final class H2Transport[Ctx](
             activeConnectionCount.incrementAndGet()
             activeConnections.add(1L, "protocol" -> protocolName)
             try {
-              val connection = new H2Connection(input, output, http2Config.maxConcurrentStreams)
-              connection.run(handleStream)
+              val flowController =
+                new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
+              val connection     = new H2Connection(input, output, http2Config.maxConcurrentStreams, flowController)
+              connection.run(stream => handleStream(stream, flowController))
             } finally {
               activeConnectionCount.decrementAndGet()
               activeConnections.add(-1L, "protocol" -> protocolName)
@@ -93,10 +95,7 @@ final class H2Transport[Ctx](
       case Protocol.H3(_, _, _) => None
     }
 
-  private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
-    val flowController = new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
-    flowController.registerStream(stream.id)
-
+  private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame], flowController: FlowController): Unit = {
     try {
       val requestFrame = awaitHeaders(stream)
       val request      = decodeRequest(requestFrame, stream)

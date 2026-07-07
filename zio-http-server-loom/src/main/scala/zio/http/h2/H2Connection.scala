@@ -16,6 +16,8 @@ final class H2Connection(
   input: InputStream,
   output: OutputStream,
   maxConcurrentStreams: Int = 100,
+  flowController: FlowController =
+    new FlowController(H2Settings.DefaultInitialWindowSize.toInt, H2Settings.DefaultInitialWindowSize.toInt),
 ) {
   import H2Connection._
   import H2Frame._
@@ -30,7 +32,6 @@ final class H2Connection(
   @volatile private var settingsAcknowledged = false
   @volatile private var highestStreamId      = 0
   @volatile private var lastGoAwayStreamId   = Int.MaxValue
-  @volatile private var connectionWindow     = H2Settings.DefaultInitialWindowSize.toInt
 
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
     val writer = Thread.ofVirtual().name("zio-http-h2-writer").start(runnable(writerLoop()))
@@ -97,42 +98,65 @@ final class H2Connection(
       case GoAway(lastStreamId, _, _) =>
         lastGoAwayStreamId = lastStreamId
         closed.set(true)
-      case WindowUpdate(0, increment) =>
-        connectionWindow = checkedIncrement(connectionWindow, increment)
+      case wu: WindowUpdate           =>
+        applyIncomingWindowUpdate(wu)
       case _                          =>
         throw protocolError("Unexpected connection-level frame: " + frame)
     }
 
-  private def deliverStreamFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
-    val stream = frame match {
-      case headers: Headers if isNewClientStream(headers.streamId) => openStream(headers.streamId, onStream)
-      case _                                                       => existingStream(frame.streamId)
-    }
-
+  private def deliverStreamFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit =
     frame match {
       // RFC 9113 section 5.1 explicitly permits WINDOW_UPDATE/PRIORITY/RST_STREAM on a stream
-      // that is already half-closed(remote) or closed. Routing them through the mux's
-      // state-checked offerInbound (which rejects on HalfClosedRemote/Closed) would surface a
-      // spurious protocol error here, tearing down the whole connection - including any other
-      // stream with a legitimate response still in flight. They carry no payload this connection
-      // consumes, so skip mux delivery for them entirely instead of treating them as violations.
-      case _: WindowUpdate                       => ()
-      case _: Priority                           => ()
-      case _: RstStream                          =>
-        stream.close()
-        activeStreams.remove(frame.streamId)
-      case data: Data if data.endStream          =>
-        offerInbound(stream, frame)
-        stream.signalRemoteClose()
-        if (stream.isClosed) activeStreams.remove(frame.streamId)
-      case headers: Headers if headers.endStream =>
-        offerInbound(stream, frame)
-        stream.signalRemoteClose()
-        if (stream.isClosed) activeStreams.remove(frame.streamId)
-      case _                                     =>
-        offerInbound(stream, frame)
+      // that is already half-closed(remote) or fully closed - including after the stream has
+      // been fully removed from the mux (both directions closed, which a fast handler can reach
+      // before the connection thread gets around to reading the next frame off the wire).
+      // Resolving such a stream via `existingStream` (which throws when the mux has no matching
+      // entry) would surface a spurious protocol error here, tearing down the whole connection -
+      // including any other stream with a legitimate response still in flight. PRIORITY carries
+      // no state at all and is additionally permitted even on a stream id that was never opened
+      // ("idle", per RFC 9113 5.1), so it never needs to resolve a stream. WINDOW_UPDATE and
+      // RST_STREAM on a stream id that was genuinely never opened remain real protocol
+      // violations (see "RST_STREAM for unknown stream causes protocol error"), so only stream
+      // ids that were opened at some point (tracked via highestStreamId) take the tolerant path.
+      case _: Priority                                    => ()
+      case wu: WindowUpdate if isKnownStream(wu.streamId) => applyIncomingWindowUpdate(wu)
+      case rst: RstStream if isKnownStream(rst.streamId)  =>
+        mux.get(rst.streamId).foreach(_.close())
+        activeStreams.remove(rst.streamId)
+      case _                                              =>
+        val stream = frame match {
+          case headers: Headers if isNewClientStream(headers.streamId) => openStream(headers.streamId, onStream)
+          case _                                                       => existingStream(frame.streamId)
+        }
+
+        frame match {
+          case data: Data if data.endStream          =>
+            offerInbound(stream, frame)
+            stream.signalRemoteClose()
+            if (stream.isClosed) activeStreams.remove(frame.streamId)
+          case headers: Headers if headers.endStream =>
+            offerInbound(stream, frame)
+            stream.signalRemoteClose()
+            if (stream.isClosed) activeStreams.remove(frame.streamId)
+          case _                                     =>
+            offerInbound(stream, frame)
+        }
     }
-  }
+
+  /**
+   * True if `streamId` was opened at some point in this connection's lifetime
+   * (it may since have fully closed). RFC 9113 5.1 tolerates trailing
+   * WINDOW_UPDATE/RST_STREAM for such streams; it does not tolerate them for
+   * streams that were never opened at all ("idle").
+   */
+  private def isKnownStream(streamId: Int): Boolean = streamId <= highestStreamId
+
+  private def applyIncomingWindowUpdate(frame: WindowUpdate): Unit =
+    try flowController.applyWindowUpdate(frame.streamId, frame.increment)
+    catch {
+      case _: NoSuchElementException =>
+        () // Stream already fully closed and deregistered from flow control - RFC 9113 5.1 tolerance.
+    }
 
   private def openStream(
     streamId: Int,
@@ -143,6 +167,7 @@ final class H2Connection(
 
     val stream = toStream(mux.open(streamId))
     highestStreamId = streamId
+    flowController.registerStream(streamId)
     activeStreams.put(streamId, stream)
 
     Thread
@@ -313,12 +338,6 @@ private object H2Connection {
 
   private def protocolError(message: String): IOException =
     new IOException(message)
-
-  private def checkedIncrement(current: Int, increment: Int): Int = {
-    val next = current.toLong + increment.toLong
-    if (next > Int.MaxValue.toLong) throw protocolError("HTTP/2 connection window exceeded 2^31-1")
-    next.toInt
-  }
 
   private def toStream(result: Any): MuxStream[Int, H2Frame, H2Frame] =
     result match {
