@@ -18,6 +18,19 @@ object Hpack {
 }
 
 @experimental
+final class HpackCodec(initialMaxTableSize: Int = 4096, maxAllowedTableSize: Int = 4096) {
+  private val encoder = new HpackEncoder(initialMaxTableSize)
+  private val decoder = new HpackDecoder(initialMaxTableSize, maxAllowedTableSize)
+  private val lock    = new Object
+
+  def encode(headers: List[HeaderField]): Chunk[Byte] =
+    lock.synchronized(encoder.encode(headers))
+
+  def decode(bytes: Chunk[Byte]): Either[String, List[HeaderField]] =
+    lock.synchronized(decoder.decode(bytes))
+}
+
+@experimental
 final class HpackEncoder(initialMaxTableSize: Int = 4096) {
   private val dynamicTable                  = new DynamicTable(initialMaxTableSize)
   private var pendingMinSize: Option[Int]   = None
