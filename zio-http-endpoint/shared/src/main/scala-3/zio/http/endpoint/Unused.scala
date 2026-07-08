@@ -18,6 +18,10 @@ package zio.http.endpoint
 /**
  * Marker for endpoint input fields that are intentionally unused.
  *
+ * Reserved for future `.implement` unused-field-warning support; currently has
+ * no runtime or compile-time effect on Scala 3 (no consumer of `Unused[A]`
+ * exists in main source — the warning macro is blocked, see decisions.md).
+ *
  * Mirrors `zio.blocks.endpoint.PathVar.Ignored` pattern: used at the INPUT schema level
  * to annotate a field that the developer has explicitly marked as not consumed by the handler.
  *

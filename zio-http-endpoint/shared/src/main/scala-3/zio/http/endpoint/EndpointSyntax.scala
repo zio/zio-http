@@ -28,11 +28,16 @@ import zio.http.ResultType._
  * of `.call` is a real Scala 3 union `Err | Output`, produced by zio-blocks'
  * own [[Unions]] machinery via [[Alternator.fromUnions]].
  *
- * Full implementation:
- *   - `.implement`: Handler may declare a SUBSET of Input fields (matched by name+type)
- *   - `.unused` marker: inverts warning logic for intentionally-unused fields
- *   - 4-combination warning logic (unconsumed+not-marked → warn; consumed+marked → warn inverted)
- *   - Zero-cost extraction: fields extracted directly via macro reflection
+ * Current, tested behavior (see `.omo/notepads/endpoint-blocks/decisions.md`):
+ *   - `.implement`: the handler receives the complete `Input` value and returns
+ *     `F[Err | Output]`, dispatched across effect types by the
+ *     [[EndpointResultHandler]] TC.
+ *   - Partial parameter application (handler declaring a SUBSET of Input fields
+ *     matched by name+type) and the `.unused` marker's 4-combination warning
+ *     logic are NOT implemented on Scala 3: the intended inline macro is blocked
+ *     by a quoted type-parameter inference issue (the macro context cannot infer
+ *     `Input: Type` when called from an extension method with implicit type
+ *     parameters). [[Unused]] exists as a type only, with no compile-time effect.
  */
 extension [PathInput, Input, Err, Output, Auth <: AuthType](
   endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
@@ -41,20 +46,17 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Turns this endpoint into a [[Route]] backed by a user-provided handler.
    *
-   * Handler may declare a SUBSET of Input fields, matched by (name, type).
-   * Fields marked with `.unused` in the Input type suppress "never used" warnings;
-   * consumed fields marked `.unused` trigger "marked unused but referenced" warnings.
+   * The handler receives the complete `Input` value and returns `F[Err | Output]`.
+   * This single method (no overloads per effect type) is dispatched by the
+   * `resultHandler` TC across all effect types `F[_]` (ZIO, IO, Try, Identity,
+   * custom monads).
    *
-   * This single method (no overloads per effect type) is dispatched by `resultHandler` TC
-   * across all effect types F[_], supporting ZIO, IO, Try, Identity, and custom monads.
-   * 
-   * Partial application: handler parameters are matched to Input fields by (name, type).
-   * Only matched fields are extracted and passed; unmatched fields in Input are unconsumed.
-   * Zero-cost extraction: fields are passed directly without tuple allocation.
-   *
-   * Compile-time parameter matching and `.unused` warning emission are performed by
-   * the EndpointImplementMacro inline macro, which inspects the handler function
-   * via scala.quoted reflection.
+   * Partial application (handler declaring a SUBSET of Input fields matched by
+   * name+type) and `.unused` warning emission are NOT implemented on Scala 3:
+   * the intended inline macro is blocked by a quoted type-parameter inference
+   * issue (see the type-level Scaladoc above and
+   * `.omo/notepads/endpoint-blocks/decisions.md`). Today the whole `Input` value
+   * is passed to the handler as-is.
    */
   def implement[F[_]](handler: Input => F[Err | Output])(using
     resultHandler: EndpointResultHandler[F],
