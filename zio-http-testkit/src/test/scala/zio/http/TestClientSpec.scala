@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.blocks.endpoint.RoutePattern
+import zio.http.ResultType._
 import zio.test._
 
 object TestClientSpec extends ZIOHttpSpec {

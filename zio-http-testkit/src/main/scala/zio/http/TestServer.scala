@@ -16,11 +16,12 @@ import zio.http.ResultType._
  * directly against its mutable route table on the calling thread.
  *
  * Route matching is a linear scan over the registered routes in
- * most-recently-added-first order (rather than the [[zio.blocks.endpoint.RouteTree]]
- * trie the real server uses), so that a route registered for the bare root
- * path (an empty [[zio.blocks.endpoint.PathCodec]], which `RouteTree` cannot
- * index) is still matchable, and so that re-registering the same pattern makes
- * the newest registration win.
+ * most-recently-added-first order (rather than the
+ * [[zio.blocks.endpoint.RouteTree]] trie the real server uses), so that a route
+ * registered for the bare root path (an empty
+ * [[zio.blocks.endpoint.PathCodec]], which `RouteTree` cannot index) is still
+ * matchable, and so that re-registering the same pattern makes the newest
+ * registration win.
  *
  * @example
  *   {{{
@@ -96,8 +97,8 @@ object TestServer {
 
   /** Returns `None` when no registered route matches `request` at all. */
   private[http] def dispatchOption(routes: Routes[Any], request: Request): Option[Response] = {
-    val method = request.method
-    val path   = request.url.path
+    val method     = request.method
+    val path       = request.url.path
     val firstMatch = routes.routes.reverseIterator
       .flatMap(route => route.pattern.decode(method, path).toOption.map(route -> _))
       .nextOption()
@@ -120,6 +121,15 @@ object TestServer {
       case _: Throwable => Response.internalServerError
     }
 
-  private def toResponse(result: Response | Halt): Response =
-    result.asInstanceOf[Either[Response, Halt]].fold(identity, _.response)
+  private def toResponse(result: Response | Halt): Response = {
+    val value = (result: Any) match {
+      case left: scala.util.Left[_, _]   => left.value
+      case right: scala.util.Right[_, _] => right.value
+      case x                             => x
+    }
+    value match {
+      case response: Response => response
+      case halt: Halt         => halt.response
+    }
+  }
 }
