@@ -2298,3 +2298,321 @@ reported here for future review/fix, per this task's explicit instruction not to
 code as a side effect of writing tests.
 
 (End of test-coverage-expansion entry)
+
+---
+
+## Final Wave F1/F2/F3 Remediation (2026-07-08)
+
+Remediation of the concrete defects found by the Final Verification Wave (F1 goal/constraint,
+F2 code-quality, F3 security). All fixes are Scala-2-side or docs-only; the Scala 3
+`.implement`/`.call` signatures and behavior were NOT changed.
+
+### F1 blocking fix #1 — Scala 2 accessibility (FIXED)
+
+**Defect:** `import zio.http.endpoint._` alone, from a package OUTSIDE `zio.http.endpoint`, did
+NOT make `.implement`/`.call` callable, because the `EndpointSyntax` class + its companion (and
+the implicit conversion) were `private[endpoint]`. All prior "passing" Scala 2 tests were
+declared `package zio.http.endpoint`, hiding the defect.
+
+**Fix:**
+- `EndpointSyntax` class made public; its `private[endpoint]` companion (which held the implicit
+  conversion) removed.
+- The user-facing implicit conversion `toEndpointSyntax` now lives on the **package object**
+  (`shared/src/main/scala-2/zio/http/endpoint/package.scala`), so a plain `import
+  zio.http.endpoint._` brings it into scope from any package — mirroring Scala 3's public
+  top-level `extension`.
+- A second, subtler accessibility bug surfaced and was fixed: the `.implement` macro previously
+  generated code calling `zio.http.Handler.extracted` (`private[http]`) and
+  `zio.http.endpoint.EndpointCodec` (`private[endpoint]`). A Scala 2 blackbox macro expands into
+  the CALLER's scope, so those private references failed to compile from `com.example`. The macro
+  now emits a single call to a new **public** `EndpointServer.implement(endpoint, taggedHandler)`
+  entry point (`EndpointServer.scala`), which delegates to the private `EndpointCodec` internals
+  from inside the package and builds the route via the public `Handler(handlerFn)` (not
+  `Handler.extracted`). This mirrors how Scala 3's public inline extension calls its
+  `private[endpoint]` `EndpointBridge`.
+
+**Internal helpers kept `private[endpoint]` as required:** `EndpointCodec`, `EndpointSyntaxMacros`,
+`EndpointBridge`. Only `EndpointSyntax`, the package-object conversion, `EndpointServer`, and
+`EndpointInject` (new) are public.
+
+**Regression test locking it in:** `jvm/src/test/scala-2/com/example/EndpointExternalUsageSpec.scala`
+(package `com.example`) imports only `zio.http.endpoint._` (plus public `zio.blocks`/`zio.http`
+members), calls `.implement`, and dispatches through the public `Route.handler.handle` API using
+the public zio-blocks JSON codec — no `EndpointSyntax`/`EndpointCodec`/`InProcessDispatcher`
+reference. It passes.
+
+### F1 blocking fix #2 — no Either/Left/Right in user-facing API (FIXED)
+
+**Defect:** Scala 2 `.implement`/`.call` handlers had to write `Left`/`Right` explicitly and the
+signature exposed `Either` (e.g. `val result: Either[String,String] = ...`), violating the
+"no Either/Left/Right in the user-facing API surface" constraint.
+
+**Fix (raw-value dispatch):** The user handler now returns a BARE `Err` value or BARE `Output`
+value directly, exactly like Scala 3 — e.g. `if (input.isEmpty) "error" else input.length`.
+Mechanism:
+- `.implement`'s parameter is now `f: Input => Any` at the syntactic level (so the user's
+  bare-value lambda type-checks); the macro recovers the real `Err`/`Output` shape per branch.
+- The macro walks every RETURN-POSITION LEAF of the handler body (`if`/`else`, `match` cases,
+  `Block` tails, through `Typed`/`Annotated`) and wraps each leaf in
+  `EndpointInject.inject[Err, Output](leaf)`. `EndpointInject` (new, public) is an implicit-driven
+  selector resolved at the handler's REAL in-scope typecheck: `injectErr` (leaf conforms to
+  `Err` → `Left`) is prioritized over `injectOutput` (leaf conforms to `Output` → `Right`) via a
+  `LowPriority` split. Resolving in-scope (rather than isolated macro-side `c.typecheck`) is what
+  lets a leaf like `input.length` — which only type-checks where the lambda param is bound —
+  classify correctly. Leaf-local tagging means a branching body whose overall inferred type is the
+  LUB (often `Any`) is handled correctly; the whole-body type is never relied on.
+- The rewritten body is ascribed to `Either[Err, Output]` (the internal union representation; the
+  `type |[+A,+B]=Either[A,B]` alias stays as an internal detail) and passed to
+  `EndpointServer.implement`, which does the `Left`/`Right` → 400/200 dispatch invisibly. This is
+  the same union-representation machinery `.call` already used.
+
+**Exactly ONE `.implement` / ONE `.call`, no per-effect overloads** — preserved. No
+`.implementEither`/`.implementRaw` added.
+
+**Known, disclosed limitation (unchanged from before, NOT a new regression):** raw-value dispatch
+is inherently ambiguous when `Err =:= Output` (a bare value can't be tagged by type). In that case
+`injectErr` wins the tie and every branch is treated as an error at runtime. Endpoints must use
+DISTINCT `Err`/`Output` types for meaningful dispatch (all rewritten tests now do, e.g.
+`Err=String, Output=Int`). This is documented in `EndpointInject`'s Scaladoc. The pre-existing
+case-class-`Input` limitation (no working handler shape for any case-class Input) also persists and
+remains covered by `EndpointPartialApplicationSpec`/`EndpointMultiFieldInputSpec` negative tests
+(rewritten to the raw-value API; the failure MECHANISM shifted but the outcome — case-class Input
+does not compile — is unchanged and still asserted `isLeft`).
+
+### F2 blocking fix #1 — misleading Scaladoc (FIXED)
+
+Rewrote the class/method Scaladoc in BOTH `scala-2/EndpointSyntax.scala` and
+`scala-3/EndpointSyntax.scala` (plus the Scala 2 macro-object header) to state the real current
+behavior: partial parameter application and the `.unused` 4-combination warning logic are NOT
+functional (Scala 3: blocked by the quoted type-parameter inference issue; Scala 2: no working
+case-class-Input shape). The false "Full implementation / zero-cost extraction / 4-combination
+warning logic" claims were removed. Wording follows the accurate analysis in the
+"TEST COVERAGE EXPANSION ROUND" section above.
+
+### F2 blocking fix #2 — misleading dead test file (FIXED by deletion)
+
+Deleted `jvm/src/test-warnings/scala-3/zio/http/endpoint/EndpointUnusedWarningsTest.scala` — it
+documented "Expected warnings" from a `.unused` macro that does not exist on Scala 3 and contained
+only an empty object (zero other value). `build.mill` never referenced the `test-warnings` source
+root, and that directory tree is now empty.
+
+### F2 non-blocking — dead-code notes (DONE)
+
+- `scala-3/Unused.scala`: added a Scaladoc note that it has no runtime/compile-time effect on
+  Scala 3 (no consumer in main source; warning macro blocked).
+- `scala-2/EndpointResultHandler.scala`: confirmed dead on Scala 2 (the Scala 2 `.implement`
+  signature is `Input => Err | Output`, never `Input => F[...]`, so it never resolves an
+  `EndpointResultHandler`) and added a Scaladoc note saying so; retained for parity + future
+  effect-polymorphic `.implement`.
+
+### F3 non-blocking — decode-error leak (FIXED)
+
+Scala 2 `.implement`'s malformed-request/decode-failure path no longer leaks the raw JSON
+schema decode-error message into the HTTP body (CWE-209). It now returns a bare
+`Response.badRequest` (no body), matching Scala 3's equivalent path. Implemented inside the new
+`EndpointServer.implement`.
+
+### Files changed
+
+Main (Scala 2): `EndpointSyntax.scala` (visibility + raw-value macro + public entry point),
+`package.scala` (public conversion), `EndpointServer.scala` (NEW, public dispatch),
+`EndpointInject.scala` (NEW, public leaf selector), `EndpointResultHandler.scala` (doc).
+Main (Scala 3): `EndpointSyntax.scala` (doc only), `Unused.scala` (doc only).
+Tests (Scala 2, rewritten to raw-value API): `EndpointImplementSpec.scala`,
+`EndpointCallRoundtripSpec.scala`, `EndpointAuthSpec.scala`, `EndpointMultiFieldInputSpec.scala`,
+`EndpointPartialApplicationSpec.scala`; NEW `com/example/EndpointExternalUsageSpec.scala`.
+Deleted: `jvm/src/test-warnings/scala-3/.../EndpointUnusedWarningsTest.scala`.
+NOT touched: `zio-http-core` (`RouteBinding`/`PathVarHandler*`), `build.mill`, `zio-http-testkit`,
+Scala 3 `.implement`/`.call` signatures/behavior.
+
+### Verification (all green)
+
+```
+./mill 'endpoint.jvm[3.8.3].compile'    → SUCCESS (0 errors)
+./mill 'endpoint.jvm[2.13.18].compile'  → SUCCESS (0 errors)
+./mill 'endpoint.jvm[3.8.3].test'       → 13 tests passed, 0 failed, 0 ignored
+./mill 'endpoint.jvm[2.13.18].test'     → 15 tests passed, 0 failed, 0 ignored
+```
+
+The Scala 2 test run includes `com.example.EndpointExternalUsageSpec` (proving the F1
+accessibility fix) and all raw-value-API specs (proving the F1 Either-elimination fix). The only
+remaining Scala 2 warnings are the benign, expected "Input is not a case class; assuming single
+parameter matches full Input" notes on the intentionally-primitive-`Input` specs.
+
+(End of Final Wave F1/F2/F3 remediation entry)
+
+---
+
+## Final Wave F4: Real HTTP Round-Trip QA (2026-07-08, retry)
+
+### Workspace verification (per hard requirement of this retry)
+
+Confirmed working in the literal required path before touching anything:
+
+```
+$ ls /Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/build.mill \
+     /Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/.omo/plans/endpoint-blocks.md
+/Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/.omo/plans/endpoint-blocks.md  14.0K
+/Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/build.mill  15.5K
+```
+Both exist. `$HOME` in this shell is `/home/nabil_abdel-hafeez.guest` (confirmed via `echo $HOME`),
+confirming no accidental fallback to `~/zio-http` or `~/zio-http-v4-engine-pr4188` occurred — every
+command in this session used the explicit absolute path via the Bash tool's `workdir` parameter.
+`zio-http-endpoint/` and `zio-http-endpoint/jvm`/`shared` subtrees were also confirmed present.
+
+### GOAL
+
+Prove genuine end-to-end HTTP wiring: a real `zio.http.Server` (not `InProcessDispatcher`) bound to
+a real loopback TCP port, serving a `.implement`-ed `Route`, hit by a real `zio.http.Client` (not an
+in-process wrapper) via `.call`, covering both the success (`Output`) and error (`Err`) paths.
+
+### RESULT: BLOCKED — not achievable as specified without a `build.mill` change (not made, per task scope)
+
+**Root cause: a `build.mill` module-dependency gap, independent of and in addition to the previously
+documented `.call`/`URL.root` path limitation.**
+
+`zio-http-endpoint`'s own `build.mill` wiring (`object endpoint`, JVM `test` submodule):
+
+```scala
+object test extends ScalaTests with ZioHttpTestModule {
+  override def moduleDeps = Seq(endpoint.jvm(), core.jvm().test)
+  ...
+}
+```
+
+`core.jvm().test`'s own `moduleDeps` are `Seq(core.jvm(), client.jvm(), server.jvm())`. Both
+`client.jvm()` (module `client`, artifact `zio-http-client`) and `server.jvm()` (module `server`,
+artifact `zio-http-server`) contain ONLY the abstract `trait Client` / `trait Server` interfaces
+(`zio-http-client/shared/.../Client.scala`, `zio-http-server/shared/.../Server.scala`) — no concrete,
+socket-backed implementation.
+
+The concrete, real implementations live in two DIFFERENT modules that are **not** reachable
+(directly or transitively) from `endpoint.jvm[...].test`:
+- `zio.http.LoomServer` — module `serverLoom` (artifact `zio-http-server-loom`), `moduleDeps =
+  Seq(server.jvm(), h2Codec.jvm())`.
+- `zio.http.JavaH2Client` — module `clientJava` (artifact `zio-http-client-java`), `moduleDeps =
+  Seq(client.jvm())`.
+
+Neither `serverLoom.jvm()` nor `clientJava.jvm()` appears anywhere in `endpoint`'s or `core.jvm().test`'s
+`moduleDeps` chain. The ONLY existing modules whose test scope has BOTH real Server and real Client
+together are `serverLoom.jvm().test` (`Seq(serverLoom.jvm(), clientJava.jvm())`) and `zio.jvm().test`
+(`Seq(zio.jvm(), serverLoom.jvm(), clientJava.jvm())`) — and neither of those depends on `endpoint.jvm()`,
+so `zio.blocks.endpoint.Endpoint`/`.implement`/`.call` are equally unavailable there. **No existing
+module currently has `Endpoint`/`.implement`/`.call` AND a real `Server` AND a real `Client` on the
+same test classpath simultaneously**; reaching that combination requires adding a `moduleDeps` edge in
+`build.mill`, which this task's scope explicitly forbids modifying.
+
+### Empirical proof (actually attempted, not just inferred from reading `build.mill`)
+
+Wrote the exact required new file, `zio-http-endpoint/jvm/src/test/scala-2/zio/http/endpoint/
+EndpointRealHttpRoundtripSpec.scala`, using:
+- The SAME root-path `RoutePattern(Method.POST, Path.root)` / `Endpoint[Unit, Int, String, Int,
+  AuthType.None.type]` / bare-value `.implement` handler shape as `EndpointCallRoundtripSpec.scala`
+  (per the F1/F2/F3-remediated raw-value API — no `Left`/`Right`).
+- `import zio.http.{BindAddress, Connector, JavaH2Client, LoomServer, Method, Path, Routes, Server}`
+- `LoomServer(Connector(bind = BindAddress.localhost(port))).serve(Routes(reciprocalRoute),
+  Context.empty)` to bind a real loopback socket, and `JavaH2Client.default` + `reciprocalEndpoint
+  .call(client, input)` for the real client side, with `handle.shutdownAndWait()` in a `finally` block
+  for cleanup.
+
+Ran (from workdir `/Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188`):
+```
+$ ./mill --no-server 'endpoint.jvm[2.13.18].test.compile'
+...
+[error] .../EndpointRealHttpRoundtripSpec.scala:27:42
+import zio.http.{BindAddress, Connector, JavaH2Client, LoomServer, Method, Path, Routes, Server}
+                                         ^^^^^^^^^^^^
+object JavaH2Client is not a member of package zio.http
+
+[error] .../EndpointRealHttpRoundtripSpec.scala:27:56
+                                                       ^^^^^^^^^^
+object LoomServer is not a member of package zio.http
+
+[error] .../EndpointRealHttpRoundtripSpec.scala:61:23
+      val server    = LoomServer(connector)
+                      ^^^^^^^^^^
+not found: value LoomServer
+
+[error] .../EndpointRealHttpRoundtripSpec.scala:64:22
+        val client = JavaH2Client.default
+                     ^^^^^^^^^^^^
+not found: value JavaH2Client
+
+... (same two errors repeated for the second test)
+[error] 6 errors found
+[error] endpoint.jvm.2_13_18.test.compile Compilation failed
+```
+Confirms the module-dependency gap is real, not a misreading of `build.mill`: `LoomServer` and
+`JavaH2Client` are genuinely absent from `endpoint.jvm[2.13.18].test`'s resolved classpath.
+
+**Cleanup:** since this file cannot compile in this module without a forbidden `build.mill` edit, and
+leaving a non-compiling file in `zio-http-endpoint`'s test sources would break `./mill
+'endpoint.jvm[2.13.18].test.compile'`/`.test` for the WHOLE module (collateral damage to the 15
+previously-passing, already-verified specs — a `test.compile` failure is all-or-nothing per module),
+the file was deleted after capturing the evidence above. Re-ran `./mill --no-server
+'endpoint.jvm[2.13.18].test'` afterward to confirm the module is back to its clean baseline:
+```
+353] 15 tests passed. 0 tests failed. 0 tests ignored.
+```
+Confirmed restored; no leftover file, no dangling server process (compilation failed before any
+`LoomServer`/socket was ever started, so there was nothing to shut down).
+
+### A second, independent finding surfaced while investigating (reported, not fixed)
+
+Decompiled `zio.http.URL` (`javap -p -classpath <resolved zio-blocks-http-model_2.13-0.0.46+5-
+1f07ae2d-SNAPSHOT.jar> zio.http.URL`) to confirm its real API, since no `URL.scala` source exists in
+this repo (it's an external `zio-blocks-http-model` dependency class, per `build.mill`'s
+`blocksDep("http-model")`). Confirmed `URL.root()` returns a URL with `scheme = None`, `host = None`,
+`port = None` (i.e. `isAbsolute` is false — verified via the decompiled `isAbsolute()`/`isRelative()`
+accessors and `URL$.root` being a bare `Path`-only value with no scheme/host/port fields set).
+
+`zio-http-client-java`'s only real `Client`, `JavaH2Client`, calls (in `toUri`):
+```scala
+private def toUri(url: URL): URI =
+  if (url.isAbsolute) URI.create(url.encode)
+  else throw new IllegalArgumentException("JavaH2Client requires absolute request URLs")
+```
+
+`.call`'s `EndpointBridge.buildRequest` (both Scala 2 and Scala 3) hardcodes `url = zio.http.URL.root`
+— a purely relative URL with no scheme/host/port. This means the previously-documented "`.call` only
+works for root-path endpoints" limitation is actually **strictly narrower in practice than described**:
+even a root-path endpoint's `.call` would throw `IllegalArgumentException` immediately against the
+ONE real, absolute-URL-requiring `Client` implementation this codebase has (`JavaH2Client`) — it never
+even reaches the network. `.call()` as currently written can only ever succeed against a `Client`
+implementation that tolerates/resolves relative URLs itself (like the test-only `InProcessDispatcher
+.clientFor`, which ignores `request.url` entirely and dispatches straight through the `Route`'s
+`pattern.decode`). This was not exercised further empirically (the `build.mill` moduleDeps gap above
+already blocks getting `JavaH2Client` on this module's classpath at all), but is a direct, sourced
+reading of both `JavaH2Client.toUri` and `URL`'s decompiled shape, not a guess.
+
+### PASS/FAIL VERDICT: **FAIL (blocked, reported, not fixed)**
+
+The task's required deliverable — a new `EndpointRealHttpRoundtripSpec.scala` under `zio-http-
+endpoint/jvm/src/test/scala-2/zio/http/endpoint/`, compiling and passing against a real
+`zio.http.Server`/`zio.http.Client` — cannot be produced without one of:
+1. Adding `serverLoom.jvm()` and `clientJava.jvm()` to `endpoint.jvm[...].test`'s `moduleDeps` in
+   `build.mill` (forbidden by this task's explicit scope), **and**
+2. Separately fixing (or working around, e.g. via a thin base-URL-resolving `Client` wrapper written
+   only in test code) `.call`'s hardcoded relative `URL.root`, since a real absolute-URL client
+   (`JavaH2Client`) rejects it outright (also out of this task's fix scope; reported above as a second
+   finding).
+
+Both are real production/build-wiring gaps, not something this QA task is scoped to fix. Per the
+task's explicit instruction to STOP and report discrepancies rather than substitute an alternative
+(e.g. writing a hand-rolled raw-socket harness instead of the actual `zio.http.Server`/`zio.http
+.Client` — which would not actually exercise this codebase's real server/client implementations and
+would defeat the purpose of this QA gate), no workaround was applied. No files were left modified by
+this attempt (the new spec file was written, its exact failure captured above, then deleted; `git`/`jj`
+status confirms only this notepad edit and the plan-notes doc remain as pending changes from prior
+waves — nothing new from F4 itself).
+
+### Commands run (verbatim, for Atlas to reproduce)
+
+```
+ls /Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/build.mill \
+   /Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/.omo/plans/endpoint-blocks.md
+./mill --no-server 'endpoint.jvm[2.13.18].test.compile'   # workdir = the workspace root; FAILED, 6 errors (see above)
+./mill --no-server 'endpoint.jvm[2.13.18].test'            # after deleting the new file; 15 tests passed, 0 failed (baseline restored)
+```
+
+(End of Final Wave F4 entry)
