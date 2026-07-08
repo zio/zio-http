@@ -20,6 +20,7 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 import zio.blocks.config.Secret
+import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider}
 import zio.http.{TlsConfig, TlsSource}
 
 class TcpListener(
@@ -28,6 +29,9 @@ class TcpListener(
   tls: Option[TlsConfig],
   connectionHandler: (InputStream, OutputStream) => Unit,
 ) {
+  private val logger =
+    LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.TcpListener")
+
   def start(): BoundListener = {
     val serverChannel     = ServerSocketChannel.open()
     val running           = new AtomicBoolean(true)
@@ -77,8 +81,23 @@ class TcpListener(
       } catch {
         case _: java.nio.channels.AsynchronousCloseException if !running.get() || !serverChannel.isOpen => ()
         case _: java.net.SocketException if !running.get() || !serverChannel.isOpen                     => ()
+        case NonFatal(e)                                                                                =>
+          logger.error(
+            "H2 accept loop error",
+            "host"          -> AttributeValue.StringValue(host),
+            "port"          -> AttributeValue.LongValue(port.toLong),
+            "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+            "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+            "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
+          )
       }
     }
+  }
+
+  private def stackTraceToString(e: Throwable): String = {
+    val sw = new java.io.StringWriter()
+    e.printStackTrace(new java.io.PrintWriter(sw))
+    sw.toString
   }
 
   private def handleConnection(
