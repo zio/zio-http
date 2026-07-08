@@ -25,8 +25,9 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
-import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.Header.Accept.MediaRange
 import zio.http._
+import zio.http.headers
 import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
@@ -324,22 +325,22 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       case AuthType.None                => HttpCodec.empty
       case AuthType.Basic               =>
         HeaderCodec.authorization.transformOrFail {
-          case Header.Authorization.Basic(_, _) => Right(())
-          case _                                => Left("Basic auth required")
+          case _: headers.Authorization.Basic => Right(())
+          case _                              => Left("Basic auth required")
         } { case () =>
           Left("Unsupported")
         }
       case AuthType.Bearer              =>
         HeaderCodec.authorization.transformOrFail {
-          case Header.Authorization.Bearer(_) => Right(())
-          case _                              => Left("Bearer auth required")
+          case _: headers.Authorization.Bearer => Right(())
+          case _                               => Left("Bearer auth required")
         } { case () =>
           Left("Unsupported")
         }
       case AuthType.Digest              =>
         HeaderCodec.authorization.transformOrFail {
-          case _: Header.Authorization.Digest => Right(())
-          case _                              => Left("Digest auth required")
+          case _: headers.Authorization.Digest => Right(())
+          case _                               => Left("Digest auth required")
         } { case () =>
           Left("Unsupported")
         }
@@ -359,19 +360,19 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         val resp = auth.unauthorizedStatus match {
           case Status.Unauthorized =>
             val wwwAuth = (auth match {
-              case AuthType.Basic            => Header.WWWAuthenticate.Basic()
-              case AuthType.Bearer           => Header.WWWAuthenticate.Bearer(realm = "")
-              case AuthType.Digest           => Header.WWWAuthenticate.Digest(realm = Some(""))
+              case AuthType.Basic            => headers.WWWAuthenticate("Basic", Map.empty)
+              case AuthType.Bearer           => headers.WWWAuthenticate("Bearer", Map("realm" -> ""))
+              case AuthType.Digest           => headers.WWWAuthenticate("Digest", Map("realm" -> ""))
               case AuthType.WithStatus(a, _) =>
                 (a: AuthType) match {
-                  case AuthType.Basic  => Header.WWWAuthenticate.Basic()
-                  case AuthType.Bearer => Header.WWWAuthenticate.Bearer(realm = "")
-                  case AuthType.Digest => Header.WWWAuthenticate.Digest(realm = Some(""))
-                  case _               => Header.WWWAuthenticate.Bearer(realm = "")
+                  case AuthType.Basic  => headers.WWWAuthenticate("Basic", Map.empty)
+                  case AuthType.Bearer => headers.WWWAuthenticate("Bearer", Map("realm" -> ""))
+                  case AuthType.Digest => headers.WWWAuthenticate("Digest", Map("realm" -> ""))
+                  case _               => headers.WWWAuthenticate("Bearer", Map("realm" -> ""))
                 }
-              case _                         => Header.WWWAuthenticate.Bearer(realm = "")
-            }): Header.WWWAuthenticate
-            Response(status = Status.Unauthorized, headers = Headers(wwwAuth))
+              case _                         => headers.WWWAuthenticate("Bearer", Map("realm" -> ""))
+            }): headers.WWWAuthenticate
+            Response(status = Status.Unauthorized, headers = Headers(wwwAuth.headerName -> wwwAuth.renderedValue))
           case status              =>
             Response(status = status)
         }
@@ -381,16 +382,21 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     def handlers(
       config: CodecConfig,
     ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
-      def handleEncodingBodyErrorHandling(request: Request) =
+      def handleEncodingBodyErrorHandling(request: Request) = {
+        val acceptHeaders                 = request.headers
+          .getAll(headers.Accept)
+          .flatMap(a => a.mediaRanges)
+        val mediaTypes: Chunk[MediaRange] =
+          if (acceptHeaders.nonEmpty)
+            zio.Chunk.fromIterable(acceptHeaders) :+
+              MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 0.0)
+          else defaultMediaTypes
         codecError.encodeResponse(
           EncodingResponseError,
-          (
-            request.headers
-              .getAll(Header.Accept)
-              .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
-          ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn),
+          mediaTypes,
           config,
         )
+      }
 
       def encodeWithFallback(encode: => Response, fallback: => Response) = {
         try {
@@ -405,11 +411,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
       self.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
-          val outputMediaTypes =
-            request.headers
-              .getAll(Header.Accept)
-              .flatMap(_.mimeTypes)
-              .nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
+          val outputMediaTypes = {
+            val fromHeaders = request.headers
+              .getAll(headers.Accept)
+              .flatMap(a => a.mediaRanges)
+            if (fromHeaders.nonEmpty) zio.Chunk.fromIterable(fromHeaders)
+            else defaultMediaTypes
+          }
 
           (endpoint.input ++ authCodec(endpoint.authType)).decodeRequest(request, config).orDie.flatMap { value =>
             original(value)
@@ -468,12 +476,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
                 Handler.fromFunctionZIO { (request: zio.http.Request) =>
                   val error    = cause.defects.head.asInstanceOf[HttpCodecError]
                   val response = {
-                    val outputMediaTypes =
-                      (
-                        request.headers
-                          .getAll(Header.Accept)
-                          .flatMap(_.mimeTypes) :+ MediaTypeWithQFactor(MediaType.application.`json`, Some(0.0))
-                      ).nonEmptyOrElse(defaultMediaTypes)(ZIO.identityFn)
+                    val outputMediaTypes = {
+                      val fromHeaders = request.headers
+                        .getAll(headers.Accept)
+                        .flatMap(a => a.mediaRanges)
+                      if (fromHeaders.nonEmpty)
+                        zio.Chunk.fromIterable(fromHeaders) :+
+                          MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 0.0)
+                      else defaultMediaTypes
+                    }
 
                     codecError.encodeResponse(error, outputMediaTypes, config)
                   }
@@ -1045,7 +1056,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def url(basePath: String, values: PathInput): Either[Exception, URL] =
     for {
       path <- route.format(values).left.map(err => new RuntimeException(err))
-      url  <- URL.decode(basePath + path.encode)
+      url  <- URL.parse(basePath + path.encode).left.map(msg => new RuntimeException(msg))
     } yield url
 
   /**
@@ -1054,13 +1065,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def urlRelative(values: PathInput): Either[Exception, URL] =
     for {
       path <- route.format(values).left.map(err => new RuntimeException(err))
-      url  <- URL.decode(path.encode)
+      url  <- URL.parse(path.encode).left.map(msg => new RuntimeException(msg))
     } yield url
 
   def urlFromRequest(values: PathInput)(request: Request): Either[Exception, URL] = {
     val basePath = StringBuilderPool.withStringBuilder { sb =>
       if (request.url.scheme.isEmpty) sb.append("http")
-      else sb.append(request.url.scheme.get.encode)
+      else sb.append(request.url.scheme.get.text)
       sb.append("://")
       sb.append(request.url.host.getOrElse("localhost"))
       if (request.url.port.nonEmpty) sb.append(s":${request.url.port.get}")
@@ -1947,6 +1958,6 @@ object Endpoint {
 
   }
 
-  private[endpoint] val defaultMediaTypes =
-    NonEmptyChunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1)))
+  private[endpoint] val defaultMediaTypes: Chunk[MediaRange] =
+    Chunk(MediaRange(zio.blocks.mediatype.MediaType.parse("application/json").toOption.get, 1.0))
 }

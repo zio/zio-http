@@ -75,7 +75,7 @@ final case class HttpEndpoint(
     if (method == Method.ANY) {
       s"POST $path"
     } else {
-      s"${method.render} $path"
+      s"${method.name} $path"
     }
   }
 }

@@ -33,6 +33,8 @@ The `Handler` trait comes with a companion object that has different methods to 
 
 Additionally, there's a smart constructor called `handler` in the `zio.http` package. It automatically picks the right handler constructor based on the input type. Usually, using `handler` is enough, but if we need more control and specificity, we can also use the methods in the `Handler` companion object.
 
+`handler(...)` is also how you write route handlers that read named path variables. The handler can declare only the parameters it needs, in any order, and ZIO HTTP binds them by name and type when the route is attached with `->`.
+
 Let's look at some examples of creating handlers, using the `handler` smart constructor:
 
 ```scala mdoc
@@ -80,6 +82,58 @@ As we can see, the `handler` constructor is quite versatile and can be used to c
 3. The third example shows a handler that generates a random UUID. It doesn't need any input, but it requires an effect that produces a `UUID`. So, we pass a `ZIO` effect that generates a random `UUID` and returns a `Response`.
 4. The fourth example shows a handler that takes the name from the path and returns a greeting message. It needs the name from the path, so we pass a function that takes a `String`, (and also the `Request` which we ignore it using `_`), and returns a `Response`. Please note that whenever we need to access path parameters, we need also to pass the `Request` as an argument to the handler function, even if we don't use it.
 5. The fifth example is similar to the previous one, but it takes two path parameters.
+
+You can also mix path variables with values resolved from `Context`, plus the built-in `Request` and `Scope` parameters.
+
+```scala mdoc:compile-only
+import java.util.UUID
+import zio.http.{Response, Method}
+import zio.http.RouteBinding._
+import zio.blocks.endpoint.PathCodec._
+import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
+
+final case class BasketId(value: String)
+
+val route = Method.GET / uuid("customerId") -> handler(
+  (customerId: UUID, basketId: BasketId) => Response.text(s"customer=$customerId basket=$basketId")
+)
+```
+
+Handler parameter order is flexible.
+
+```scala mdoc:compile-only
+import zio.http.{Response, Method}
+import zio.http.RouteBinding._
+import zio.blocks.endpoint.PathCodec._
+import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
+
+val route = Method.GET / int("userId") / string("postId") -> handler(
+  (postId: String, userId: Int) => Response.text(s"post=$postId user=$userId")
+)
+```
+
+If a route declares a path variable that the handler never uses, the compiler prints a warning like this:
+
+```text
+warning: Variable postId:String was defined in the path but is never used
+```
+
+If that variable is intentionally unused, mark it on the route pattern with `.unused`.
+
+```scala mdoc:compile-only
+import zio.http._
+import zio.http.RouteBinding._
+import zio.blocks.endpoint.PathCodec._
+import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
+
+val route = Method.GET / int("userId") / string("postId").unused -> handler(
+  (userId: Int) => Response.text(s"user=$userId")
+)
+```
+
+That keeps the path shape the same, but suppresses the unused-path-variable warning for `postId`. If a handler later starts consuming a variable marked `.unused`, the compiler emits a warning so the stale marker can be removed.
+
+Middleware still stays at the `Routes(...) @@ mw` level. This handler syntax does not add route-level middleware.
 
 ## Handler Constructors
 

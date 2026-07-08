@@ -17,599 +17,142 @@
 package zio.http
 
 import scala.annotation.implicitNotFound
-import scala.util.Try
 
-import zio.{Exit, ZIO}
+import zio.http.ResultType._
+import zio.http.schema.{HeaderCodec, QueryCodec}
 
 @implicitNotFound("""
-The type ${H} does not appear to be one that can be used to construct a handler. The following types may be used to construct handlers:
+The type ${H} cannot be converted into a zio.http.Handler.
 
- - Handlers:          Handler[Env, Err, In, Out]
- - Responses:         Response
- - ZIO Values:        ZIO[Env, Err, Out]
- - Exit Values:       Exit[Err, Out]
- - Simple Functions:  In => Out
- - ZIO Functions:     In => ZIO[Env, Err, Out]
- - ???:               Nothing
-
-If you constructing a handler from a function, the types to the function must be specified explicitly: Scala cannot infer them due to the smart constructor.
-
-If you are having trouble using this smart constructor function, you can always make a handler directly with the constructors on the [[zio.http.Handler]] companion object.
+Supported shapes in v4 include:
+  - Handler[Ctx, Vars]
+  - Response
+  - Halt
+  - Request => Response | Halt
+  - () => Response | Halt
 """)
 trait ToHandler[H] {
-  type Env
-  type Err
-  type In
-  type Out
+  type Ctx
+  type Vars
 
-  def toHandler(h: => H): Handler[Env, Err, In, Out]
-}
-object ToHandler extends HandlerConstructorLowPriorityImplicits0 {
-
-  implicit def nothingIsHandlerConstructor: ToHandler.Typed[Nothing, Any, Nothing, Any, Nothing] =
-    new ToHandler[Nothing] {
-      type Env = Any
-      type Err = Nothing
-      type In  = Any
-      type Out = Nothing
-      type Z   = Nothing
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction[Any](_ => z)
-    }
+  def toHandler(h: H): Handler[Ctx, Vars]
 }
 
-private[http] trait HandlerConstructorLowPriorityImplicits0 extends HandlerConstructorLowPriorityImplicits1 {
+object ToHandler {
+  type Aux[H, Ctx0, Vars0] = ToHandler[H] { type Ctx = Ctx0; type Vars = Vars0 }
 
-  implicit def handlerIsHandlerConstructor[Env0, Err0, In0, Out0]
-    : ToHandler.Typed[Handler[Env0, Err0, In0, Out0], Env0, Err0, In0, Out0] =
-    new ToHandler[Handler[Env0, Err0, In0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = In0
-      type Out = Out0
-      type Z   = Handler[Env, Err, In, Out]
+  implicit def handlerIsHandler[Ctx0, Vars0]: Aux[Handler[Ctx0, Vars0], Ctx0, Vars0] =
+    new ToHandler[Handler[Ctx0, Vars0]] {
+      type Ctx  = Ctx0
+      type Vars = Vars0
 
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        z
+      override def toHandler(h: Handler[Ctx0, Vars0]): Handler[Ctx, Vars] = h
     }
 
-}
-
-private[http] trait HandlerConstructorLowPriorityImplicits1 extends HandlerConstructorLowPriorityImplicits2 {
-  implicit def function2ZIOIsHandlerConstructor[Env0, Err0, In1, In2, Out0]
-    : ToHandler.Typed[(In1, In2) => ZIO[Env0, Err0, Out0], Env0, Err0, (In1, In2), Out0] =
-    new ToHandler[(In1, In2) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2)
-      type Out = Out0
-      type Z   = (In1, In2) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2) => z(in1, in2) }
-    }
-
-  implicit def function3ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, Out0]
-    : ToHandler.Typed[(In1, In2, In3) => ZIO[Env0, Err0, Out0], Env0, Err0, (In1, In2, In3), Out0] =
-    new ToHandler[(In1, In2, In3) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3)
-      type Out = Out0
-      type Z   = (In1, In2, In3) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3) => z(in1, in2, in3) }
-    }
-
-  implicit def function4ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4) => ZIO[Env0, Err0, Out0], Env0, Err0, (In1, In2, In3, In4), Out0] =
-    new ToHandler[(In1, In2, In3, In4) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3, in4) => z(in1, in2, in3, in4) }
-    }
-
-  implicit def function5ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5) => ZIO[
-      Env0,
-      Err0,
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3, in4, in5) => z(in1, in2, in3, in4, in5) }
-    }
-
-  implicit def function6ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6) => ZIO[
-      Env0,
-      Err0,
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3, in4, in5, in6) => z(in1, in2, in3, in4, in5, in6) }
-    }
-
-  implicit def function7ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, In7, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6, In7) => ZIO[
-      Env0,
-      Err0,
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6, In7), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6, In7) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6, In7)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6, In7) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3, in4, in5, in6, in7) => z(in1, in2, in3, in4, in5, in6, in7) }
-    }
-
-  implicit def function8ZIOIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, In7, In8, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6, In7, In8) => ZIO[
-      Env0,
-      Err0,
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6, In7, In8), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6, In7, In8) => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6, In7, In8)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6, In7, In8) => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO { case (in1, in2, in3, in4, in5, in6, in7, in8) =>
-          z(in1, in2, in3, in4, in5, in6, in7, in8)
-        }
-    }
-
-  implicit def function2HandlerIsHandlerConstructor[Env0, Err0, In1, In2, Out0]
-    : ToHandler.Typed[(In1, In2) => Handler[Env0, Err0, (In1, In2), Out0], Env0, Err0, (In1, In2), Out0] =
-    new ToHandler[(In1, In2) => Handler[Env0, Err0, (In1, In2), Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2)
-      type Out = Out0
-      type Z   = (In1, In2) => Handler[Env0, Err0, (In1, In2), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2) => z(in1, in2) }
-    }
-
-  implicit def function3HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, Out0]: ToHandler.Typed[
-    (In1, In2, In3) => Handler[Env0, Err0, (In1, In2, In3), Out0],
-    Env0,
-    Err0,
-    (In1, In2, In3),
-    Out0,
-  ] =
-    new ToHandler[(In1, In2, In3) => Handler[Env0, Err0, (In1, In2, In3), Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3)
-      type Out = Out0
-      type Z   = (In1, In2, In3) => Handler[Env0, Err0, (In1, In2, In3), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3) => z(in1, in2, in3) }
-    }
-
-  implicit def function4HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, Out0]: ToHandler.Typed[
-    (In1, In2, In3, In4) => Handler[Env0, Err0, (In1, In2, In3, In4), Out0],
-    Env0,
-    Err0,
-    (In1, In2, In3, In4),
-    Out0,
-  ] =
-    new ToHandler[(In1, In2, In3, In4) => Handler[Env0, Err0, (In1, In2, In3, In4), Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4) => Handler[Env0, Err0, (In1, In2, In3, In4), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3, in4) => z(in1, in2, in3, in4) }
-    }
-
-  implicit def function5HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5) => Handler[
-      Env0,
-      Err0,
-      (In1, In2, In3, In4, In5),
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5) => Handler[Env0, Err0, (In1, In2, In3, In4, In5), Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5) => Handler[Env0, Err0, (In1, In2, In3, In4, In5), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3, in4, in5) => z(in1, in2, in3, in4, in5) }
-    }
-
-  implicit def function6HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6) => Handler[
-      Env0,
-      Err0,
-      (In1, In2, In3, In4, In5, In6),
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6), Out0] =
-    new ToHandler[
-      (In1, In2, In3, In4, In5, In6) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6), Out0],
-    ] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3, in4, in5, in6) => z(in1, in2, in3, in4, in5, in6) }
-    }
-
-  implicit def function7HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, In7, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6, In7) => Handler[
-      Env0,
-      Err0,
-      (In1, In2, In3, In4, In5, In6, In7),
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6, In7), Out0] =
-    new ToHandler[
-      (In1, In2, In3, In4, In5, In6, In7) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6, In7), Out0],
-    ] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6, In7)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6, In7) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6, In7), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3, in4, in5, in6, in7) => z(in1, in2, in3, in4, in5, in6, in7) }
-    }
-
-  implicit def function8HandlerIsHandlerConstructor[Env0, Err0, In1, In2, In3, In4, In5, In6, In7, In8, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5, In6, In7, In8) => Handler[
-      Env0,
-      Err0,
-      (In1, In2, In3, In4, In5, In6, In7, In8),
-      Out0,
-    ], Env0, Err0, (In1, In2, In3, In4, In5, In6, In7, In8), Out0] =
-    new ToHandler[
-      (In1, In2, In3, In4, In5, In6, In7, In8) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6, In7, In8), Out0],
-    ] {
-      type Env = Env0
-      type Err = Err0
-      type In  = (In1, In2, In3, In4, In5, In6, In7, In8)
-      type Out = Out0
-      type Z   =
-        (In1, In2, In3, In4, In5, In6, In7, In8) => Handler[Env0, Err0, (In1, In2, In3, In4, In5, In6, In7, In8), Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionHandler { case (in1, in2, in3, in4, in5, in6, in7, in8) =>
-          z(in1, in2, in3, in4, in5, in6, in7, in8)
-        }
-    }
-
-  implicit def function2ResponseIsHandlerConstructor[In1, In2]
-    : ToHandler.Typed[(In1, In2) => Response, Any, Nothing, (In1, In2), Response] =
-    new ToHandler[(In1, In2) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2)
-      type Out = Response
-      type Z   = (In1, In2) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2) => z(in1, in2) }
-    }
-
-  implicit def function3ResponseIsHandlerConstructor[In1, In2, In3]
-    : ToHandler.Typed[(In1, In2, In3) => Response, Any, Nothing, (In1, In2, In3), Response] =
-    new ToHandler[(In1, In2, In3) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3)
-      type Out = Response
-      type Z   = (In1, In2, In3) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3) => z(in1, in2, in3) }
-    }
-
-  implicit def function4ResponseIsHandlerConstructor[In1, In2, In3, In4]
-    : ToHandler.Typed[(In1, In2, In3, In4) => Response, Any, Nothing, (In1, In2, In3, In4), Response] =
-    new ToHandler[(In1, In2, In3, In4) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4)
-      type Out = Response
-      type Z   = (In1, In2, In3, In4) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4) => z(in1, in2, in3, in4) }
-    }
-
-  implicit def function5ResponseIsHandlerConstructor[In1, In2, In3, In4, In5]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5) => Response,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5),
-    Response,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5)
-      type Out = Response
-      type Z   = (In1, In2, In3, In4, In5) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5) => z(in1, in2, in3, in4, in5) }
-    }
-
-  implicit def function6ResponseIsHandlerConstructor[In1, In2, In3, In4, In5, In6]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5, In6) => Response,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5, In6),
-    Response,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5, In6)
-      type Out = Response
-      type Z   = (In1, In2, In3, In4, In5, In6) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6) => z(in1, in2, in3, in4, in5, in6) }
-    }
-
-  implicit def function7ResponseIsHandlerConstructor[In1, In2, In3, In4, In5, In6, In7]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5, In6, In7) => Response,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5, In6, In7),
-    Response,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6, In7) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5, In6, In7)
-      type Out = Response
-      type Z   = (In1, In2, In3, In4, In5, In6, In7) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6, in7) => z(in1, in2, in3, in4, in5, in6, in7) }
-    }
-
-  implicit def function8ResponseIsHandlerConstructor[In1, In2, In3, In4, In5, In6, In7, In8]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5, In6, In7, In8) => Response,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5, In6, In7, In8),
-    Response,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6, In7, In8) => Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5, In6, In7, In8)
-      type Out = Response
-      type Z   = (In1, In2, In3, In4, In5, In6, In7, In8) => Response
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6, in7, in8) =>
-          z(in1, in2, in3, in4, in5, in6, in7, in8)
-        }
-    }
-}
-
-private[http] trait HandlerConstructorLowPriorityImplicits2 extends HandlerConstructorLowPriorityImplicits3 {
-  implicit def functionZIOIsHandlerConstructor[Env0, Err0, In0, Out0]
-    : ToHandler.Typed[In0 => ZIO[Env0, Err0, Out0], Env0, Err0, In0, Out0] =
-    new ToHandler[In0 => ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = In0
-      type Out = Out0
-      type Z   = In0 => ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunctionZIO(z)
-    }
-}
-
-private[http] trait HandlerConstructorLowPriorityImplicits3 extends HandlerConstructorLowPriorityImplicits4 {
-  implicit def function2IsHandlerConstructor[In1, In2, Out0]
-    : ToHandler.Typed[(In1, In2) => Out0, Any, Nothing, (In1, In2), Out0] =
-    new ToHandler[(In1, In2) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2)
-      type Out = Out0
-      type Z   = (In1, In2) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2) => z(in1, in2) }
-    }
-
-  implicit def function3IsHandlerConstructor[In1, In2, In3, Out0]
-    : ToHandler.Typed[(In1, In2, In3) => Out0, Any, Nothing, (In1, In2, In3), Out0] =
-    new ToHandler[(In1, In2, In3) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3)
-      type Out = Out0
-      type Z   = (In1, In2, In3) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3) => z(in1, in2, in3) }
-    }
-
-  implicit def function4IsHandlerConstructor[In1, In2, In3, In4, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4) => Out0, Any, Nothing, (In1, In2, In3, In4), Out0] =
-    new ToHandler[(In1, In2, In3, In4) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4) => z(in1, in2, in3, in4) }
-    }
-
-  implicit def function5IsHandlerConstructor[In1, In2, In3, In4, In5, Out0]
-    : ToHandler.Typed[(In1, In2, In3, In4, In5) => Out0, Any, Nothing, (In1, In2, In3, In4, In5), Out0] =
-    new ToHandler[(In1, In2, In3, In4, In5) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5) => z(in1, in2, in3, in4, in5) }
-    }
-
-  implicit def function6IsHandlerConstructor[In1, In2, In3, In4, In5, In6, Out0]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5, In6) => Out0,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5, In6),
-    Out0,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5, In6)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6) => z(in1, in2, in3, in4, in5, in6) }
-    }
-
-  implicit def function7IsHandlerConstructor[In1, In2, In3, In4, In5, In6, In7, Out0]: ToHandler.Typed[
-    (In1, In2, In3, In4, In5, In6, In7) => Out0,
-    Any,
-    Nothing,
-    (In1, In2, In3, In4, In5, In6, In7),
-    Out0,
-  ] =
-    new ToHandler[(In1, In2, In3, In4, In5, In6, In7) => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = (In1, In2, In3, In4, In5, In6, In7)
-      type Out = Out0
-      type Z   = (In1, In2, In3, In4, In5, In6, In7) => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6, in7) => z(in1, in2, in3, in4, in5, in6, in7) }
-    }
-}
-
-private[http] trait HandlerConstructorLowPriorityImplicits4 {
-  type Typed[H, Env0, Err0, In0, Out0] = ToHandler[H] {
-    type Env = Env0; type Err = Err0; type In = In0; type Out = Out0
-  }
-
-  implicit def functionIsHandlerConstructor[In0, Out0]: ToHandler.Typed[In0 => Out0, Any, Nothing, In0, Out0] =
-    new ToHandler[In0 => Out0] {
-      type Env = Any
-      type Err = Nothing
-      type In  = In0
-      type Out = Out0
-      type Z   = In0 => Out0
-
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromFunction(z)
-    }
-
-  implicit def zioIsHandlerConstructor[Env0, Err0, Out0]
-    : ToHandler.Typed[ZIO[Env0, Err0, Out0], Env0, Err0, Any, Out0] =
-    new ToHandler[ZIO[Env0, Err0, Out0]] {
-      type Env = Env0
-      type Err = Err0
-      type In  = Any
-      type Out = Out0
-      type Z   = ZIO[Env0, Err0, Out0]
-
-      def toHandler(z: => Z): Handler[Env, Err, Any, Out] =
-        Handler.fromZIO(z)
-    }
-
-  implicit def responseIsHandlerConstructor: ToHandler.Typed[Response, Any, Nothing, Any, Response] =
+  implicit val responseIsHandler: Aux[Response, Any, Any] =
     new ToHandler[Response] {
-      type Env = Any
-      type Err = Nothing
-      type In  = Any
-      type Out = Response
-      type Z   = Response
+      type Ctx  = Any
+      type Vars = Any
 
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.succeed(z)
+      override def toHandler(h: Response): Handler[Ctx, Vars] = Handler.succeed(h)
     }
 
-  implicit def exitIsHandlerConstructor[E, A]: ToHandler.Typed[Exit[E, A], Any, E, Any, A] =
-    new ToHandler[Exit[E, A]] {
-      type Env = Any
-      type Err = E
-      type In  = Any
-      type Out = A
-      type Z   = Exit[E, A]
+  implicit val haltIsHandler: Aux[Halt, Any, Any] =
+    new ToHandler[Halt] {
+      type Ctx  = Any
+      type Vars = Any
 
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromExit(z)
+      override def toHandler(h: Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest(_ => haltAsResult(h))
     }
 
-  implicit def eitherIsHandlerConstructor[Err0, Out0]: ToHandler.Typed[Either[Err0, Out0], Any, Err0, Any, Out0] =
-    new ToHandler[Either[Err0, Out0]] {
-      type Env = Any
-      type Err = Err0
-      type In  = Any
-      type Out = Out0
-      type Z   = Either[Err0, Out0]
+  implicit val resultIsHandler: Aux[Response | Halt, Any, Any] =
+    new ToHandler[Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
 
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromEither(z)
+      override def toHandler(h: Response | Halt): Handler[Ctx, Vars] = Handler.fromRequest(_ => h)
     }
 
-  implicit def tryIsHandlerConstructor[Out0]: ToHandler.Typed[Try[Out0], Any, Throwable, Any, Out0] =
-    new ToHandler[Try[Out0]] {
-      type Env = Any
-      type Err = Throwable
-      type In  = Any
-      type Out = Out0
-      type Z   = Try[Out0]
+  implicit def requestFunctionIsHandler: Aux[Request => Response | Halt, Any, Any] =
+    new ToHandler[Request => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
 
-      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
-        Handler.fromExit(Exit.fromTry(z))
+      override def toHandler(h: Request => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest(request => h(request))
+    }
+
+  implicit def thunkIsHandler: Aux[() => Response | Halt, Any, Any] =
+    new ToHandler[() => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: () => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest(_ => h())
+    }
+
+  implicit def decodeQueryFunctionIsHandler[A](implicit
+    queryCodec: QueryCodec[A],
+  ): Aux[DecodeQuery[A] => Response | Halt, Any, Any] =
+    new ToHandler[DecodeQuery[A] => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: DecodeQuery[A] => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeQuery.decode[A](request) match {
+            case Right(query) => h(query)
+            case Left(halt)   => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def decodeHeadersFunctionIsHandler[A](implicit
+    headerCodec: HeaderCodec[A],
+  ): Aux[DecodeHeaders[A] => Response | Halt, Any, Any] =
+    new ToHandler[DecodeHeaders[A] => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: DecodeHeaders[A] => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeHeaders.decode[A](request) match {
+            case Right(headers) => h(headers)
+            case Left(halt)     => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def requestDecodeQueryFunctionIsHandler[A](implicit
+    queryCodec: QueryCodec[A],
+  ): Aux[(Request, DecodeQuery[A]) => Response | Halt, Any, Any] =
+    new ToHandler[(Request, DecodeQuery[A]) => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: (Request, DecodeQuery[A]) => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeQuery.decode[A](request) match {
+            case Right(query) => h(request, query)
+            case Left(halt)   => haltAsResult(halt)
+          }
+        }
+    }
+
+  implicit def requestDecodeHeadersFunctionIsHandler[A](implicit
+    headerCodec: HeaderCodec[A],
+  ): Aux[(Request, DecodeHeaders[A]) => Response | Halt, Any, Any] =
+    new ToHandler[(Request, DecodeHeaders[A]) => Response | Halt] {
+      type Ctx  = Any
+      type Vars = Any
+
+      override def toHandler(h: (Request, DecodeHeaders[A]) => Response | Halt): Handler[Ctx, Vars] =
+        Handler.fromRequest { request =>
+          DecodeHeaders.decode[A](request) match {
+            case Right(headers) => h(request, headers)
+            case Left(halt)     => haltAsResult(halt)
+          }
+        }
     }
 }

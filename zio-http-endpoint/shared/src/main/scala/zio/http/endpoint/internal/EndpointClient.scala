@@ -47,16 +47,17 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
     }
     def request(config: CodecConfig, authInput: endpoint.authType.ClientRequirement)  = {
       val req0 = request0(config, authInput)
-      req0.copy(url = endpointRoot ++ req0.url)
+      req0.copy(url = endpointRoot.addPath(req0.url.path).addQueryParams(req0.url.queryParams))
     }
 
     def withDefaultAcceptHeader(config: CodecConfig, authInput: endpoint.authType.ClientRequirement) = {
       val req = request(config, authInput)
-      if (req.headers.exists(_.headerName == Header.Accept.name))
+      if (req.headers.has(headers.Accept.name))
         req
       else {
         req.addHeader(
-          Header.Accept(MediaType.application.json, protobufMediaType, MediaType.text.`plain`),
+          headers.Accept.name,
+          "application/json, application/protobuf, text/plain",
         )
       }
     }
