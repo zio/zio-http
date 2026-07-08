@@ -1,147 +1,127 @@
 package zio.http
 
-import zio._
+import java.util.concurrent.atomic.AtomicReference
 
-import zio.http.netty.NettyConfig
+import zio.blocks.context.Context
+import zio.blocks.endpoint.RoutePattern
+import zio.blocks.scope.{Scope => BlocksScope}
 
 /**
- * Enables tests that make calls against "localhost" with user-specified
- * Behavior/Responses.
+ * An in-process, in-memory test double for exercising [[Route]]/[[Routes]]
+ * definitions without binding any real server socket.
  *
- * @param driver
- *   The web driver that accepts our Server behavior
- * @param bindPort
- *   Port for HTTP interactions
+ * The current `zio-http` [[Client]]/[[Handler]] APIs are synchronous (there are
+ * no ZIO types on either interface), so `TestServer` dispatches requests
+ * directly against its mutable route table on the calling thread.
+ *
+ * Route matching is a linear scan over the registered routes in
+ * most-recently-added-first order (rather than the [[zio.blocks.endpoint.RouteTree]]
+ * trie the real server uses), so that a route registered for the bare root
+ * path (an empty [[zio.blocks.endpoint.PathCodec]], which `RouteTree` cannot
+ * index) is still matchable, and so that re-registering the same pattern makes
+ * the newest registration win.
+ *
+ * @example
+ *   {{{
+ *   val server = TestServer.make()
+ *   server.addRoute(Route(Method.GET / "hello", handler(Response.text("hi"))))
+ *   val response = server.client.send(Request.get(URL.root / "hello"))
+ *   }}}
  */
-final case class TestServer(driver: Driver, bindPort: Int) extends Server {
+final class TestServer private (private val routesRef: AtomicReference[Routes[Any]]) {
 
   /**
-   * Define 1-1 mappings between incoming Requests and outgoing Responses
-   *
-   * @param expectedRequest
-   *   Request that will trigger the provided Response
-   * @param response
-   *   Response that the Server will send
+   * Registers a new route. Routes added later take precedence over
+   * previously-registered routes that match the same request.
+   */
+  def addRoute(route: Route[Any]): Unit =
+    routesRef.updateAndGet(_ ++ Routes(route))
+
+  /**
+   * Registers new routes. Routes added later take precedence over
+   * previously-registered routes that match the same request.
+   */
+  def addRoutes(routes: Routes[Any]): Unit =
+    routesRef.updateAndGet(_ ++ routes)
+
+  /**
+   * Registers an exact request/response pair: `response` is only returned when
+   * an incoming request's method, path, and headers match `expectedRequest`
+   * (additional headers present on the real request are ignored).
    *
    * @example
    *   {{{
-   *   TestServer.addRequestResponse(Request.get(url = URL.root.port(port = ???)), Response(Status.Ok))
+   *   server.addRequestResponse(Request.get(URL.root.port(port)), Response.ok)
    *   }}}
    */
   def addRequestResponse(
     expectedRequest: Request,
     response: Response,
-  ): ZIO[Any, Nothing, Unit] = {
-    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
-      if (
-        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-        //    expectedRequest == realRequest
-        expectedRequest.url.relative == realRequest.url &&
+  ): Unit = {
+    def matches(realRequest: Request): Boolean =
+      // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+      //    expectedRequest == realRequest
+      expectedRequest.url.path == realRequest.url.path &&
         expectedRequest.method == realRequest.method &&
         expectedRequest.headers.toList.forall { case (name, value) => realRequest.headers.rawGet(name).contains(value) }
-      ) response
-      else Response.notFound
-    })
+
+    addRoute(
+      Route(
+        RoutePattern(expectedRequest.method, expectedRequest.url.path),
+        Handler.fromRequest { (realRequest: Request) =>
+          if (matches(realRequest)) response else Response.notFound
+        },
+      ),
+    )
   }
 
   /**
-   * Adds a new route to the Server
-   *
-   * @param route
-   *   New route
-   * @example
-   *   {{{
-   * TestServer.addRoute {
-   *   Method.ANY / trailing -> handler { (_: Path, _: Request) =>
-   *     for {
-   *       curState <- state.getAndUpdate(_ + 1)
-   *     } yield {
-   *       if (curState > 0)
-   *         Response(Status.InternalServerError)
-   *       else
-   *         Response(Status.Ok)
-   *     }
-   *   }
-   * }
-   *   }}}
+   * A [[Client]] that dispatches directly against this server's current route
+   * table, without any real network I/O.
    */
-  def addRoute[R](
-    route: Route[R, Response],
-  ): ZIO[R, Nothing, Unit] =
-    for {
-      r <- ZIO.environment[R]
-      provided                      = route.provideEnvironment(r)
-      routes: Routes[Any, Response] = provided.toRoutes
-      _ <- driver.addApp(routes, r)
-    } yield ()
-
-  /**
-   * Add new routes to the Server
-   * @example
-   *   {{{
-   *   TestServer.addRoutes {
-   *     Routes(
-   *       Method.ANY / trailing -> handler { (_: Path, _: Request) => Response.text("Fallback handler") },
-   *       Method.GET / "hello" / "world" -> handler { (_: Path, _: Request) => Response.text("Hello world!") },
-   *     )
-   *   }
-   *   }}}
-   */
-
-  def addRoutes[R](
-    routes: Routes[R, Response],
-  ): ZIO[R, Nothing, Unit] =
-    for {
-      r <- ZIO.environment[R]
-      provided: Routes[Any, Response] = routes.provideEnvironment(r)
-      _ <- driver.addApp(provided, r)
-    } yield ()
-
-  override private[http] def installInternal[R](routes: Routes[R, Response])(implicit
-    trace: zio.Trace,
-    tag: EnvironmentTag[R],
-  ): URIO[R, Unit] =
-    ZIO
-      .environment[R]
-      .flatMap(
-        driver.addApp(
-          routes,
-          _,
-        ),
-      )
-
-  override def port: UIO[Int] = ZIO.succeed(bindPort)
+  val client: Client = new Client {
+    override def send(request: Request): Response =
+      TestServer.dispatch(routesRef.get(), request)
+  }
 }
 
 object TestServer {
-  def addRoute[R](
-    route: Route[R, Response],
-  ): ZIO[R with TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addRoute(route))
 
-  def addRoutes[R](
-    routes: Routes[R, Response],
-  ): ZIO[R with TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addRoutes(routes))
+  /** Creates a fresh `TestServer` with no registered routes. */
+  def make(): TestServer = new TestServer(new AtomicReference(Routes.empty[Any]))
 
-  def addRequestResponse(
+  private[http] def dispatch(routes: Routes[Any], request: Request): Response =
+    dispatchOption(routes, request).getOrElse(Response.notFound)
+
+  /** Returns `None` when no registered route matches `request` at all. */
+  private[http] def dispatchOption(routes: Routes[Any], request: Request): Option[Response] = {
+    val method = request.method
+    val path   = request.url.path
+    val firstMatch = routes.routes.reverseIterator
+      .flatMap(route => route.pattern.decode(method, path).toOption.map(route -> _))
+      .nextOption()
+
+    firstMatch.map { case (route, vars) =>
+      val openScope = BlocksScope.global.open()
+      try toResponse(invokeHandler(route, request, vars, openScope.scope))
+      finally openScope.close().orThrow()
+    }
+  }
+
+  private def invokeHandler(
+    route: Route[Any],
     request: Request,
-    response: Response,
-  ): ZIO[TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
-
-  val layer: ZLayer[Driver, Throwable, TestServer] =
-    ZLayer.scoped {
-      for {
-        driver <- ZIO.service[Driver]
-        result <- driver.start
-      } yield TestServer(driver, result.port)
+    vars: Any,
+    scope: BlocksScope,
+  ): Response | Halt =
+    try route.handler.handle(request, Context.empty, vars, scope)
+    catch {
+      case _: Throwable => Response.internalServerError
     }
 
-  val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
-    TestServer.layer.orDie,
-    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-    _root_.zio.http.netty.server.live.orDie,
-  )
-
+  private def toResponse(result: Response | Halt): Response =
+    result match {
+      case response: Response => response
+      case halt: Halt         => halt.response
+    }
 }

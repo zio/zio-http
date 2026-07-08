@@ -1,6 +1,6 @@
 package zio.http
 
-import zio._
+import zio.blocks.endpoint.RoutePattern
 import zio.test._
 
 object TestClientSpec extends ZIOHttpSpec {
@@ -9,17 +9,18 @@ object TestClientSpec extends ZIOHttpSpec {
     suite("TestClient")(
       suite("addRequestResponse")(
         test("New behavior does not overwrite old") {
+          val client   = TestClient.make()
           val request  = Request.get(URL.root)
-          val request2 = Request.get(URL(Path.decode("/users")))
-          for {
-            client        <- ZIO.service[ZClient.Client]
-            _             <- TestClient.addRequestResponse(request, Response.ok)
-            goodResponse  <- client(request)
-            badResponse   <- client(request2)
-            _             <- TestClient.addRequestResponse(request2, Response.ok)
-            goodResponse2 <- client(request)
-            badResponse2  <- client(request2)
-          } yield assertTrue(
+          val request2 = Request.get(URL.root.path(Path("/users")))
+
+          client.addRequestResponse(request, Response.ok)
+          val goodResponse = client.send(request)
+          val badResponse  = client.send(request2)
+          client.addRequestResponse(request2, Response.ok)
+          val goodResponse2 = client.send(request)
+          val badResponse2  = client.send(request2)
+
+          assertTrue(
             goodResponse.status == Status.Ok,
             badResponse.status == Status.NotFound,
             goodResponse2.status == Status.Ok,
@@ -27,77 +28,80 @@ object TestClientSpec extends ZIOHttpSpec {
           )
         },
       ),
-      suite("addHandler")(
-        test("all")(
-          for {
-            client   <- ZIO.service[ZClient.Client]
-            _        <- TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
-            response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.Ok),
-        ),
-        test("partial")(
-          for {
-            client   <- ZIO.service[ZClient.Client]
-            _        <- TestClient.addRoute { Method.GET / trailing -> handler(Response.ok) }
-            response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.Ok),
-        ),
-        test("addHandler advanced")(
-          for {
-            client       <- ZIO.service[ZClient.Client]
-            requestCount <- Ref.make(0)
-            _ <- TestClient.addRoute { Method.ANY / trailing -> handler(requestCount.update(_ + 1).as(Response.ok)) }
-            response   <- client(Request.get(URL.root))
-            finalCount <- requestCount.get
-          } yield assertTrue(response.status == Status.Ok, finalCount == 1),
-        ),
+      suite("addRoute")(
+        test("all") {
+          val client = TestClient.make()
+          client.addRoute(Route(RoutePattern.any, Handler.fromRequest((_: Request) => Response.ok)))
+          assertTrue(client.send(Request.get(URL.root)).status == Status.Ok)
+        },
+        test("partial") {
+          val client = TestClient.make()
+          client.addRoute(Route(RoutePattern.any(Method.GET), Handler.fromRequest((_: Request) => Response.ok)))
+          assertTrue(client.send(Request.get(URL.root)).status == Status.Ok)
+        },
+        test("addRoute advanced") {
+          val client        = TestClient.make()
+          var requestCount = 0
+          client.addRoute(
+            Route(
+              RoutePattern.any,
+              Handler.fromRequest { (_: Request) =>
+                requestCount += 1
+                Response.ok
+              },
+            ),
+          )
+          val response = client.send(Request.get(URL.root))
+          assertTrue(response.status == Status.Ok, requestCount == 1)
+        },
       ),
       test("addRoutes") {
-        for {
-          client           <- ZIO.service[ZClient.Client]
-          _                <- TestClient.addRoutes {
-            Routes(
-              Method.GET / trailing          -> handler { Response.text("fallback") },
-              Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
-            )
-          }
-          helloResponse    <- client(Request.get(URL.root / "hello" / "world"))
-          helloBody        <- helloResponse.body.asString
-          fallbackResponse <- client(Request.get(URL.root / "any"))
-          fallbackBody     <- fallbackResponse.body.asString
-        } yield assertTrue(helloBody == "Hey there!", fallbackBody == "fallback")
+        val client = TestClient.make()
+        client.addRoutes(
+          Routes(
+            Route(RoutePattern.any, Handler.fromRequest((_: Request) => Response.text("fallback"))),
+            Route(
+              RoutePattern(Method.GET, Path("/hello/world")),
+              Handler.fromRequest((_: Request) => Response.text("Hey there!")),
+            ),
+          ),
+        )
+        val helloResponse    = client.send(Request.get(URL.root / "hello" / "world"))
+        val fallbackResponse = client.send(Request.get(URL.root / "any"))
+        assertTrue(
+          helloResponse.body.asString() == "Hey there!",
+          fallbackResponse.body.asString() == "fallback",
+        )
       },
       test("setFallbackHandler") {
-        for {
-          client <- ZIO.service[ZClient.Client]
-          ref    <- Ref.Synchronized.make[List[Request]](Nil)
-          _      <- TestClient.setFallbackHandler(req => ref.update(_ :+ req).as(Response.notFound))
-          _      <- TestClient.addRoute(
-            Method.GET / "test" -> handler { Response.text("ok") },
-          )
+        val client = TestClient.make()
+        val failedRequests = new java.util.concurrent.ConcurrentLinkedQueue[Request]()
+        client.setFallbackHandler { req => failedRequests.add(req); Response.notFound }
+        client.addRoute(
+          Route(RoutePattern(Method.GET, Path("/test")), Handler.fromRequest((_: Request) => Response.text("ok"))),
+        )
 
-          successResponse1 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
-          failResponse1    <- client(Request.get(URL.root / "foo"))
-          successResponse2 <- client(Request.get(URL.root / "test")).flatMap(_.body.asString)
-          failResponse2    <- client(Request.post(URL.root / "xyzzy", Body.empty))
-          failedRequests   <- ref.get.map(_.map(req => (req.method, req.url)))
-        } yield assertTrue(
+        val successResponse1 = client.send(Request.get(URL.root / "test")).body.asString()
+        val failResponse1    = client.send(Request.get(URL.root / "foo"))
+        val successResponse2 = client.send(Request.get(URL.root / "test")).body.asString()
+        val failResponse2    = client.send(Request.post(URL.root / "xyzzy", Body.empty))
+
+        import scala.jdk.CollectionConverters._
+        val failed = failedRequests.asScala.toList.map(req => (req.method, req.url))
+
+        assertTrue(
           successResponse1 == "ok",
           successResponse2 == "ok",
           failResponse1 == Response.notFound,
           failResponse2 == Response.notFound,
-          failedRequests == List((Method.GET, URL.root / "foo"), (Method.POST, URL.root / "xyzzy")),
+          failed == List((Method.GET, URL.root / "foo"), (Method.POST, URL.root / "xyzzy")),
         )
-
       },
       suite("sad paths")(
-        test("error when submitting a request to a blank TestServer")(
-          for {
-            client   <- ZIO.service[ZClient.Client]
-            response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.NotFound),
-        ),
+        test("error when submitting a request to a blank TestClient") {
+          val client = TestClient.make()
+          assertTrue(client.send(Request.get(URL.root)).status == Status.NotFound)
+        },
       ),
-    ).provide(TestClient.layer, Scope.default)
-
+    )
 }

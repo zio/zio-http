@@ -1,261 +1,99 @@
 package zio.http
 
-import zio._
+import java.util.concurrent.atomic.AtomicReference
+
+import zio.blocks.endpoint.RoutePattern
 
 /**
- * Enables tests that use a client without needing a live Server
+ * An in-process test double for a [[Client]]: lets tests register
+ * [[Route]]/[[Routes]] behavior and a fallback handler for requests that don't
+ * match any registered route, then exercises code that depends on a [[Client]]
+ * without any real network I/O.
  *
- * @param behavior
- *   Contains the user-specified behavior that takes the place of the usual
- *   Server
+ * @example
+ *   {{{
+ *   val client = TestClient.make()
+ *   client.addRoute(Route(Method.GET / "hello", handler(Response.text("hi"))))
+ *   client.send(Request.get(URL.root / "hello"))
+ *   }}}
  */
-final case class TestClient(
-  behavior: Ref[Routes[Any, Response]],
-  missingRouteHandler: Ref[Handler[Any, Response, Request, Response]],
-) extends ZClient.Driver[Any, Scope, Throwable] {
+final class TestClient private (
+  private val routesRef: AtomicReference[Routes[Any]],
+  private val fallbackRef: AtomicReference[Request => Response],
+) extends Client {
 
   /**
-   * Adds Routes to the TestClient
+   * Registers a new route. Routes added later take precedence over
+   * previously-registered routes that match the same request.
    */
-  def addRoutes(
-    routes: Routes[Any, Response],
-  ): ZIO[Any, Nothing, Unit] =
-    behavior.update(_ ++ routes)
+  def addRoute(route: Route[Any]): Unit =
+    routesRef.updateAndGet(_ ++ Routes(route))
 
   /**
-   * Adds an exact 1-1 behavior
-   * @param expectedRequest
-   *   The request that will trigger the response
-   * @param response
-   *   The response to be returned when a user submits the response
+   * Registers new routes. Routes added later take precedence over
+   * previously-registered routes that match the same request.
+   */
+  def addRoutes(routes: Routes[Any]): Unit =
+    routesRef.updateAndGet(_ ++ routes)
+
+  /**
+   * Registers an exact request/response pair: `response` is only returned when
+   * an incoming request's method, path, and headers match `expectedRequest`
+   * (additional headers present on the real request are ignored).
    *
    * @example
    *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   *    client.addRequestResponse(Request.get(URL.root), Response.ok)
    *   }}}
    */
   def addRequestResponse(
     expectedRequest: Request,
     response: Response,
-  ): ZIO[Any, Nothing, Unit] = {
-
-    def isDefinedAt(realRequest: Request): Boolean = {
+  ): Unit = {
+    def matches(realRequest: Request): Boolean =
       // The way that the Client breaks apart and re-assembles the request prevents a straightforward
       //    expectedRequest == realRequest
-      expectedRequest.url.relative == realRequest.url &&
-      expectedRequest.method == realRequest.method &&
-      expectedRequest.headers.toList.toSet.forall(expectedHeader =>
-        realRequest.headers.toList.toSet.contains(expectedHeader),
-      )
-    }
-    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
-      if (!isDefinedAt(realRequest))
-        throw new MatchError(s"TestClient received unexpected request: $realRequest (expected: $expectedRequest)")
-      else response
-    })
+      expectedRequest.url.path == realRequest.url.path &&
+        expectedRequest.method == realRequest.method &&
+        expectedRequest.headers.toList.toSet.forall(realRequest.headers.toList.toSet.contains)
+
+    addRoute(
+      Route(
+        RoutePattern(expectedRequest.method, expectedRequest.url.path),
+        Handler.fromRequest { (realRequest: Request) =>
+          if (matches(realRequest)) response
+          else
+            throw new MatchError(
+              s"TestClient received unexpected request: $realRequest (expected: $expectedRequest)",
+            )
+        },
+      ),
+    )
   }
 
   /**
-   * Adds a route definition to handle requests that are submitted by test cases
-   * @param route
-   *   New route to be added to the TestClient
-   * @tparam R
-   *   Environment of the new route
+   * Sets a fallback behaviour invoked when a request doesn't match any
+   * registered route. Defaults to always returning [[Response.notFound]].
    *
    * @example
    *   {{{
-   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
+   *   val failedRequests = new java.util.concurrent.ConcurrentLinkedQueue[Request]()
+   *   client.setFallbackHandler { req => failedRequests.add(req); Response.notFound }
    *   }}}
    */
-  def addRoute[R](
-    route: Route[R, Response],
-  ): ZIO[R, Nothing, Unit] =
-    for {
-      r <- ZIO.environment[R]
-      provided = route.provideEnvironment(r)
-      _ <- behavior.update(_ :+ provided)
-    } yield ()
+  def setFallbackHandler(fallback: Request => Response): Unit =
+    fallbackRef.set(fallback)
 
-  /**
-   * Adds routes to handle requests that are submitted by test cases
-   * @param routes
-   *   New routes to be added to the TestClient
-   * @tparam R
-   *   Environment of the new route
-   *
-   * @example
-   *   {{{
-   *   TestClient.addRoutes {
-   *     Routes(
-   *       Method.GET / trailing          -> handler { Response.text("fallback") },
-   *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
-   *     )
-   *   }
-   *   }}}
-   */
-  def addRoutes[R](
-    route: Route[R, Response],
-    routes: Route[R, Response]*,
-  ): ZIO[R, Nothing, Unit] =
-    for {
-      r <- ZIO.environment[R]
-      provided = Routes.fromIterable(route +: routes).provideEnvironment(r)
-      _ <- behavior.update(_ ++ provided)
-    } yield ()
-
-  /**
-   * Sets a fallback behaviour for when the TestClient attempts to access any
-   * unspecified routes
-   * @param fallbackHandler
-   *   The function to execute when the client attempts to perform a request not
-   *   part of it's behavior
-   * @tparam R
-   *   Environment of the handler
-   *
-   * @example
-   *   {{{
-   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
-   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
-   *   }}}
-   */
-  def setFallbackHandler[R](fallbackFunction: Request => ZIO[R, Response, Response]): ZIO[R, Nothing, Unit] =
-    for {
-      r <- ZIO.environment[R]
-      fallbackHandler = handler(fallbackFunction).provideEnvironment(r)
-      _ <- missingRouteHandler.set(fallbackHandler)
-    } yield ()
-
-  def headers: Headers = Headers.empty
-
-  def method: Method = Method.GET
-
-  def sslConfig: Option[ClientSSLConfig] = None
-
-  def url: URL = URL(None, None, None, Path.root, QueryParams.empty, None)
-
-  def version: Version = Version.`HTTP/1.1`
-
-  override def request(
-    version: Version,
-    method: Method,
-    url: URL,
-    headers: Headers,
-    body: Body,
-    sslConfig: Option[zio.http.ClientSSLConfig],
-    proxy: Option[Proxy],
-  )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
-    for {
-      missingRouteBehavior <- missingRouteHandler.get.map(_.toRoutes)
-      currentBehavior      <- behavior.get.map(missingRouteBehavior ++ _)
-      request = Request(
-        method = if (method == Method.ANY) Method.GET else method,
-        url = url.relative,
-        headers = headers,
-        body = body,
-        version = version,
-      )
-      response <- currentBehavior(request).merge
-    } yield response
-  }
-
+  override def send(request: Request): Response =
+    TestServer.dispatchOption(routesRef.get(), request).getOrElse(fallbackRef.get()(request))
 }
 
 object TestClient {
 
-  def addRoutes(routes: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
-
-  /**
-   * Adds an exact 1-1 behavior
-   * @param request
-   *   The request that will trigger the response
-   * @param response
-   *   The response to be returned when a user submits the response
-   *
-   * @example
-   *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
-   *   }}}
-   */
-  def addRequestResponse(
-    request: Request,
-    response: Response,
-  ): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRequestResponse(request, response))
-
-  /**
-   * Adds a route definition to handle requests that are submitted by test cases
-   * @param route
-   *   New route to be added to the TestClient
-   * @tparam R
-   *   Environment of the new route
-   *
-   * @example
-   *   {{{
-   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
-   *   }}}
-   */
-  def addRoute[R](
-    route: Route[R, Response],
-  ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoute(route))
-
-  /**
-   * Adds routes to handle requests that are submitted by test cases
-   * @param routes
-   *   New routes to be added to the TestClient
-   * @tparam R
-   *   Environment of the new route
-   *
-   * @example
-   *   {{{
-   *   TestClient.addRoutes {
-   *     Routes(
-   *       Method.GET / trailing          -> handler { Response.text("fallback") },
-   *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
-   *     )
-   *   }
-   *   }}}
-   */
-  def addRoutes[R](
-    route: Route[R, Response],
-    routes: Route[R, Response]*,
-  ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRoutes(route, routes: _*))
-
-  /**
-   * Sets a fallback behaviour for when the TestClient attempts to access any
-   * unspecified routes
-   * @param fallbackHandler
-   *   The function to execute when the client attempts to perform a request not
-   *   part of it's behavior
-   * @tparam R
-   *   Environment of the handler
-   *
-   * @example
-   *   {{{
-   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
-   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
-   *   }}}
-   */
-  def setFallbackHandler[R](
-    fallbackHandler: Request => ZIO[R, Response, Response],
-  ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.setFallbackHandler(fallbackHandler))
-
-  val layer: ZLayer[Any, Nothing, TestClient & ZClient.Client] =
-    ZLayer.scopedEnvironment {
-      for {
-        behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
-        fallbackBehavior <- Ref.make[Handler[Any, Response, Request, Response]](
-          handler((req: Request) => ZIO.logWarning(s"Unexpected request route: ${req}").as(Response.notFound)),
-        )
-        driver = TestClient(behavior, fallbackBehavior)
-      } yield ZEnvironment[TestClient, ZClient.Client](driver, ZClient.fromDriver(driver))
-    }
-
-  def withFallbackHandler[R](
-    fallbackHandler: Request => ZIO[R, Response, Response],
-  ): ZLayer[R, Nothing, TestClient & ZClient.Client] =
-    ZLayer.environment[R] ++ layer >+> ZLayer.fromZIO(setFallbackHandler(fallbackHandler))
+  /** Creates a fresh `TestClient` with no registered routes and a "not found" fallback. */
+  def make(): TestClient =
+    new TestClient(
+      new AtomicReference(Routes.empty[Any]),
+      new AtomicReference((_: Request) => Response.notFound),
+    )
 }
