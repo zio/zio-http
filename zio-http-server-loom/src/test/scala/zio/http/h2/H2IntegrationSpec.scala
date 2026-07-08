@@ -15,7 +15,7 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 import zio.http.h2.H2Frame.{Data, GoAway, Headers, Settings, WindowUpdate}
-import zio.http.h2.hpack.{HeaderField, Hpack}
+import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder, HpackEncoder}
 import zio.http.{
   BindAddress,
   Body,
@@ -392,6 +392,38 @@ object H2IntegrationSpec extends ZIOSpecDefault {
           }
         }
       },
+      test("sequential requests reusing one HPACK encoder on a single connection all succeed") {
+        // RFC 7541 section 2.3.2: the HPACK dynamic table persists for the connection lifetime.
+        // PersistentHpackClient reuses ONE encoder across requests (as browsers do), so requests
+        // 2+ emit indexed references into request 1's dynamic table - which a fresh per-request
+        // server decoder cannot resolve, yielding a 500. The stock H2cTestClient uses a fresh
+        // encoder per call and therefore never exercises this path.
+        val routes = Routes(
+          Route(
+            RoutePattern(Method.GET, "/api/loom/fortune"),
+            Handler.succeed(Response(status = Status.Ok, body = Body.fromString("fortune"))),
+          ),
+        )
+
+        withServer(routes) { port =>
+          ZIO
+            .acquireRelease(ZIO.attemptBlocking(new PersistentHpackClient(port)))(client => ZIO.succeed(client.close()))
+            .flatMap { client =>
+              for {
+                first  <- ZIO.attemptBlocking(client.roundTrip("GET", "/api/loom/fortune", streamId = 1))
+                second <- ZIO.attemptBlocking(client.roundTrip("GET", "/api/loom/fortune", streamId = 3))
+                third  <- ZIO.attemptBlocking(client.roundTrip("GET", "/api/loom/fortune", streamId = 5))
+              } yield assertTrue(
+                first.status == 200,
+                first.bodyText == "fortune",
+                second.status == 200,
+                second.bodyText == "fortune",
+                third.status == 200,
+                third.bodyText == "fortune",
+              )
+            }
+        }
+      },
       test("middleware-transformed routes are served") {
         val baseRoutes = Routes(
           Route(
@@ -491,8 +523,10 @@ object H2IntegrationSpec extends ZIOSpecDefault {
     private val socket = new Socket("127.0.0.1", port)
     socket.setSoTimeout(5000)
 
-    private val input  = new FrameReader(socket.getInputStream)
-    private val output = socket.getOutputStream
+    private val input   = new FrameReader(socket.getInputStream)
+    private val output  = socket.getOutputStream
+    private val encoder = new HpackEncoder()
+    private val decoder = new HpackDecoder()
 
     handshake()
 
@@ -573,14 +607,100 @@ object H2IntegrationSpec extends ZIOSpecDefault {
 
       Headers(
         streamId = streamId,
-        headerBlock = Hpack.encode(requestHeaders),
+        headerBlock = encoder.encode(requestHeaders),
         endStream = body.isEmpty,
         endHeaders = true,
       )
     }
 
     private def decodeHeaders(headerBlock: Chunk[Byte]): List[HeaderField] =
-      Hpack.decode(headerBlock) match {
+      decoder.decode(headerBlock) match {
+        case Right(headers) => headers
+        case Left(error)    => throw new AssertionError("Failed to decode response headers: " + error)
+      }
+  }
+
+  private object PersistentHpackClient {
+    private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
+  }
+
+  private final class PersistentHpackClient(port: Int) extends AutoCloseable {
+    import PersistentHpackClient._
+
+    private val socket = new Socket("127.0.0.1", port)
+    socket.setSoTimeout(5000)
+
+    private val input   = new FrameReader(socket.getInputStream)
+    private val output  = socket.getOutputStream
+    private val encoder = new zio.http.h2.hpack.HpackEncoder()
+    private val decoder = new zio.http.h2.hpack.HpackDecoder()
+
+    handshake()
+
+    def roundTrip(method: String, path: String, streamId: Int): ReceivedResponse = {
+      val requestHeaders = List(
+        HeaderField(":method", method),
+        HeaderField(":path", path),
+        HeaderField(":scheme", "http"),
+        HeaderField(":authority", s"127.0.0.1:$port"),
+      )
+      val frame          = Headers(
+        streamId = streamId,
+        headerBlock = encoder.encode(requestHeaders),
+        endStream = true,
+        endHeaders = true,
+      )
+      output.write(FrameCodec.encode(frame).toArray)
+      output.flush()
+      awaitResponse(streamId)
+    }
+
+    private def awaitResponse(streamId: Int): ReceivedResponse = {
+      var builder = ResponseBuilder.empty(Nil)
+      var pending = true
+
+      while (pending) {
+        input.readFrame() match {
+          case Settings(true, _)                                              => ()
+          case Settings(false, _)                                             =>
+            output.write(FrameCodec.encode(Settings(ack = true, Nil)).toArray)
+            output.flush()
+          case Headers(id, headerBlock, endStream, _, _, _) if id == streamId =>
+            builder = builder.withHeaders(decodeHeaders(headerBlock))
+            if (endStream) pending = false
+          case Data(id, data, endStream, _) if id == streamId                 =>
+            builder = builder.appendBody(data)
+            if (endStream) pending = false
+          case WindowUpdate(_, _)                                             => ()
+          case GoAway(_, errorCode, debugData)                                =>
+            val debug = new String(debugData.toArray, StandardCharsets.UTF_8)
+            throw new AssertionError(s"Server sent GOAWAY: error=$errorCode debug=$debug")
+          case other                                                          =>
+            throw new AssertionError("Unexpected frame while waiting for response: " + other)
+        }
+      }
+
+      builder.result
+    }
+
+    override def close(): Unit = socket.close()
+
+    private def handshake(): Unit = {
+      output.write(ClientPreface)
+      output.write(FrameCodec.encode(Settings(ack = false, Nil)).toArray)
+      output.flush()
+
+      input.readFrame() match {
+        case Settings(false, _) =>
+          output.write(FrameCodec.encode(Settings(ack = true, Nil)).toArray)
+          output.flush()
+        case other              =>
+          throw new AssertionError("Expected server SETTINGS frame but received: " + other)
+      }
+    }
+
+    private def decodeHeaders(headerBlock: Chunk[Byte]): List[HeaderField] =
+      decoder.decode(headerBlock) match {
         case Right(headers) => headers
         case Left(error)    => throw new AssertionError("Failed to decode response headers: " + error)
       }
