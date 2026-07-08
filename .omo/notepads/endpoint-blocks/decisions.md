@@ -2616,3 +2616,169 @@ ls /Users/nabil_abdel-hafeez/zio-repos/zio-http-v4-engine-pr4188/build.mill \
 ```
 
 (End of Final Wave F4 entry)
+
+---
+
+## Task 10: Rebase onto v4.x Merged Commit & PR #4199 (2026-07-08)
+
+### Context
+
+PR #4188 (the original `zio-http-v4-engine` endpoint-blocks work from this branch) was squash-merged into upstream `zio/zio-http`'s `v4.x` branch as commit `69dfd35926b78af07e6bef6e123cceba13486f4e` ("feat(v4): custom HTTP/2 engine on Loom virtual threads — delete Netty (#4188)") on 2026-07-08, 23:40 UTC.
+
+This branch's 11 new commits (Tasks 1-9) were created on branch point `d8a85dd69857`. The merge introduced ~10 new commits on the PR's original head (`593a668762d2`) that our branch had not yet seen, plus the full Scoverage infra and `-Werror` fatal-warnings flag now in place on v4.x.
+
+**Requirement**: Rebase our 11 commits onto the real, merged v4.x tip, verify the (expected) build.mill merge preserves both our custom additions AND the Scoverage/fatal-warnings infra, address any `-Werror` violations in our code, verify full compile/test green, and open a final PR.
+
+### Rebase Execution
+
+```bash
+jj rebase -s 1a84a2246f57 -d 69dfd35926b78af07e6bef6e123cceba13486f4e
+```
+
+- **Result**: 12 commits rebased (11 ours + 1 empty working copy), all green, **zero conflicts**.
+- **Change IDs preserved**: `kmnppxouwynz` (task 1), ... , `pnpmplsw` (task 9 tip).
+- **Commit IDs changed** (expected): `3c38c29bb7eb` (task 1), ... , `aba3ca30` (task 9 tip).
+
+### build.mill Merge Verification (jj auto-merged, all 11 points verified correct)
+
+#### Point 1-2: Scoverage Infrastructure + -Werror
+- ✅ Header pragma: `mill-contrib-scoverage:$MILL_VERSION` added.
+- ✅ Import: `mill.contrib.scoverage._`.
+- ✅ New trait: `trait ZioHttpJvmModule extends ZioHttpModule with ScoverageModule` with `scoverageVersion = "2.5.2"`, `statementCoverageMin = Some(85.0)`, `branchCoverageMin = Some(85.0)`.
+- ✅ All `trait JvmModule extends ZioHttpModule` changed to `extends ZioHttpJvmModule`.
+- ✅ All `object test extends ScalaTests` changed to `extends ScoverageTests`.
+- ✅ Scala 2.13: `-Wconf:cat=unused:info", "-Werror"` added.
+- ✅ Scala 3: `-Wconf:msg=with as a type operator has been deprecated:s", "-Werror"` added.
+
+#### Point 3: core.jvm().test `-Werror` exemption
+- ✅ `PathVarHandlerBindingSpec.scala` has deliberate warnings; overrides to filterNot `-Werror`: `override def scalacOptions = Task { super.scalacOptions().filterNot(_ == "-Werror") }`.
+
+#### Point 4: serverLoom branchCoverageMin override
+- ✅ `override def branchCoverageMin = Some(75.0)` (documented: defensive Any-match arms unreachable from outside).
+
+#### Point 5: blocksDep syntax
+- ✅ Changed from `ivy"dev.zio::..."` to `mvn"dev.zio::..."` (line 28).
+
+#### Point 6: core mvnDeps drops
+- ✅ `blocksDep("config-yaml")` and `blocksDep("telemetry")` removed from core (lines ~116-124 area).
+
+#### Point 7: testkit moduleDeps (OUR FIX RE-APPLIED)
+- ✅ Main: `Seq(core.jvm(), server.jvm(), client.jvm())` — `endpoint.jvm()` removed (our design).
+- ✅ Test: `Seq(testkit.jvm())` — `endpoint.jvm()` removed (our design).
+- ✅ **Correctness**: This overrides the upstream PR's head commit `593a668762d2`, which had `Seq(..., endpoint.jvm())` in both places — our task was explicitly to RE-APPLY our removal on top of the merged result, and jj's three-way merge did this correctly.
+
+#### Point 8: endpoint blocksDep inheritance
+- ✅ `trait JvmModule extends ZioHttpJvmModule` (merged: upstream's Scoverage change + our inheritance) correctly combines.
+- ✅ `override def mvnDeps = super.mvnDeps() ++ Seq(blocksDep("endpoint"))` preserved (our addition, lines ~246-248).
+- ✅ Same for JS endpoint module (lines ~275-283).
+
+#### Point 9: testEngine aggregate command
+- ✅ New `def testEngine(scalaVersion: String) = Task.Command { ... }` added (upstream, lines ~385-391).
+- ✅ Covers h2Codec, serverLoom, zio test modules + coverage validation.
+- ✅ Does NOT reference endpoint or testkit (correct per scope).
+
+#### Point 10: ZioBlocks version
+- ✅ `val ZioBlocks = "0.0.46+6-46f1890f-SNAPSHOT"` (identical on both sides).
+
+#### Point 11: repositories/repositoriesTask
+- ✅ Sonatype snapshots repo override preserved (both `repositories` and our task-level `repositoriesTask` override from task 1).
+
+### -Werror Build Failures (1 issue found & fixed)
+
+`endpoint.jvm[3.8.3].compile` surfaced **two Scala 3 implicit-parameter warnings** in `zio-http-endpoint/shared/src/main/scala/zio/http/endpoint/internal/MemoizedZIO.scala`:
+
+```
+[warn] zio-http-endpoint/shared/src/main/scala/zio/http/endpoint/internal/MemoizedZIO.scala:23:100
+  private val mapRef: Ref[Map[K, Promise[E, A]]] = Ref.unsafe.make(Map[K, Promise[E, A]]())(Unsafe.unsafe)
+                                                                                              ^^^^^^
+Implicit parameters should be provided with a `using` clause.
+```
+
+**Fix**: Converted both lines 23 and 32 to use Scala 3 `using` syntax:
+
+```scala
+// Line 23 before
+Ref.unsafe.make(Map[K, Promise[E, A]]())(Unsafe.unsafe)
+// Line 23 after
+Ref.unsafe.make(Map[K, Promise[E, A]]())(using Unsafe.unsafe)
+
+// Line 32 before
+Promise.unsafe.make[E, A](fiberId)(Unsafe.unsafe)
+// Line 32 after
+Promise.unsafe.make[E, A](fiberId)(using Unsafe.unsafe)
+```
+
+**Verification post-fix**: `endpoint.jvm[3.8.3].compile` → SUCCESS (0 errors).
+
+### Full Verification Matrix (all PASS)
+
+```bash
+./mill 'endpoint.jvm[3.8.3].compile' 'endpoint.jvm[2.13.18].compile' \
+       'endpoint.jvm[3.8.3].test' 'endpoint.jvm[2.13.18].test' \
+       'testkit.jvm[3.8.3].test' \
+       'core.jvm[3.8.3].compile' 'core.jvm[2.13.18].compile' \
+       'server.jvm[3.8.3].compile' 'server.jvm[2.13.18].compile' \
+       'client.jvm[2.13.18].compile' \
+       'zio.jvm[3.8.3].test'
+→ 160/160, SUCCESS (11s elapsed)
+```
+
+**Upstream verification**:
+```bash
+./mill 'h2Codec.jvm[3.8.3].compile' 'h2Codec.jvm[2.13.18].compile' \
+       'serverLoom.jvm[3.8.3].compile' 'serverLoom.jvm[2.13.18].compile'
+→ 59/59, SUCCESS (15s elapsed)
+```
+
+### Endpoint Coverage Validation
+
+```bash
+./mill 'endpoint.jvm[3.8.3].scoverage.validateCoverageMinimums'
+→ SUCCESS: Statement coverage 100.00%, Branch coverage 100.00%
+  (minimums: 85.00% each — both exceeded)
+```
+
+**Note on CI**: The new `.github/workflows/ci.yml` gates only the `testEngine` command (covering h2Codec, serverLoom, zio modules — NOT endpoint or testkit). Endpoint coverage is NOT a CI blocker, but our 100% result is well above the 85% minimum configured in `build.mill` and suitable for inclusion in the PR.
+
+### PR #4199 Creation & Details
+
+**Command**:
+```bash
+gh pr create --repo zio/zio-http --base v4.x --head 987Nabil:endpoint-blocks-v4x \
+  --title "feat(endpoint-blocks): Scala 2/3 .implement/.call API for zio-blocks endpoint" \
+  --body "..."
+→ ok created #4199 https://github.com/zio/zio-http/pull/4199
+```
+
+**Title**: `feat(endpoint-blocks): Scala 2/3 .implement/.call API for zio-blocks endpoint`
+
+**Body highlights**:
+- Integrates `zio.blocks.endpoint.Endpoint` with `.implement`/`.call` extensions for both Scala 2.13 and 3.8.3.
+- TestKit modernized to use synchronous Client/Routes/Handler APIs; no longer depends on endpoint module.
+- Full Scala 2 parity via macros + runtime infrastructure.
+- 100% statement + branch coverage on endpoint module.
+- All new `-Werror` fatal-warnings checks pass.
+
+**Known limitations disclosed** (per task briefing points):
+1. **Scala 3 partial-application / `.unused` warnings not implemented**: Blocked by quoted-macro type-inference limitation. All inputs must be provided; no partial application on Scala 3. (Reference: decisions.md Scala 3 section.)
+2. **`.call` hardcoded to root-mounted endpoints**: Uses `URL.root` (relative URL), only works when endpoints bound to `/`. Real HTTP test blocked by both this limitation AND a build.mill module-dependency gap (endpoint.jvm.test cannot access LoomServer/JavaH2Client). (Reference: decisions.md F4 section.)
+
+**Linked documentation**: PR body references `.omo/notepads/endpoint-blocks/decisions.md` for technical reviewers seeking full context (macro type-inference details, empirical F1-F4 remediation findings, root-cause analysis for each limitation).
+
+### Bookmark & Remote Tracking
+
+- **Bookmark**: `endpoint-blocks-v4x` created at rebase tip (`pnpmplsw aba3ca30`, the commit containing task 9's final code).
+- **Remote**: Pushed to `origin-https` (`https://github.com/987Nabil/zio-http.git`) — the fork remote (SSH origin was not available in this environment).
+- **PR head**: `987Nabil:endpoint-blocks-v4x` (bookmark now tracked on remote).
+
+### Final State
+
+- All 11 commits rebased, verified clean.
+- build.mill merge verified correct (all 11 verification points pass).
+- -Werror fix (MemoizedZIO.scala) applied, verified green.
+- Full compile/test/coverage matrix verified green.
+- Bookmark pushed to fork.
+- **PR #4199 open** against `zio/zio-http` v4.x branch.
+- `.omo/plans/endpoint-blocks.md` updated with Task 10 completion notes.
+
+(End of Task 10 documentation)
