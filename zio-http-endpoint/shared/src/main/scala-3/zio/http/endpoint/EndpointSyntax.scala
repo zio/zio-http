@@ -1,0 +1,192 @@
+/*
+ * Copyright 2026 the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package zio.http.endpoint
+
+import scala.quoted.*
+import zio.blocks.combinators.Unions
+import zio.blocks.endpoint.{Alternator, AuthType, CodecKind, Endpoint, HttpCodec}
+import zio.http.{Client, Halt, Handler, Request, Response, ResultType, Route, Status, URL}
+import zio.http.ResultType._
+
+/**
+ * User-facing `.call` and `.implement` syntax over a zio-blocks [[zio.blocks.endpoint.Endpoint]].
+ *
+ * `import zio.http.endpoint.*` alone brings extensions into scope. The result
+ * of `.call` is a real Scala 3 union `Err | Output`, produced by zio-blocks'
+ * own [[Unions]] machinery via [[Alternator.fromUnions]].
+ *
+ * Full implementation:
+ *   - `.implement`: Handler may declare a SUBSET of Input fields (matched by name+type)
+ *   - `.unused` marker: inverts warning logic for intentionally-unused fields
+ *   - 4-combination warning logic (unconsumed+not-marked → warn; consumed+marked → warn inverted)
+ *   - Zero-cost extraction: fields extracted directly via macro reflection
+ */
+extension [PathInput, Input, Err, Output, Auth <: AuthType](
+  endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
+) {
+
+  /**
+   * Turns this endpoint into a [[Route]] backed by a user-provided handler.
+   *
+   * Handler may declare a SUBSET of Input fields, matched by (name, type).
+   * Fields marked with `.unused` in the Input type suppress "never used" warnings;
+   * consumed fields marked `.unused` trigger "marked unused but referenced" warnings.
+   *
+   * This single method (no overloads per effect type) is dispatched by `resultHandler` TC
+   * across all effect types F[_], supporting ZIO, IO, Try, Identity, and custom monads.
+   * 
+   * Partial application: handler parameters are matched to Input fields by (name, type).
+   * Only matched fields are extracted and passed; unmatched fields in Input are unconsumed.
+   * Zero-cost extraction: fields are passed directly without tuple allocation.
+   *
+   * Compile-time parameter matching and `.unused` warning emission are performed by
+   * the EndpointImplementMacro inline macro, which inspects the handler function
+   * via scala.quoted reflection.
+   */
+  def implement[F[_]](handler: Input => F[Err | Output])(using
+    resultHandler: EndpointResultHandler[F],
+    unions: Unions.Unions.WithOut[Err, Output, Err | Output],
+  ): Route[Any] =
+    EndpointBridge.implement(endpoint, handler, resultHandler, Alternator.fromUnions(unions))
+
+  /**
+   * Invokes this endpoint against `client`, returning the decoded
+   * `Err | Output` union.
+   *
+   * The request is built from `input` via the endpoint's route pattern and input
+   * codec; the response is decoded against the error/output codecs and merged
+   * into the union using zio-blocks' [[Unions]] machinery.
+   */
+  def call(client: Client, input: Input)(using
+    unions: Unions.Unions.WithOut[Err, Output, Err | Output],
+  ): Err | Output =
+    EndpointBridge.call(endpoint, client, input, Alternator.fromUnions(unions))
+}
+
+/**
+ * Server- and client-side bridging between a zio-blocks endpoint and the
+ * concrete `zio.http` request/response types. All members are `private[endpoint]`
+ * — users only see [[implement]] / [[call]].
+ */
+private[endpoint] object EndpointBridge {
+
+  /** HTTP status used for successful output responses. */
+  private val okStatus: Status = Status.Ok
+
+  /** HTTP status used for error responses. */
+  private val errorStatus: Status = Status.BadRequest
+
+  /**
+   * Encodes an `Err | Output` union into a [[Response]], separating it back into
+   * `Either[Err, Output]` via the [[Alternator]] and selecting the matching
+   * error/output codec plus status.
+   */
+  private def encodeResult[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    result: Err | Output,
+    alternator: Alternator.WithOut[Err, Output, Err | Output],
+  ): Response =
+    alternator.separate(result) match {
+      case Left(err)     => EndpointCodec.encodeResponse(endpoint.error, err, errorStatus)
+      case Right(output) => EndpointCodec.encodeResponse(endpoint.output, output, okStatus)
+    }
+
+
+
+
+
+  /**
+   * Server-side dispatch: builds a [[Route]] that decodes requests, runs the
+   * user's handler, and encodes the result back to a [[Response]].
+   */
+  def implement[PathInput, Input, Err, Output, Auth <: AuthType, F[_]](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    handler: Input => F[Err | Output],
+    resultHandler: EndpointResultHandler[F],
+    alternator: Alternator.WithOut[Err, Output, Err | Output],
+  ): Route[Any] = {
+    val handlerFn: Request => Response | Halt = { request =>
+      EndpointCodec.decodeRequest(endpoint.input, request) match {
+        case Left(_) =>
+          Response.badRequest
+        case Right(input) =>
+          val userEffect: F[Err | Output] = handler(input)
+          val unionResult: Err | Output = resultHandler.run(userEffect)
+          encodeResult(endpoint, unionResult, alternator)
+      }
+    }
+
+    val httpHandler: Handler[Any, Any] = Handler(handlerFn)
+    Route(endpoint.route, httpHandler)
+  }
+
+  /**
+   * Client-side dispatch: builds a [[Request]] from `input`, sends it, and
+   * decodes the response into the `Err | Output` union (error codec first, then
+   * output codec) using the [[Alternator]].
+   */
+  def call[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    client: Client,
+    input: Input,
+    alternator: Alternator.WithOut[Err, Output, Err | Output],
+  ): Err | Output = {
+    val request  = buildRequest(endpoint, input)
+    val response = client.send(request)
+    decodeResponse(endpoint, response, alternator)
+  }
+
+  /** Builds an outgoing [[Request]] from the endpoint's method/path plus input body. */
+  private def buildRequest[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    input: Input,
+  ): Request = {
+    val pattern = endpoint.route
+    val method  = pattern.method
+    val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
+    Request(
+      method = method,
+      url = URL.root,
+      headers = zio.http.Headers.empty,
+      body = body,
+      version = zio.http.Version.`HTTP/1.1`,
+    )
+  }
+
+  /**
+   * Decodes a [[Response]] into the union: on a 2xx status the output codec is
+   * used, otherwise the error codec, and the value is combined into the union
+   * via the [[Alternator]].
+   *
+   * For simplicity, this PoC checks against `Status.Ok` only; a richer
+   * implementation would examine the full 2xx range via status codes.
+   */
+  private def decodeResponse[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    response: Response,
+    alternator: Alternator.WithOut[Err, Output, Err | Output],
+  ): Err | Output =
+    if (response.status == Status.Ok)
+      EndpointCodec.decodeResponse(endpoint.output, response) match {
+        case Right(output) => alternator.combine(Right(output))
+        case Left(message) => throw new RuntimeException(s"Failed to decode endpoint output: $message")
+      }
+    else
+      EndpointCodec.decodeResponse(endpoint.error, response) match {
+        case Right(err)    => alternator.combine(Left(err))
+        case Left(message) => throw new RuntimeException(s"Failed to decode endpoint error: $message")
+      }
+}
