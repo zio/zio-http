@@ -23,7 +23,7 @@ import zio.blocks.docs.Doc
 import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
 import zio.blocks.schema.Schema
 import zio.http.{Header, Headers, Method, Path, Request, Status, URL, Version}
-import zio.http.endpoint.EndpointSyntax._
+import zio.http.endpoint._
 
 /**
   * Endpoint with a non-trivial `Auth <: AuthType` (`AuthType.Basic`).
@@ -53,14 +53,8 @@ object EndpointAuthSpec extends ZIOSpecDefault {
     Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.Basic, Doc.empty)
   }
 
-  // NOTE (real-behavior finding): a handler body using ONLY `Right(...)` (no `Left`
-  // anywhere) needs an explicit `Either[Err, Output]` ascription here -- without it,
-  // Scala infers the lambda's result type narrowly from the bare `Right(...)` call
-  // (`Right[Nothing, String]`) rather than widening it via the macro's declared
-  // `Input => Err | Output` parameter type, and the macro's generated
-  // `case Left(err) => ...` branch then fails to typecheck against that narrow type.
   private val secureRoute = secureEndpoint.implement { (name: String) =>
-    Right(s"hello, $name"): Either[Int, String]
+    s"hello, $name"
   }
 
   private def requestWith(headers: Headers): Request =

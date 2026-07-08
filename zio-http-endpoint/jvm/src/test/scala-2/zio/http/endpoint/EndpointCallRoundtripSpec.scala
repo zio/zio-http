@@ -25,7 +25,7 @@ import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePatte
 import zio.blocks.schema.Schema
 import zio.http.Method
 import zio.http.Path
-import zio.http.endpoint.EndpointSyntax._
+import zio.http.endpoint._
 
 /**
   * Full round-trip through REAL HTTP encode/decode: `.implement` produces a
@@ -35,27 +35,19 @@ import zio.http.endpoint.EndpointSyntax._
   * through that client and decodes the response back into the `Err | Output`
   * union (`Either[Err, Output]` on Scala 2.13).
   *
+  * The `.implement` handler returns BARE `Err`/`Output` values (no
+  * `Left`/`Right`); `Err` (`String`) and `Output` (`Int`) are distinct so the
+  * macro's type-directed leaf tagging is unambiguous.
+  *
   * Both the SUCCESS path (`Output` round-trips) and the ERROR path (`Err`
   * round-trips) are asserted, exercising the real JSON body encode on the way
   * out and the real status-based branch + JSON body decode on the way back.
   *
-  * Input is a plain `Int` (NOT a case class) rather than a 2-field "Division"
-  * shape. REAL BEHAVIOR FINDING: `EndpointSyntaxMacros.implementImpl`'s
-  * per-field matching requires the handler's SINGLE lambda parameter's name
-  * to equal one of the case class's field names; since the macro's public
-  * `.implement(f: Input => Err | Output)` signature forces `f` to be a
-  * `Function1` (Scala can never accept a 2+-param lambda literal there --
-  * that is a hard arity mismatch checked before the macro ever runs), a case
-  * class Input with more than one field can NEVER have more than exactly one
-  * of its fields consumed by any single `.implement` call: two case-class
-  * fields can never both be reached by one handler, and a whole-object
-  * single-param handler doesn't work either (its param name never matches
-  * an individual field name). This is a genuine, reproducible finding (see
-  * this task's final report), not an assumption. A primitive `Int` Input
-  * (matched by the OTHER macro branch: `handlerParams.length == 1 &&
-  * htype =:= inputType`, no per-field lookup at all) is the only shape that
-  * reliably works for a single-field-equivalent handler, which is what this
-  * spec needs to cover the `.call` Err/Output round trip.
+  * Input is a plain `Int` (NOT a case class): a case-class `Input` still has no
+  * working `.implement` handler shape on Scala 2.13 (see
+  * [[EndpointPartialApplicationSpec]] and decisions.md), so a primitive `Input`
+  * -- matched by the macro's `handlerParams.length == 1 && htype =:= inputType`
+  * branch -- is the only shape that works for the `.call` Err/Output round trip.
   *
   * NOTE (a second, independent real-behavior finding, reported rather than
   * fixed per this task's scope): `EndpointBridge.buildRequest` (client side
@@ -78,8 +70,8 @@ object EndpointCallRoundtripSpec extends ZIOSpecDefault {
   }
 
   private val reciprocalRoute = reciprocalEndpoint.implement { (denominator: Int) =>
-    if (denominator == 0) Left("cannot divide by zero")
-    else Right(100 / denominator)
+    if (denominator == 0) "cannot divide by zero"
+    else 100 / denominator
   }
 
   private val client = InProcessDispatcher.clientFor(reciprocalRoute)

@@ -20,6 +20,12 @@ package zio.http.endpoint
   * `.implement` method can accept handlers returning any effect for which an
   * instance exists.
   *
+  * NOTE (Scala 2.13): this type currently has NO consumer. Unlike Scala 3, the
+  * Scala 2 `.implement` signature is `Input => Err | Output` (not
+  * `Input => F[Err | Output]`), so it never resolves an `EndpointResultHandler`.
+  * It is retained for parity with the Scala 3 side and for a future
+  * effect-polymorphic `.implement`; see decisions.md.
+  *
   * The core endpoint bridge is synchronous: `zio.http.Handler#handle` returns a
   * `Response` directly (Loom-backed). `EndpointResultHandler` is the one seam
   * that turns a user's `F[R]` into the `R` the bridge encodes. Keeping this

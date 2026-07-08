@@ -76,7 +76,7 @@ object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
           import zio.blocks.docs.Doc
           import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
           import zio.blocks.schema.Schema
-          import zio.http.endpoint.EndpointSyntax._
+          import zio.http.endpoint._
           import zio.http.{Method, Path}
 
           final case class UserProfile(userId: Int, displayName: String, isActive: Boolean)
@@ -90,7 +90,7 @@ object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
             Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
           }
 
-          profileEndpoint.implement { (profile: UserProfile) => Right(profile) }
+          profileEndpoint.implement { (profile: UserProfile) => profile }
         """)
       )(isLeft)
     },

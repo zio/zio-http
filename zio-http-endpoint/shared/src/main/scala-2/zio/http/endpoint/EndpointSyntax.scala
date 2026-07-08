@@ -27,28 +27,50 @@ import zio.http.{Client, Handler, Request, Response, Route, Status}
 
 /**
   * Scala 2 extension methods for `zio.blocks.endpoint.Endpoint`:
-  *   - `.implement(f: (field1, field2, ...) => Err | Output)` — server-side
+  *   - `.implement(f: Input => Err | Output)` — server-side
   *   - `.call(client, input)` — client-side
   *
-  * Full implementation:
-  * - Partial parameter application: handler declares SUBSET of Input fields (matched by name+type)
-  * - `.unused` marker: inverts warning logic for intentionally-unused fields
-  * - 4-combination warning logic (all four cases from RouteBindingMacros pattern)
-  * - Zero-cost extraction: fields extracted directly, no tuple boxing
+  * Brought into scope by a plain `import zio.http.endpoint._` (the implicit
+  * conversion lives on the package object, mirroring Scala 3's public top-level
+  * `extension`). No internal member needs to be imported.
+  *
+  * Current, tested behavior (see `.omo/notepads/endpoint-blocks/decisions.md`):
+  *   - `.implement` works only when `Input` is a non-case-class (primitive/opaque)
+  *     type; the handler takes the complete `Input` value directly. For a
+  *     case-class `Input` there is NO working handler shape — a 2+-param lambda
+  *     is rejected by `Function1` arity before the macro runs, a field-typed
+  *     single param fails the same `Function1` contravariance check, and a
+  *     whole-`Input` single param fails inside the macro's name-vs-field match.
+  *     Partial parameter application and the `.unused` marker are therefore NOT
+  *     functional today.
+  *   - The handler returns the bare `Err` value or bare `Output` value directly
+  *     (e.g. `if (cond) "error" else 42`); the `Err | Output` union is
+  *     represented internally as `Either[Err, Output]` (see the package object's
+  *     `type |`), and the macro dispatches on that representation invisibly — the
+  *     user never writes `Left`/`Right`/`Either` by hand.
   */
-private[endpoint] class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
+class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
   private val endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
 ) {
 
   /**
     * Turns a handler function into a `Route[Any]`.
     *
-    * Handler may declare SUBSET of Input fields (matched by name+type).
-    * Fields marked `.unused` (via `Unused[T]` wrapper) suppress "never used" warnings.
-    * Unconsumed fields trigger "never used" warnings unless marked `.unused`.
-    * Consumed fields marked `.unused` trigger "marked unused but referenced" warnings.
+    * The handler receives the complete `Input` value and returns either the bare
+    * `Err` value or the bare `Output` value directly — e.g.
+    * `input => if (cond) "error" else 42` — with NO `Left`/`Right`/`Either` in
+    * the user's code. The macro type-checks each return-position expression of the
+    * handler body against `Err` and `Output` and injects the internal `Either`
+    * tagging invisibly, then decodes the request body, runs the handler, and
+    * encodes the result (error → 400, output → 200).
+    *
+    * The handler's declared return type is `Any` at the syntactic level (the macro
+    * recovers the real `Err`/`Output` shape per branch); this is what lets the
+    * user write raw values without wrapping. Only a non-case-class `Input` is
+    * supported today (see the class Scaladoc and decisions.md for the case-class
+    * limitation).
     */
-  def implement(f: Input => Err | Output): Route[Any] =
+  def implement(f: Input => Any): Route[Any] =
     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
@@ -61,13 +83,6 @@ private[endpoint] class EndpointSyntax[PathInput, Input, Err, Output, Auth <: Au
     input: Input
   )(implicit eithers: Eithers.Eithers.WithOut[Err, Output, Err | Output]): Err | Output =
     EndpointBridge.call(endpoint, client, input, Alternator.fromEithers(eithers))
-}
-
-private[endpoint] object EndpointSyntax {
-  implicit def toEndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
-    endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
-  ): EndpointSyntax[PathInput, Input, Err, Output, Auth] =
-    new EndpointSyntax(endpoint)
 }
 
 /**
@@ -123,22 +138,25 @@ private[endpoint] object EndpointBridge {
 /**
   * Scala 2 blackbox macro for `.implement`.
   *
-  * Full algorithm (from RouteBindingMacros.scala pattern):
-  *   1. Extract Input case class fields: (name, type, isUnused) list
-  *   2. Extract handler function parameters: (name, type) list
-  *   3. Match handler params to Input fields by (name, type) equality
-  *   4. Emit 4-combination warnings based on actual consumption
-  *   5. Generate handler that extracts only matched fields, passes to function
-  *   6. Reconstruct handler application in parameter declaration order
+  * NOTE: the field-matching / `.unused` / 4-combination-warning logic below was
+  * written toward a partial-application feature that is NOT functional today —
+  * for a case-class `Input` no handler shape reaches it (rejected earlier by
+  * `Function1` arity/variance, or aborted by the name-vs-field match). It only
+  * runs its single-parameter, whole-`Input` branch for a non-case-class `Input`
+  * (`handlerParams.length == 1 && htype =:= inputType`), which is the one
+  * supported shape. See `.omo/notepads/endpoint-blocks/decisions.md` for the full
+  * `typeCheck`-verified analysis of the case-class limitation.
   */
 private[endpoint] object EndpointSyntaxMacros {
 
   def implementImpl[PathInput: c.WeakTypeTag, Input: c.WeakTypeTag, Err: c.WeakTypeTag, Output: c.WeakTypeTag, Auth <: AuthType: c.WeakTypeTag](
     c: blackbox.Context
-  )(f: c.Expr[Input => Err | Output]): c.Expr[Route[Any]] = {
+  )(f: c.Expr[Input => Any]): c.Expr[Route[Any]] = {
     import c.universe._
 
-    val inputType = weakTypeOf[Input].dealias
+    val inputType  = weakTypeOf[Input].dealias
+    val errType    = weakTypeOf[Err].dealias
+    val outputType = weakTypeOf[Output].dealias
     val endpoint = c.prefix.tree match {
       case Apply(_, List(e)) => e
       case other             => c.abort(c.enclosingPosition, s"Unexpected endpoint extraction: $other")
@@ -260,31 +278,54 @@ private[endpoint] object EndpointSyntaxMacros {
     }
     
     val extractionExprs = accessExprs.map { case (_, expr) => expr }
-    val handlerCall = q"$f(..$extractionExprs)"
 
+    // --- Raw-value dispatch (no Left/Right in user code) --------------------
+    //
+    // The user handler returns a BARE `Err` value or BARE `Output` value from
+    // each branch (e.g. `if (cond) "error" else 42`); its declared syntactic
+    // return type is `Any`. To recover the `Either[Err, Output]` tagging the
+    // downstream response-encoding needs, we wrap every return-position leaf of
+    // the handler body in a call to the `EndpointInject` selector. That selector
+    // is an implicit resolved at the real (in-scope) typecheck, so a leaf like
+    // `input.length` — which only typechecks where the lambda param is bound —
+    // is classified correctly. Two ambient instances (`fromErr`/`fromOutput`)
+    // map the leaf's own static type to `Left`/`Right`; leaf-local tagging means
+    // a branching body whose overall inferred type is the LUB (often `Any`) is
+    // handled correctly without ever relying on the whole-body type.
+    val errTypeTree    = tq"${errType}"
+    val outputTypeTree = tq"${outputType}"
+
+    def rewriteReturns(body: Tree): Tree = body match {
+      case If(cond, thenp, elsep)   => If(cond, rewriteReturns(thenp), rewriteReturns(elsep))
+      case Block(stats, expr)       => Block(stats, rewriteReturns(expr))
+      case Match(sel, cases)        =>
+        Match(sel, cases.map { case CaseDef(pat, guard, cbody) => CaseDef(pat, guard, rewriteReturns(cbody)) })
+      case Typed(expr, _)           => rewriteReturns(expr)
+      case Annotated(_, expr)       => rewriteReturns(expr)
+      case leaf                     =>
+        q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
+    }
+
+    val (handlerParamDef, handlerBody) = c.untypecheck(f.tree.duplicate) match {
+      case Function(List(param), fbody) => (param, fbody)
+      case Function(params, _)          =>
+        c.abort(c.enclosingPosition, s"Handler must declare exactly one parameter, found ${params.length}")
+      case other                        =>
+        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
+    }
+
+    val rewrittenBody = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
+    val taggedHandler = Function(List(handlerParamDef), rewrittenBody)
+
+    // The generated code must reference only PUBLIC members, because a Scala 2
+    // blackbox macro expands into the CALLER's scope (which may be any external
+    // package). All request decode / response encode / route building lives
+    // behind the single public `EndpointServer.implement` entry point, which
+    // delegates to the `private[endpoint]` codec internals from inside this
+    // package — mirroring how Scala 3's public inline extension calls its
+    // `private[endpoint]` `EndpointBridge`.
     c.Expr[Route[Any]](
-      q"""
-        {
-          import zio.http.ResultType._
-          val ep = $endpoint
-          val handler = zio.http.Handler.extracted[Any, Any] { (request: zio.http.Request, ctx: zio.blocks.context.Context[Any], vars: Any, scope: zio.blocks.scope.Scope) =>
-            val decodeResult = zio.http.endpoint.EndpointCodec.decodeRequest(ep.input, request)
-            decodeResult match {
-              case Right($inputName) =>
-                val result = $handlerCall
-                result match {
-                  case Left(err) =>
-                    zio.http.endpoint.EndpointCodec.encodeResponse(ep.error, err, 400): (zio.http.Response | zio.http.Halt)
-                  case Right(out) =>
-                    zio.http.endpoint.EndpointCodec.encodeResponse(ep.output, out, 200): (zio.http.Response | zio.http.Halt)
-                }
-              case Left(decodeErr) =>
-                zio.http.Response(status = zio.http.Status(400), body = zio.http.Body.fromString(decodeErr)): (zio.http.Response | zio.http.Halt)
-            }
-          }
-          zio.http.Route(ep.route, handler)
-        }
-      """
+      q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)"
     )
   }
 }

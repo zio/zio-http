@@ -24,39 +24,34 @@ import zio.test.Assertion._
   * implemented on Scala 3 either, so there is nothing to test there).
   *
   * REAL BEHAVIOR FINDING, empirically reproduced below via `typeCheck`
-  * (reported per this task's scope, NOT fixed -- see this task's final
-  * report): `.implement`'s public signature is a strict `Function1`
-  * (`Input => Err | Output`). For ANY case-class `Input`:
+  * (reported per this task's scope, NOT fixed): for ANY case-class `Input`,
+  * `.implement` still has no working handler shape on Scala 2.13, even with
+  * the raw-value API (handler returns bare `Err`/`Output`, no `Left`/`Right`):
   *   - A handler whose single parameter's type equals an individual FIELD's
-  *     type (not the whole `Input`) fails Scala's own function-argument
-  *     type check BEFORE the macro even runs (contravariance: `FieldType =>
-  *     X` is never a subtype of `Input => X` unless `Input <: FieldType`,
-  *     which never holds for a real case-class field).
-  *   - A handler whose single parameter's type equals the WHOLE `Input`
-  *     type (so it DOES pass Scala's own type check) instead fails inside
-  *     `EndpointSyntaxMacros.implementImpl` itself, because the macro
+  *     type (not the whole `Input`) does NOT compile: the macro matches the
+  *     parameter NAME against a field, extracts that field, and passes it, but
+  *     the field-typed value never reconstructs the whole `Input` the codec
+  *     needs -- the generated call fails to typecheck.
+  *   - A handler whose single parameter's type equals the WHOLE `Input` type
+  *     fails inside `EndpointSyntaxMacros.implementImpl`, because the macro
   *     unconditionally tries to match the parameter's NAME against an
-  *     individual field name once `Input` is a case class -- and a
-  *     whole-value parameter's name essentially never coincides with one of
-  *     its own field's names.
+  *     individual field name once `Input` is a case class, and a whole-value
+  *     parameter's name essentially never coincides with one of its own
+  *     field's names.
   *
-  * The net result: partial (or even full, single-parameter) consumption of
-  * a case-class `Input`'s fields is unreachable in EVERY shape on Scala
-  * 2.13 today -- not merely "the 2-or-more-field case doesn't work" as this
-  * task initially assumed. This spec proves BOTH failure shapes directly,
-  * with the compiler's own diagnostics, rather than assuming the feature
-  * behaves one way or another.
+  * A primitive (non-case-class) `Input` DOES work: the handler takes the
+  * complete value directly and returns a bare `Err`/`Output`.
   */
 object EndpointPartialApplicationSpec extends ZIOSpecDefault {
 
   def spec = suite("EndpointPartialApplication")(
-    test("consuming ONE individual field (orderId: Int) does NOT compile (Function1 arity/variance rejects it)") {
+    test("consuming ONE individual field (orderId: Int) does NOT compile") {
       assertZIO(
         typeCheck("""
           import zio.blocks.docs.Doc
           import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
           import zio.blocks.schema.Schema
-          import zio.http.endpoint.EndpointSyntax._
+          import zio.http.endpoint._
           import zio.http.{Method, Path}
 
           final case class Order(orderId: Int, note: String)
@@ -70,7 +65,7 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
             Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
           }
 
-          orderEndpoint.implement { (orderId: Int) => Right(orderId.toString) }
+          orderEndpoint.implement { (orderId: Int) => orderId.toString }
         """)
       )(isLeft)
     },
@@ -80,7 +75,7 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
           import zio.blocks.docs.Doc
           import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
           import zio.blocks.schema.Schema
-          import zio.http.endpoint.EndpointSyntax._
+          import zio.http.endpoint._
           import zio.http.{Method, Path}
 
           final case class Order(orderId: Int, note: String)
@@ -94,27 +89,27 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
             Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
           }
 
-          orderEndpoint.implement { (order: Order) => Right(order.note) }
+          orderEndpoint.implement { (order: Order) => order.note }
         """)
       )(isLeft)
     },
-    test("a primitive (non-case-class) Input handler, by contrast, DOES compile") {
+    test("a primitive (non-case-class) Input handler returning bare Err/Output values DOES compile") {
       assertZIO(
         typeCheck("""
           import zio.blocks.docs.Doc
           import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
           import zio.blocks.schema.Schema
-          import zio.http.endpoint.EndpointSyntax._
+          import zio.http.endpoint._
           import zio.http.{Method, Path}
 
-          val stringEndpoint: Endpoint[Unit, String, String, String, AuthType.None.type] = {
+          val stringEndpoint: Endpoint[Unit, String, String, Int, AuthType.None.type] = {
             val pattern     = RoutePattern(Method.POST, Path.root / "echo")
             val inputCodec  = HttpCodec.Body[CodecKind.Request, String](Schema[String])
             val errorCodec  = HttpCodec.Body[CodecKind.Response, String](Schema[String])
-            val outputCodec = HttpCodec.Body[CodecKind.Response, String](Schema[String])
+            val outputCodec = HttpCodec.Body[CodecKind.Response, Int](Schema[Int])
             Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
           }
-          stringEndpoint.implement { (input: String) => if (input.isEmpty) Left("empty") else Right(input) }
+          stringEndpoint.implement { (input: String) => if (input.isEmpty) "empty" else input.length }
         """)
       )(isRight)
     },
