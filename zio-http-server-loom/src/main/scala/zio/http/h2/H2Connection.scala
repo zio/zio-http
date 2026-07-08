@@ -11,6 +11,8 @@ import scala.util.control.NonFatal
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.{Mux, MuxError, MuxStream}
 
+import zio.http.h2.hpack.{HeaderField, HpackCodec}
+
 @experimental
 final class H2Connection(
   input: InputStream,
@@ -18,6 +20,7 @@ final class H2Connection(
   maxConcurrentStreams: Int = 100,
   flowController: FlowController =
     new FlowController(H2Settings.DefaultInitialWindowSize.toInt, H2Settings.DefaultInitialWindowSize.toInt),
+  hpackCodec: HpackCodec = new HpackCodec(),
 ) {
   import H2Connection._
   import H2Frame._
@@ -25,6 +28,7 @@ final class H2Connection(
   private val mux                            = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
   private val closed                         = new AtomicBoolean(false)
   private val activeStreams                  = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val decodedRequestHeaders          = new ConcurrentHashMap[Int, List[HeaderField]]()
   private val writeLock                      = new Object
   private var readBuffer: Chunk[Byte]        = Chunk.empty
   private var peerSettings: List[Setting]    = Nil
@@ -32,6 +36,51 @@ final class H2Connection(
   @volatile private var settingsAcknowledged = false
   @volatile private var highestStreamId      = 0
   @volatile private var lastGoAwayStreamId   = Int.MaxValue
+
+  def getWriteLock: Object = writeLock
+
+  /**
+   * Returns the request header fields for `streamId`, HPACK-decoded by the
+   * single-threaded reader in wire-arrival order.
+   *
+   * RFC 7541 section 2.3.2 requires header blocks to be decoded in the exact
+   * order the peer's encoder produced them, because each block can reference
+   * dynamic-table entries established by earlier blocks. Decoding on the
+   * per-stream handler threads instead lets blocks be decoded out of wire order
+   * (handler threads are scheduled arbitrarily), which desyncs the shared
+   * decoder's dynamic table and mis-resolves indexed headers across concurrent
+   * streams. Decoding here, on the reader thread, keeps decode order == wire
+   * order by construction.
+   */
+  def takeDecodedRequestHeaders(streamId: Int): List[HeaderField] =
+    decodedRequestHeaders.remove(streamId)
+
+  /**
+   * Writes a response HEADERS frame directly to the wire, bypassing the
+   * per-stream outbound queue and the writer thread.
+   *
+   * The response HEADERS frame is the only frame type whose bytes depend on the
+   * shared per-connection HPACK encoder state (RFC 7541 section 2.3.2 requires
+   * the receiver to process header blocks in the exact order the sender's
+   * encoder mutated its dynamic table). The writer thread drains
+   * `activeStreams` in `ConcurrentHashMap` iteration order, which is unrelated
+   * to enqueue order, so routing HEADERS through the queue lets the wire-write
+   * order diverge from the encode order and corrupts the peer's dynamic table.
+   *
+   * `buildFrame` is evaluated inside `writeLock`, so the HPACK encode and the
+   * wire write happen atomically on the same thread under the same lock: the
+   * wire-write order is the encode order by construction. The same
+   * local-frame-write bookkeeping the writer thread would have applied
+   * (half-close on END_STREAM, `activeStreams` cleanup) is replicated here so
+   * the direct-write path keeps stream lifecycle tracking correct.
+   */
+  def writeHeadersDirect(stream: MuxStream[Int, H2Frame, H2Frame], buildFrame: => H2Frame.Headers): Unit =
+    writeLock.synchronized {
+      val frame = buildFrame
+      output.write(FrameCodec.encode(frame).toArray)
+      output.flush()
+      markLocalFrameWrite(stream, frame)
+    }
 
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
     val writer = Thread.ofVirtual().name("zio-http-h2-writer").start(runnable(writerLoop()))
@@ -71,7 +120,7 @@ final class H2Connection(
           val next = pendingHeaders.append(continuation)
           if (continuation.endHeaders) {
             pendingHeaders = null
-            deliverStreamFrame(next.toHeaders, onStream)
+            deliverRequestHeaders(next.toHeaders, onStream)
           } else pendingHeaders = next
         case _                                                                              =>
           throw protocolError("Expected CONTINUATION for stream " + pendingHeaders.streamId + ", received: " + frame)
@@ -79,7 +128,7 @@ final class H2Connection(
     } else {
       frame match {
         case headers: Headers if !headers.endHeaders => pendingHeaders = PendingHeaders(headers)
-        case headers: Headers                        => deliverStreamFrame(headers, onStream)
+        case headers: Headers                        => deliverRequestHeaders(headers, onStream)
         case _: Continuation => throw protocolError("Unexpected CONTINUATION frame without open header block")
         case other if other.streamId == 0 => handleConnectionFrame(other)
         case other                        => deliverStreamFrame(other, onStream)
@@ -103,6 +152,17 @@ final class H2Connection(
       case _                          =>
         throw protocolError("Unexpected connection-level frame: " + frame)
     }
+
+  private def deliverRequestHeaders(headers: Headers, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
+    // Always decode (advances the shared decoder's table in wire order), but store only the
+    // first HEADERS on a stream: a later HEADERS is trailers and must not overwrite the request.
+    val isInitialRequestHeaders = isNewClientStream(headers.streamId)
+    hpackCodec.decode(headers.headerBlock) match {
+      case Right(fields) => if (isInitialRequestHeaders) decodedRequestHeaders.put(headers.streamId, fields)
+      case Left(error)   => throw protocolError("Failed to decode HPACK request header block: " + error)
+    }
+    deliverStreamFrame(headers, onStream)
+  }
 
   private def deliverStreamFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit =
     frame match {

@@ -13,7 +13,7 @@ import zio.blocks.scope.Scope
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
 
 import zio.http.h2.H2Frame.{Data, Headers, WindowUpdate}
-import zio.http.h2.hpack.{HeaderField, Hpack}
+import zio.http.h2.hpack.{HeaderField, Hpack, HpackCodec}
 import zio.http.{
   BindAddress,
   Body,
@@ -70,8 +70,19 @@ final class H2Transport[Ctx](
             try {
               val flowController =
                 new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
-              val connection     = new H2Connection(input, output, http2Config.maxConcurrentStreams, flowController)
-              connection.run(stream => handleStream(stream, flowController))
+              val hpackCodec     = new HpackCodec()
+              val connection     =
+                new H2Connection(input, output, http2Config.maxConcurrentStreams, flowController, hpackCodec)
+              connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
+            } catch {
+              case e: Throwable =>
+                logger.error(
+                  "H2 connection error",
+                  "protocol"      -> AttributeValue.StringValue(protocolName),
+                  "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+                  "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+                  "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
+                )
             } finally {
               activeConnectionCount.decrementAndGet()
               activeConnections.add(-1L, "protocol" -> protocolName)
@@ -95,12 +106,17 @@ final class H2Transport[Ctx](
       case Protocol.H3(_, _, _) => None
     }
 
-  private def handleStream(stream: MuxStream[Int, H2Frame, H2Frame], flowController: FlowController): Unit = {
+  private def handleStream(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    flowController: FlowController,
+    hpackCodec: HpackCodec,
+    connection: H2Connection,
+  ): Unit = {
     try {
       val requestFrame = awaitHeaders(stream)
-      val request      = decodeRequest(requestFrame, stream)
+      val request      = decodeRequest(requestFrame, stream, connection)
       val response     = instrumentRequest(request)
-      sendResponse(stream, request.method, response, flowController)
+      sendResponse(stream, request.method, response, flowController, hpackCodec, connection)
     } catch {
       case e: Throwable =>
         logger.error(
@@ -111,7 +127,7 @@ final class H2Transport[Ctx](
           "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
         )
         try {
-          sendResponse(stream, Method.GET, Response.internalServerError, flowController)
+          sendResponse(stream, Method.GET, Response.internalServerError, flowController, hpackCodec, connection)
         } catch {
           case _: Throwable => () // Best effort: if error response also fails, give up silently
         }
@@ -160,8 +176,14 @@ final class H2Transport[Ctx](
       case other            => throw new IllegalStateException("Expected HTTP/2 HEADERS frame but received: " + other)
     }
 
-  private def decodeRequest(initialHeaders: Headers, stream: MuxStream[Int, H2Frame, H2Frame]): Request = {
-    val decodedHeaders = decodeHeaderBlock(initialHeaders.headerBlock)
+  private def decodeRequest(
+    initialHeaders: Headers,
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+  ): Request = {
+    // Decoded on the reader thread in wire order (see H2Connection.takeDecodedRequestHeaders);
+    // decoding here would desync the shared decoder across concurrent streams (RFC 7541 2.3.2).
+    val decodedHeaders = connection.takeDecodedRequestHeaders(stream.id)
     val pseudoHeaders  = collectPseudoHeaders(decodedHeaders)
     val httpHeaders    = buildRequestHeaders(decodedHeaders, pseudoHeaders.authority)
     val body           =
@@ -213,12 +235,27 @@ final class H2Transport[Ctx](
     requestMethod: Method,
     response: Response,
     flowController: FlowController,
+    hpackCodec: HpackCodec,
+    connection: H2Connection,
   ): Unit = {
     val bodyBytes       = if (requestMethod == Method.HEAD) Chunk.empty[Byte] else response.body.toChunk
     val bodyIsEmpty     = bodyBytes.isEmpty
     val responseHeaders = buildResponseHeaders(response, bodyBytes, bodyIsEmpty)
-    val encodedHeaders  = Hpack.encode(responseHeaders)
-    sendFrame(stream, Headers(stream.id, encodedHeaders, endStream = bodyIsEmpty, endHeaders = true))
+    // The HEADERS frame is HPACK-encoded and written to the wire atomically on
+    // this thread inside the connection's write lock (see writeHeadersDirect),
+    // so the wire-write order matches the encode order of the shared per-connection
+    // HPACK encoder. Routing it through the per-stream queue/writer thread instead
+    // would let the writer thread's arbitrary drain order reorder header blocks on
+    // the wire and corrupt the peer's HPACK dynamic table (RFC 7541 section 2.3.2).
+    connection.writeHeadersDirect(
+      stream,
+      Headers(
+        stream.id,
+        hpackCodec.encode(responseHeaders),
+        endStream = bodyIsEmpty,
+        endHeaders = true,
+      ),
+    )
 
     if (!bodyIsEmpty) {
       val chunks = chunkBody(bodyBytes, http2Config.maxFrameSize)
@@ -270,12 +307,6 @@ final class H2Transport[Ctx](
       throw new IllegalStateException("HTTP/2 stream send failed: " + error)
     }
   }
-
-  private def decodeHeaderBlock(headerBlock: Chunk[Byte]): List[HeaderField] =
-    Hpack.decode(headerBlock) match {
-      case Right(headers) => headers
-      case Left(error)    => throw new IllegalStateException("Failed to decode HPACK header block: " + error)
-    }
 
   private def collectPseudoHeaders(headers: List[HeaderField]): H2Transport.PseudoHeaders = {
     var method: String    = null
