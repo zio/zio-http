@@ -22,24 +22,25 @@ package zio.http.endpoint
  * no runtime or compile-time effect on Scala 3 (no consumer of `Unused[A]`
  * exists in main source — the warning macro is blocked, see decisions.md).
  *
- * Mirrors `zio.blocks.endpoint.PathVar.Ignored` pattern: used at the INPUT schema level
- * to annotate a field that the developer has explicitly marked as not consumed by the handler.
+ * Mirrors `zio.blocks.endpoint.PathVar.Ignored` pattern: used at the INPUT
+ * schema level to annotate a field that the developer has explicitly marked as
+ * not consumed by the handler.
  *
- * In the endpoint Input type definition, wrap a field with `.unused()` to suppress
- * the "field never used" warning:
+ * In the endpoint Input type definition, wrap a field with `.unused()` to
+ * suppress the "field never used" warning:
  *
  * ```scala
  * case class MyInput(
  *   userId: Int,
- *   debugFlag: Boolean.unused    // Marked, unconsumed -> no warning (suppressed)
+ *   debugFlag: Boolean.unused, // Marked, unconsumed -> no warning (suppressed)
  * )
  * ```
  *
  * Four combinations of (isMarked, consumed) emit warnings:
- *   - plain, unconsumed  -> "field X was defined but never used"
- *   - plain, consumed    -> no warning (normal)
+ *   - plain, unconsumed -> "field X was defined but never used"
+ *   - plain, consumed -> no warning (normal)
  *   - marked, unconsumed -> no warning (suppressed)
- *   - marked, consumed   -> "field X was marked .unused but is referenced" (lint)
+ *   - marked, consumed -> "field X was marked .unused but is referenced" (lint)
  */
 private[endpoint] sealed trait Unused[A] {
   def value: A

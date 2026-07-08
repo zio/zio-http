@@ -31,13 +31,13 @@ import zio.http.{Header, Headers, Method, Path, Request, Status, URL, Version}
  * information hiding rather than a `401`/`403`.
  *
  * IMPORTANT / REAL BEHAVIOR FINDING: `EndpointBridge.implement` (both Scala
- * versions, see `EndpointSyntax.scala`) decodes `endpoint.input` and
- * dispatches straight to the user handler; it never reads `endpoint.auth` at
- * all. `Auth` is therefore currently a phantom/documentation-only type
- * parameter with NO runtime enforcement. This spec asserts on that REAL,
- * observed behavior (a request without any credentials is NOT rejected
- * today) rather than assuming enforcement exists. This is a real gap, not a
- * main-source bug this task fixes -- see the task's final report.
+ * versions, see `EndpointSyntax.scala`) decodes `endpoint.input` and dispatches
+ * straight to the user handler; it never reads `endpoint.auth` at all. `Auth`
+ * is therefore currently a phantom/documentation-only type parameter with NO
+ * runtime enforcement. This spec asserts on that REAL, observed behavior (a
+ * request without any credentials is NOT rejected today) rather than assuming
+ * enforcement exists. This is a real gap, not a main-source bug this task fixes
+ * -- see the task's final report.
  */
 object EndpointAuthSpec extends ZIOSpecDefault {
 

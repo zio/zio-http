@@ -27,17 +27,17 @@ import zio.http.{Headers, Method, Path, Request, Status, URL, Version}
  *
  * This is the "safe baseline" per this module's known limitations (see
  * `.omo/notepads/endpoint-blocks/decisions.md`): Scala 3's partial-parameter
- * macro is NOT implemented, so the handler always declares the complete
- * `Input` case class here, never a subset.
+ * macro is NOT implemented, so the handler always declares the complete `Input`
+ * case class here, never a subset.
  *
- * All three fields are carried in a single JSON request body (rather than
- * split across path/query/body) because `EndpointCodec.decodeRequest`
- * currently only truly decodes `HttpCodec.Body`-shaped codecs from the wire;
- * non-`Body` shapes (`Query`, `Header`, `Combine`) fall through to a
- * best-effort path that returns `()` when no reachable `Body` schema exists
- * (see `EndpointCodec.scala`'s own docstring: "richer shapes ... are a
- * follow-up"). A case class with 2-3 fields decoded as one JSON body is the
- * combination that is actually exercised correctly by the current bridge.
+ * All three fields are carried in a single JSON request body (rather than split
+ * across path/query/body) because `EndpointCodec.decodeRequest` currently only
+ * truly decodes `HttpCodec.Body`-shaped codecs from the wire; non-`Body` shapes
+ * (`Query`, `Header`, `Combine`) fall through to a best-effort path that
+ * returns `()` when no reachable `Body` schema exists (see
+ * `EndpointCodec.scala`'s own docstring: "richer shapes ... are a follow-up").
+ * A case class with 2-3 fields decoded as one JSON body is the combination that
+ * is actually exercised correctly by the current bridge.
  */
 object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
 

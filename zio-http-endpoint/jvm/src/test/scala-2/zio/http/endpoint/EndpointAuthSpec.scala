@@ -26,23 +26,23 @@ import zio.http.{Header, Headers, Method, Path, Request, Status, URL, Version}
 import zio.http.endpoint._
 
 /**
-  * Endpoint with a non-trivial `Auth <: AuthType` (`AuthType.Basic`).
-  *
-  * `AuthType.Basic.unauthorizedStatus` defaults to `Status.NotFound` (404),
-  * confirmed by decompiling zio-blocks-endpoint's `AuthType.scala`
-  * (`unauthorizedStatus` returns `Status.NotFound`'s int code) -- chosen for
-  * information hiding rather than a `401`/`403`.
-  *
-  * IMPORTANT / REAL BEHAVIOR FINDING: `EndpointSyntaxMacros.implementImpl`
-  * (see `EndpointSyntax.scala`) generates a handler that decodes
-  * `endpoint.input` and dispatches straight to the user handler; it never
-  * reads `endpoint.auth` at all (same real behavior as the Scala 3 bridge).
-  * `Auth` is therefore currently a phantom/documentation-only type parameter
-  * with NO runtime enforcement. This spec asserts on that REAL, observed
-  * behavior (a request without any credentials is NOT rejected today)
-  * rather than assuming enforcement exists. This is a real gap, not a
-  * main-source bug this task fixes -- see the task's final report.
-  */
+ * Endpoint with a non-trivial `Auth <: AuthType` (`AuthType.Basic`).
+ *
+ * `AuthType.Basic.unauthorizedStatus` defaults to `Status.NotFound` (404),
+ * confirmed by decompiling zio-blocks-endpoint's `AuthType.scala`
+ * (`unauthorizedStatus` returns `Status.NotFound`'s int code) -- chosen for
+ * information hiding rather than a `401`/`403`.
+ *
+ * IMPORTANT / REAL BEHAVIOR FINDING: `EndpointSyntaxMacros.implementImpl` (see
+ * `EndpointSyntax.scala`) generates a handler that decodes `endpoint.input` and
+ * dispatches straight to the user handler; it never reads `endpoint.auth` at
+ * all (same real behavior as the Scala 3 bridge). `Auth` is therefore currently
+ * a phantom/documentation-only type parameter with NO runtime enforcement. This
+ * spec asserts on that REAL, observed behavior (a request without any
+ * credentials is NOT rejected today) rather than assuming enforcement exists.
+ * This is a real gap, not a main-source bug this task fixes -- see the task's
+ * final report.
+ */
 object EndpointAuthSpec extends ZIOSpecDefault {
 
   private val secureEndpoint: Endpoint[Unit, String, Int, String, AuthType.Basic.type] = {

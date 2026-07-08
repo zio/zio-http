@@ -19,29 +19,28 @@ import zio.test._
 import zio.test.Assertion._
 
 /**
-  * Real partial-application tests, Scala 2.13 ONLY (see
-  * `.omo/notepads/endpoint-blocks/decisions.md`: this feature is NOT
-  * implemented on Scala 3 either, so there is nothing to test there).
-  *
-  * REAL BEHAVIOR FINDING, empirically reproduced below via `typeCheck`
-  * (reported per this task's scope, NOT fixed): for ANY case-class `Input`,
-  * `.implement` still has no working handler shape on Scala 2.13, even with
-  * the raw-value API (handler returns bare `Err`/`Output`, no `Left`/`Right`):
-  *   - A handler whose single parameter's type equals an individual FIELD's
-  *     type (not the whole `Input`) does NOT compile: the macro matches the
-  *     parameter NAME against a field, extracts that field, and passes it, but
-  *     the field-typed value never reconstructs the whole `Input` the codec
-  *     needs -- the generated call fails to typecheck.
-  *   - A handler whose single parameter's type equals the WHOLE `Input` type
-  *     fails inside `EndpointSyntaxMacros.implementImpl`, because the macro
-  *     unconditionally tries to match the parameter's NAME against an
-  *     individual field name once `Input` is a case class, and a whole-value
-  *     parameter's name essentially never coincides with one of its own
-  *     field's names.
-  *
-  * A primitive (non-case-class) `Input` DOES work: the handler takes the
-  * complete value directly and returns a bare `Err`/`Output`.
-  */
+ * Real partial-application tests, Scala 2.13 ONLY (see
+ * `.omo/notepads/endpoint-blocks/decisions.md`: this feature is NOT implemented
+ * on Scala 3 either, so there is nothing to test there).
+ *
+ * REAL BEHAVIOR FINDING, empirically reproduced below via `typeCheck` (reported
+ * per this task's scope, NOT fixed): for ANY case-class `Input`, `.implement`
+ * still has no working handler shape on Scala 2.13, even with the raw-value API
+ * (handler returns bare `Err`/`Output`, no `Left`/`Right`):
+ *   - A handler whose single parameter's type equals an individual FIELD's type
+ *     (not the whole `Input`) does NOT compile: the macro matches the parameter
+ *     NAME against a field, extracts that field, and passes it, but the
+ *     field-typed value never reconstructs the whole `Input` the codec needs --
+ *     the generated call fails to typecheck.
+ *   - A handler whose single parameter's type equals the WHOLE `Input` type
+ *     fails inside `EndpointSyntaxMacros.implementImpl`, because the macro
+ *     unconditionally tries to match the parameter's NAME against an individual
+ *     field name once `Input` is a case class, and a whole-value parameter's
+ *     name essentially never coincides with one of its own field's names.
+ *
+ * A primitive (non-case-class) `Input` DOES work: the handler takes the
+ * complete value directly and returns a bare `Err`/`Output`.
+ */
 object EndpointPartialApplicationSpec extends ZIOSpecDefault {
 
   def spec = suite("EndpointPartialApplication")(
@@ -66,7 +65,7 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
           }
 
           orderEndpoint.implement { (orderId: Int) => orderId.toString }
-        """)
+        """),
       )(isLeft)
     },
     test("consuming the WHOLE Input by value (order: Order) ALSO does not compile (macro name-vs-field mismatch)") {
@@ -90,7 +89,7 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
           }
 
           orderEndpoint.implement { (order: Order) => order.note }
-        """)
+        """),
       )(isLeft)
     },
     test("a primitive (non-case-class) Input handler returning bare Err/Output values DOES compile") {
@@ -110,7 +109,7 @@ object EndpointPartialApplicationSpec extends ZIOSpecDefault {
             Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
           }
           stringEndpoint.implement { (input: String) => if (input.isEmpty) "empty" else input.length }
-        """)
+        """),
       )(isRight)
     },
   )

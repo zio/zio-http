@@ -29,7 +29,7 @@ private[http] class MemoizedZIO[K, E, A] private (compute: K => IO[E, A]) { self
           map.get(k) match {
             case Some(promise) => (promise.await, map)
             case None          =>
-               val promise = Promise.unsafe.make[E, A](fiberId)(using Unsafe.unsafe)
+              val promise = Promise.unsafe.make[E, A](fiberId)(using Unsafe.unsafe)
               (compute(k).exit.tap(exit => promise.done(exit)).flatten, map + (k -> promise))
           }
         }

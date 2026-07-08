@@ -24,21 +24,20 @@ import zio.blocks.schema.Schema
 import zio.http.{Method, Path}
 
 /**
-  * Multi-field `Input`, on the endpoint's WIRE format.
-  *
-  * REAL BEHAVIOR FINDING (reported per this task's scope, not fixed --
-  * see [[EndpointPartialApplicationSpec]] for the full `typeCheck`-verified
-  * proof): `.implement` cannot be invoked AT ALL for a multi-field
-  * case-class `Input` on Scala 2.13 -- not even with a handler that takes
-  * the "full input" as one parameter, contrary to this task's stated
-  * assumption that a full-input handler is "the safe baseline that works
-  * on both Scala versions". What IS real and tested here instead is the
-  * multi-field `Input`'s wire-level round trip through the exact codec
-  * functions `.implement`'s generated code itself calls
-  * (`EndpointCodec.encodeRequestBody`/`decodeRequest`), proving the JSON
-  * schema for a multi-field case class is correct end to end, independent
-  * of `.implement`'s current, separately-documented limitation.
-  */
+ * Multi-field `Input`, on the endpoint's WIRE format.
+ *
+ * REAL BEHAVIOR FINDING (reported per this task's scope, not fixed -- see
+ * [[EndpointPartialApplicationSpec]] for the full `typeCheck`-verified proof):
+ * `.implement` cannot be invoked AT ALL for a multi-field case-class `Input` on
+ * Scala 2.13 -- not even with a handler that takes the "full input" as one
+ * parameter, contrary to this task's stated assumption that a full-input
+ * handler is "the safe baseline that works on both Scala versions". What IS
+ * real and tested here instead is the multi-field `Input`'s wire-level round
+ * trip through the exact codec functions `.implement`'s generated code itself
+ * calls (`EndpointCodec.encodeRequestBody`/`decodeRequest`), proving the JSON
+ * schema for a multi-field case class is correct end to end, independent of
+ * `.implement`'s current, separately-documented limitation.
+ */
 object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
 
   final case class UserProfile(userId: Int, displayName: String, isActive: Boolean)
@@ -54,8 +53,8 @@ object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
 
   def spec = suite("EndpointMultiFieldInput")(
     test("the full multi-field Input round-trips through the real wire codec (encode then decode)") {
-      val original = UserProfile(7, "nabil", isActive = true)
-      val body     = EndpointCodec.encodeRequestBody(profileEndpoint.input, original)
+      val original    = UserProfile(7, "nabil", isActive = true)
+      val body        = EndpointCodec.encodeRequestBody(profileEndpoint.input, original)
       val fakeRequest = zio.http.Request(
         method = Method.PUT,
         url = zio.http.URL.fromPath(Path.root / "profile"),
@@ -70,7 +69,9 @@ object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
       val bodyB = EndpointCodec.encodeRequestBody(profileEndpoint.input, UserProfile(2, "b", isActive = true))
       assertTrue(bodyA.toArray.toSeq != bodyB.toArray.toSeq)
     },
-    test("`.implement` on a multi-field case-class Input does not compile in any shape (see EndpointPartialApplicationSpec)") {
+    test(
+      "`.implement` on a multi-field case-class Input does not compile in any shape (see EndpointPartialApplicationSpec)",
+    ) {
       assertZIO(
         typeCheck("""
           import zio.blocks.docs.Doc
@@ -91,7 +92,7 @@ object EndpointMultiFieldInputSpec extends ZIOSpecDefault {
           }
 
           profileEndpoint.implement { (profile: UserProfile) => profile }
-        """)
+        """),
       )(isLeft)
     },
   )

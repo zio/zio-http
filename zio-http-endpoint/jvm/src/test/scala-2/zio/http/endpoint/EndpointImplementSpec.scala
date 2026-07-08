@@ -27,23 +27,23 @@ import zio.http.{Headers, Method, Path, Request, Status, URL, Version}
 import zio.http.endpoint._
 
 /**
-  * End-to-end test for `.implement`/`.call` on Scala 2.13 endpoints.
-  *
-  * The handler returns BARE `Err`/`Output` values (no `Left`/`Right`/`Either`
-  * in user code); the `.implement` macro tags each return-position leaf by its
-  * static type. `Err` (`String`) and `Output` (`Int`) are distinct so the
-  * type-directed tagging is unambiguous.
-  *
-  * Only `import zio.http.endpoint._` is imported for the syntax -- no internal
-  * `EndpointSyntax` member.
-  */
+ * End-to-end test for `.implement`/`.call` on Scala 2.13 endpoints.
+ *
+ * The handler returns BARE `Err`/`Output` values (no `Left`/`Right`/`Either` in
+ * user code); the `.implement` macro tags each return-position leaf by its
+ * static type. `Err` (`String`) and `Output` (`Int`) are distinct so the
+ * type-directed tagging is unambiguous.
+ *
+ * Only `import zio.http.endpoint._` is imported for the syntax -- no internal
+ * `EndpointSyntax` member.
+ */
 object EndpointImplementSpec extends ZIOSpecDefault {
 
   private val lengthEndpoint: Endpoint[Unit, String, String, Int, AuthType.None.type] = {
-    val pattern      = RoutePattern(Method.POST, Path.root / "length")
-    val inputCodec   = HttpCodec.Body[CodecKind.Request, String](Schema[String])
-    val errorCodec   = HttpCodec.Body[CodecKind.Response, String](Schema[String])
-    val outputCodec  = HttpCodec.Body[CodecKind.Response, Int](Schema[Int])
+    val pattern     = RoutePattern(Method.POST, Path.root / "length")
+    val inputCodec  = HttpCodec.Body[CodecKind.Request, String](Schema[String])
+    val errorCodec  = HttpCodec.Body[CodecKind.Response, String](Schema[String])
+    val outputCodec = HttpCodec.Body[CodecKind.Response, Int](Schema[Int])
     Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
   }
 

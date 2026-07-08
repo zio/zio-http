@@ -26,69 +26,70 @@ import zio.blocks.scope.Scope
 import zio.http.{Client, Handler, Request, Response, Route, Status}
 
 /**
-  * Scala 2 extension methods for `zio.blocks.endpoint.Endpoint`:
-  *   - `.implement(f: Input => Err | Output)` — server-side
-  *   - `.call(client, input)` — client-side
-  *
-  * Brought into scope by a plain `import zio.http.endpoint._` (the implicit
-  * conversion lives on the package object, mirroring Scala 3's public top-level
-  * `extension`). No internal member needs to be imported.
-  *
-  * Current, tested behavior (see `.omo/notepads/endpoint-blocks/decisions.md`):
-  *   - `.implement` works only when `Input` is a non-case-class (primitive/opaque)
-  *     type; the handler takes the complete `Input` value directly. For a
-  *     case-class `Input` there is NO working handler shape — a 2+-param lambda
-  *     is rejected by `Function1` arity before the macro runs, a field-typed
-  *     single param fails the same `Function1` contravariance check, and a
-  *     whole-`Input` single param fails inside the macro's name-vs-field match.
-  *     Partial parameter application and the `.unused` marker are therefore NOT
-  *     functional today.
-  *   - The handler returns the bare `Err` value or bare `Output` value directly
-  *     (e.g. `if (cond) "error" else 42`); the `Err | Output` union is
-  *     represented internally as `Either[Err, Output]` (see the package object's
-  *     `type |`), and the macro dispatches on that representation invisibly — the
-  *     user never writes `Left`/`Right`/`Either` by hand.
-  */
+ * Scala 2 extension methods for `zio.blocks.endpoint.Endpoint`:
+ *   - `.implement(f: Input => Err | Output)` — server-side
+ *   - `.call(client, input)` — client-side
+ *
+ * Brought into scope by a plain `import zio.http.endpoint._` (the implicit
+ * conversion lives on the package object, mirroring Scala 3's public top-level
+ * `extension`). No internal member needs to be imported.
+ *
+ * Current, tested behavior (see `.omo/notepads/endpoint-blocks/decisions.md`):
+ *   - `.implement` works only when `Input` is a non-case-class
+ *     (primitive/opaque) type; the handler takes the complete `Input` value
+ *     directly. For a case-class `Input` there is NO working handler shape — a
+ *     2+-param lambda is rejected by `Function1` arity before the macro runs, a
+ *     field-typed single param fails the same `Function1` contravariance check,
+ *     and a whole-`Input` single param fails inside the macro's name-vs-field
+ *     match. Partial parameter application and the `.unused` marker are
+ *     therefore NOT functional today.
+ *   - The handler returns the bare `Err` value or bare `Output` value directly
+ *     (e.g. `if (cond) "error" else 42`); the `Err | Output` union is
+ *     represented internally as `Either[Err, Output]` (see the package object's
+ *     `type |`), and the macro dispatches on that representation invisibly —
+ *     the user never writes `Left`/`Right`/`Either` by hand.
+ */
 class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
-  private val endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
+  private val endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
 ) {
 
   /**
-    * Turns a handler function into a `Route[Any]`.
-    *
-    * The handler receives the complete `Input` value and returns either the bare
-    * `Err` value or the bare `Output` value directly — e.g.
-    * `input => if (cond) "error" else 42` — with NO `Left`/`Right`/`Either` in
-    * the user's code. The macro type-checks each return-position expression of the
-    * handler body against `Err` and `Output` and injects the internal `Either`
-    * tagging invisibly, then decodes the request body, runs the handler, and
-    * encodes the result (error → 400, output → 200).
-    *
-    * The handler's declared return type is `Any` at the syntactic level (the macro
-    * recovers the real `Err`/`Output` shape per branch); this is what lets the
-    * user write raw values without wrapping. Only a non-case-class `Input` is
-    * supported today (see the class Scaladoc and decisions.md for the case-class
-    * limitation).
-    */
+   * Turns a handler function into a `Route[Any]`.
+   *
+   * The handler receives the complete `Input` value and returns either the bare
+   * `Err` value or the bare `Output` value directly — e.g.
+   * `input => if (cond) "error" else 42` — with NO `Left`/`Right`/`Either` in
+   * the user's code. The macro type-checks each return-position expression of
+   * the handler body against `Err` and `Output` and injects the internal
+   * `Either` tagging invisibly, then decodes the request body, runs the
+   * handler, and encodes the result (error → 400, output → 200).
+   *
+   * The handler's declared return type is `Any` at the syntactic level (the
+   * macro recovers the real `Err`/`Output` shape per branch); this is what lets
+   * the user write raw values without wrapping. Only a non-case-class `Input`
+   * is supported today (see the class Scaladoc and decisions.md for the
+   * case-class limitation).
+   */
   def implement(f: Input => Any): Route[Any] =
     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
-    * Calls this endpoint via the given HTTP client, returning the decoded `Err | Output` union.
-    *
-    * Requires Eithers TC instance for combining error and output responses.
-    */
+   * Calls this endpoint via the given HTTP client, returning the decoded
+   * `Err | Output` union.
+   *
+   * Requires Eithers TC instance for combining error and output responses.
+   */
   def call(
     client: Client,
-    input: Input
+    input: Input,
   )(implicit eithers: Eithers.Eithers.WithOut[Err, Output, Err | Output]): Err | Output =
     EndpointBridge.call(endpoint, client, input, Alternator.fromEithers(eithers))
 }
 
 /**
-  * Bridge between zio-blocks endpoints and zio.http request/response.
-  * Mirrors Scala 3's EndpointBridge design.
-  */
+ * Bridge between zio-blocks endpoints and zio.http request/response. Mirrors
+ * Scala 3's EndpointBridge design.
+ */
 private[endpoint] object EndpointBridge {
 
   def call[PathInput, Input, Err, Output, Auth <: AuthType](
@@ -97,7 +98,7 @@ private[endpoint] object EndpointBridge {
     input: Input,
     alternator: Alternator.WithOut[Err, Output, Err | Output],
   ): Err | Output = {
-    val request = buildRequest(endpoint, input)
+    val request  = buildRequest(endpoint, input)
     val response = client.send(request)
     decodeResponse(endpoint, response, alternator)
   }
@@ -107,8 +108,8 @@ private[endpoint] object EndpointBridge {
     input: Input,
   ): Request = {
     val pattern = endpoint.route
-    val method = pattern.method
-    val body = EndpointCodec.encodeRequestBody(endpoint.input, input)
+    val method  = pattern.method
+    val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
     Request(
       method = method,
       url = zio.http.URL.root,
@@ -130,34 +131,40 @@ private[endpoint] object EndpointBridge {
       }
     else
       EndpointCodec.decodeResponse(endpoint.error, response) match {
-        case Right(err) => alternator.combine(Left(err))
+        case Right(err)    => alternator.combine(Left(err))
         case Left(message) => throw new RuntimeException(s"Failed to decode endpoint error: $message")
       }
 }
 
 /**
-  * Scala 2 blackbox macro for `.implement`.
-  *
-  * NOTE: the field-matching / `.unused` / 4-combination-warning logic below was
-  * written toward a partial-application feature that is NOT functional today —
-  * for a case-class `Input` no handler shape reaches it (rejected earlier by
-  * `Function1` arity/variance, or aborted by the name-vs-field match). It only
-  * runs its single-parameter, whole-`Input` branch for a non-case-class `Input`
-  * (`handlerParams.length == 1 && htype =:= inputType`), which is the one
-  * supported shape. See `.omo/notepads/endpoint-blocks/decisions.md` for the full
-  * `typeCheck`-verified analysis of the case-class limitation.
-  */
+ * Scala 2 blackbox macro for `.implement`.
+ *
+ * NOTE: the field-matching / `.unused` / 4-combination-warning logic below was
+ * written toward a partial-application feature that is NOT functional today —
+ * for a case-class `Input` no handler shape reaches it (rejected earlier by
+ * `Function1` arity/variance, or aborted by the name-vs-field match). It only
+ * runs its single-parameter, whole-`Input` branch for a non-case-class `Input`
+ * (`handlerParams.length == 1 && htype =:= inputType`), which is the one
+ * supported shape. See `.omo/notepads/endpoint-blocks/decisions.md` for the
+ * full `typeCheck`-verified analysis of the case-class limitation.
+ */
 private[endpoint] object EndpointSyntaxMacros {
 
-  def implementImpl[PathInput: c.WeakTypeTag, Input: c.WeakTypeTag, Err: c.WeakTypeTag, Output: c.WeakTypeTag, Auth <: AuthType: c.WeakTypeTag](
-    c: blackbox.Context
+  def implementImpl[
+    PathInput: c.WeakTypeTag,
+    Input: c.WeakTypeTag,
+    Err: c.WeakTypeTag,
+    Output: c.WeakTypeTag,
+    Auth <: AuthType: c.WeakTypeTag,
+  ](
+    c: blackbox.Context,
   )(f: c.Expr[Input => Any]): c.Expr[Route[Any]] = {
     import c.universe._
 
     val inputType  = weakTypeOf[Input].dealias
     val errType    = weakTypeOf[Err].dealias
     val outputType = weakTypeOf[Output].dealias
-    val endpoint = c.prefix.tree match {
+    val endpoint   = c.prefix.tree match {
       case Apply(_, List(e)) => e
       case other             => c.abort(c.enclosingPosition, s"Unexpected endpoint extraction: $other")
     }
@@ -168,14 +175,14 @@ private[endpoint] object EndpointSyntaxMacros {
       try {
         val sym = inputType.typeSymbol
         if (sym != null && sym.isClass && sym.asClass.isCaseClass) {
-          val classSym = sym.asClass
+          val classSym    = sym.asClass
           val constructor = classSym.primaryConstructor.asMethod
           constructor.paramLists.flatten.map { param =>
-            val fname = param.name.toString
+            val fname         = param.name.toString
             val paramTypeInfo = param.typeSignature
-            val paramType = paramTypeInfo.asSeenFrom(inputType, classSym).dealias
-            val isUnused = paramType.typeSymbol == unusedSymbol
-            val actualType = if (isUnused) paramType.typeArgs.head else paramType
+            val paramType     = paramTypeInfo.asSeenFrom(inputType, classSym).dealias
+            val isUnused      = paramType.typeSymbol == unusedSymbol
+            val actualType    = if (isUnused) paramType.typeArgs.head else paramType
             (fname, actualType, isUnused)
           }
         } else {
@@ -195,7 +202,7 @@ private[endpoint] object EndpointSyntaxMacros {
               val ftype = if (param.tpt == null || param.tpt.isEmpty) NoType else param.tpt.tpe.dealias
               (fname, ftype)
             }
-          case _ =>
+          case _                   =>
             c.abort(c.enclosingPosition, "Handler must be a function literal, e.g. (x: Int, y: String) => ...")
         }
       } catch {
@@ -204,9 +211,9 @@ private[endpoint] object EndpointSyntaxMacros {
       }
     }
 
-    val inputFields = extractInputFields()
+    val inputFields   = extractInputFields()
     val handlerParams = extractHandlerParams(f)
-    val inputName = TermName(c.freshName("decodedInput"))
+    val inputName     = TermName(c.freshName("decodedInput"))
 
     if (inputFields.isEmpty && handlerParams.nonEmpty) {
       if (handlerParams.length == 1) {
@@ -214,14 +221,14 @@ private[endpoint] object EndpointSyntaxMacros {
       } else {
         c.abort(
           c.enclosingPosition,
-          "Cannot extract Input fields from non-case-class type with multiple handler parameters"
+          "Cannot extract Input fields from non-case-class type with multiple handler parameters",
         )
       }
     }
 
-    val consumed = Array.fill(inputFields.length)(false)
+    val consumed    = Array.fill(inputFields.length)(false)
     val accessExprs = scala.collection.mutable.ListBuffer.empty[(String, Tree)]
-    val paramOrder = scala.collection.mutable.ListBuffer.empty[String]
+    val paramOrder  = scala.collection.mutable.ListBuffer.empty[String]
 
     if (inputFields.isEmpty && handlerParams.length == 1) {
       val (hname, htype) = handlerParams.head
@@ -231,7 +238,7 @@ private[endpoint] object EndpointSyntaxMacros {
       } else {
         c.abort(
           c.enclosingPosition,
-          s"Handler parameter type $htype does not match input type $inputType"
+          s"Handler parameter type $htype does not match input type $inputType",
         )
       }
     } else {
@@ -244,8 +251,8 @@ private[endpoint] object EndpointSyntaxMacros {
           case Some(idx) =>
             consumed(idx) = true
             val (iname, _, isUnused) = inputFields(idx)
-            val inameIdent = Ident(TermName(iname))
-            val unwrapExpr = if (isUnused) {
+            val inameIdent           = Ident(TermName(iname))
+            val unwrapExpr           = if (isUnused) {
               q"$inameIdent.value"
             } else {
               inameIdent
@@ -256,7 +263,7 @@ private[endpoint] object EndpointSyntaxMacros {
           case None =>
             c.abort(
               c.enclosingPosition,
-              s"No input field named `$hname` of type $htype is declared by this endpoint input"
+              s"No input field named `$hname` of type $htype is declared by this endpoint input",
             )
         }
       }
@@ -273,10 +280,10 @@ private[endpoint] object EndpointSyntaxMacros {
     if (handlerParams.isEmpty) {
       c.abort(
         c.enclosingPosition,
-        "Handler must declare at least one parameter matching an endpoint input field"
+        "Handler must declare at least one parameter matching an endpoint input field",
       )
     }
-    
+
     val extractionExprs = accessExprs.map { case (_, expr) => expr }
 
     // --- Raw-value dispatch (no Left/Right in user code) --------------------
@@ -296,13 +303,13 @@ private[endpoint] object EndpointSyntaxMacros {
     val outputTypeTree = tq"${outputType}"
 
     def rewriteReturns(body: Tree): Tree = body match {
-      case If(cond, thenp, elsep)   => If(cond, rewriteReturns(thenp), rewriteReturns(elsep))
-      case Block(stats, expr)       => Block(stats, rewriteReturns(expr))
-      case Match(sel, cases)        =>
+      case If(cond, thenp, elsep) => If(cond, rewriteReturns(thenp), rewriteReturns(elsep))
+      case Block(stats, expr)     => Block(stats, rewriteReturns(expr))
+      case Match(sel, cases)      =>
         Match(sel, cases.map { case CaseDef(pat, guard, cbody) => CaseDef(pat, guard, rewriteReturns(cbody)) })
-      case Typed(expr, _)           => rewriteReturns(expr)
-      case Annotated(_, expr)       => rewriteReturns(expr)
-      case leaf                     =>
+      case Typed(expr, _)         => rewriteReturns(expr)
+      case Annotated(_, expr)     => rewriteReturns(expr)
+      case leaf                   =>
         q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
     }
 
@@ -325,7 +332,7 @@ private[endpoint] object EndpointSyntaxMacros {
     // package — mirroring how Scala 3's public inline extension calls its
     // `private[endpoint]` `EndpointBridge`.
     c.Expr[Route[Any]](
-      q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)"
+      q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)",
     )
   }
 }

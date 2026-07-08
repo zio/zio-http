@@ -22,7 +22,8 @@ import zio.http.{Client, Halt, Handler, Request, Response, ResultType, Route, St
 import zio.http.ResultType._
 
 /**
- * User-facing `.call` and `.implement` syntax over a zio-blocks [[zio.blocks.endpoint.Endpoint]].
+ * User-facing `.call` and `.implement` syntax over a zio-blocks
+ * [[zio.blocks.endpoint.Endpoint]].
  *
  * `import zio.http.endpoint.*` alone brings extensions into scope. The result
  * of `.call` is a real Scala 3 union `Err | Output`, produced by zio-blocks'
@@ -34,10 +35,11 @@ import zio.http.ResultType._
  *     [[EndpointResultHandler]] TC.
  *   - Partial parameter application (handler declaring a SUBSET of Input fields
  *     matched by name+type) and the `.unused` marker's 4-combination warning
- *     logic are NOT implemented on Scala 3: the intended inline macro is blocked
- *     by a quoted type-parameter inference issue (the macro context cannot infer
- *     `Input: Type` when called from an extension method with implicit type
- *     parameters). [[Unused]] exists as a type only, with no compile-time effect.
+ *     logic are NOT implemented on Scala 3: the intended inline macro is
+ *     blocked by a quoted type-parameter inference issue (the macro context
+ *     cannot infer `Input: Type` when called from an extension method with
+ *     implicit type parameters). [[Unused]] exists as a type only, with no
+ *     compile-time effect.
  */
 extension [PathInput, Input, Err, Output, Auth <: AuthType](
   endpoint: Endpoint[PathInput, Input, Err, Output, Auth]
@@ -46,17 +48,17 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Turns this endpoint into a [[Route]] backed by a user-provided handler.
    *
-   * The handler receives the complete `Input` value and returns `F[Err | Output]`.
-   * This single method (no overloads per effect type) is dispatched by the
-   * `resultHandler` TC across all effect types `F[_]` (ZIO, IO, Try, Identity,
-   * custom monads).
+   * The handler receives the complete `Input` value and returns
+   * `F[Err | Output]`. This single method (no overloads per effect type) is
+   * dispatched by the `resultHandler` TC across all effect types `F[_]` (ZIO,
+   * IO, Try, Identity, custom monads).
    *
    * Partial application (handler declaring a SUBSET of Input fields matched by
    * name+type) and `.unused` warning emission are NOT implemented on Scala 3:
    * the intended inline macro is blocked by a quoted type-parameter inference
    * issue (see the type-level Scaladoc above and
-   * `.omo/notepads/endpoint-blocks/decisions.md`). Today the whole `Input` value
-   * is passed to the handler as-is.
+   * `.omo/notepads/endpoint-blocks/decisions.md`). Today the whole `Input`
+   * value is passed to the handler as-is.
    */
   def implement[F[_]](handler: Input => F[Err | Output])(using
     resultHandler: EndpointResultHandler[F],
@@ -68,9 +70,9 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
    * Invokes this endpoint against `client`, returning the decoded
    * `Err | Output` union.
    *
-   * The request is built from `input` via the endpoint's route pattern and input
-   * codec; the response is decoded against the error/output codecs and merged
-   * into the union using zio-blocks' [[Unions]] machinery.
+   * The request is built from `input` via the endpoint's route pattern and
+   * input codec; the response is decoded against the error/output codecs and
+   * merged into the union using zio-blocks' [[Unions]] machinery.
    */
   def call(client: Client, input: Input)(using
     unions: Unions.Unions.WithOut[Err, Output, Err | Output],
@@ -80,8 +82,8 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
 
 /**
  * Server- and client-side bridging between a zio-blocks endpoint and the
- * concrete `zio.http` request/response types. All members are `private[endpoint]`
- * — users only see [[implement]] / [[call]].
+ * concrete `zio.http` request/response types. All members are
+ * `private[endpoint]` — users only see [[implement]] / [[call]].
  */
 private[endpoint] object EndpointBridge {
 
@@ -92,9 +94,9 @@ private[endpoint] object EndpointBridge {
   private val errorStatus: Status = Status.BadRequest
 
   /**
-   * Encodes an `Err | Output` union into a [[Response]], separating it back into
-   * `Either[Err, Output]` via the [[Alternator]] and selecting the matching
-   * error/output codec plus status.
+   * Encodes an `Err | Output` union into a [[Response]], separating it back
+   * into `Either[Err, Output]` via the [[Alternator]] and selecting the
+   * matching error/output codec plus status.
    */
   private def encodeResult[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
@@ -105,10 +107,6 @@ private[endpoint] object EndpointBridge {
       case Left(err)     => EndpointCodec.encodeResponse(endpoint.error, err, errorStatus)
       case Right(output) => EndpointCodec.encodeResponse(endpoint.output, output, okStatus)
     }
-
-
-
-
 
   /**
    * Server-side dispatch: builds a [[Route]] that decodes requests, runs the
@@ -122,11 +120,11 @@ private[endpoint] object EndpointBridge {
   ): Route[Any] = {
     val handlerFn: Request => Response | Halt = { request =>
       EndpointCodec.decodeRequest(endpoint.input, request) match {
-        case Left(_) =>
+        case Left(_)      =>
           Response.badRequest
         case Right(input) =>
           val userEffect: F[Err | Output] = handler(input)
-          val unionResult: Err | Output = resultHandler.run(userEffect)
+          val unionResult: Err | Output   = resultHandler.run(userEffect)
           encodeResult(endpoint, unionResult, alternator)
       }
     }
@@ -151,7 +149,10 @@ private[endpoint] object EndpointBridge {
     decodeResponse(endpoint, response, alternator)
   }
 
-  /** Builds an outgoing [[Request]] from the endpoint's method/path plus input body. */
+  /**
+   * Builds an outgoing [[Request]] from the endpoint's method/path plus input
+   * body.
+   */
   private def buildRequest[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
     input: Input,

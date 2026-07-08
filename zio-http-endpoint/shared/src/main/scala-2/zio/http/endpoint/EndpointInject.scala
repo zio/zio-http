@@ -18,25 +18,26 @@ package zio.http.endpoint
 import scala.annotation.implicitNotFound
 
 /**
-  * Internal selector used by `.implement`'s macro to inject a BARE handler
-  * return value (of static type `A`) into the `Either[Err, Output]` union
-  * representation, WITHOUT the user ever writing `Left`/`Right`.
-  *
-  * For each return-position leaf of the handler body, the macro emits
-  * `EndpointInject.inject[Err, Output](leaf)`. Implicit resolution then picks
-  * `injectErr` when the leaf conforms to `Err` (→ `Left`) or `injectOutput`
-  * when it conforms to `Output` (→ `Right`). Because this resolution happens at
-  * the handler's real typecheck (where the lambda parameter is in scope), leaves
-  * such as `input.length` classify correctly — something isolated macro-side
-  * `typecheck` calls cannot do.
-  *
-  * `injectErr` is prioritized over `injectOutput` (via the subclass/`LowPriority`
-  * split) only to break ties; endpoints whose `Err` and `Output` are the same
-  * type cannot be disambiguated by a bare value and must return distinct types.
-  */
+ * Internal selector used by `.implement`'s macro to inject a BARE handler
+ * return value (of static type `A`) into the `Either[Err, Output]` union
+ * representation, WITHOUT the user ever writing `Left`/`Right`.
+ *
+ * For each return-position leaf of the handler body, the macro emits
+ * `EndpointInject.inject[Err, Output](leaf)`. Implicit resolution then picks
+ * `injectErr` when the leaf conforms to `Err` (→ `Left`) or `injectOutput` when
+ * it conforms to `Output` (→ `Right`). Because this resolution happens at the
+ * handler's real typecheck (where the lambda parameter is in scope), leaves
+ * such as `input.length` classify correctly — something isolated macro-side
+ * `typecheck` calls cannot do.
+ *
+ * `injectErr` is prioritized over `injectOutput` (via the
+ * subclass/`LowPriority` split) only to break ties; endpoints whose `Err` and
+ * `Output` are the same type cannot be disambiguated by a bare value and must
+ * return distinct types.
+ */
 @implicitNotFound(
   "Handler return value of type ${A} does not conform to the endpoint error type " +
-    "${Err} or output type ${Out}. Return a bare Err value or a bare Output value."
+    "${Err} or output type ${Out}. Return a bare Err value or a bare Output value.",
 )
 sealed trait EndpointInject[A, Err, Out] {
   def apply(a: A): Either[Err, Out]

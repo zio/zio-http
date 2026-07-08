@@ -21,18 +21,18 @@ import zio.blocks.schema.Schema
 import zio.http.{Body, ContentType, Request, Response, Status}
 
 /**
- * Internal bridge between a zio-blocks [[HttpCodec]] description and the concrete
- * `zio.http` wire types ([[Request]] / [[Response]] / [[Body]]).
+ * Internal bridge between a zio-blocks [[HttpCodec]] description and the
+ * concrete `zio.http` wire types ([[Request]] / [[Response]] / [[Body]]).
  *
- * zio-blocks' `HttpCodec` is a pure description (schema + declared media types);
- * it carries no HTTP encode/decode of its own. This object supplies that,
- * driven by the codec's [[Schema]] (via its derived JSON codec) and negotiated
- * against the codec's declared `mediaTypes`.
+ * zio-blocks' `HttpCodec` is a pure description (schema + declared media
+ * types); it carries no HTTP encode/decode of its own. This object supplies
+ * that, driven by the codec's [[Schema]] (via its derived JSON codec) and
+ * negotiated against the codec's declared `mediaTypes`.
  *
  * The proof-of-concept handles the dominant body-valued shape (`HttpCodec.Body`
- * and the unit `HttpCodec.Empty`); richer shapes (query/header/combine/fallback)
- * are a follow-up and fall through to the JSON body path so nothing silently
- * misbehaves.
+ * and the unit `HttpCodec.Empty`); richer shapes
+ * (query/header/combine/fallback) are a follow-up and fall through to the JSON
+ * body path so nothing silently misbehaves.
  */
 private[endpoint] object EndpointCodec {
 
@@ -45,10 +45,10 @@ private[endpoint] object EndpointCodec {
    */
   def decodeRequest[A](codec: HttpCodec[CodecKind.Request, A], request: Request): Either[String, A] =
     codec match {
-      case HttpCodec.Empty => Right(().asInstanceOf[A])
+      case HttpCodec.Empty                                       => Right(().asInstanceOf[A])
       case body: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
         decodeBody(body.schema, request.body)
-      case other =>
+      case other                                                 =>
         decodeBodyFromSchema(other, request.body)
     }
 
@@ -58,10 +58,10 @@ private[endpoint] object EndpointCodec {
    */
   def encodeResponse[A](codec: HttpCodec[CodecKind.Response, A], value: A, status: Status): Response = {
     val body = codec match {
-      case HttpCodec.Empty => Body.empty
+      case HttpCodec.Empty                                     => Body.empty
       case b: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
         encodeBody(b.schema, b.mediaTypes, value)
-      case other =>
+      case other                                               =>
         encodeBodyFromSchema(other, value)
     }
     Response(status, body = body)
@@ -73,10 +73,10 @@ private[endpoint] object EndpointCodec {
    */
   def encodeRequestBody[A](codec: HttpCodec[CodecKind.Request, A], value: A): Body =
     codec match {
-      case HttpCodec.Empty => Body.empty
+      case HttpCodec.Empty                                    => Body.empty
       case b: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
         encodeBody(b.schema, b.mediaTypes, value)
-      case other =>
+      case other                                              =>
         encodeBodyFromSchemaRequest(other, value)
     }
 
@@ -86,10 +86,10 @@ private[endpoint] object EndpointCodec {
    */
   def decodeResponse[A](codec: HttpCodec[CodecKind.Response, A], response: Response): Either[String, A] =
     codec match {
-      case HttpCodec.Empty => Right(().asInstanceOf[A])
+      case HttpCodec.Empty                                     => Right(().asInstanceOf[A])
       case b: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
         decodeBody(b.schema, response.body)
-      case other =>
+      case other                                               =>
         schemaOf(other) match {
           case Some(schema) => decodeBody(schema, response.body)
           case None         => Right(().asInstanceOf[A])

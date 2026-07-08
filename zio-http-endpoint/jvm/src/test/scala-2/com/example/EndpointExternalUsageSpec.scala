@@ -28,18 +28,18 @@ import zio.http.{Body, Halt, Headers, Method, Path, Request, Response, Status, U
 import zio.http.endpoint._
 
 /**
-  * Regression test for the F1 accessibility fix: from a package OTHER than
-  * `zio.http.endpoint`, a plain `import zio.http.endpoint._` (with NO internal
-  * member such as `EndpointSyntax`, `EndpointCodec`, or `InProcessDispatcher`)
-  * must make `.implement` callable on an `Endpoint`. Before the fix the
-  * enrichment class/conversion was `private[endpoint]`, so this file would not
-  * compile at all.
-  *
-  * The request body is built here with the public zio-blocks JSON codec (not the
-  * module-private `EndpointCodec`) and dispatched through the public
-  * `Route.handler.handle` API, so nothing internal to `zio.http.endpoint` is
-  * touched from this package.
-  */
+ * Regression test for the F1 accessibility fix: from a package OTHER than
+ * `zio.http.endpoint`, a plain `import zio.http.endpoint._` (with NO internal
+ * member such as `EndpointSyntax`, `EndpointCodec`, or `InProcessDispatcher`)
+ * must make `.implement` callable on an `Endpoint`. Before the fix the
+ * enrichment class/conversion was `private[endpoint]`, so this file would not
+ * compile at all.
+ *
+ * The request body is built here with the public zio-blocks JSON codec (not the
+ * module-private `EndpointCodec`) and dispatched through the public
+ * `Route.handler.handle` API, so nothing internal to `zio.http.endpoint` is
+ * touched from this package.
+ */
 object EndpointExternalUsageSpec extends ZIOSpecDefault {
 
   private val lengthEndpoint: Endpoint[Unit, String, String, Int, AuthType.None.type] = {

@@ -20,30 +20,30 @@ import zio.http.{Halt, Handler, Request, Response, Route}
 import zio.http.ResultType._
 
 /**
-  * Public server-side dispatch entry point emitted by `.implement`'s Scala 2
-  * macro. It exists because a blackbox macro expands into the CALLER's scope
-  * (possibly an external package), so the generated code may only reference
-  * public members; this object provides the one public seam and delegates to the
-  * `private[endpoint]` codec internals from inside this package.
-  *
-  * The user handler is already normalized by the macro into
-  * `Input => Either[Err, Output]` (the internal union representation); users
-  * never write `Left`/`Right` themselves.
-  */
+ * Public server-side dispatch entry point emitted by `.implement`'s Scala 2
+ * macro. It exists because a blackbox macro expands into the CALLER's scope
+ * (possibly an external package), so the generated code may only reference
+ * public members; this object provides the one public seam and delegates to the
+ * `private[endpoint]` codec internals from inside this package.
+ *
+ * The user handler is already normalized by the macro into
+ * `Input => Either[Err, Output]` (the internal union representation); users
+ * never write `Left`/`Right` themselves.
+ */
 object EndpointServer {
 
   def implement[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
     handler: Input => Either[Err, Output],
   ): Route[Any] = {
-    val handlerFn: Request => (Response | Halt) = { request =>
+    val handlerFn: Request => Response | Halt = { request =>
       EndpointCodec.decodeRequest(endpoint.input, request) match {
         case Right(input) =>
           handler(input) match {
             case Left(err)  => EndpointCodec.encodeResponse(endpoint.error, err, 400)
             case Right(out) => EndpointCodec.encodeResponse(endpoint.output, out, 200)
           }
-        case Left(_) =>
+        case Left(_)      =>
           Response.badRequest
       }
     }

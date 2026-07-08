@@ -37,6 +37,5 @@ object EndpointCodecSpec extends ZIOSpecDefault {
       val handler: EndpointResultHandler[EndpointResultHandler.Id] = EndpointResultHandler.resultHandlerId
       assertTrue(handler.run[Int](42) == 42)
     },
-
   )
 }

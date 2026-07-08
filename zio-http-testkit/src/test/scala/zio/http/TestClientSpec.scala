@@ -14,8 +14,8 @@ object TestClientSpec extends ZIOHttpSpec {
           val request2 = Request.get(URL.root.path(Path("/users")))
 
           client.addRequestResponse(request, Response.ok)
-          val goodResponse = client.send(request)
-          val badResponse  = client.send(request2)
+          val goodResponse  = client.send(request)
+          val badResponse   = client.send(request2)
           client.addRequestResponse(request2, Response.ok)
           val goodResponse2 = client.send(request)
           val badResponse2  = client.send(request2)
@@ -40,7 +40,7 @@ object TestClientSpec extends ZIOHttpSpec {
           assertTrue(client.send(Request.get(URL.root)).status == Status.Ok)
         },
         test("addRoute advanced") {
-          val client        = TestClient.make()
+          val client       = TestClient.make()
           var requestCount = 0
           client.addRoute(
             Route(
@@ -51,12 +51,12 @@ object TestClientSpec extends ZIOHttpSpec {
               },
             ),
           )
-          val response = client.send(Request.get(URL.root))
+          val response     = client.send(Request.get(URL.root))
           assertTrue(response.status == Status.Ok, requestCount == 1)
         },
       ),
       test("addRoutes") {
-        val client = TestClient.make()
+        val client           = TestClient.make()
         client.addRoutes(
           Routes(
             Route(RoutePattern.any, Handler.fromRequest((_: Request) => Response.text("fallback"))),
@@ -74,7 +74,7 @@ object TestClientSpec extends ZIOHttpSpec {
         )
       },
       test("setFallbackHandler") {
-        val client = TestClient.make()
+        val client         = TestClient.make()
         val failedRequests = new java.util.concurrent.ConcurrentLinkedQueue[Request]()
         client.setFallbackHandler { req => failedRequests.add(req); Response.notFound }
         client.addRoute(

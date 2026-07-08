@@ -33,18 +33,18 @@ import zio.http.Path
  *
  * Both the SUCCESS path (`Output` round-trips) and the ERROR path (`Err`
  * round-trips) are asserted, exercising the real JSON body encode on the way
- * out and the real status-based branch + JSON body decode on the way back
- * (see `EndpointBridge.encodeResult`/`decodeResponse` in `EndpointSyntax.scala`).
+ * out and the real status-based branch + JSON body decode on the way back (see
+ * `EndpointBridge.encodeResult`/`decodeResponse` in `EndpointSyntax.scala`).
  *
  * NOTE (real-behavior finding, reported rather than fixed per this task's
  * scope): `EndpointBridge.buildRequest` (client side of `.call`, in
  * `EndpointSyntax.scala`) hardcodes `url = URL.root` and never uses
  * `endpoint.route`'s actual path. This means `.call` currently only works
- * correctly for endpoints mounted at the root path "/"; a non-root path
- * (e.g. "/divide") causes a real 404-style route-pattern mismatch. This
- * endpoint's `RoutePattern` therefore intentionally uses the root path here
- * so this test exercises the real, currently-working `.call` behavior; see
- * this task's final report for the bug detail.
+ * correctly for endpoints mounted at the root path "/"; a non-root path (e.g.
+ * "/divide") causes a real 404-style route-pattern mismatch. This endpoint's
+ * `RoutePattern` therefore intentionally uses the root path here so this test
+ * exercises the real, currently-working `.call` behavior; see this task's final
+ * report for the bug detail.
  */
 object EndpointCallRoundtripSpec extends ZIOSpecDefault {
 

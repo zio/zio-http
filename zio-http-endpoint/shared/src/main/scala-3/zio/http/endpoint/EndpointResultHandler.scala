@@ -16,9 +16,9 @@
 package zio.http.endpoint
 
 /**
- * Bridges an arbitrary effect type `F[_]` into a synchronous result, so a single
- * `.implement` method can accept handlers returning any effect for which an
- * instance exists.
+ * Bridges an arbitrary effect type `F[_]` into a synchronous result, so a
+ * single `.implement` method can accept handlers returning any effect for which
+ * an instance exists.
  *
  * The core endpoint bridge is synchronous: `zio.http.Handler#handle` returns a
  * `Response` directly (Loom-backed). `EndpointResultHandler` is the one seam

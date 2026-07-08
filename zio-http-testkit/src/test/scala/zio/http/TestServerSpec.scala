@@ -34,26 +34,26 @@ object TestServerSpec extends ZIOHttpSpec {
         assertTrue(server.client.send(request).status == Status.Ok)
       },
       test("matches, ignoring additional headers") {
-        val server = TestServer.make()
+        val server   = TestServer.make()
         server.addRequestResponse(request, Response(Status.Ok))
         val response = server.client.send(request.addHeader(Header.ContentLanguage("fr")))
         assertTrue(response.status == Status.Ok)
       },
       test("does not match different path") {
-        val server = TestServer.make()
+        val server   = TestServer.make()
         server.addRequestResponse(request, Response(Status.Ok))
         val response = server.client.send(request.copy(url = request.url.path(Path.root / "unhandled")))
         assertTrue(response.status == Status.NotFound)
       },
       test("does not match different headers") {
-        val server = TestServer.make()
+        val server   = TestServer.make()
         server.addRequestResponse(request, Response(Status.Ok))
         val response = server.client.send(request.copy(headers = Headers.empty.add(Header.CacheControl.Public)))
         assertTrue(response.status == Status.NotFound)
       },
     ),
     test("add routes to the server") {
-      val server = TestServer.make()
+      val server           = TestServer.make()
       server.addRoutes(
         Routes(
           Route(RoutePattern.any, Handler.fromRequest((_: Request) => Response.text("fallback"))),

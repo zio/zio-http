@@ -21,12 +21,12 @@ import zio.http.endpoint.Unused.UnusedOps
 /**
  * Test for partial application of input parameters.
  *
- * Demonstrates that a handler can accept a SUBSET of the Input fields,
- * matched by (name, type), with zero-cost extraction.
+ * Demonstrates that a handler can accept a SUBSET of the Input fields, matched
+ * by (name, type), with zero-cost extraction.
  *
- * This test proves the infrastructure is in place; the actual macro
- * reflection for parameter matching is deferred to a future enhancement
- * using Scala 3's scala.quoted API.
+ * This test proves the infrastructure is in place; the actual macro reflection
+ * for parameter matching is deferred to a future enhancement using Scala 3's
+ * scala.quoted API.
  */
 object EndpointPartialApplicationSpec extends ZIOSpecDefault {
 

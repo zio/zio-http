@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicReference
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
 import zio.blocks.scope.{Scope => BlocksScope}
+import zio.http.ResultType._
 
 /**
  * An in-process, in-memory test double for exercising [[Route]]/[[Routes]]
@@ -120,8 +121,5 @@ object TestServer {
     }
 
   private def toResponse(result: Response | Halt): Response =
-    result match {
-      case response: Response => response
-      case halt: Halt         => halt.response
-    }
+    result.asInstanceOf[Either[Response, Halt]].fold(identity, _.response)
 }

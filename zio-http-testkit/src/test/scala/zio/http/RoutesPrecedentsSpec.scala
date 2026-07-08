@@ -8,9 +8,9 @@ import zio.test._
  * Verifies that when the same route pattern is registered multiple times on a
  * [[TestServer]], the most-recently-added registration takes precedence.
  *
- * This intentionally exercises plain [[Route]]/[[Handler]] registration
- * instead of `zio.http.endpoint.Endpoint` — the endpoint module's `implement`
- * API is out of scope for the testkit and is exercised by its own test suite.
+ * This intentionally exercises plain [[Route]]/[[Handler]] registration instead
+ * of `zio.http.endpoint.Endpoint` — the endpoint module's `implement` API is
+ * out of scope for the testkit and is exercised by its own test suite.
  */
 object RoutesPrecedentsSpec extends ZIOHttpSpec {
 

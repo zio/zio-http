@@ -21,74 +21,79 @@ import zio.blocks.schema.Schema
 import zio.http.{Body, ContentType, Request, Response}
 
 /**
-  * Internal bridge between a zio-blocks [[HttpCodec]] description and the concrete
-  * `zio.http` wire types ([[Request]] / [[Response]] / [[Body]]).
-  *
-  * zio-blocks' `HttpCodec` is a pure description (schema + declared media types);
-  * it carries no HTTP encode/decode of its own. This object supplies that,
-  * driven by the codec's [[Schema]] (via its derived JSON codec) and negotiated
-  * against the codec's declared `mediaTypes`.
-  *
-  * The proof-of-concept handles the dominant body-valued shape (`HttpCodec.Body`
-  * and the unit `HttpCodec.Empty`); richer shapes (query/header/combine/fallback)
-  * are a follow-up and fall through to the JSON body path so nothing silently
-  * misbehaves.
-  */
+ * Internal bridge between a zio-blocks [[HttpCodec]] description and the
+ * concrete `zio.http` wire types ([[Request]] / [[Response]] / [[Body]]).
+ *
+ * zio-blocks' `HttpCodec` is a pure description (schema + declared media
+ * types); it carries no HTTP encode/decode of its own. This object supplies
+ * that, driven by the codec's [[Schema]] (via its derived JSON codec) and
+ * negotiated against the codec's declared `mediaTypes`.
+ *
+ * The proof-of-concept handles the dominant body-valued shape (`HttpCodec.Body`
+ * and the unit `HttpCodec.Empty`); richer shapes
+ * (query/header/combine/fallback) are a follow-up and fall through to the JSON
+ * body path so nothing silently misbehaves.
+ */
 private[endpoint] object EndpointCodec {
 
   /** JSON content type used when a codec declares no usable media type. */
   private val jsonContentType: ContentType = ContentType.`application/json`
 
   /**
-    * Decodes a request body into the value described by a request-side codec.
-    * Returns `Left(message)` when the bytes do not conform to the schema.
-    */
+   * Decodes a request body into the value described by a request-side codec.
+   * Returns `Left(message)` when the bytes do not conform to the schema.
+   */
   def decodeRequest[A](codec: HttpCodec[CodecKind.Request, A], request: Request): Either[String, A] =
     codec match {
-      case HttpCodec.Empty => Right(().asInstanceOf[A])
+      case HttpCodec.Empty                                       => Right(().asInstanceOf[A])
       case body: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
         decodeBody(body.schema, request.body)
-      case other =>
+      case other                                                 =>
         decodeBodyFromSchema(other, request.body)
     }
 
   /**
-    * Encodes a response-side value into an HTTP [[Response]], choosing the wire
-    * media type from the codec's declared `mediaTypes` (falling back to JSON).
-    */
+   * Encodes a response-side value into an HTTP [[Response]], choosing the wire
+   * media type from the codec's declared `mediaTypes` (falling back to JSON).
+   */
   def encodeResponse[A](codec: HttpCodec[CodecKind.Response, A], value: A, status: Int): Response = {
     val body = codec match {
-      case HttpCodec.Empty => Body.empty
+      case HttpCodec.Empty                                     => Body.empty
       case b: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
         encodeBody(b.schema, b.mediaTypes, value)
-      case other =>
+      case other                                               =>
         encodeBodyFromSchema(other, value)
     }
-    Response(status = zio.http.Status(status), headers = zio.http.Headers.empty, body = body, version = zio.http.Version.`HTTP/1.1`)
+    Response(
+      status = zio.http.Status(status),
+      headers = zio.http.Headers.empty,
+      body = body,
+      version = zio.http.Version.`HTTP/1.1`,
+    )
   }
 
   /**
-    * Encodes a request-side value into an HTTP request body.
-    */
+   * Encodes a request-side value into an HTTP request body.
+   */
   def encodeRequestBody[A](codec: HttpCodec[CodecKind.Request, A], value: A): Body = {
     codec match {
-      case HttpCodec.Empty => Body.empty
+      case HttpCodec.Empty                                    => Body.empty
       case b: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
         encodeBody(b.schema, b.mediaTypes, value)
-      case _ => Body.empty
+      case _                                                  => Body.empty
     }
   }
 
   /**
-    * Decodes a response body into the value described by a response-side codec.
-    * Returns `Left(message)` when the bytes do not conform to the schema.
-    */
+   * Decodes a response body into the value described by a response-side codec.
+   * Returns `Left(message)` when the bytes do not conform to the schema.
+   */
   def decodeResponse[A](codec: HttpCodec[CodecKind.Response, A], response: Response): Either[String, A] =
     codec match {
-      case HttpCodec.Empty => Right(().asInstanceOf[A])
+      case HttpCodec.Empty                                        => Right(().asInstanceOf[A])
       case body: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
         decodeBody(body.schema, response.body)
-      case _ => Left("Unsupported codec type")
+      case _                                                      => Left("Unsupported codec type")
     }
 
   private def decodeBody[A](schema: Schema[A], body: Body): Either[String, A] =
@@ -98,10 +103,10 @@ private[endpoint] object EndpointCodec {
     }
 
   /**
-    * Best-effort decode for non-`Body` request codecs: unit codecs decode to
-    * `()`, everything else attempts a JSON body decode via the codec's schema if
-    * one is reachable.
-    */
+   * Best-effort decode for non-`Body` request codecs: unit codecs decode to
+   * `()`, everything else attempts a JSON body decode via the codec's schema if
+   * one is reachable.
+   */
   private def decodeBodyFromSchema[A](codec: HttpCodec[CodecKind.Request, A], body: Body): Either[String, A] =
     schemaOf(codec) match {
       case Some(schema) => decodeBody(schema, body)
@@ -127,9 +132,9 @@ private[endpoint] object EndpointCodec {
     }
 
   /**
-    * Picks a [[ContentType]] from the codec's declared media types, honoring the
-    * first declared entry and defaulting to `application/json`.
-    */
+   * Picks a [[ContentType]] from the codec's declared media types, honoring the
+   * first declared entry and defaulting to `application/json`.
+   */
   private def contentTypeFor(mediaTypes: zio.blocks.chunk.Chunk[MediaType]): ContentType =
     if (mediaTypes.isEmpty) jsonContentType
     else ContentType(mediaTypes.head, None, None)

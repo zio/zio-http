@@ -3,6 +3,7 @@ package zio.http
 import java.util.concurrent.atomic.AtomicReference
 
 import zio.blocks.endpoint.RoutePattern
+import zio.http.ResultType._
 
 /**
  * An in-process test double for a [[Client]]: lets tests register
@@ -90,7 +91,10 @@ final class TestClient private (
 
 object TestClient {
 
-  /** Creates a fresh `TestClient` with no registered routes and a "not found" fallback. */
+  /**
+   * Creates a fresh `TestClient` with no registered routes and a "not found"
+   * fallback.
+   */
   def make(): TestClient =
     new TestClient(
       new AtomicReference(Routes.empty[Any]),

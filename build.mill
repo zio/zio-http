@@ -389,6 +389,10 @@ def testEngine(scalaVersion: String) = Task.Command {
   serverLoom.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   zio.jvm(scalaVersion).test.testForked()()
   zio.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
+  endpoint.jvm(scalaVersion).test.testForked()()
+  endpoint.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
+  testkit.jvm(scalaVersion).test.testForked()()
+  testkit.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
 }
 
 object testkit extends Module {
