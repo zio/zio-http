@@ -254,22 +254,32 @@ object endpoint extends Module {
       Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base) *)
     }
     object test extends ScoverageTests with ZioHttpTestModule {
-      override def moduleDeps =
-        Seq(endpoint.jvm(), core.jvm().test)
-      override def sources    = {
-        val vDir =
-          if (crossScalaVersion.startsWith("2.")) "scala-2"
-          else if (crossScalaVersion.startsWith("3.")) "scala-3"
-          else ""
-        val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
-        Task.Sources(
-          (if (vDir.nonEmpty) base ++ Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir)
-           else base) *,
-        )
-      }
-      override def resources  =
-        Task.Sources(r / "shared" / "src" / "test" / "resources", r / "jvm" / "src" / "test" / "resources")
-    }
+       override def moduleDeps =
+         Seq(endpoint.jvm(), core.jvm().test)
+       override def sources    = {
+         val vDir =
+           if (crossScalaVersion.startsWith("2.")) "scala-2"
+           else if (crossScalaVersion.startsWith("3.")) "scala-3"
+           else ""
+         val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
+         Task.Sources(
+           (if (vDir.nonEmpty) base ++ Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir)
+            else base) *,
+         )
+       }
+       override def resources  =
+         Task.Sources(r / "shared" / "src" / "test" / "resources", r / "jvm" / "src" / "test" / "resources")
+       // `ScoverageTests` (like plain `ScalaTests`) inherits the outer module's `scalacOptions`
+       // verbatim, including `-Werror`. `EndpointAuthSpec`, `EndpointCallRoundtripSpec`, and
+       // `EndpointImplementSpec` intentionally exercise the `.implement` Scala 2 macro's
+       // deliberately-emitted `c.warning("Input is not a case class; assuming single parameter...")
+       // message for non-case-class Input types, as a demonstrative test of that diagnostic - so
+       // this test module alone must not be fatal-warnings-as-errors. Scoverage instrumentation is
+       // untouched: it targets the OUTER production module (`endpoint.jvm.scoverage.compile`,
+       // wired via `-coverage-out`/`-P:scoverage:dataDir` on the outer scalacOptions), not this
+       // test module's own compile.
+       override def scalacOptions = Task { super.scalacOptions().filterNot(_ == "-Werror") }
+     }
   }
   object js       extends Cross[JsModule](scalaVersions)
   trait JsModule  extends ZioHttpJSModule {
