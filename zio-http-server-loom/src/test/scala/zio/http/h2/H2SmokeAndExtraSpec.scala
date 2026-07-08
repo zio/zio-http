@@ -14,7 +14,7 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 import zio.http.h2.H2Frame._
-import zio.http.h2.hpack.{HeaderField, Hpack}
+import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder, HpackEncoder}
 import zio.http.ResultType._
 import zio.http.{
   BindAddress,
@@ -268,11 +268,13 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
     private val PrefaceBytes =
       "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
 
-    val socket        = new Socket("127.0.0.1", port)
+    val socket          = new Socket("127.0.0.1", port)
     socket.setSoTimeout(5000)
-    private val out   = socket.getOutputStream
-    private val rawIn = socket.getInputStream
-    private var buf   = Chunk.empty[Byte]
+    private val out     = socket.getOutputStream
+    private val rawIn   = socket.getInputStream
+    private var buf     = Chunk.empty[Byte]
+    private val encoder = new HpackEncoder()
+    private val decoder = new HpackDecoder()
 
     /**
      * Buffer for frames received for streams not yet awaited. Maps streamId ->
@@ -319,7 +321,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
       sendFrame(
         Headers(
           streamId = streamId,
-          headerBlock = Hpack.encode(
+          headerBlock = encoder.encode(
             List(
               HeaderField(":method", method),
               HeaderField(":path", path),
@@ -351,7 +353,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
           case Settings(true, _)                                    => ()
           case _: WindowUpdate                                      => ()
           case Headers(sid, block, end, _, _, _) if sid == streamId =>
-            Hpack.decode(block) match {
+            decoder.decode(block) match {
               case Right(h) => hdrs ++= h
               case Left(e)  => throw new AssertionError("HPACK decode: " + e)
             }

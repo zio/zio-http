@@ -16,7 +16,7 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 import zio.http.h2.H2Frame._
-import zio.http.h2.hpack.{HeaderField, Hpack}
+import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder, HpackEncoder}
 import zio.http.{
   BindAddress,
   Body,
@@ -698,11 +698,18 @@ object H2BranchCoverageSpec extends ZIOSpecDefault {
     private val rawIn = socket.getInputStream
     private var buf   = Chunk.empty[Byte]
 
+    private val encoder = new HpackEncoder()
+    private val decoder = new HpackDecoder()
+
     /**
      * Buffer for frames received for streams not yet awaited. Maps streamId ->
-     * queue of frames.
+     * queue of decoded frame events. HEADERS blocks MUST be HPACK-decoded in
+     * wire-arrival order (RFC 7541 section 2.3.2), so we decode them eagerly as
+     * they come off the wire and buffer the already-decoded header fields
+     * rather than the raw block; decoding a buffered block later, out of wire
+     * order, would desync this client's single HPACK decoder dynamic table.
      */
-    private val frameBuffer: mutable.Map[Int, scala.collection.mutable.Queue[H2Frame]] =
+    private val frameBuffer: mutable.Map[Int, scala.collection.mutable.Queue[BufferedFrame]] =
       mutable.Map.empty
 
     handshake()
@@ -743,7 +750,7 @@ object H2BranchCoverageSpec extends ZIOSpecDefault {
       sendFrame(
         Headers(
           streamId = streamId,
-          headerBlock = Hpack.encode(
+          headerBlock = encoder.encode(
             List(
               HeaderField(":method", method),
               HeaderField(":path", path),
@@ -764,37 +771,14 @@ object H2BranchCoverageSpec extends ZIOSpecDefault {
       var body   = Chunk.empty[Byte]
       var done   = false
       while (!done) {
-        // Check if we have a buffered frame for this stream first
-        val frame = frameBuffer.get(streamId) match {
-          case Some(queue) if queue.nonEmpty => queue.dequeue()
-          case _                             => readFrame()
+        val event = frameBuffer.get(streamId) match {
+          case Some(queue) if queue.nonEmpty => Some(queue.dequeue())
+          case _                             => readAndBufferNextEvent(streamId)
         }
 
-        frame match {
-          case Settings(false, _)                                   => sendFrame(Settings(ack = true, Nil))
-          case Settings(true, _)                                    => ()
-          case _: WindowUpdate                                      => ()
-          case Headers(sid, block, end, _, _, _) if sid == streamId =>
-            Hpack.decode(block) match {
-              case Right(h) => hdrs ++= h
-              case Left(e)  => throw new AssertionError("HPACK decode: " + e)
-            }
-            done = end
-          case Data(sid, data, end, _) if sid == streamId           =>
-            body = body ++ data; done = end
-          case GoAway(_, code, dbg)                                 =>
-            throw new AssertionError(s"GOAWAY: $code ${new String(dbg.toArray)}")
-          case otherFrame                                           =>
-            // Frame is for a different stream; buffer it for later
-            otherFrame match {
-              case h: Headers =>
-                val q = frameBuffer.getOrElseUpdate(h.streamId, scala.collection.mutable.Queue.empty)
-                q.enqueue(h)
-              case d: Data    =>
-                val q = frameBuffer.getOrElseUpdate(d.streamId, scala.collection.mutable.Queue.empty)
-                q.enqueue(d)
-              case _          => ()
-            }
+        event.foreach {
+          case BufferedHeaders(fields, end) => hdrs ++= fields; done = end
+          case BufferedData(data, end)      => body = body ++ data; done = end
         }
       }
       val status = hdrs
@@ -802,6 +786,37 @@ object H2BranchCoverageSpec extends ZIOSpecDefault {
         .map(_.value.toInt)
         .getOrElse(throw new AssertionError("Missing :status"))
       RawResponse(status, hdrs.toList, body)
+    }
+
+    /**
+     * Reads the next frame off the wire, HPACK-decoding HEADERS immediately (in
+     * wire-arrival order). If the frame is for `streamId`, returns the decoded
+     * event; otherwise buffers it under its stream id and keeps reading.
+     */
+    private def readAndBufferNextEvent(streamId: Int): Option[BufferedFrame] = {
+      while (true) {
+        readFrame() match {
+          case Settings(false, _)                => sendFrame(Settings(ack = true, Nil))
+          case Settings(true, _)                 => ()
+          case _: WindowUpdate                   => ()
+          case Headers(sid, block, end, _, _, _) =>
+            val fields = decoder.decode(block) match {
+              case Right(h) => h
+              case Left(e)  => throw new AssertionError("HPACK decode: " + e)
+            }
+            val event  = BufferedHeaders(fields, end)
+            if (sid == streamId) return Some(event)
+            else frameBuffer.getOrElseUpdate(sid, scala.collection.mutable.Queue.empty).enqueue(event)
+          case Data(sid, data, end, _)           =>
+            val event = BufferedData(data, end)
+            if (sid == streamId) return Some(event)
+            else frameBuffer.getOrElseUpdate(sid, scala.collection.mutable.Queue.empty).enqueue(event)
+          case GoAway(_, code, dbg)              =>
+            throw new AssertionError(s"GOAWAY: $code ${new String(dbg.toArray)}")
+          case _                                 => ()
+        }
+      }
+      None
     }
 
     override def close(): Unit = socket.close()
@@ -821,4 +836,8 @@ object H2BranchCoverageSpec extends ZIOSpecDefault {
   private final case class RawResponse(status: Int, headers: List[HeaderField], body: Chunk[Byte]) {
     def bodyText: String = new String(body.toArray, StandardCharsets.UTF_8)
   }
+
+  private sealed trait BufferedFrame
+  private final case class BufferedHeaders(fields: List[HeaderField], endStream: Boolean) extends BufferedFrame
+  private final case class BufferedData(data: Chunk[Byte], endStream: Boolean)            extends BufferedFrame
 }

@@ -16,7 +16,7 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 import zio.http.h2.H2Frame._
-import zio.http.h2.hpack.{HeaderField, Hpack}
+import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder, HpackEncoder}
 import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Response, Route, Routes, ServerHandle}
 
 @experimental
@@ -404,6 +404,9 @@ object H2ConnectionSpec extends ZIOSpecDefault {
     private val rawIn = socket.getInputStream
     private var buf   = Chunk.empty[Byte]
 
+    private val encoder = new HpackEncoder()
+    private val decoder = new HpackDecoder()
+
     /**
      * Buffer for frames received for streams not yet awaited. Maps streamId ->
      * queue of frames.
@@ -453,7 +456,7 @@ object H2ConnectionSpec extends ZIOSpecDefault {
     def makeHeaders(method: String, path: String, streamId: Int, endStream: Boolean): Headers =
       Headers(
         streamId = streamId,
-        headerBlock = Hpack.encode(
+        headerBlock = encoder.encode(
           List(
             HeaderField(":method", method),
             HeaderField(":path", path),
@@ -487,7 +490,7 @@ object H2ConnectionSpec extends ZIOSpecDefault {
           case Settings(true, _)                                    => ()
           case _: WindowUpdate                                      => ()
           case Headers(sid, block, end, _, _, _) if sid == streamId =>
-            Hpack.decode(block) match {
+            decoder.decode(block) match {
               case Right(h) => hdrs ++= h
               case Left(e)  => throw new AssertionError("HPACK decode: " + e)
             }
