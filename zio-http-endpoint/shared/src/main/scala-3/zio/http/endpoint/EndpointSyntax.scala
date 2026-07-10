@@ -60,11 +60,18 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
    * `.omo/notepads/endpoint-blocks/decisions.md`). Today the whole `Input`
    * value is passed to the handler as-is.
    */
-  def implement[F[_]](handler: Input => F[Err | Output])(using
+  transparent inline def implement[F[_]](inline handler: Any)(using
     resultHandler: EndpointResultHandler[F],
     unions: Unions.Unions.WithOut[Err, Output, Err | Output],
-  ): Route[Any] =
-    EndpointBridge.implement(endpoint, handler, resultHandler, Alternator.fromUnions(unions))
+  ): Route[Nothing] =
+    ${
+      EndpointImplementMacro.implementImpl[PathInput, Input, Err, Output, Auth, F](
+        'endpoint,
+        'handler,
+        'resultHandler,
+        'unions,
+      )
+    }
 
   /**
    * Like [[implement]], but enforces authentication first: the summoned
@@ -121,6 +128,13 @@ private[endpoint] object EndpointBridge {
       case Left(err)     => EndpointCodec.encodeResponse(endpoint.error, err, errorStatus)
       case Right(output) => EndpointCodec.encodeResponse(endpoint.output, output, okStatus)
     }
+
+  def encodeResultPublic[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    result: Err | Output,
+    alternator: Alternator.WithOut[Err, Output, Err | Output],
+  ): Response =
+    encodeResult(endpoint, result, alternator)
 
   /**
    * Server-side dispatch: builds a [[Route]] that decodes requests, runs the
