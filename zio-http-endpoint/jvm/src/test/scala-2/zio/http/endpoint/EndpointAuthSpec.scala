@@ -22,26 +22,17 @@ import zio.test._
 import zio.blocks.docs.Doc
 import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
 import zio.blocks.schema.Schema
-import zio.http.{Header, Headers, Method, Path, Request, Status, URL, Version}
+import zio.http.{Header, Headers, Method, Path, Request, Response, Status, URL, Version}
 import zio.http.endpoint._
 
 /**
  * Endpoint with a non-trivial `Auth <: AuthType` (`AuthType.Basic`).
  *
- * `AuthType.Basic.unauthorizedStatus` defaults to `Status.NotFound` (404),
- * confirmed by decompiling zio-blocks-endpoint's `AuthType.scala`
- * (`unauthorizedStatus` returns `Status.NotFound`'s int code) -- chosen for
- * information hiding rather than a `401`/`403`.
- *
- * IMPORTANT / REAL BEHAVIOR FINDING: `EndpointSyntaxMacros.implementImpl` (see
- * `EndpointSyntax.scala`) generates a handler that decodes `endpoint.input` and
- * dispatches straight to the user handler; it never reads `endpoint.auth` at
- * all (same real behavior as the Scala 3 bridge). `Auth` is therefore currently
- * a phantom/documentation-only type parameter with NO runtime enforcement. This
- * spec asserts on that REAL, observed behavior (a request without any
- * credentials is NOT rejected today) rather than assuming enforcement exists.
- * This is a real gap, not a main-source bug this task fixes -- see the task's
- * final report.
+ * `.implementAuth` enforces authentication via an implicit
+ * [[EndpointAuthHandler]]: it validates credentials from the request and
+ * extracts a `Session` passed to the handler. On failure it returns
+ * `auth.unauthorizedStatus` (default `Status.NotFound`) and never invokes the
+ * handler.
  */
 object EndpointAuthSpec extends ZIOSpecDefault {
 
@@ -53,8 +44,19 @@ object EndpointAuthSpec extends ZIOSpecDefault {
     Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.Basic, Doc.empty)
   }
 
-  private val secureRoute = secureEndpoint.implement { (name: String) =>
-    s"hello, $name"
+  private implicit val basicAuthHandler: EndpointAuthHandler[AuthType.Basic.type, String] =
+    EndpointAuthHandler.fromValidation { (request, auth) =>
+      EndpointCodec.decodeHeader(
+        auth.codec.asInstanceOf[HttpCodec.Header[CodecKind.Request, Header.Authorization.Basic]],
+        request,
+      ) match {
+        case Right(Header.Authorization.Basic(user, _)) => Right(user)
+        case _                                          => Left(Response(status = auth.unauthorizedStatus))
+      }
+    }
+
+  private val secureRoute = secureEndpoint.implementAuth[String] { (session: String, name: String) =>
+    Right(s"hello $name, authenticated as $session")
   }
 
   private def requestWith(headers: Headers): Request =
@@ -70,19 +72,16 @@ object EndpointAuthSpec extends ZIOSpecDefault {
     test("AuthType.Basic.unauthorizedStatus defaults to Status.NotFound (information hiding)") {
       assertTrue(secureEndpoint.auth.unauthorizedStatus == Status.NotFound)
     },
-    test("REAL BEHAVIOR: a request WITHOUT auth credentials is NOT rejected by .implement today") {
+    test("a request WITHOUT credentials is rejected with the unauthorized status") {
       val response = InProcessDispatcher.dispatch(secureRoute, requestWith(Headers.empty))
-      assertTrue(
-        response.status == Status.Ok,
-        EndpointCodec.decodeResponse(secureEndpoint.output, response) == Right("hello, world"),
-      )
+      assertTrue(response.status == Status.NotFound)
     },
-    test("a request WITH correct Basic credentials also succeeds (unaffected either way)") {
+    test("a request WITH valid Basic credentials reaches the handler and receives the extracted session") {
       val withCreds = Headers.empty.add(Header.Authorization.Basic("alice", "secret"))
       val response  = InProcessDispatcher.dispatch(secureRoute, requestWith(withCreds))
       assertTrue(
         response.status == Status.Ok,
-        EndpointCodec.decodeResponse(secureEndpoint.output, response) == Right("hello, world"),
+        EndpointCodec.decodeResponse(secureEndpoint.output, response) == Right("hello world, authenticated as alice"),
       )
     },
   )

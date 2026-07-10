@@ -74,6 +74,18 @@ class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
+   * Like [[implement]], but enforces authentication first: the implicit
+   * [[EndpointAuthHandler]] validates credentials from the request and extracts
+   * a `Session`, which is passed to the handler alongside the decoded `Input`.
+   * On authentication failure the endpoint's `auth.unauthorizedStatus` response
+   * is returned and the handler is never invoked.
+   */
+  def implementAuth[Session](
+    handler: (Session, Input) => Either[Err, Output],
+  )(implicit authHandler: EndpointAuthHandler[Auth, Session]): Route[Any] =
+    EndpointServer.implementAuth(endpoint, handler, authHandler)
+
+  /**
    * Calls this endpoint via the given HTTP client, returning the decoded
    * `Err | Output` union.
    *
@@ -313,9 +325,15 @@ private[endpoint] object EndpointSyntaxMacros {
         q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
     }
 
-    val (handlerParamDef, handlerBody) = (handlerParams.head, handlerBody)
+    val (handlerParamDef, handlerBody) = f match {
+      case Function(List(param), body) => (param, body)
+      case Function(params, _)         =>
+        c.abort(c.enclosingPosition, s"Handler must declare exactly one parameter, found ${params.length}")
+      case other                       =>
+        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
+    }
     val rewrittenBody = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
-    val taggedHandler = Function(List(handlerParamDef), rewrittenBody)
+    val taggedHandler                  = Function(List(handlerParamDef), rewrittenBody)
 
     c.Expr[Route[Any]](
       q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)",

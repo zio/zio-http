@@ -45,11 +45,21 @@ private[endpoint] object EndpointCodec {
    */
   def decodeRequest[A](codec: HttpCodec[CodecKind.Request, A], request: Request): Either[String, A] =
     codec match {
-      case HttpCodec.Empty                                       => Right(().asInstanceOf[A])
-      case body: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
+      case HttpCodec.Empty                                           => Right(().asInstanceOf[A])
+      case body: HttpCodec.Body[CodecKind.Request, A] @unchecked     =>
         decodeBody(body.schema, request.body)
-      case other                                                 =>
+      case header: HttpCodec.Header[CodecKind.Request, A] @unchecked =>
+        decodeHeader(header, request)
+      case other                                                     =>
         decodeBodyFromSchema(other, request.body)
+    }
+
+  def decodeHeader[A](header: HttpCodec.Header[CodecKind.Request, A], request: Request): Either[String, A] =
+    request.headers.rawGet(header.name) match {
+      case None            => Left(s"Missing header: ${header.name}")
+      case Some(headerStr) =>
+        try header.schema.fromDynamicValue(zio.blocks.schema.DynamicValue.string(headerStr)).left.map(_.getMessage)
+        catch { case scala.util.control.NonFatal(e) => Left(e.getMessage) }
     }
 
   /**
