@@ -39,12 +39,15 @@ private[endpoint] object InProcessDispatcher {
    * Dispatches `request` through `route`, resolving a `Halt` to its wrapped
    * [[Response]].
    */
-  def dispatch(route: Route[Any], request: Request): Response = {
+  def dispatch(route: Route[Any], request: Request): Response =
+    dispatchWith(route, request, Context.empty)
+
+  def dispatchWith[Ctx](route: Route[Ctx], request: Request, context: Context[Ctx]): Response = {
     val vars = route.pattern.decode(request.method, request.url.path) match {
       case Right(v)    => v
       case Left(error) => throw new RuntimeException(s"Route pattern did not match request $request: $error")
     }
-    route.handler.handle(request, Context.empty, vars, Scope.global) match {
+    route.handler.handle(request, context, vars, Scope.global) match {
       case Left(response)        => response
       case Right(Halt(response)) => response
     }

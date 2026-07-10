@@ -17,13 +17,11 @@ package zio.http.endpoint
 
 import scala.language.experimental.macros
 import scala.language.implicitConversions
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.whitebox
 
 import zio.blocks.combinators.Eithers
-import zio.blocks.context.Context
 import zio.blocks.endpoint.{Alternator, Endpoint, AuthType}
-import zio.blocks.scope.Scope
-import zio.http.{Client, Handler, Request, Response, Route, Status}
+import zio.http.{Client, Request, Response, Route, Status}
 
 /**
  * Scala 2 extension methods for `zio.blocks.endpoint.Endpoint`:
@@ -34,43 +32,42 @@ import zio.http.{Client, Handler, Request, Response, Route, Status}
  * conversion lives on the package object, mirroring Scala 3's public top-level
  * `extension`). No internal member needs to be imported.
  *
- * Current, tested behavior (see `.omo/notepads/endpoint-blocks/decisions.md`):
- *   - `.implement` works only when `Input` is a non-case-class
- *     (primitive/opaque) type; the handler takes the complete `Input` value
- *     directly. For a case-class `Input` there is NO working handler shape — a
- *     2+-param lambda is rejected by `Function1` arity before the macro runs, a
- *     field-typed single param fails the same `Function1` contravariance check,
- *     and a whole-`Input` single param fails inside the macro's name-vs-field
- *     match. Partial parameter application and the `.unused` marker are
- *     therefore NOT functional today.
+ * Behavior (mirroring the Scala 3 side):
+ *   - `.implement` classifies the handler's parameters by type: a parameter
+ *     typed as the whole `Input` is decoded from the wire, a `Request` /
+ *     `Scope` parameter is injected from the runtime, and any other
+ *     nominal-typed parameter is a context requirement resolved from the
+ *     `Context` and tracked in the resulting `Route[Ctx]`.
  *   - The handler returns the bare `Err` value or bare `Output` value directly
  *     (e.g. `if (cond) "error" else 42`); the `Err | Output` union is
  *     represented internally as `Either[Err, Output]` (see the package object's
  *     `type |`), and the macro dispatches on that representation invisibly —
- *     the user never writes `Left`/`Right`/`Either` by hand.
+ *     the user never writes `Left`/`Right`/`Either` by hand. `Err` and `Output`
+ *     must be distinct types so a bare value tags unambiguously.
  */
 class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
   private val endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
 ) {
 
   /**
-   * Turns a handler function into a `Route[Any]`.
+   * Turns a handler function into a `Route[Ctx]`, where `Ctx` is the
+   * intersection of every context requirement declared in the handler's
+   * parameter list.
    *
-   * The handler receives the complete `Input` value and returns either the bare
-   * `Err` value or the bare `Output` value directly — e.g.
-   * `input => if (cond) "error" else 42` — with NO `Left`/`Right`/`Either` in
-   * the user's code. The macro type-checks each return-position expression of
-   * the handler body against `Err` and `Output` and injects the internal
-   * `Either` tagging invisibly, then decodes the request body, runs the
-   * handler, and encodes the result (error → 400, output → 200).
+   * The handler's parameters are classified by type: a parameter typed as the
+   * endpoint's `Input` is decoded from the wire, a `Request` / `Scope`
+   * parameter is injected from the runtime, and any other nominal-typed
+   * parameter is a context requirement resolved from the `Context` and tracked
+   * in `Ctx`. Each branch returns the bare `Err` or `Output` value directly —
+   * e.g. `(input, svc) => if (cond) "error" else svc.compute(input)` — with NO
+   * `Left`/`Right`/`Either` in the user's code; the macro tags each
+   * return-position leaf and encodes the result (error → 400, output → 200).
    *
-   * The handler's declared return type is `Any` at the syntactic level (the
-   * macro recovers the real `Err`/`Output` shape per branch); this is what lets
-   * the user write raw values without wrapping. Only a non-case-class `Input`
-   * is supported today (see the class Scaladoc and decisions.md for the
-   * case-class limitation).
+   * The macro is whitebox so the precise `Route[Ctx]` flows to the call site; a
+   * missing context capability is discharged later by applying a `Middleware`
+   * with `@@`.
    */
-  def implement(f: Any): Route[Any] =
+  def implement(f: Any): Route[Nothing] =
     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
@@ -149,16 +146,26 @@ private[endpoint] object EndpointBridge {
 }
 
 /**
- * Scala 2 blackbox macro for `.implement`.
+ * Scala 2 whitebox macro for `.implement`.
  *
- * NOTE: the field-matching / `.unused` / 4-combination-warning logic below was
- * written toward a partial-application feature that is NOT functional today —
- * for a case-class `Input` no handler shape reaches it (rejected earlier by
- * `Function1` arity/variance, or aborted by the name-vs-field match). It only
- * runs its single-parameter, whole-`Input` branch for a non-case-class `Input`
- * (`handlerParams.length == 1 && htype =:= inputType`), which is the one
- * supported shape. See `.omo/notepads/endpoint-blocks/decisions.md` for the
- * full `typeCheck`-verified analysis of the case-class limitation.
+ * Handler parameters are classified by TYPE, mirroring the Scala 3
+ * [[EndpointImplementMacro]]:
+ *   - a parameter whose type is the endpoint's `Input` is decoded from the
+ *     wire;
+ *   - a `Request` / `Scope` parameter is injected from the runtime;
+ *   - any other nominal-typed parameter is a context requirement, resolved via
+ *     `Context.get` and accumulated (via `with`) into the resulting `Route`'s
+ *     `Ctx`.
+ *
+ * The macro is WHITEBOX so the precise `Route[Ctx]` flows to the call site (a
+ * blackbox macro cannot express a return type refined by the classified context
+ * parameters). A missing context capability is later discharged by applying a
+ * `Middleware` with `@@`; every requirement is visible in the handler's own
+ * parameter list and therefore in `Route[Ctx]`.
+ *
+ * The handler still returns a BARE `Err`/`Output` value per branch (no
+ * `Left`/`Right`); the raw-value [[EndpointInject]] tagging recovers the
+ * internal `Either[Err, Output]` union representation.
  */
 private[endpoint] object EndpointSyntaxMacros {
 
@@ -169,134 +176,72 @@ private[endpoint] object EndpointSyntaxMacros {
     Output: c.WeakTypeTag,
     Auth <: AuthType: c.WeakTypeTag,
   ](
-    c: blackbox.Context,
-  )(f: c.Tree): c.Expr[Route[Any]] = {
+    c: whitebox.Context,
+  )(f: c.Tree): c.Tree = {
     import c.universe._
 
-    val inputType  = weakTypeOf[Input].dealias
-    val errType    = weakTypeOf[Err].dealias
-    val outputType = weakTypeOf[Output].dealias
-    val endpoint   = c.prefix.tree match {
+    val pathInputType = weakTypeOf[PathInput].dealias
+    val inputType     = weakTypeOf[Input].dealias
+    val errType       = weakTypeOf[Err].dealias
+    val outputType    = weakTypeOf[Output].dealias
+    val authType      = weakTypeOf[Auth].dealias
+    val requestType   = typeOf[Request].dealias
+    val scopeType     = typeOf[zio.blocks.scope.Scope].dealias
+    val endpoint      = c.prefix.tree match {
       case Apply(_, List(e)) => e
       case other             => c.abort(c.enclosingPosition, s"Unexpected endpoint extraction: $other")
     }
 
-    val unusedSymbol = typeOf[zio.http.endpoint.Unused[_]].typeSymbol
-
-    def extractInputFields(): List[(String, Type, Boolean)] = {
-      try {
-        val sym = inputType.typeSymbol
-        if (sym != null && sym.isClass && sym.asClass.isCaseClass) {
-          val classSym    = sym.asClass
-          val constructor = classSym.primaryConstructor.asMethod
-          constructor.paramLists.flatten.map { param =>
-            val fname         = param.name.toString
-            val paramTypeInfo = param.typeSignature
-            val paramType     = paramTypeInfo.asSeenFrom(inputType, classSym).dealias
-            val isUnused      = paramType.typeSymbol == unusedSymbol
-            val actualType    = if (isUnused) paramType.typeArgs.head else paramType
-            (fname, actualType, isUnused)
-          }
-        } else {
-          Nil
-        }
-      } catch {
-        case _: Exception => Nil
-      }
+    val typedParamTypes: List[Type] = f match {
+      case Function(params, _) if params.nonEmpty =>
+        params.map(p => if (p.tpt == null || p.tpt.isEmpty) NoType else p.tpt.tpe.dealias)
+      case Function(_, _)                         =>
+        c.abort(c.enclosingPosition, "Handler must declare at least one parameter")
+      case other                                  =>
+        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
     }
 
-    def extractHandlerParams(handlerTree: c.Tree): List[(String, Type)] = {
-      try {
-        handlerTree match {
-          case Function(params, _) =>
-            params.map { param =>
-              val fname = param.name.toString
-              val ftype = if (param.tpt == null || param.tpt.isEmpty) NoType else param.tpt.tpe.dealias
-              (fname, ftype)
-            }
-          case _                   =>
-            c.abort(c.enclosingPosition, "Handler must be a function literal, e.g. (x: Int, y: String) => ...")
-        }
-      } catch {
-        case e: Exception =>
-          c.abort(c.enclosingPosition, s"Failed to extract handler parameters: ${e.getMessage}")
-      }
+    val (handlerParamDefs, handlerBody) = c.untypecheck(f.duplicate) match {
+      case Function(params, body) => (params, body)
+      case other                  =>
+        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
     }
 
-    val inputFields   = extractInputFields()
-    val handlerParams = extractHandlerParams(f)
-    val inputName     = TermName(c.freshName("decodedInput"))
+    def paramType(index: Int): Type = typedParamTypes(index)
 
-    if (inputFields.isEmpty && handlerParams.nonEmpty) {
-      if (handlerParams.length == 1) {
-        c.warning(c.enclosingPosition, "Input is not a case class; assuming single parameter matches full Input")
-      } else {
-        c.abort(
-          c.enclosingPosition,
-          "Cannot extract Input fields from non-case-class type with multiple handler parameters",
-        )
-      }
+    val contextTypeOf: List[Option[Type]] = typedParamTypes.map { htype =>
+      if (htype =:= inputType || htype =:= requestType || htype =:= scopeType) None
+      else Some(htype)
     }
 
-    val consumed    = Array.fill(inputFields.length)(false)
-    val accessExprs = scala.collection.mutable.ListBuffer.empty[(String, Tree)]
-    val paramOrder  = scala.collection.mutable.ListBuffer.empty[String]
-
-    if (inputFields.isEmpty && handlerParams.length == 1) {
-      val (hname, htype) = handlerParams.head
-      if (htype =:= inputType) {
-        accessExprs += ((hname, Ident(inputName)))
-        paramOrder += hname
-      } else {
-        c.abort(
-          c.enclosingPosition,
-          s"Handler parameter type $htype does not match input type $inputType",
-        )
-      }
-    } else {
-      for ((hname, htype) <- handlerParams) {
-        val foundIdx = inputFields.indices.find { i =>
-          !consumed(i) && inputFields(i)._1 == hname && inputFields(i)._2 =:= htype
-        }
-
-        foundIdx match {
-          case Some(idx) =>
-            consumed(idx) = true
-            val (iname, _, isUnused) = inputFields(idx)
-            val inameIdent           = Ident(TermName(iname))
-            val unwrapExpr           = if (isUnused) {
-              q"$inameIdent.value"
-            } else {
-              inameIdent
-            }
-            accessExprs += ((hname, unwrapExpr))
-            paramOrder += hname
-
-          case None =>
-            c.abort(
-              c.enclosingPosition,
-              s"No input field named `$hname` of type $htype is declared by this endpoint input",
-            )
-        }
-      }
+    val ctxTypes: List[Type] = {
+      val seen = scala.collection.mutable.ListBuffer.empty[Type]
+      contextTypeOf.flatten.foreach(t => if (!seen.exists(_ =:= t)) seen += t)
+      seen.toList
     }
 
-    inputFields.zipWithIndex.foreach { case ((name, tpe, isUnused), idx) =>
-      if (!isUnused && !consumed(idx)) {
-        c.warning(c.enclosingPosition, s"Variable $name:$tpe was defined in the endpoint input but is never used")
-      } else if (isUnused && consumed(idx)) {
-        c.warning(c.enclosingPosition, s"Variable $name:$tpe was marked .unused but is referenced by the handler")
+    val ctxTypeTree: Tree = ctxTypes match {
+      case Nil          => tq"_root_.scala.Any"
+      case head :: tail =>
+        tail.foldLeft(tq"$head": Tree)((acc, t) => tq"$acc with $t")
+    }
+
+    val inputParam   = TermName(c.freshName("input"))
+    val requestParam = TermName(c.freshName("request"))
+    val contextParam = TermName(c.freshName("context"))
+    val scopeParam   = TermName(c.freshName("scope"))
+
+    val argExprs: List[Tree] = contextTypeOf.zipWithIndex.map { case (maybeCtx, index) =>
+      maybeCtx match {
+        case None    =>
+          val htype = paramType(index)
+          if (htype =:= inputType) Ident(inputParam)
+          else if (htype =:= requestType) Ident(requestParam)
+          else Ident(scopeParam)
+        case Some(t) =>
+          q"$contextParam.asInstanceOf[_root_.zio.blocks.context.Context[$t]].get[$t]"
       }
     }
-
-    if (handlerParams.isEmpty) {
-      c.abort(
-        c.enclosingPosition,
-        "Handler must declare at least one parameter matching an endpoint input field",
-      )
-    }
-
-    val extractionExprs = accessExprs.map { case (_, expr) => expr }
 
     // --- Raw-value dispatch (no Left/Right in user code) --------------------
     //
@@ -307,12 +252,9 @@ private[endpoint] object EndpointSyntaxMacros {
     // the handler body in a call to the `EndpointInject` selector. That selector
     // is an implicit resolved at the real (in-scope) typecheck, so a leaf like
     // `input.length` — which only typechecks where the lambda param is bound —
-    // is classified correctly. Two ambient instances (`fromErr`/`fromOutput`)
-    // map the leaf's own static type to `Left`/`Right`; leaf-local tagging means
-    // a branching body whose overall inferred type is the LUB (often `Any`) is
-    // handled correctly without ever relying on the whole-body type.
-    val errTypeTree    = tq"${errType}"
-    val outputTypeTree = tq"${outputType}"
+    // is classified correctly.
+    val errTypeTree    = tq"$errType"
+    val outputTypeTree = tq"$outputType"
 
     def rewriteReturns(body: Tree): Tree = body match {
       case If(cond, thenp, elsep) => If(cond, rewriteReturns(thenp), rewriteReturns(elsep))
@@ -325,18 +267,21 @@ private[endpoint] object EndpointSyntaxMacros {
         q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
     }
 
-    val (handlerParamDef, handlerBody) = f match {
-      case Function(List(param), body) => (param, body)
-      case Function(params, _)         =>
-        c.abort(c.enclosingPosition, s"Handler must declare exactly one parameter, found ${params.length}")
-      case other                       =>
-        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
+    val bindings: List[Tree] = handlerParamDefs.zip(argExprs).map { case (param, arg) =>
+      q"val ${param.name} = $arg"
     }
-    val rewrittenBody = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
-    val taggedHandler                  = Function(List(handlerParamDef), rewrittenBody)
 
-    c.Expr[Route[Any]](
-      q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)",
-    )
+    val taggedBody =
+      q"""{
+        ..$bindings
+        (${rewriteReturns(handlerBody)}): _root_.scala.util.Either[$errTypeTree, $outputTypeTree]
+      }"""
+
+    q"""
+      zio.http.endpoint.EndpointServer.implementCtx[$ctxTypeTree, $pathInputType, $inputType, $errType, $outputType, $authType](
+        $endpoint,
+        ($inputParam: $inputType, $requestParam: _root_.zio.http.Request, $contextParam: _root_.zio.blocks.context.Context[$ctxTypeTree], $scopeParam: _root_.zio.blocks.scope.Scope) => $taggedBody
+      )
+    """
   }
 }
