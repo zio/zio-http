@@ -70,8 +70,8 @@ class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
    * is supported today (see the class Scaladoc and decisions.md for the
    * case-class limitation).
    */
-  def implement(f: Input => Any): Route[Any] =
-    macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
+   def implement(f: Any): Route[Any] =
+     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
    * Calls this endpoint via the given HTTP client, returning the decoded
@@ -112,7 +112,7 @@ private[endpoint] object EndpointBridge {
     val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
     Request(
       method = method,
-      url = zio.http.URL.root,
+      url = zio.http.URL.fromPath(pattern.path),
       headers = zio.http.Headers.empty,
       body = body,
       version = zio.http.Version.`HTTP/1.1`,
@@ -158,7 +158,7 @@ private[endpoint] object EndpointSyntaxMacros {
     Auth <: AuthType: c.WeakTypeTag,
   ](
     c: blackbox.Context,
-  )(f: c.Expr[Input => Any]): c.Expr[Route[Any]] = {
+  )(f: c.Tree): c.Expr[Route[Any]] = {
     import c.universe._
 
     val inputType  = weakTypeOf[Input].dealias
@@ -193,9 +193,9 @@ private[endpoint] object EndpointSyntaxMacros {
       }
     }
 
-    def extractHandlerParams(handlerExpr: c.Expr[_]): List[(String, Type)] = {
+    def extractHandlerParams(handlerTree: c.Tree): List[(String, Type)] = {
       try {
-        handlerExpr.tree match {
+        handlerTree match {
           case Function(params, _) =>
             params.map { param =>
               val fname = param.name.toString
@@ -313,24 +313,22 @@ private[endpoint] object EndpointSyntaxMacros {
         q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
     }
 
-    val (handlerParamDef, handlerBody) = c.untypecheck(f.tree.duplicate) match {
-      case Function(List(param), fbody) => (param, fbody)
-      case Function(params, _)          =>
-        c.abort(c.enclosingPosition, s"Handler must declare exactly one parameter, found ${params.length}")
-      case other                        =>
-        c.abort(c.enclosingPosition, s"Handler must be a function literal, found: $other")
+    val taggedHandler = if (handlerParams.length == 1) {
+      val (handlerParamDef, handlerBody) = (handlerParams.head, handlerBody)
+      val rewrittenBody                  = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
+      Function(List(handlerParamDef), rewrittenBody)
+    } else {
+      val inputVal    = ValDef(Modifiers(Flag.PARAM), inputParamName, TypeTree(inputType), EmptyTree)
+      val projections = accessExprs.map { case (hname, _) =>
+        q"val ${TermName(hname)} = $inputParamName.${TermName(hname)}"
+      }
+      val args    = handlerParams.map(p => Ident(p.name))
+      val call    = q"handler(..$args)"
+      val tagged  = q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($call)"
+      val body    = Block(projections.toList, tagged)
+      Function(List(inputVal), body)
     }
 
-    val rewrittenBody = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
-    val taggedHandler = Function(List(handlerParamDef), rewrittenBody)
-
-    // The generated code must reference only PUBLIC members, because a Scala 2
-    // blackbox macro expands into the CALLER's scope (which may be any external
-    // package). All request decode / response encode / route building lives
-    // behind the single public `EndpointServer.implement` entry point, which
-    // delegates to the `private[endpoint]` codec internals from inside this
-    // package — mirroring how Scala 3's public inline extension calls its
-    // `private[endpoint]` `EndpointBridge`.
     c.Expr[Route[Any]](
       q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)",
     )

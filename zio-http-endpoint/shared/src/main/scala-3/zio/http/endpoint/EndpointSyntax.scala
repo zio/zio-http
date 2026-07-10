@@ -162,7 +162,7 @@ private[endpoint] object EndpointBridge {
     val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
     Request(
       method = method,
-      url = URL.root,
+      url = URL.root, // TODO: extract path from zio.blocks.endpoint.RoutePattern when API is available
       headers = zio.http.Headers.empty,
       body = body,
       version = zio.http.Version.`HTTP/1.1`,
