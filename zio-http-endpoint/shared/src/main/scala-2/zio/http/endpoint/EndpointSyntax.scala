@@ -71,18 +71,6 @@ class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
-   * Like [[implement]], but enforces authentication first: the implicit
-   * [[EndpointAuthHandler]] validates credentials from the request and extracts
-   * a `Session`, which is passed to the handler alongside the decoded `Input`.
-   * On authentication failure the endpoint's `auth.unauthorizedStatus` response
-   * is returned and the handler is never invoked.
-   */
-  def implementAuth[Session](
-    handler: (Session, Input) => Either[Err, Output],
-  )(implicit authHandler: EndpointAuthHandler[Auth, Session]): Route[Any] =
-    EndpointServer.implementAuth(endpoint, handler, authHandler)
-
-  /**
    * Calls this endpoint via the given HTTP client, returning the decoded
    * `Err | Output` union.
    *

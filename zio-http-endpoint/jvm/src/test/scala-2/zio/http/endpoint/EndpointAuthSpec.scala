@@ -19,45 +19,41 @@ import scala.language.implicitConversions
 
 import zio.test._
 
+import zio.blocks.context.Context
 import zio.blocks.docs.Doc
 import zio.blocks.endpoint.{AuthType, CodecKind, Endpoint, HttpCodec, RoutePattern}
 import zio.blocks.schema.Schema
-import zio.http.{Header, Headers, Method, Path, Request, Response, Status, URL, Version}
+import zio.http.{Header, Headers, Method, Middleware, Path, Request, Routes, Status, URL, Version}
 import zio.http.endpoint._
 
 /**
- * Endpoint with a non-trivial `Auth <: AuthType` (`AuthType.Basic`).
- *
- * `.implementAuth` enforces authentication via an implicit
- * [[EndpointAuthHandler]]: it validates credentials from the request and
- * extracts a `Session` passed to the handler. On failure it returns
- * `auth.unauthorizedStatus` (default `Status.NotFound`) and never invokes the
- * handler.
+ * Authentication in the unified model: the session is a Tier-2 handler
+ * parameter (a context requirement tracked in `Route[User]`), resolved by
+ * `Middleware.basicAuth` applied via `@@`. The middleware validates credentials
+ * and injects the `User` into the context; on failure it short-circuits with
+ * `Response.unauthorized` (401) and the handler never runs.
  */
 object EndpointAuthSpec extends ZIOSpecDefault {
 
-  private val secureEndpoint: Endpoint[Unit, String, Int, String, AuthType.Basic.type] = {
+  final case class User(name: String)
+
+  private val secureEndpoint: Endpoint[Unit, String, Int, String, AuthType.None.type] = {
     val pattern     = RoutePattern(Method.POST, Path.root / "secure")
     val inputCodec  = HttpCodec.Body[CodecKind.Request, String](Schema[String])
     val errorCodec  = HttpCodec.Body[CodecKind.Response, Int](Schema[Int])
     val outputCodec = HttpCodec.Body[CodecKind.Response, String](Schema[String])
-    Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.Basic, Doc.empty)
+    Endpoint(pattern, inputCodec, errorCodec, outputCodec, AuthType.None, Doc.empty)
   }
 
-  private implicit val basicAuthHandler: EndpointAuthHandler[AuthType.Basic.type, String] =
-    EndpointAuthHandler.fromValidation { (request, auth) =>
-      EndpointCodec.decodeHeader(
-        auth.codec.asInstanceOf[HttpCodec.Header[CodecKind.Request, Header.Authorization.Basic]],
-        request,
-      ) match {
-        case Right(Header.Authorization.Basic(user, _)) => Right(user)
-        case _                                          => Left(Response(status = auth.unauthorizedStatus))
-      }
+  private val secureRoute: zio.http.Route[User] =
+    secureEndpoint.implement { (name: String, user: User) =>
+      s"hello $name, authenticated as ${user.name}"
     }
 
-  private val secureRoute = secureEndpoint.implementAuth[String] { (session: String, name: String) =>
-    Right(s"hello $name, authenticated as $session")
-  }
+  private val securedRoutes: Routes[Any] =
+    Routes(secureRoute) @@ Middleware.basicAuth[User] { basic =>
+      Right(User(basic.username))
+    }
 
   private def requestWith(headers: Headers): Request =
     Request(
@@ -69,16 +65,14 @@ object EndpointAuthSpec extends ZIOSpecDefault {
     )
 
   def spec = suite("EndpointAuth")(
-    test("AuthType.Basic.unauthorizedStatus defaults to Status.NotFound (information hiding)") {
-      assertTrue(secureEndpoint.auth.unauthorizedStatus == Status.NotFound)
+    test("a request WITHOUT credentials is rejected with 401 by the middleware") {
+      val response =
+        InProcessDispatcher.dispatchWith(securedRoutes.routes.head, requestWith(Headers.empty), Context.empty)
+      assertTrue(response.status == Status.Unauthorized)
     },
-    test("a request WITHOUT credentials is rejected with the unauthorized status") {
-      val response = InProcessDispatcher.dispatch(secureRoute, requestWith(Headers.empty))
-      assertTrue(response.status == Status.NotFound)
-    },
-    test("a request WITH valid Basic credentials reaches the handler and receives the extracted session") {
+    test("a request WITH valid Basic credentials reaches the handler and receives the injected session") {
       val withCreds = Headers.empty.add(Header.Authorization.Basic("alice", "secret"))
-      val response  = InProcessDispatcher.dispatch(secureRoute, requestWith(withCreds))
+      val response  = InProcessDispatcher.dispatchWith(securedRoutes.routes.head, requestWith(withCreds), Context.empty)
       assertTrue(
         response.status == Status.Ok,
         EndpointCodec.decodeResponse(secureEndpoint.output, response) == Right("hello world, authenticated as alice"),

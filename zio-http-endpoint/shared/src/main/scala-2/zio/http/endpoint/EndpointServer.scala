@@ -90,27 +90,4 @@ object EndpointServer {
       }
     Route(endpoint.route, httpHandler)
   }
-
-  def implementAuth[PathInput, Input, Err, Output, Auth <: AuthType, Session](
-    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
-    handler: (Session, Input) => Either[Err, Output],
-    authHandler: EndpointAuthHandler[Auth, Session],
-  ): Route[Any] = {
-    val handlerFn: Request => Response | Halt = { request =>
-      authHandler.authenticate(request, endpoint.auth) match {
-        case Left(unauthorized) => unauthorized
-        case Right(session)     =>
-          EndpointCodec.decodeRequest(endpoint.input, request) match {
-            case Right(input) =>
-              handler(session, input) match {
-                case Left(err)  => EndpointCodec.encodeResponse(endpoint.error, err, 400)
-                case Right(out) => EndpointCodec.encodeResponse(endpoint.output, out, 200)
-              }
-            case Left(_)      =>
-              Response.badRequest
-          }
-      }
-    }
-    Route(endpoint.route, Handler(handlerFn))
-  }
 }

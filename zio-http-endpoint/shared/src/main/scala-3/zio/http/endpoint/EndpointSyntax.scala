@@ -74,20 +74,6 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
     }
 
   /**
-   * Like [[implement]], but enforces authentication first: the summoned
-   * [[EndpointAuthHandler]] validates credentials from the request and extracts
-   * a `Session`, which is passed to the handler alongside the decoded `Input`.
-   * On authentication failure the endpoint's `auth.unauthorizedStatus` response
-   * is returned and the handler is never invoked.
-   */
-  def implementAuth[Session, F[_]](handler: (Session, Input) => F[Err | Output])(using
-    resultHandler: EndpointResultHandler[F],
-    unions: Unions.Unions.WithOut[Err, Output, Err | Output],
-    authHandler: EndpointAuthHandler[Auth, Session],
-  ): Route[Any] =
-    EndpointBridge.implementAuth(endpoint, handler, resultHandler, Alternator.fromUnions(unions), authHandler)
-
-  /**
    * Invokes this endpoint against `client`, returning the decoded
    * `Err | Output` union.
    *
@@ -154,30 +140,6 @@ private[endpoint] object EndpointBridge {
           val userEffect: F[Err | Output] = handler(input)
           val unionResult: Err | Output   = resultHandler.run(userEffect)
           encodeResult(endpoint, unionResult, alternator)
-      }
-    }
-
-    val httpHandler: Handler[Any, Any] = Handler(handlerFn)
-    Route(endpoint.route, httpHandler)
-  }
-
-  def implementAuth[PathInput, Input, Err, Output, Auth <: AuthType, Session, F[_]](
-    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
-    handler: (Session, Input) => F[Err | Output],
-    resultHandler: EndpointResultHandler[F],
-    alternator: Alternator.WithOut[Err, Output, Err | Output],
-    authHandler: EndpointAuthHandler[Auth, Session],
-  ): Route[Any] = {
-    val handlerFn: Request => Response | Halt = { request =>
-      authHandler.authenticate(request, endpoint.auth) match {
-        case Left(unauthorized) => unauthorized
-        case Right(session)     =>
-          EndpointCodec.decodeRequest(endpoint.input, request) match {
-            case Left(_)      => Response.badRequest
-            case Right(input) =>
-              val unionResult = resultHandler.run(handler(session, input))
-              encodeResult(endpoint, unionResult, alternator)
-          }
       }
     }
 
