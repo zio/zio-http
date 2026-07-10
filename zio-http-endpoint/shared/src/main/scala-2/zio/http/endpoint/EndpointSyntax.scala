@@ -70,8 +70,8 @@ class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
    * is supported today (see the class Scaladoc and decisions.md for the
    * case-class limitation).
    */
-   def implement(f: Any): Route[Any] =
-     macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
+  def implement(f: Any): Route[Any] =
+    macro EndpointSyntaxMacros.implementImpl[PathInput, Input, Err, Output, Auth]
 
   /**
    * Calls this endpoint via the given HTTP client, returning the decoded
@@ -112,7 +112,7 @@ private[endpoint] object EndpointBridge {
     val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
     Request(
       method = method,
-      url = zio.http.URL.fromPath(pattern.path),
+      url = zio.http.URL.root, // TODO: extract path from zio.blocks.endpoint.RoutePattern when API is available
       headers = zio.http.Headers.empty,
       body = body,
       version = zio.http.Version.`HTTP/1.1`,
@@ -313,21 +313,9 @@ private[endpoint] object EndpointSyntaxMacros {
         q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($leaf)"
     }
 
-    val taggedHandler = if (handlerParams.length == 1) {
-      val (handlerParamDef, handlerBody) = (handlerParams.head, handlerBody)
-      val rewrittenBody                  = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
-      Function(List(handlerParamDef), rewrittenBody)
-    } else {
-      val inputVal    = ValDef(Modifiers(Flag.PARAM), inputParamName, TypeTree(inputType), EmptyTree)
-      val projections = accessExprs.map { case (hname, _) =>
-        q"val ${TermName(hname)} = $inputParamName.${TermName(hname)}"
-      }
-      val args    = handlerParams.map(p => Ident(p.name))
-      val call    = q"handler(..$args)"
-      val tagged  = q"zio.http.endpoint.EndpointInject.inject[$errTypeTree, $outputTypeTree]($call)"
-      val body    = Block(projections.toList, tagged)
-      Function(List(inputVal), body)
-    }
+    val (handlerParamDef, handlerBody) = (handlerParams.head, handlerBody)
+    val rewrittenBody = q"(${rewriteReturns(handlerBody)}): scala.util.Either[$errTypeTree, $outputTypeTree]"
+    val taggedHandler = Function(List(handlerParamDef), rewrittenBody)
 
     c.Expr[Route[Any]](
       q"zio.http.endpoint.EndpointServer.implement($endpoint, $taggedHandler)",

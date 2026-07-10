@@ -29,8 +29,8 @@ import zio.http.Route
  * method type parameters are erased before quoted macros can see them; a
  * standalone method avoids that limitation.
  *
- * Call site:
- *   EndpointImplement.implement(endpoint, (field1, field2) => handlerBody)
+ * Call site: EndpointImplement.implement(endpoint, (field1, field2) =>
+ * handlerBody)
  *
  * The macro inspects the handler's arity, matches parameter names+types to the
  * `Input` case-class fields, generates field projections, and emits warnings
@@ -67,7 +67,7 @@ object EndpointImplement {
     val errTpe    = TypeRepr.of[Err]
     val outputTpe = TypeRepr.of[Output]
 
-    val handlerTerm = handler.asTerm
+    val handlerTerm                  = handler.asTerm
     val (handlerParams, handlerBody) = handlerTerm match {
       case Lambda(params, body)        => (params, body)
       case Block(_, Lambda(params, b)) => (params, b)
