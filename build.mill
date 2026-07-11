@@ -8,11 +8,12 @@ import mill.scalalib.*
 object Versions {
   val Scala213              = "2.13.18"
   val Scala3                = "3.8.3"
+  val SnapshotRepo          = "https://central.sonatype.com/repository/maven-snapshots"
   val ScalaJS               = "1.20.2"
   val Zio                   = "2.1.24"
   val ZioSchema             = "1.8.3"
   val ScalaCompatCollection = "2.14.0"
-  val ZioBlocks             = "0.0.0-SNAPSHOT"
+  val ZioBlocks             = "0.0.46+5-1f07ae2d-SNAPSHOT"
 }
 
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
@@ -42,6 +43,11 @@ trait ZioHttpModule extends CrossScalaModule {
         base ++ Seq("-Xignore-scala2-macros", "-noindent", "-experimental")
       case _                         => base
     }
+  }
+
+
+  override def repositories = Task {
+    super.repositories() ++ Seq(Versions.SnapshotRepo)
   }
 
   override def mvnDeps = {
