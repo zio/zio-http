@@ -117,3 +117,6 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
 
   )
 }
+
+final case class AuthCtx2(userId: String)
+final case class ReqId2(value: String)
