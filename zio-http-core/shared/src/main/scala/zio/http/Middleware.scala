@@ -15,6 +15,9 @@
  */
 package zio.http
 
+import zio.blocks.context.IsNominalType
+import zio.http.ResultType.responseAsResult
+
 trait Middleware[UpperCtx, Ctx] { self =>
   def apply(routes: Routes[Ctx]): Routes[UpperCtx]
 
@@ -29,4 +32,43 @@ object Middleware {
   def identity[Ctx]: Middleware[Ctx, Ctx] = new Middleware[Ctx, Ctx] {
     def apply(routes: Routes[Ctx]): Routes[Ctx] = routes
   }
+
+  def customAuth[Session](
+    validate: Request => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+    new Middleware[Any, Session] {
+      def apply(routes: Routes[Session]): Routes[Any] =
+        Routes.fromIterable(routes.routes.map(secure))
+
+      private def secure(route: Route[Session]): Route[Any] = {
+        val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
+          validate(request) match {
+            case Left(response) => responseAsResult(response)
+            case Right(session) =>
+              route.handler.handle(request, context.add[Session](session), vars, scope)
+          }
+        }
+        Route(route.pattern, wrapped)
+      }
+    }
+
+  def basicAuth[Session](
+    validate: Header.Authorization.Basic => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+    customAuth { request =>
+      request.header(Header.Authorization) match {
+        case Some(basic: Header.Authorization.Basic) => validate(basic)
+        case _                                       => Left(Response.unauthorized)
+      }
+    }
+
+  def bearerAuth[Session](
+    validate: Header.Authorization.Bearer => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+    customAuth { request =>
+      request.header(Header.Authorization) match {
+        case Some(bearer: Header.Authorization.Bearer) => validate(bearer)
+        case _                                         => Left(Response.unauthorized)
+      }
+    }
 }
