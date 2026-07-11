@@ -65,6 +65,7 @@ final class TestServer private (private val routesRef: AtomicReference[Routes[An
       //    expectedRequest == realRequest
       expectedRequest.url.path == realRequest.url.path &&
         expectedRequest.method == realRequest.method &&
+        expectedRequest.url.queryParams == realRequest.url.queryParams &&
         expectedRequest.headers.toList.forall { case (name, value) => realRequest.headers.rawGet(name).contains(value) }
 
     addRoute(
@@ -118,7 +119,7 @@ object TestServer {
   ): Response | Halt =
     try route.handler.handle(request, Context.empty, vars, scope)
     catch {
-      case _: Throwable => Response.internalServerError
+      case scala.util.control.NonFatal(_) => Response.internalServerError
     }
 
   private def toResponse(result: Response | Halt): Response = {
