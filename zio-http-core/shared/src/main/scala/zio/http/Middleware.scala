@@ -17,9 +17,6 @@ object Middleware {
     def apply(routes: Routes[Ctx]): Routes[Ctx] = routes
   }
 
-  inline def custom[F](inline f: F): Middleware[?, ?] = ${ MiddlewareMacro.customImpl[F]('f) }
-  inline def intercept[F](inline f: F): Middleware[?, ?] = custom(f)
-  inline def whenContext[F](inline f: F): Middleware[?, ?] = custom(f)
 
   // ═══════════════════════════════════════════════════════════════════
   // AUTH
@@ -29,8 +26,8 @@ object Middleware {
     validate: Header.Authorization.Basic => Either[Response, Session],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] = {
     val wwwAuth = Header.WWWAuthenticate("Basic", Map("realm" -> "Access to the resource"))
-    new Middleware[Any, Session] {
-      def apply(routes: Routes[Any]): Routes[Session] =
+    new Middleware[Session, Any] {
+      def apply(routes: Routes[Session]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
           val next = route.handler.asInstanceOf[Handler[Session, Any]]
           val wrapped = Handler.extracted[Session, Any] { (req, ctx, vars, scope) =>
@@ -53,8 +50,8 @@ object Middleware {
     validate: Header.Authorization.Bearer => Either[Response, Session],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] = {
     val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> "Access to the resource"))
-    new Middleware[Any, Session] {
-      def apply(routes: Routes[Any]): Routes[Session] =
+    new Middleware[Session, Any] {
+      def apply(routes: Routes[Session]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
           val next = route.handler.asInstanceOf[Handler[Session, Any]]
           val wrapped = Handler.extracted[Session, Any] { (req, ctx, vars, scope) =>
