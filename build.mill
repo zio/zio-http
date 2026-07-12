@@ -60,6 +60,7 @@ trait ZioHttpModule extends CrossScalaModule {
           "-noindent",
           "-experimental",
           "-Wconf:msg=with as a type operator has been deprecated:s",
+          "-Wconf:msg=Implicit parameters should be provided with a `using` clause:s",
           "-Werror",
         )
       case _                          => base

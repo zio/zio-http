@@ -56,6 +56,7 @@ final class TestClient private (
       //    expectedRequest == realRequest
       expectedRequest.url.path == realRequest.url.path &&
         expectedRequest.method == realRequest.method &&
+        expectedRequest.url.queryParams == realRequest.url.queryParams &&
         expectedRequest.headers.toList.toSet.forall(realRequest.headers.toList.toSet.contains)
 
     addRoute(

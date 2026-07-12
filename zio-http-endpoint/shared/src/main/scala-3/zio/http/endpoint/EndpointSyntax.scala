@@ -77,9 +77,15 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
    * Invokes this endpoint against `client`, returning the decoded
    * `Err | Output` union.
    *
-   * The request is built from `input` via the endpoint's route pattern and
-   * input codec; the response is decoded against the error/output codecs and
-   * merged into the union using zio-blocks' [[Unions]] machinery.
+   * The request is built from `input` via the endpoint's input codec; the
+   * response is decoded against the error/output codecs and merged into the
+   * union using zio-blocks' [[Unions]] machinery.
+   *
+   * '''Limitation''': `.call` currently sends to `URL.root` only — the
+   * endpoint's route path is not yet incorporated into the outgoing request
+   * (see `buildRequest` TODO). Endpoints not mounted at `/` will return 404.
+   * This is a known architectural gap to be addressed when
+   * `zio.blocks.endpoint.RoutePattern` exposes path rendering.
    */
   def call(client: Client, input: Input)(using
     unions: Unions.Unions.WithOut[Err, Output, Err | Output],
@@ -176,7 +182,8 @@ private[endpoint] object EndpointBridge {
     val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
     Request(
       method = method,
-      url = URL.root, // TODO: extract path from zio.blocks.endpoint.RoutePattern when API is available
+      url =
+        URL.root, // TODO: extract path from RoutePattern when path-rendering API is available; until then .call only works for root-mounted endpoints
       headers = zio.http.Headers.empty,
       body = body,
       version = zio.http.Version.`HTTP/1.1`,

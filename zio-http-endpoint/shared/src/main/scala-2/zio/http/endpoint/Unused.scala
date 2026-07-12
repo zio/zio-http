@@ -18,21 +18,24 @@ package zio.http.endpoint
 /**
  * Marker for endpoint input fields that are intentionally unused.
  *
+ * '''Internal only''': `Unused` and its companion are `private[endpoint]`. This
+ * type is reserved for future `.implement` unused-field-warning support and
+ * currently has no runtime or compile-time effect. It is not part of the public
+ * API and cannot be referenced from outside the `zio.http.endpoint` package.
+ *
  * Mirrors `zio.blocks.endpoint.PathVar.Ignored` pattern: used at the INPUT
  * schema level to annotate a field that the developer has explicitly marked as
  * not consumed by the handler.
  *
- * In the endpoint Input type definition, wrap a field with `.unused()` to
- * suppress the "field never used" warning:
- *
- * ```scala
+ * Intended future usage (not yet functional):
+ * {{{
  * case class MyInput(
  *   userId: Int,
- *   debugFlag: Boolean.unused, // Marked, unconsumed -> no warning (suppressed)
+ *   debugFlag: Unused[Boolean] = Unused(false), // marked, unconsumed -> no warning
  * )
- * ```
+ * }}}
  *
- * Four combinations of (isMarked, consumed) emit warnings:
+ * Four combinations of (isMarked, consumed) would emit warnings:
  *   - plain, unconsumed -> "field X was defined but never used"
  *   - plain, consumed -> no warning (normal)
  *   - marked, unconsumed -> no warning (suppressed)

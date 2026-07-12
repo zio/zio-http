@@ -120,7 +120,7 @@ private[endpoint] object EndpointCodec {
   private def decodeBodyFromSchema[A](codec: HttpCodec[CodecKind.Request, A], body: Body): Either[String, A] =
     schemaOf(codec) match {
       case Some(schema) => decodeBody(schema, body)
-      case None         => Right(().asInstanceOf[A])
+      case None         => Left("Unsupported request codec shape: no body schema reachable")
     }
 
   private def encodeBody[A](schema: Schema[A], mediaTypes: zio.blocks.chunk.Chunk[MediaType], value: A): Body = {
