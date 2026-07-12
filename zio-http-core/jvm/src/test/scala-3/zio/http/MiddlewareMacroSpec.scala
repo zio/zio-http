@@ -3,6 +3,7 @@ package zio.http
 import zio.test._
 import zio.blocks.scope.Scope
 import zio.blocks.context.Context
+import zio.http.ResultType._
 
 object MiddlewareMacroSpec extends ZIOSpecDefault {
 
@@ -13,7 +14,7 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
   private def route[Ctx](h: Handler[Ctx, Any]): Routes[Ctx] =
     Routes(Route(zio.blocks.endpoint.RoutePattern.GET, h))
 
-  private def exec[Ctx](routes: Routes[Ctx], ctx: Context[Ctx] = Context.empty)(using
+  private def exec[Ctx](routes: Routes[Ctx], ctx: Context[Ctx] = Context.empty)(implicit
     ev: zio.blocks.context.IsNominalType[Ctx],
   ): Response | Halt =
     routes.routes.toList.head.handler.handle(req, ctx, (), Scope.global)

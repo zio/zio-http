@@ -21,7 +21,7 @@ object InterceptMiddlewareSpec extends ZIOSpecDefault {
       test("short-circuits with Some") {
         val mw  = Middleware.interceptHandler(_ => Some(Halt(Response.forbidden)))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
       },
       test("passes through with None") {
         var called = false
@@ -47,7 +47,7 @@ object InterceptMiddlewareSpec extends ZIOSpecDefault {
           middleware = Middleware.interceptHandler(_ => Some(Halt(Response.forbidden))),
         )
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
       },
       test("skips middleware when predicate is false") {
         val mw  = Middleware.when(
@@ -66,7 +66,7 @@ object InterceptMiddlewareSpec extends ZIOSpecDefault {
           onFalse = Middleware.identity[Any],
         )
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
       },
       test("applies onFalse for non-matching predicate") {
         val mw  = Middleware.ifRequestThenElse(
@@ -85,7 +85,7 @@ object InterceptMiddlewareSpec extends ZIOSpecDefault {
           onTrue = Middleware.interceptHandler(_ => Some(Halt(Response.forbidden))),
         )
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
       },
       test("passes through for non-matching predicate") {
         val mw  = Middleware.ifRequestThen(
@@ -121,7 +121,7 @@ object InterceptMiddlewareSpec extends ZIOSpecDefault {
         val app        = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val postResult = runSingle(app, Request.post(URL.root, Body.empty))
         val getResult  = runSingle(app, Request.get(URL.root))
-        assertTrue(postResult.isInstanceOf[Halt] && getResult == responseAsResult(Response.text("ok")))
+        assertTrue(foldResult(postResult)(_ => false, _ => true) && getResult == responseAsResult(Response.text("ok")))
       },
     ),
   )

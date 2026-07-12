@@ -30,26 +30,26 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
         val mw      = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "wrong"))
-        assertTrue(runSingle(app, authReq).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app, authReq))(_ => false, _ => true))
       },
       test("rejects missing header") {
         val mw  = Middleware.basicAuth(validate = (_, _) => true)
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
       },
     ),
     suite("bearerAuth")(
       test("allows valid token") {
-        val mw      = Middleware.bearerAuth(validate = t => t == "secret-token")
+        val mw      = Middleware.bearerAuth(validate = (t: String) => t == "secret-token")
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("secret-token"))
         assertTrue(runSingle(app, authReq) == responseAsResult(Response.text("ok")))
       },
       test("rejects invalid token") {
-        val mw      = Middleware.bearerAuth(validate = t => t == "secret-token")
+        val mw      = Middleware.bearerAuth(validate = (t: String) => t == "secret-token")
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("bad-token"))
-        assertTrue(runSingle(app, authReq).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(app, authReq))(_ => false, _ => true))
       },
     ),
     suite("customAuth")(
@@ -63,7 +63,7 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
         val mw      = Middleware.customAuth[User](_ => None)
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
-        assertTrue(runSingle(wrapped).isInstanceOf[Halt])
+        assertTrue(foldResult(runSingle(wrapped))(_ => false, _ => true))
       },
     ),
     suite("customAuthProviding")(

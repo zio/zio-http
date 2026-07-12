@@ -67,7 +67,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
 
     suite("flashScope")(
       test("compiles and runs") {
-        given IsNominalType[Middleware.FlashMap] = IsNominalType.derived[Middleware.FlashMap]
+        implicit val isNominalTypeFlashMap: IsNominalType[Middleware.FlashMap] = IsNominalType.derived[Middleware.FlashMap]
         val mw = Middleware.flashScope()
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
