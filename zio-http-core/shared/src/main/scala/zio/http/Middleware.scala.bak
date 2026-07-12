@@ -25,22 +25,15 @@ object Middleware {
   // AUTH
   // ═══════════════════════════════════════════════════════════════════
 
-  def basicAuth[Session](
-    validate: Header.Authorization.Basic => Either[Response, Session],
-  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] = {
-    val wwwAuth = Header.WWWAuthenticate("Basic", Map("realm" -> "Access to the resource"))
-    new Middleware[Any, Session] {
-      def apply(routes: Routes[Any]): Routes[Session] =
+  def basicAuth(realm: String = "Access to the resource", validate: (String, String) => Boolean): Middleware[Any, Any] = {
+    val wwwAuth = Header.WWWAuthenticate("Basic", Map("realm" -> realm))
+    new Middleware[Any, Any] {
+      def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler.asInstanceOf[Handler[Session, Any]]
-          val wrapped = Handler.extracted[Session, Any] { (req, ctx, vars, scope) =>
+          val next = route.handler
+          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             req.header(Header.Authorization) match {
-              case Some(basic: Header.Authorization.Basic) =>
-                validate(basic) match {
-                  case Right(session) =>
-                    next.handle(req, ctx.asInstanceOf[Context[Any]].add(session)(using ev).asInstanceOf[Context[Session]], vars, scope)
-                  case Left(resp) => Halt(resp.addHeader(wwwAuth))
-                }
+              case Some(Header.Authorization.Basic(u, p)) if validate(u, p) => next.handle(req, ctx, vars, scope)
               case _ => Halt(Response.unauthorized.addHeader(wwwAuth))
             }
           }
@@ -49,23 +42,35 @@ object Middleware {
     }
   }
 
-  def bearerAuth[Session](
-    validate: Header.Authorization.Bearer => Either[Response, Session],
-  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] = {
-    val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> "Access to the resource"))
-    new Middleware[Any, Session] {
-      def apply(routes: Routes[Any]): Routes[Session] =
+  def bearerAuth(realm: String = "Access to the resource", validate: String => Boolean): Middleware[Any, Any] = {
+    val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> realm))
+    new Middleware[Any, Any] {
+      def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler.asInstanceOf[Handler[Session, Any]]
-          val wrapped = Handler.extracted[Session, Any] { (req, ctx, vars, scope) =>
+          val next = route.handler
+          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             req.header(Header.Authorization) match {
-              case Some(bearer: Header.Authorization.Bearer) =>
-                validate(bearer) match {
-                  case Right(session) =>
-                    next.handle(req, ctx.asInstanceOf[Context[Any]].add(session)(using ev).asInstanceOf[Context[Session]], vars, scope)
-                  case Left(resp) => Halt(resp.addHeader(wwwAuth))
-                }
+              case Some(Header.Authorization.Bearer(token)) if validate(token) => next.handle(req, ctx, vars, scope)
               case _ => Halt(Response.unauthorized.addHeader(wwwAuth))
+            }
+          }
+          Route(route.pattern, wrapped)
+        })
+    }
+  }
+
+  def customAuth[A](validate: Request => Option[A], realm: String = "Access to the resource")(
+    implicit ev: IsNominalType[A],
+  ): Middleware[A, Any] = {
+    val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> realm))
+    new Middleware[A, Any] {
+      def apply(routes: Routes[Any]): Routes[A] =
+        Routes.fromIterable(routes.routes.toList.map { route =>
+          val next = route.handler.asInstanceOf[Handler[A, Any]]
+          val wrapped = Handler.extracted[A, Any] { (req, ctx, vars, scope) =>
+            validate(req) match {
+              case Some(a) => next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
+              case None => Halt(Response.unauthorized.addHeader(wwwAuth))
             }
           }
           Route(route.pattern, wrapped)
