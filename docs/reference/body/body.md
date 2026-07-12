@@ -18,6 +18,7 @@ On the server side, `ZIO-HTTP` models content in `Request` and `Response` as `Bo
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloExample extends ZIOAppDefault {
   val routes: Routes[Any, Response] =
@@ -30,7 +31,7 @@ object HelloExample extends ZIOAppDefault {
         }.sandbox,
     )
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -44,17 +45,19 @@ To add content while making a request using ZIO HTTP you can use the `Client.bat
 import zio._
 import zio.stream._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object HelloClientExample extends ZIOAppDefault {
   val routes: ZIO[Client, Throwable, Unit] =
     for {
       name <- Console.readLine("What is your name? ")
-      resp <- Client.batched(Request.post("http://localhost:8080/hello", Body.fromString(name)))
+      resp <- ZClient.batched(Request.post("http://localhost:8080/hello", Body.fromString(name)))
       body <- resp.body.asString
       _    <- Console.printLine(s"Response: $body")
     } yield ()
 
-  def run = routes.provide(Client.default)
+  def run = routes.provide(NettyClient.default)
 }
 ```
 
@@ -233,17 +236,7 @@ To create an `Body` that encodes a `File` we can use `Body.fromFile`:
 
 ```scala mdoc:silent:crash
 val fileHttpData: ZIO[Any, Nothing, Body] = 
-  Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
-```
-
-### From WebSocketApp
-
-Any `WebSocketApp[Any]` can be converted to a `Body` using `Body.fromWebSocketApp`:
-
-```scala
-object Body {
-  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody = ???
-}
+   Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
 ```
 
 ### From a Multipart Form

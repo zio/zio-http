@@ -14,6 +14,8 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.cli._
 import zio.http.endpoint.{Endpoint, EndpointExecutor}
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 final case class User(
   @description("The unique identifier of the User")
@@ -104,7 +106,7 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
 
   val routes = Routes(getUserRoute, getUserPostsRoute, createUserRoute) @@ Middleware.debug
 
-  val run = Server.serve(routes).provide(Server.default)
+  val run = Server.serve(routes).provide(NettyServer.default)
 }
 
 object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
@@ -112,7 +114,7 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
     clientExample
       .provide(
         EndpointExecutor.make(serviceName = "test"),
-        Client.default,
+        NettyClient.default,
       )
 
   def clientExample: URIO[EndpointExecutor[Any, Unit, Scope], Unit] =

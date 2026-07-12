@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 /**
  * Example to build app on concrete entity
@@ -29,5 +30,5 @@ object ConcreteEntity extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 }

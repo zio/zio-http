@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object StaticFiles extends ZIOAppDefault {
 
@@ -15,5 +16,5 @@ object StaticFiles extends ZIOAppDefault {
    */
   val routes = Routes.empty @@ Middleware.serveResources(Path.empty / "static")
 
-  override def run = Server.serve(routes).provide(Server.default)
+  override def run = Server.serve(routes).provide(NettyServer.default)
 }

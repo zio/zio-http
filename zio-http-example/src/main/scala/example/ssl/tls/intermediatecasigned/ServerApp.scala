@@ -10,6 +10,7 @@ import zio.Config.Secret
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServerApp extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
@@ -46,7 +47,7 @@ object ServerApp extends ZIOAppDefault {
         _ <- Console.printLine("\nPress Ctrl+C to stop...")
       } yield ()
     } *>
-      Server.serve(routes).provide(serverConfig, Server.live)
+      Server.serve(routes).provide(serverConfig, NettyServer.live)
   }
 
 }

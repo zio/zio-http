@@ -6,6 +6,7 @@ import zio.test._
 
 import zio.http.endpoint.{AuthType, Endpoint}
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 import zio.http.netty.server.NettyDriver
 
 object RoutesPrecedentsSpec extends ZIOSpecDefault {
@@ -31,7 +32,7 @@ object RoutesPrecedentsSpec extends ZIOSpecDefault {
       check(Gen.fromIterable(List(1, 2, 3, 4, 5))) { code =>
         (
           for {
-            client <- ZIO.service[Client]
+            client <- ZIO.service[ZClient.Client]
             port   <- ZIO.serviceWithZIO[Server](_.port)
             url     = URL.root.port(port) / "api"
             request = Request
@@ -41,13 +42,13 @@ object RoutesPrecedentsSpec extends ZIOSpecDefault {
             result <- client.batched(request)
             output <- result.body.asString
           } yield assertTrue(output == code.toString)
-        ).provideSome[TestServer & Client](
+        ).provideSome[TestServer & ZClient.Client](
           ZLayer.succeed(new MyServiceLive(code)),
         )
       }.provide(
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),
         TestServer.layer,
-        Client.default,
+        NettyClient.default,
         NettyDriver.customized,
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
       )

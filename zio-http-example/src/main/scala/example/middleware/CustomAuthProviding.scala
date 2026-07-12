@@ -7,6 +7,7 @@ import zio._
 
 import zio.http._
 import zio.http.codec.PathCodec.string
+import zio.http.netty.server.NettyServer
 
 object CustomAuthProviding extends ZIOAppDefault {
 
@@ -38,6 +39,6 @@ object CustomAuthProviding extends ZIOAppDefault {
 
   val app: Routes[Any, Response] = secureRoutes @@ provideContext
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(NettyServer.default)
 
 }

@@ -5,6 +5,7 @@ import zio._
 
 import zio.http.SSLConfig.Data.FromJavaxNetSsl
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServerApp extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Routes(
@@ -40,6 +41,6 @@ object ServerApp extends ZIOAppDefault {
     }
 
   override val run =
-    Server.serve(routes).provide(serverConfig, Server.live)
+    Server.serve(routes).provide(serverConfig, NettyServer.live)
 
 }

@@ -7,6 +7,7 @@ import zio._
 import zio.http._
 import zio.http.endpoint.AuthType.None
 import zio.http.endpoint._
+import zio.http.netty.server.NettyServer
 import zio.http.template2._
 
 object EndpointExample extends ZIOAppDefault {
@@ -25,5 +26,5 @@ object EndpointExample extends ZIOAppDefault {
   def run =
     Server
       .serve(endpoint.implementHandler(handler((_: Unit) => page)))
-      .provide(Server.default)
+      .provide(NettyServer.default)
 }

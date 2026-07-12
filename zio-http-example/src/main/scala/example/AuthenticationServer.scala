@@ -10,6 +10,7 @@ import scala.util.Try
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
@@ -74,5 +75,5 @@ object AuthenticationServer extends ZIOAppDefault {
         },
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 }

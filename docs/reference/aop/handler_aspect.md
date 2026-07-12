@@ -138,7 +138,7 @@ After attaching these two handler aspects to our `Routes`, we have to provide th
 ```scala
 Server.serve(routes @@ counterMiddleware @@ statsMiddleware)
   .provide(
-    Server.default,
+    NettyServer.default,
     ZLayer.fromZIO(Ref.make(Map.empty[String, Long]))
   )
 ```

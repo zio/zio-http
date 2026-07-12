@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorld extends ZIOAppDefault {
   // Responds with plain text
@@ -19,5 +20,5 @@ object HelloWorld extends ZIOAppDefault {
   val app = Routes(homeRoute, jsonRoute)
 
   // Run it like any simple app
-  override val run = Server.serve(app).provide(Server.default)
+  override val run = Server.serve(app).provide(NettyServer.default)
 }

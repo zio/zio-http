@@ -6,11 +6,12 @@ import zio._
 
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientWithConnectionPooling extends ZIOAppDefault {
   val program = for {
     url    <- ZIO.fromEither(URL.decode("http://jsonplaceholder.typicode.com/posts"))
-    client <- ZIO.serviceWith[Client](_.addUrl(url))
+    client <- ZIO.serviceWith[ZClient.Client](_.addUrl(url))
     _      <- ZIO.foreachParDiscard(Chunk.fromIterable(1 to 100)) { i =>
       client.batched(Request.get(i.toString)).flatMap(_.body.asString).debug
     }
@@ -21,7 +22,7 @@ object ClientWithConnectionPooling extends ZIOAppDefault {
   override val run =
     program.provide(
       ZLayer.succeed(config),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )

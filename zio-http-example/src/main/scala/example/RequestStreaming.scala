@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object RequestStreaming extends ZIOAppDefault {
 
@@ -23,5 +24,5 @@ object RequestStreaming extends ZIOAppDefault {
 
   // Run it like any simple app
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(app).provide(Server.default)
+    Server.serve(app).provide(NettyServer.default)
 }

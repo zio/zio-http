@@ -20,7 +20,7 @@ To follow along with this guide, you will need the following tools and libraries
 2. A FIDO2-compliant authenticator (e.g., YubiKey)
 3. Yubico's WebAuthn library
 
-Please add the following dependency to your build.sbt file:
+Please add the following dependency to your build:
 
 ```scala
 libraryDependencies += "com.yubico" % "webauthn-server-core"        % "2.7.0"
@@ -1294,10 +1294,7 @@ git sparse-checkout set zio-http-example-webauthn
 ### Running the Server
 
 To run the WebAuthn authentication server:
-```bash
-cd zio-http/zio-http-example-webauthn
-sbt "runMain example.auth.webauthn.WebAuthnServer"
-```
+Run the `example.auth.webauthn.WebAuthnServer` main class from the `zio-http-example-webauthn` example project with your build tool.
 
 The server starts on `http://localhost:8080` and provides endpoints for both registration and authentication ceremonies.
 

@@ -5,17 +5,18 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 object SimpleClient extends ZIOAppDefault {
   val url = URL.decode("https://jsonplaceholder.typicode.com/todos").toOption.get
 
   val program = for {
-    client <- ZIO.service[Client]
+    client <- ZIO.service[ZClient.Client]
     res    <- client.url(url).batched(Request.get("/"))
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 
 }

@@ -7,6 +7,8 @@ import scala.annotation.nowarn
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object MultipartFormData extends ZIOAppDefault {
 
@@ -46,11 +48,11 @@ object MultipartFormData extends ZIOAppDefault {
     ).sandbox
 
   @nowarn("msg=dead code")
-  private def program: ZIO[Client & Server, Throwable, Unit] =
+  private def program: ZIO[ZClient.Client & Server, Throwable, Unit] =
     for {
       port         <- Server.install(routes)
       _            <- ZIO.logInfo(s"Server started on port $port")
-      client       <- ZIO.service[Client]
+      client       <- ZIO.service[ZClient.Client]
       response     <- client
         .host("localhost")
         .port(port)
@@ -76,5 +78,5 @@ object MultipartFormData extends ZIOAppDefault {
     } yield ()
 
   override def run =
-    program.provide(Server.default, Client.default)
+    program.provide(NettyServer.default, NettyClient.default)
 }

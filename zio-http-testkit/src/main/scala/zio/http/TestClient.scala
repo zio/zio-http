@@ -11,7 +11,6 @@ import zio._
  */
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
-  serverSocketBehavior: Ref[WebSocketApp[Any]],
   missingRouteHandler: Ref[Handler[Any, Response, Request, Response]],
 ) extends ZClient.Driver[Any, Scope, Throwable] {
 
@@ -45,7 +44,7 @@ final case class TestClient(
       //    expectedRequest == realRequest
       expectedRequest.url.relative == realRequest.url &&
       expectedRequest.method == realRequest.method &&
-      expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
+      expectedRequest.headers.toList.toSet.forall(expectedHeader => realRequest.headers.toList.toSet.contains(expectedHeader))
     }
     addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
       if (!isDefinedAt(realRequest))
@@ -130,9 +129,9 @@ final case class TestClient(
 
   def sslConfig: Option[ClientSSLConfig] = None
 
-  def url: URL = URL(Path.root)
+  def url: URL = URL(None, None, None, Path.root, QueryParams.empty, None)
 
-  def version: Version = Version.Http_1_1
+  def version: Version = Version.`HTTP/1.1`
 
   override def request(
     version: Version,
@@ -147,46 +146,16 @@ final case class TestClient(
       missingRouteBehavior <- missingRouteHandler.get.map(_.toRoutes)
       currentBehavior      <- behavior.get.map(missingRouteBehavior ++ _)
       request = Request(
-        body = body,
-        headers = headers,
         method = if (method == Method.ANY) Method.GET else method,
         url = url.relative,
+        headers = headers,
+        body = body,
         version = version,
-        remoteAddress = None,
       )
       response <- currentBehavior(request).merge
     } yield response
   }
 
-  def socket[Env1](
-    version: Version,
-    url: URL,
-    headers: Headers,
-    app: WebSocketApp[Env1],
-  )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] = {
-    for {
-      env                   <- ZIO.environment[Env1]
-      currentSocketBehavior <- serverSocketBehavior.get
-      in                    <- Queue.unbounded[WebSocketChannelEvent]
-      out                   <- Queue.unbounded[WebSocketChannelEvent]
-      promise               <- Promise.make[Nothing, Unit]
-      testChannelClient     <- TestChannel.make(in, out, promise)
-      testChannelServer     <- TestChannel.make(out, in, promise)
-      _                     <- currentSocketBehavior.handler.runZIO(testChannelClient).forkDaemon
-      _                     <- app.provideEnvironment(env).handler.runZIO(testChannelServer).forkDaemon
-    } yield Response.status(Status.SwitchingProtocols)
-  }
-
-  def installSocketApp[Env1](
-    app: WebSocketApp[Any],
-  ): ZIO[Env1, Nothing, Unit] =
-    for {
-      env <- ZIO.environment[Env1]
-      _   <- serverSocketBehavior.set(
-        app
-          .provideEnvironment(env),
-      )
-    } yield ()
 }
 
 object TestClient {
@@ -272,25 +241,19 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.setFallbackHandler(fallbackHandler))
 
-  def installSocketApp(
-    app: WebSocketApp[Any],
-  ): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
-
-  val layer: ZLayer[Any, Nothing, TestClient & Client] =
+  val layer: ZLayer[Any, Nothing, TestClient & ZClient.Client] =
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
-        socketBehavior   <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
         fallbackBehavior <- Ref.make[Handler[Any, Response, Request, Response]](
           handler((req: Request) => ZIO.logWarning(s"Unexpected request route: ${req}").as(Response.notFound)),
         )
-        driver = TestClient(behavior, socketBehavior, fallbackBehavior)
-      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
+        driver = TestClient(behavior, fallbackBehavior)
+      } yield ZEnvironment[TestClient, ZClient.Client](driver, ZClient.fromDriver(driver))
     }
 
   def withFallbackHandler[R](
     fallbackHandler: Request => ZIO[R, Response, Response],
-  ): ZLayer[R, Nothing, TestClient & Client] =
+  ): ZLayer[R, Nothing, TestClient & ZClient.Client] =
     ZLayer.environment[R] ++ layer >+> ZLayer.fromZIO(setFallbackHandler(fallbackHandler))
 }

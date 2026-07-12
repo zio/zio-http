@@ -5,6 +5,7 @@ package example.auth
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object CookieBasedAuthentication extends ZIOAppDefault {
   val route: Routes[Ref[Map[String, String]], Nothing] =
@@ -46,7 +47,7 @@ object CookieBasedAuthentication extends ZIOAppDefault {
     Server
       .serve(route)
       .provide(
-        Server.default,
+        NettyServer.default,
         ZLayer.fromZIO(Ref.make(Map.empty[String, String])),
       )
 }

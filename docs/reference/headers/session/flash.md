@@ -125,6 +125,8 @@ object ui {
 }
 
 object NotificationWithoutFlash extends ZIOAppDefault {
+  import zio.http.netty.server.NettyServer
+
   val homeRoute: Route[Any, Nothing] =
     Method.GET / PathCodec.empty -> handler {
       Response.html(
@@ -158,7 +160,7 @@ object NotificationWithoutFlash extends ZIOAppDefault {
 
 
   def run = Server.serve(Routes(saveUserRoute, homeRoute))
-    .provide(Server.default, ZLayer(Ref.make(List.empty[User])))
+    .provide(NettyServer.default, ZLayer(Ref.make(List.empty[User])))
 }
 ```
 
@@ -296,6 +298,8 @@ object ui {
 }
 
 object NotificationWithFlash extends ZIOAppDefault {
+  import zio.http.netty.server.NettyServer
+
   val homeRoute: Route[Any, Nothing] =
     Method.GET / PathCodec.empty -> handler {
       Response.html(
@@ -352,7 +356,7 @@ val getUsersRoute: Route[Ref[List[User]] with Flash.Backend, Nothing] =
 
   val app = Routes(saveUserRoute, getUsersRoute, homeRoute)
 
-  def run = Server.serve(app).provide(Server.default, Flash.Backend.inMemory, ZLayer(Ref.make(List.empty[User])))
+  def run = Server.serve(app).provide(NettyServer.default, Flash.Backend.inMemory, ZLayer(Ref.make(List.empty[User])))
 }
 ```
 
@@ -520,6 +524,8 @@ object ui {
 }
 
 object SetGetBothFlashExample extends ZIOAppDefault {
+  import zio.http.netty.server.NettyServer
+
   val routes = Routes(
     Method.GET / "set-flash" -> handler {
       val setBoth: Flash.Setter[(String, String)] =
@@ -538,7 +544,7 @@ object SetGetBothFlashExample extends ZIOAppDefault {
     },
   ).sandbox
 
-  def run = Server.serve(routes).provide(Server.default, Flash.Backend.inMemory)
+  def run = Server.serve(routes).provide(NettyServer.default, Flash.Backend.inMemory)
 }
 ```
 
@@ -555,6 +561,8 @@ import zio._
 import zio.http._
 
 object CookieBasedFlashExample extends ZIOAppDefault {
+  import zio.http.netty.server.NettyServer
+
   val routes = Routes(
     Method.GET / "set-flash" -> handler {
       Response
@@ -570,7 +578,7 @@ object CookieBasedFlashExample extends ZIOAppDefault {
     },
   ).sandbox
 
-  def run = Server.serve(routes).provide(Server.default)
+  def run = Server.serve(routes).provide(NettyServer.default)
 }
 ```
 
@@ -609,6 +617,8 @@ import zio.http._
 import zio.http.template._
 
 object FlashBackendExample extends ZIOAppDefault {
+  import zio.http.netty.server.NettyServer
+
   val routes = Routes(
     Method.GET / "set-flash" -> handler {
       for {
@@ -627,7 +637,7 @@ object FlashBackendExample extends ZIOAppDefault {
     },
   ).sandbox
 
-  def run = Server.serve(routes).provide(Server.default, Flash.Backend.inMemory)
+  def run = Server.serve(routes).provide(NettyServer.default, Flash.Backend.inMemory)
 }
 ```
 

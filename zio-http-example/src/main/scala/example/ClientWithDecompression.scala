@@ -7,12 +7,13 @@ import zio._
 import zio.http.Header.AcceptEncoding
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientWithDecompression extends ZIOAppDefault {
 
   val program = for {
     url    <- ZIO.fromEither(URL.decode("https://jsonplaceholder.typicode.com"))
-    client <- ZIO.serviceWith[Client](_.addUrl(url))
+    client <- ZIO.serviceWith[ZClient.Client](_.addUrl(url))
     res    <-
       client
         .addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate()))
@@ -25,7 +26,7 @@ object ClientWithDecompression extends ZIOAppDefault {
   override val run =
     program.provide(
       ZLayer.succeed(config),
-      Client.live,
+      NettyClient.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )

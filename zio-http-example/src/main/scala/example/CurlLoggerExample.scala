@@ -5,12 +5,13 @@ import scala.annotation.nowarn
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 @nowarn("msg=deprecated")
 object CurlLoggerExample extends ZIOAppDefault {
   val program =
     for {
-      client   <- ZIO.service[Client].map(_ @@ ZClientAspect.curlLogger(logEffect = s => ZIO.debug("CURL: " + s)))
+      client <- ZIO.service[ZClient.Client].map(_ @@ ZClientAspect.curlLogger(logEffect = s => ZIO.debug("CURL: " + s)))
       response <- client.request(
         Request
           .post(
@@ -30,5 +31,5 @@ object CurlLoggerExample extends ZIOAppDefault {
       _        <- response.body.asString.debug
     } yield ()
 
-  override val run = program.provide(Client.default, Scope.default)
+  override val run = program.provide(NettyClient.default, Scope.default)
 }

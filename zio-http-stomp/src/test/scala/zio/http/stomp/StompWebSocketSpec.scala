@@ -20,6 +20,8 @@ import zio._
 import zio.test._
 
 import zio.http._ // Import syntax extensions
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 /**
  * Tests for STOMP protocol over WebSocket
@@ -56,7 +58,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 
@@ -141,7 +143,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 
@@ -234,7 +236,7 @@ object StompWebSocketSpec extends ZIOSpecDefault {
 
       for {
         port     <- Server.installRoutes(routes)
-        client   <- ZIO.service[Client]
+        client   <- ZIO.service[ZClient.Client]
         messages <- Ref.make(List.empty[StompFrame])
         url = URL.decode(s"ws://localhost:$port/stomp").toOption.get
 
@@ -280,8 +282,8 @@ object StompWebSocketSpec extends ZIOSpecDefault {
       }
     } @@ TestAspect.withLiveClock,
   ).provide(
-    Server.default,
-    Client.default,
+    NettyServer.default,
+    NettyClient.default,
     Scope.default,
   ) @@ TestAspect.sequential
 }

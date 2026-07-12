@@ -493,43 +493,6 @@ Routes(
 )
 ```
 
-### Websocket
-
-The `Handler.webSocket` constructor takes a function of type `WebSocketChannel => ZIO[Env, Throwable, Any]` and returns a `Handler` that handles the WebSocket requests.
-
-```scala
-object Handler {
-  final def webSocket[Env](
-    f: WebSocketChannel => ZIO[Env, Throwable, Any],
-  ): WebSocketApp[Env] = ???
-}
-```
-
-The following example shows how to create an echo server using the `Handler.webSocket` constructor:
-
-```scala mdoc:compile-only
-import zio.http._
-import zio.http.ChannelEvent._
-
-Routes(
-  Method.GET / "websocket" ->
-    handler {
-      Handler.webSocket { channel =>
-        channel.receiveAll {
-          case Read(WebSocketFrame.Text(text)) =>
-            channel.send(Read(WebSocketFrame.Text(text)))
-          case _                               => 
-            ZIO.unit
-        }
-      }.toResponse
-    }
-)
-```
-
-:::note
-To be able to create a complete route, we need to convert the `WebSocketApp` to a `Response` using the `toResponse` method.
-:::
-
 ### Stack Trace
 
 By using `Handler.stackTrace` we can create a `Handler` that captures the ZIO stack trace at the current point:
@@ -628,12 +591,13 @@ The `Handler#toRoutes` operator, converts a handler to an `Routes` to be served 
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorldServer extends ZIOAppDefault {
   def run =
     Server
       .serve(Handler.fromResponse(Response.text("Hello, world!")).toRoutes)
-      .provide(Server.default)
+      .provide(NettyServer.default)
 }
 ```
 

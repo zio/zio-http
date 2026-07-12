@@ -95,6 +95,10 @@ You can also update existing data in the store using `RequestStore#update`.
 RequestStore is used internally by `forwardHeaders` to store headers that should be forwarded to outgoing requests. For example, the following route forwards the `X-Request-Id` header to the downstream service when calling it:
 
 ```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.ZClient.Client
+
 val routes = Routes(
   Method.GET / "users" -> handler { (req: Request) =>
     for {

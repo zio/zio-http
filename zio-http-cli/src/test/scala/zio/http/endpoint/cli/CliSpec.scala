@@ -46,15 +46,14 @@ object CliSpec extends ZIOSpecDefault {
 
   val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint, pathParamEndpoint)
 
-  val testClient: ZLayer[Any, Nothing, TestClient & Client] =
+  val testClient: ZLayer[Any, Nothing, TestClient & ZClient.Client] =
     ZLayer.scopedEnvironment {
       for {
         behavior         <- Ref.make[Routes[Any, Response]](Routes.empty)
-        socketBehavior   <- Ref.make[WebSocketApp[Any]](WebSocketApp(Handler.unit))
         fallbackBehavior <- Ref.make[Handler[Any, Response, Request, Response]](
           handler((req: Request) => ZIO.logWarning(s"Unexpected request route: ${req}").as(Response.notFound)),
         )
-        driver = TestClient(behavior, socketBehavior, fallbackBehavior)
+        driver = TestClient(behavior, fallbackBehavior)
         _ <- driver.addRoutes {
           Routes(
             Method.GET / "fromURL" -> handler(Response.text("342.76")),
@@ -110,7 +109,7 @@ object CliSpec extends ZIOSpecDefault {
             Method.ANY / trailing  -> handler(Response.text("not received")),
           )
         }
-      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
+      } yield ZEnvironment[TestClient, ZClient.Client](driver, ZClient.fromDriver(driver))
     }
 
   val cliApp: CliApp[Any, Throwable, Response] =

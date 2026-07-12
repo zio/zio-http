@@ -3,7 +3,6 @@ package zio.http
 import zio._
 
 import zio.http.netty.NettyConfig
-import zio.http.netty.server.NettyDriver
 
 /**
  * Enables tests that make calls against "localhost" with user-specified
@@ -29,21 +28,21 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *   TestServer.addRequestResponse(Request.get(url = URL.root.port(port = ???)), Response(Status.Ok))
    *   }}}
    */
-  def addRequestResponse(
-    expectedRequest: Request,
-    response: Response,
-  ): ZIO[Any, Nothing, Unit] = {
-    addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
-      if (
-        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-        //    expectedRequest == realRequest
-        expectedRequest.url.relative == realRequest.url &&
-        expectedRequest.method == realRequest.method &&
-        expectedRequest.headers.forall(expectedHeader => realRequest.hasHeader(expectedHeader))
-      ) response
-      else Response.notFound
-    })
-  }
+   def addRequestResponse(
+     expectedRequest: Request,
+     response: Response,
+   ): ZIO[Any, Nothing, Unit] = {
+     addRoute(RoutePattern(expectedRequest.method, expectedRequest.path) -> handler { (realRequest: Request) =>
+       if (
+         // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+         //    expectedRequest == realRequest
+         expectedRequest.url.relative == realRequest.url &&
+         expectedRequest.method == realRequest.method &&
+         expectedRequest.headers.toList.forall { case (name, value) => realRequest.headers.rawGet(name).contains(value) }
+       ) response
+       else Response.notFound
+     })
+   }
 
   /**
    * Adds a new route to the Server
@@ -142,8 +141,7 @@ object TestServer {
   val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
     TestServer.layer.orDie,
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-    NettyDriver.customized.orDie,
-    ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+    _root_.zio.http.netty.server.live.orDie,
   )
 
 }

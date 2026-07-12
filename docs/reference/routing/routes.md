@@ -203,10 +203,11 @@ We can use `Server.serve()` method to bootstrap the server with an instance of `
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object HelloWorld extends ZIOAppDefault {
   val routes: Routes[Any, Response] = Handler.ok.toRoutes
 
-  override def run = Server.serve(routes).provide(Server.default)
+  override def run = Server.serve(routes).provide(NettyServer.default)
 } 
 ```

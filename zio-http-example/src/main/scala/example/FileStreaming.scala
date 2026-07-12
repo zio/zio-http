@@ -10,6 +10,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object FileStreaming extends ZIOAppDefault {
 
@@ -30,5 +31,5 @@ object FileStreaming extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(app).provide(Server.default)
+    Server.serve(app).provide(NettyServer.default)
 }

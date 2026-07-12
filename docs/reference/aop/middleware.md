@@ -261,7 +261,7 @@ The `Middleware.metrics` middleware is used to collect metrics about the HTTP re
 
 In the following example, we are going to serve two HTTP apps. One app is a backend that has some routes and the other app is a metrics app that serves the Prometheus metrics. We have attached the `Middleware.metrics` middleware to the backend using the `@@` operator.
 
-In this example we used the Prometheus connector, so we need to add the following dependencies to the `build.sbt` file:
+In this example we used the Prometheus connector, so we need to add the following dependencies to the build:
 
 ```scala
 libraryDependencies ++= Seq(

@@ -594,10 +594,7 @@ git sparse-checkout set zio-http-example-jwt-bearer-refresh-token-auth
 
 To run the authentication server:
 
-```bash
-cd zio-http/zio-http-example-jwt-bearer-refresh-token-auth
-sbt "runMain example.auth.bearer.jwt.refresh.AuthenticationServer"
-```
+Run the `example.auth.bearer.jwt.refresh.AuthenticationServer` main class from the `zio-http-example-jwt-bearer-refresh-token-auth` example project with your build tool.
 
 The server starts on `http://localhost:8080` with these test users:
 
@@ -611,10 +608,7 @@ The server starts on `http://localhost:8080` with these test users:
 
 Run the command-line client (ensure server is running):
 
-```bash
-cd zio-http/zio-http-example-jwt-bearer-refresh-token-auth
-sbt "runMain example.auth.bearer.jwt.refresh.AuthenticationClient"
-```
+Run the `example.auth.bearer.jwt.refresh.AuthenticationClient` main class from the `zio-http-example-jwt-bearer-refresh-token-auth` example project with your build tool.
 
 ### Web-Based Client
 
@@ -622,9 +616,7 @@ To demonstrate the refresh token authentication flow in a web client, we've crea
 
 First, start the `AuthenticationServer`, which provides the authentication API and serves the HTML client (`jwt-client-with-refresh-token.html`) located in the resource folder:
 
-```bash
-sbt "runMain example.auth.bearer.jwtrefresh.AuthenticationServer"
-```
+Run the `example.auth.bearer.jwt.refresh.AuthenticationServer` main class from the `zio-http-example-jwt-bearer-refresh-token-auth` example project with your build tool.
 
 Then open [http://localhost:8080](http://localhost:8080) in your browser to interact with the system using predefined credentials. You can log in, view your profile, manually refresh tokens, and log out, showcasing the full JWT bearer and refresh token authentication flow with automatic token refresh on expired access tokens.
 

@@ -5,6 +5,8 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 import org.openjdk.jmh.annotations._
 import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
@@ -67,12 +69,12 @@ class ServerInboundHandlerBenchmark {
       shutdownSignal <- Promise.make[Nothing, Unit]
       fiber          <- Server.serve(http(shutdownSignal)).fork
       _              <- shutdownSignal.await *> fiber.interrupt
-    } yield ()).provideLayer(Server.default)
+    } yield ()).provideLayer(NettyServer.default)
 
     val waitForServerStarted: Task[Unit] = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(Request(url = URL.decode(testUrl).toOption.get))
-    } yield ()).provide(ZClient.default)
+    } yield ()).provide(NettyClient.default)
 
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.fork(startServer))
     Unsafe.unsafe(implicit u =>
@@ -83,9 +85,9 @@ class ServerInboundHandlerBenchmark {
   @TearDown(Level.Trial)
   def tearDown(): Unit = {
     val stopServer = (for {
-      client <- ZIO.service[Client]
+      client <- ZIO.service[ZClient.Client]
       _      <- client.batched(Request(url = URL.decode(shutdownUrl).toOption.get))
-    } yield ()).provide(ZClient.default)
+    } yield ()).provide(NettyClient.default)
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(stopServer).getOrThrow())
   }
 

@@ -13,6 +13,8 @@ import zio.stream.ZStream
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 object ServerSentEventEndpoint extends ZIOAppDefault {
 
@@ -30,7 +32,7 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
     sseRoute.toRoutes @@ Middleware.requestLogging(logRequestBody = true) @@ Middleware.debug
 
   override def run = {
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
   }
 
 }
@@ -44,10 +46,10 @@ object ServerSentEventEndpointClient extends ZIOAppDefault {
   override def run =
     ZIO
       .scoped(for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         executor = EndpointExecutor(client, url"http://localhost:8080")
         stream <- executor(invocation)
         _      <- stream.foreach(event => ZIO.logInfo(event.data))
       } yield ())
-      .provide(ZClient.default)
+      .provide(NettyClient.default)
 }

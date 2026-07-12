@@ -11,6 +11,8 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.netty.client.NettyClient
+import zio.http.netty.server.NettyServer
 
 import example.SSEServer.Environment
 
@@ -26,7 +28,7 @@ object SSEServer extends ZIOAppDefault {
     )
 
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 }
 
 object SSEClient extends ZIOAppDefault {
@@ -34,7 +36,7 @@ object SSEClient extends ZIOAppDefault {
   override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
     (
       for {
-        client <- ZIO.service[Client]
+        client <- ZIO.service[ZClient.Client]
         _      <-
           client
             .url(url"http://localhost:8080")
@@ -48,5 +50,5 @@ object SSEClient extends ZIOAppDefault {
               }
             }
       } yield ()
-    ).provide(ZClient.default)
+    ).provide(NettyClient.default)
 }

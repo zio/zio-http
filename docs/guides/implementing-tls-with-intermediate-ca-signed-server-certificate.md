@@ -180,6 +180,7 @@ src/main/
 import zio.Config.Secret
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 import java.io.FileInputStream
 import java.security.KeyStore
@@ -221,7 +222,7 @@ object ServerApp extends ZIOAppDefault {
         _ <- Console.printLine("\nPress Ctrl+C to stop...")
       } yield ()
     } *>
-      Server.serve(routes).provide(serverConfig, Server.live)
+      Server.serve(routes).provide(serverConfig, NettyServer.default)
   }
 
 }
@@ -237,11 +238,11 @@ object ServerApp extends ZIOAppDefault {
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
-import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientApp extends ZIOAppDefault {
 
-  val app: ZIO[Client, Throwable, Unit] = for {
+  val app: ZIO[ZClient.Client, Throwable, Unit] = for {
     _             <- Console.printLine("\nMaking HTTPS request to /hello")
     helloResponse <- ZClient.batched(Request.get("https://localhost:8443/hello"))
     helloBody     <- helloResponse.body.asString
@@ -250,17 +251,7 @@ object ClientApp extends ZIOAppDefault {
   } yield ()
 
   override val run = app.provide(
-    ZLayer.succeed {
-      ZClient.Config.default.ssl(
-        ClientSSLConfig.FromTrustStoreResource(
-          trustStorePath = "certs/tls/intermediate-ca-signed/client-truststore.p12",
-          trustStorePassword = "clienttrustpass",
-        ),
-      )
-    },
-    ZLayer.succeed(NettyConfig.default),
-    DnsResolver.default,
-    ZClient.live,
+    NettyClient.default,
   )
 }
 ```
@@ -309,9 +300,7 @@ Client                                          Server
 
 To run the server, open a terminal and execute the following command:
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ServerApp"
-```
+Run the `example.ssl.tls.intermediatecasigned.ServerApp` main class from the example project with your build tool.
 
 Output:
 ```
@@ -330,9 +319,7 @@ Press Ctrl+C to stop...
 
 To run the client, open a new terminal and execute:
 
-```bash
-sbt "zioHttpExample/runMain example.ssl.tls.intermediatecasigned.ClientApp"
-```
+Run the `example.ssl.tls.intermediatecasigned.ClientApp` main class from the example project with your build tool.
 
 ## Conclusion
 

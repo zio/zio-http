@@ -7,6 +7,7 @@ import zio._
 import zio.http._
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
+import zio.http.netty.server.NettyServer
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -46,6 +47,6 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
   override val run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
-    Server.serve(routes).provide(configLayer, nettyConfigLayer, Server.customized)
+    Server.serve(routes).provide(configLayer, nettyConfigLayer, NettyServer.customized)
 
 }

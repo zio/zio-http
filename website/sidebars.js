@@ -63,7 +63,7 @@ const sidebars = {
         },
       ],
     },
-    "reference/template",
+    "reference/body/template",
     {
       type: "category",
       label: "Declarative Endpoints",
@@ -93,13 +93,6 @@ const sidebars = {
       ],
     },
 
-    // WebSocket subsection
-    {
-      type: "category",
-      label: "WebSocket",
-      items: ["reference/socket/socket", "reference/socket/websocketframe"],
-    },
-
     // Configs subsection
     {
       type: "category",
@@ -112,8 +105,7 @@ const sidebars = {
         "reference/configs/openapi",
         "reference/configs/netty",
       ],
-    },
-    "reference/datastar-sdk/index"
+    }
   ],
 
   examples: [
@@ -123,7 +115,6 @@ const sidebars = {
     "examples/https-client-server",
     "examples/serving-static-files",
     "examples/html-templating",
-    "examples/websocket",
     "examples/streaming",
     "examples/endpoint",
     "examples/endpoint-scala3",
@@ -152,14 +143,6 @@ const sidebars = {
           "guides/authentication-with-a-third-party-oauth-provider",
           "guides/passwordless-authentication-with-webauthn",
        ],
-     },
-     {
-        type: "category",
-        collapsed: false,
-        label: "Datastar",
-        items: [
-           "guides/real-time-chat-with-datastar",
-        ],
      },
      {
         type: "category",

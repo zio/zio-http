@@ -31,7 +31,7 @@ When the server receives a request with this header, it decodes the credentials 
 
 ## Setting Up Dependencies
 
-First, add the necessary dependencies to our `build.sbt`:
+First, add the necessary dependencies to your build:
 
 ```scala 
 libraryDependencies ++= Seq(
@@ -132,6 +132,8 @@ Here's how we combine everything into a complete application:
 import zio.Config.Secret
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
+import zio.http.netty.client.NettyClient
 
 object AuthenticationServer extends ZIOAppDefault {
   val basicAuthWithUserContext: HandlerAspect[Any, User] =
@@ -172,7 +174,7 @@ object AuthenticationServer extends ZIOAppDefault {
       } @@ basicAuthWithUserContext,
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default)
+  override val run = Server.serve(routes).provide(NettyServer.default)
 
 }
 ```
@@ -230,6 +232,7 @@ We can create a simple client to test the Basic Authentication implementation:
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.netty.client.NettyClient
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -244,7 +247,7 @@ object AuthenticationClient extends ZIOAppDefault {
       _         <- Console.printLine(s"Response: $body")
     } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(NettyClient.default)
 }
 ```
 
@@ -411,7 +414,7 @@ object AuthenticationServer extends ZIOAppDefault {
       } @@ basicAuthWithUserContext,
     ) @@ Middleware.debug
 
-  override val run = Server.serve(routes).provide(Server.default, InMemoryUserService.live)
+  override val run = Server.serve(routes).provide(NettyServer.default, InMemoryUserService.live)
   
 }
 ```
@@ -480,10 +483,7 @@ The example contains the following files:
 
 To run the authentication server:
 
-```bash
-cd zio-http
-sbt "zio-http-example/runMain example.auth.basic.AuthenticationServer"
-```
+Run the `example.auth.basic.AuthenticationServer` main class from the `zio-http-example-basic-auth` example project with your build tool.
 
 The server will start on `http://localhost:8080` with the following test users:
 
@@ -497,9 +497,7 @@ The server will start on `http://localhost:8080` with the following test users:
 
 To run the command-line client (make sure the server is running first):
 
-```bash
-sbt "zio-http-example/runMain example.auth.basic.AuthenticationClient"
-```
+Run the `example.auth.basic.AuthenticationClient` main class from the `zio-http-example-basic-auth` example project with your build tool.
 
 The client will demonstrate:
 1. Accessing a public endpoint (no authentication)

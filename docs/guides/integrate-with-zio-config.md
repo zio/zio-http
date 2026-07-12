@@ -119,6 +119,7 @@ Both `Client` and `Server` have the `default` layer that requires no configurati
 ```scala mdoc:invisible
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 ```
 
 ```scala mdoc:compile-only
@@ -136,6 +137,7 @@ In some cases, we need to customize the client or server settings such as timeou
 ```scala mdoc:invisible
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.netty._
 ```
 
@@ -169,7 +171,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/ServerResponseCompression.scala")
 ```
 
-In the above example, we updated the default server configuration to enable the response compression. Finally, we provided the `Server.live` and our customized config layer to the `Server.serve` method.
+In the above example, we updated the default server configuration to enable the response compression. Finally, we provided the `NettyServer.live` and our customized config layer to the `Server.serve` method.
 
 ### Predefined Configuration Schemas
 
@@ -214,6 +216,7 @@ As the ZIO HTTP provided these configuration schemas by default, we can easily u
 ```scala mdoc:compile-only
 import zio._
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object MainApp extends ZIOAppDefault {
   def run = {
@@ -225,7 +228,7 @@ object MainApp extends ZIOAppDefault {
       )
       .flatMap(port => ZIO.debug(s"Sever started on http://localhost:$port") *> ZIO.never)
       .provide(
-        Server.live,
+        NettyServer.live,
         ZLayer.fromZIO(
           ZIO.config(Server.Config.config.mapKey(_.replace('-', '_'))),
         ),
@@ -262,7 +265,7 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/config/LoadServerConfigFromHoconFile.scala")
 ```
 
-Instead of providing two layers (`Server.live` and `ZLayer.fromZIO(ZIO.config(Server.Config.config))`) to the `Server.serve` method, we can combine them into a single layer using the `Server.configured` layer:
+Instead of providing two layers (`NettyServer.live` and `ZLayer.fromZIO(ZIO.config(Server.Config.config))`) to the `Server.serve` method, we can combine them into a single layer using the `NettyServer.configured` layer:
 
 ```scala mdoc:passthrough
 import utils._
@@ -279,6 +282,7 @@ If we need to have more control, the `Server` and `Client` companion objects hav
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
 import zio.http.netty._
 ```
 

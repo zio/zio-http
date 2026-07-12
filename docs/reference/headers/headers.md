@@ -192,11 +192,12 @@ Example below shows how the Headers could be added to a response by using `Respo
 import zio._
 import zio.http._
 import zio.stream._
+import zio.http.netty.server.NettyServer
 
 object SimpleResponseDispatcher extends ZIOAppDefault {
   override def run =
     // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.serve(routes).provide(Server.default)
+    Server.serve(routes).provide(NettyServer.default)
 
   // Create a message as a Chunk[Byte]
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
@@ -233,14 +234,22 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
 ZIO HTTP provides a simple way to add headers to a client `Request`.
 
 ```scala mdoc:silent
+import zio._
+import zio.http._
+import zio.http.ZClient
+
 val headers = Headers(Header.Host("jsonplaceholder.typicode.com"), Header.Accept(MediaType.application.json))
-Client.batched(Request.get("https://jsonplaceholder.typicode.com/todos").addHeaders(headers))
+ZClient.batched(Request.get("https://jsonplaceholder.typicode.com/todos").addHeaders(headers))
 ```
 
 ### Reading Headers from Response
 
 ```scala mdoc:silent
-Client.batched(Request.get("https://jsonplaceholder.typicode.com/todos")).map(_.headers)
+import zio._
+import zio.http._
+import zio.http.ZClient
+
+ZClient.batched(Request.get("https://jsonplaceholder.typicode.com/todos")).map(_.headers)
 ```
 
 <details>
@@ -251,6 +260,8 @@ The sample below shows how a header could be added to a client request:
 ```scala mdoc:silent
 import zio._
 import zio.http._
+import zio.http.ZClient.Client
+import zio.http.netty.client.NettyClient
 
 object SimpleClientJson extends ZIOAppDefault {
   val url = "https://jsonplaceholder.typicode.com/todos"
@@ -259,7 +270,7 @@ object SimpleClientJson extends ZIOAppDefault {
 
   val program = for {
     // Pass headers to request
-    res <- Client.batched(Request.get(url).addHeaders(headers))
+    res <- ZClient.batched(Request.get(url).addHeaders(headers))
     // List all response headers
     _ <- Console.printLine(res.headers.toList.mkString("\n"))
     data <-
@@ -272,7 +283,7 @@ object SimpleClientJson extends ZIOAppDefault {
   } yield ()
 
   override def run =
-    program.provide(Client.default)
+    program.provide(NettyClient.default)
 
 }
 ```

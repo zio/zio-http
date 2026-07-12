@@ -10,6 +10,7 @@ import zio.schema.codec.JsonCodec._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 case class Book(title: String, authors: List[String])
 
@@ -57,7 +58,7 @@ object ObjectMapperExample extends ZIOAppDefault {
     Server
       .serve(routes)
       .provide(
-        Server.default,
+        NettyServer.default,
         ZLayer.fromZIO(Ref.make(List(Person("John Doe", 42)))),
       )
 }

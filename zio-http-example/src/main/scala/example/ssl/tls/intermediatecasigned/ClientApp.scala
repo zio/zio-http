@@ -4,10 +4,11 @@ import zio._
 
 import zio.http._
 import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClient
 
 object ClientApp extends ZIOAppDefault {
 
-  val app: ZIO[Client, Throwable, Unit] = for {
+  val app: ZIO[ZClient.Client, Throwable, Unit] = for {
     _             <- Console.printLine("\nMaking HTTPS request to /hello")
     helloResponse <- ZClient.batched(Request.get("https://localhost:8443/hello"))
     helloBody     <- helloResponse.body.asString
@@ -26,6 +27,6 @@ object ClientApp extends ZIOAppDefault {
     },
     ZLayer.succeed(NettyConfig.default),
     DnsResolver.default,
-    ZClient.live,
+    NettyClient.live,
   )
 }

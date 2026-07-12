@@ -5,6 +5,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ServerResponseCompression extends ZIOAppDefault {
   val routes = Routes(
@@ -17,5 +18,5 @@ object ServerResponseCompression extends ZIOAppDefault {
     ),
   )
 
-  def run = Server.serve(routes).provide(Server.live, config)
+  def run = Server.serve(routes).provide(NettyServer.live, config)
 }

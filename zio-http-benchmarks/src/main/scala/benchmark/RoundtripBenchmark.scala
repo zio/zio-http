@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 import org.openjdk.jmh.annotations._
 
@@ -21,7 +22,7 @@ class RoundtripBenchmark {
     url = url"http://localhost:8080/test",
   )
 
-  val server = Server.serve(routes).provide(Server.defaultWithPort(8080), ErrorResponseConfig.debugLayer)
+  val server = Server.serve(routes).provide(NettyServer.defaultWithPort(8080), ErrorResponseConfig.debugLayer)
 
   unsafeRun(server.forkDaemon)
 
