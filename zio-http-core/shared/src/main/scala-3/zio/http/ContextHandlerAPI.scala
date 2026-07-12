@@ -12,8 +12,8 @@ import scala.quoted.*
  *   }
  * }}}
  *
- * This generates a `Handler.extracted[AuthContext & RequestId, Any]`
- * that extracts context values via `ctx.get[T]` at runtime.
+ * This generates a `Handler.extracted[AuthContext & RequestId, Any]` that
+ * extracts context values via `ctx.get[T]` at runtime.
  */
 transparent inline def contextHandler[H](inline h: H): Handler[?, ?] =
   ${ ContextHandlerMacro.impl[H]('h) }

@@ -19,67 +19,62 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
   implicit val userIsNominal: IsNominalType[User] = IsNominalType.derived[User]
 
   def spec = suite("AuthMiddleware")(
-
     suite("basicAuth")(
       test("allows valid credentials") {
-        val mw = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw      = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
+        val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "pass"))
         assertTrue(runSingle(app, authReq) == responseAsResult(Response.text("ok")))
       },
       test("rejects invalid credentials") {
-        val mw = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw      = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
+        val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "wrong"))
         assertTrue(runSingle(app, authReq).isInstanceOf[Halt])
       },
       test("rejects missing header") {
-        val mw = Middleware.basicAuth(validate = (_, _) => true)
+        val mw  = Middleware.basicAuth(validate = (_, _) => true)
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app).isInstanceOf[Halt])
       },
     ),
-
     suite("bearerAuth")(
       test("allows valid token") {
-        val mw = Middleware.bearerAuth(validate = t => t == "secret-token")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw      = Middleware.bearerAuth(validate = t => t == "secret-token")
+        val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("secret-token"))
         assertTrue(runSingle(app, authReq) == responseAsResult(Response.text("ok")))
       },
       test("rejects invalid token") {
-        val mw = Middleware.bearerAuth(validate = t => t == "secret-token")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw      = Middleware.bearerAuth(validate = t => t == "secret-token")
+        val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("bad-token"))
         assertTrue(runSingle(app, authReq).isInstanceOf[Halt])
       },
     ),
-
     suite("customAuth")(
       test("injects User context on success") {
-        val mw = Middleware.customAuth[User](req => Some(User("alice", "admin")))
+        val mw      = Middleware.customAuth[User](req => Some(User("alice", "admin")))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
       },
       test("rejects with Halt on failure") {
-        val mw = Middleware.customAuth[User](_ => None)
+        val mw      = Middleware.customAuth[User](_ => None)
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped).isInstanceOf[Halt])
       },
     ),
-
     suite("customAuthProviding")(
       test("injects context for every request") {
-        val mw = Middleware.customAuthProviding[User](req => User("bob", "user"))
+        val mw      = Middleware.customAuthProviding[User](req => User("bob", "user"))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
       },
     ),
-
   )
 }
 
-  // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════

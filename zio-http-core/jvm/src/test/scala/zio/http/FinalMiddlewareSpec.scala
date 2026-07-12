@@ -16,115 +16,103 @@ object FinalMiddlewareSpec extends ZIOSpecDefault {
     routes.routes.toList.head.handler.handle(request, Context.empty.asInstanceOf[Context[Ctx]], (), Scope.global)
 
   def spec = suite("FinalMiddleware")(
-
     suite("addHeader")(
       test("adds header to response") {
-        val mw = Middleware.addHeader("X-Custom", "test")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw     = Middleware.addHeader("X-Custom", "test")
+        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val result = runSingle(app)
         assertTrue(result match {
           case r: Response => r.headers.has("X-Custom")
-          case _ => false
+          case _           => false
         })
       },
     ),
-
     suite("updateHeaders")(
       test("modifies response headers") {
-        val mw = Middleware.updateHeaders(_.add("X-Modified", "yes"))
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw     = Middleware.updateHeaders(_.add("X-Modified", "yes"))
+        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val result = runSingle(app)
         assertTrue(result match {
           case r: Response => r.headers.has("X-Modified")
-          case _ => false
+          case _           => false
         })
       },
     ),
-
     suite("removeHeader")(
       test("removes response header") {
-        val mw = Middleware.removeHeader("content-type")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw     = Middleware.removeHeader("content-type")
+        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val result = runSingle(app)
         assertTrue(result match {
           case r: Response => !r.headers.has("content-type")
-          case _ => false
+          case _           => false
         })
       },
     ),
-
     suite("appendPath")(
       test("appends segment to request path") {
-        val mw = Middleware.appendPath("extra")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val mw     = Middleware.appendPath("extra")
+        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val result = runSingle(app)
         assertTrue(result == responseAsResult(Response.text("ok")))
       },
     ),
-
     suite("prependPath")(
       test("prepends segment to request path") {
-        val mw = Middleware.prependPath("prefix")
+        val mw  = Middleware.prependPath("prefix")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
     ),
-
     suite("dropTrailingSlash")(
       test("runs without error") {
-        val mw = Middleware.dropTrailingSlash
+        val mw  = Middleware.dropTrailingSlash
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
     ),
-
     suite("runBefore")(
       test("passes through when effect returns None") {
-        val mw = Middleware.runBefore(_ => None)
+        val mw  = Middleware.runBefore(_ => None)
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
     ),
-
     suite("runAfter")(
       test("modifies response via after-effect") {
-        val mw = Middleware.runAfter((_, _) => Response.text("modified"))
+        val mw  = Middleware.runAfter((_, _) => Response.text("modified"))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("modified")))
       },
     ),
-
     suite("redirect")(
       test("returns redirect response") {
-        val mw = Middleware.redirect(Status.fromInt(302), "/new-location")
+        val mw  = Middleware.redirect(Status.fromInt(302), "/new-location")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app).isInstanceOf[Halt])
       },
     ),
-
     suite("status")(
       test("intercepts matching status") {
-        val mw = Middleware.status(s => s == Status.Ok, _ => Response.text("intercepted"))
+        val mw  = Middleware.status(s => s == Status.Ok, _ => Response.text("intercepted"))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) match {
           case r: Response => true
-          case _ => true
+          case _           => true
         })
       },
     ),
-
     suite("requestDump / responseDump")(
       test("requestDump runs without error") {
-        val mw = Middleware.requestDump(_ => ())
+        val mw  = Middleware.requestDump(_ => ())
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
       test("responseDump runs without error") {
-        val mw = Middleware.responseDump(_ => ())
+        val mw  = Middleware.responseDump(_ => ())
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
     ),
-
   )
 }
