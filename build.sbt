@@ -187,7 +187,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(Shading.shadingSettings())
   .settings(
     autoCompilerPlugins := true,
-    libraryDependencies ++= unroll,
+    libraryDependencies += unroll,
     addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
   )
   .settings(
