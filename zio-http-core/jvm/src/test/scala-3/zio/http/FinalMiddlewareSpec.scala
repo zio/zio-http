@@ -97,8 +97,8 @@ object FinalMiddlewareSpec extends ZIOSpecDefault {
         val mw  = Middleware.status(s => s == Status.Ok, _ => Response.text("intercepted"))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) match {
-          case r: Response => true
-          case _           => true
+          case r: Response => r.body == Response.text("intercepted").body
+          case _           => false
         })
       },
     ),

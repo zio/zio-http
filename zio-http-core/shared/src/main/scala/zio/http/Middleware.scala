@@ -18,14 +18,15 @@ object Middleware {
     def apply(routes: Routes[Ctx]): Routes[Ctx] = routes
   }
 
-
   // ═══════════════════════════════════════════════════════════════════
   // AUTH
   // ═══════════════════════════════════════════════════════════════════
 
-  def customAuth[Session](validate: Request => Either[Response, Session])(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+  def customAuth[Session](
+    validate: Request => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
     new Middleware[Any, Session] {
-      def apply(routes: Routes[Session]): Routes[Any] =
+      def apply(routes: Routes[Session]): Routes[Any]       =
         Routes.fromIterable(routes.routes.map(secure))
       private def secure(route: Route[Session]): Route[Any] = {
         val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
@@ -38,7 +39,9 @@ object Middleware {
       }
     }
 
-  def basicAuth[Session](validate: Header.Authorization.Basic => Either[Response, Session])(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+  def basicAuth[Session](
+    validate: Header.Authorization.Basic => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
     customAuth { request =>
       request.header(Header.Authorization) match {
         case Some(basic: Header.Authorization.Basic) => validate(basic)
@@ -46,7 +49,9 @@ object Middleware {
       }
     }
 
-  def bearerAuth[Session](validate: Header.Authorization.Bearer => Either[Response, Session])(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+  def bearerAuth[Session](
+    validate: Header.Authorization.Bearer => Either[Response, Session],
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
     customAuth { request =>
       request.header(Header.Authorization) match {
         case Some(bearer: Header.Authorization.Bearer) => validate(bearer)
@@ -55,12 +60,15 @@ object Middleware {
     }
 
   // legacy non-generic overloads kept for backward compat (not used by tests)
-  def basicAuth(realm: String = "Access to the resource", validate: (String, String) => Boolean): Middleware[Any, Any] = {
+  def basicAuth(
+    realm: String = "Access to the resource",
+    validate: (String, String) => Boolean,
+  ): Middleware[Any, Any] = {
     val wwwAuth = Header.WWWAuthenticate("Basic", Map("realm" -> realm))
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             req.header(Header.Authorization) match {
               case Some(Header.Authorization.Basic(u, p)) if validate(u, p) => next.handle(req, ctx, vars, scope)
@@ -77,7 +85,7 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             req.header(Header.Authorization) match {
               case Some(Header.Authorization.Bearer(token)) if validate(token) => next.handle(req, ctx, vars, scope)
@@ -89,18 +97,19 @@ object Middleware {
     }
   }
 
-  def customAuth[A](validate: Request => Option[A], realm: String = "Access to the resource")(
-    implicit ev: IsNominalType[A],
-  ): Middleware[A, Any] = {
+  def customAuth[A](validate: Request => Option[A], realm: String = "Access to the resource")(implicit
+    ev: IsNominalType[A],
+  ): Middleware[Any, A] = {
     val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> realm))
-    new Middleware[A, Any] {
-      def apply(routes: Routes[Any]): Routes[A] =
+    new Middleware[Any, A] {
+      def apply(routes: Routes[A]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler.asInstanceOf[Handler[A, Any]]
-          val wrapped = Handler.extracted[A, Any] { (req, ctx, vars, scope) =>
+          val next    = route.handler.asInstanceOf[Handler[A, Any]]
+          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             validate(req) match {
-              case Some(a) => next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
-              case None => Halt(Response.unauthorized.addHeader(wwwAuth))
+              case Some(a) =>
+                next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
+              case None    => Halt(Response.unauthorized.addHeader(wwwAuth))
             }
           }
           Route(route.pattern, wrapped)
@@ -108,12 +117,12 @@ object Middleware {
     }
   }
 
-  def customAuthProviding[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[A, Any] =
-    new Middleware[A, Any] {
-      def apply(routes: Routes[Any]): Routes[A] =
+  def customAuthProviding[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[Any, A] =
+    new Middleware[Any, A] {
+      def apply(routes: Routes[A]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler.asInstanceOf[Handler[A, Any]]
-          val wrapped = Handler.extracted[A, Any] { (req, ctx, vars, scope) =>
+          val next    = route.handler.asInstanceOf[Handler[A, Any]]
+          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val a = provide(req)
             next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
           }
@@ -121,7 +130,7 @@ object Middleware {
         })
     }
 
-  def customAuthProvidingWith[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[A, Any] =
+  def customAuthProvidingWith[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[Any, A] =
     customAuthProviding(provide)(using ev)
 
   // ═══════════════════════════════════════════════════════════════════
@@ -132,7 +141,7 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             interceptor(req) match {
               case Some(result) => result
@@ -143,15 +152,18 @@ object Middleware {
         })
     }
 
-  def interceptPatch(interceptor: Request => Option[Response | Halt], patcher: Response => Response = Predef.identity): Middleware[Any, Any] =
+  def interceptPatch(
+    interceptor: Request => Option[Response | Halt],
+    patcher: Response => Response = Predef.identity,
+  ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             interceptor(req) match {
               case Some(result) => result
-              case None =>
+              case None         =>
                 foldResult(next.handle(req, ctx, vars, scope))(r => patcher(r), h => h)
             }
           }
@@ -163,7 +175,7 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             logger(s"> ${req.method} ${req.url}")
             val result = next.handle(req, ctx, vars, scope)
@@ -178,10 +190,10 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val start = System.nanoTime()
-            val result = next.handle(req, ctx, vars, scope)
+            val start   = System.nanoTime()
+            val result  = next.handle(req, ctx, vars, scope)
             val elapsed = System.nanoTime() - start
             reporter(req.method, req.url.toString, elapsed)
             result
@@ -198,26 +210,38 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            if (predicate(req)) {
-              val single = Routes(Route(route.pattern, Handler.extracted[Any, Any] { (_, _, _, _) => next.handle(req, ctx, vars, scope) }))
-              middleware(single).routes.toList.head.handler.handle(req, ctx, vars, scope)
-            } else next.handle(req, ctx, vars, scope)
+          val next        = route.handler
+          val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            next.handle(req, ctx, vars, scope)
+          }
+          val mwRoute     = Route(route.pattern, passthrough)
+          val applied     = middleware(Routes(mwRoute)).routes.toList.head.handler
+          val wrapped     = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            if (predicate(req)) applied.handle(req, ctx, vars, scope)
+            else next.handle(req, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
         })
     }
 
-  def ifRequestThenElse(predicate: Request => Boolean, onTrue: Middleware[Any, Any], onFalse: Middleware[Any, Any]): Middleware[Any, Any] =
+  def ifRequestThenElse(
+    predicate: Request => Boolean,
+    onTrue: Middleware[Any, Any],
+    onFalse: Middleware[Any, Any],
+  ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val selected = if (predicate(req)) onTrue else onFalse
-            val single = Routes(Route(route.pattern, Handler.extracted[Any, Any] { (_, _, _, _) => next.handle(req, ctx, vars, scope) }))
-            selected(single).routes.toList.head.handler.handle(req, ctx, vars, scope)
+          val next         = route.handler
+          val passthrough  = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            next.handle(req, ctx, vars, scope)
+          }
+          val mwRoute      = Route(route.pattern, passthrough)
+          val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.head.handler
+          val falseApplied = onFalse(Routes(mwRoute)).routes.toList.head.handler
+          val wrapped      = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            if (predicate(req)) trueApplied.handle(req, ctx, vars, scope)
+            else falseApplied.handle(req, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
         })
@@ -228,15 +252,18 @@ object Middleware {
 
   def methods(mapping: (Method, Middleware[Any, Any])*): Middleware[Any, Any] = {
     val default: Middleware[Any, Any] = Middleware.identity[Any]
-    val map = mapping.toMap
+    val map                           = mapping.toMap
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+          val next        = route.handler
+          val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            next.handle(req, ctx, vars, scope)
+          }
+          val mwRoute     = Route(route.pattern, passthrough)
+          val wrapped     = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val mw = map.getOrElse(req.method, default)
-            val single = Routes(Route(route.pattern, Handler.extracted[Any, Any] { (_, _, _, _) => next.handle(req, ctx, vars, scope) }))
-            mw(single).routes.toList.head.handler.handle(req, ctx, vars, scope)
+            mw(Routes(mwRoute)).routes.toList.head.handler.handle(req, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
         })
@@ -249,7 +276,8 @@ object Middleware {
 
   final case class CorsConfig(
     allowedOrigins: Set[String] = Set("*"),
-    allowedMethods: Set[zio.http.Method] = Set(Method.GET, Method.POST, Method.PUT, Method.DELETE, Method.PATCH, Method.OPTIONS),
+    allowedMethods: Set[zio.http.Method] =
+      Set(Method.GET, Method.POST, Method.PUT, Method.DELETE, Method.PATCH, Method.OPTIONS),
     allowedHeaders: Set[String] = Set("Content-Type", "Authorization", "X-Requested-With"),
     exposedHeaders: Set[String] = Set.empty,
     allowCredentials: Boolean = true,
@@ -257,19 +285,22 @@ object Middleware {
   )
 
   def cors(config: CorsConfig = CorsConfig()): Middleware[Any, Any] = {
-    val methodsVal = zio.blocks.chunk.Chunk.fromIterable(config.allowedMethods)
-    val headersVal = zio.blocks.chunk.Chunk.fromIterable(config.allowedHeaders)
+    val methodsVal       = zio.blocks.chunk.Chunk.fromIterable(config.allowedMethods)
+    val headersVal       = zio.blocks.chunk.Chunk.fromIterable(config.allowedHeaders)
     val exposeHeadersVal = zio.blocks.chunk.Chunk.fromIterable(config.exposedHeaders)
-    val maxAgeSeconds = config.maxAge.getSeconds
+    val maxAgeSeconds    = config.maxAge.getSeconds
 
     def originAllowed(origin: String): Boolean =
       config.allowedOrigins.contains("*") || config.allowedOrigins.contains(origin)
 
     def corsPreflightHeaders(originStr: String): List[Header] = {
-      val originHdr: Header = if (config.allowedOrigins.contains("*"))
-        Header.AccessControlAllowOrigin.All
-      else
-        Header.AccessControlAllowOrigin.Specific(originStr)
+      val originHdr: Header =
+        if (config.allowedOrigins.contains("*") && config.allowCredentials)
+          Header.AccessControlAllowOrigin.Specific(originStr)
+        else if (config.allowedOrigins.contains("*"))
+          Header.AccessControlAllowOrigin.All
+        else
+          Header.AccessControlAllowOrigin.Specific(originStr)
       List(
         originHdr,
         Header.AccessControlAllowMethods(methodsVal),
@@ -284,7 +315,7 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             req.header(Header.Origin) match {
               case Some(origin: Header.Origin) =>
@@ -300,10 +331,10 @@ object Middleware {
                   val hdrs = corsPreflightHeaders(originStr)
                   foldResult(next.handle(req, ctx, vars, scope))(
                     r => hdrs.foldLeft(r)((acc, h) => acc.addHeader(h)),
-                    h => h
+                    h => h,
                   )
                 }
-              case None => next.handle(req, ctx, vars, scope)
+              case None                        => next.handle(req, ctx, vars, scope)
             }
           }
           Route(route.pattern, wrapped)
@@ -326,36 +357,45 @@ object Middleware {
   // ═══════════════════════════════════════════════════════════════════
 
   final case class FlashMap private (values: Map[String, String]) {
-    def get(key: String): Option[String] = values.get(key)
+    def get(key: String): Option[String]  = values.get(key)
     def +(kv: (String, String)): FlashMap = copy(values = values + kv)
-    def isEmpty: Boolean = values.isEmpty
+    def isEmpty: Boolean                  = values.isEmpty
   }
 
   object FlashMap {
-    val empty: FlashMap = FlashMap(Map.empty[String, String])
+    val empty: FlashMap                            = FlashMap(Map.empty[String, String])
     def apply(values: (String, String)*): FlashMap = FlashMap(values.toMap)
-    def fromMap(m: Map[String, String]): FlashMap = FlashMap(m)
+    def fromMap(m: Map[String, String]): FlashMap  = FlashMap(m)
   }
 
   def flashScope()(implicit ev: IsNominalType[FlashMap]): Middleware[FlashMap, Any] =
     new Middleware[FlashMap, Any] {
       def apply(routes: Routes[Any]): Routes[FlashMap] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler.asInstanceOf[Handler[FlashMap, Any]]
+          val next    = route.handler.asInstanceOf[Handler[FlashMap, Any]]
           val wrapped = Handler.extracted[FlashMap, Any] { (req, ctx, vars, scope) =>
             val incomingFlash: Map[String, String] = req.cookies.iterator
               .find(_.name == "flash")
               .map { c =>
-                c.value.split("&").flatMap { pair =>
-                  pair.split("=", 2) match {
-                    case Array(k, v) => Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
-                    case _ => None
+                c.value
+                  .split("&")
+                  .flatMap { pair =>
+                    pair.split("=", 2) match {
+                      case Array(k, v) =>
+                        Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
+                      case _           => None
+                    }
                   }
-                }.toMap
+                  .toMap
               }
               .getOrElse(Map.empty)
-            val flash = FlashMap.fromMap(incomingFlash)
-            val result = next.handle(req, ctx.asInstanceOf[Context[Any]].add(flash)(using ev).asInstanceOf[Context[FlashMap]], vars, scope)
+            val flash                              = FlashMap.fromMap(incomingFlash)
+            val result                             = next.handle(
+              req,
+              ctx.asInstanceOf[Context[Any]].add(flash)(using ev).asInstanceOf[Context[FlashMap]],
+              vars,
+              scope,
+            )
             foldResult(result)(r => r, h => h)
           }
           Route(route.pattern, wrapped)
@@ -368,14 +408,19 @@ object Middleware {
 
   def timeout(millis: Long): Middleware[Any, Any] =
     new Middleware[Any, Any] {
+      private val executor = java.util.concurrent.Executors.newSingleThreadExecutor((r: Runnable) => {
+        val t = new Thread(r, "middleware-timeout")
+        t.setDaemon(true)
+        t
+      })
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val task = new java.util.concurrent.Callable[Response | Halt] {
+            val task   = new java.util.concurrent.Callable[Response | Halt] {
               def call(): Response | Halt = next.handle(req, ctx, vars, scope)
             }
-            val future = java.util.concurrent.Executors.newSingleThreadExecutor().submit(task)
+            val future = executor.submit(task)
             try {
               future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
             } catch {
@@ -396,11 +441,12 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
+          val baseDir = new java.io.File(directoryPath).getCanonicalFile
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val file = new java.io.File(directoryPath, req.path.toString.stripPrefix("/"))
-            if (file.exists && !file.isDirectory) {
-              val bytes = java.nio.file.Files.readAllBytes(file.toPath)
+            val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
+            if (requested.getPath.startsWith(baseDir.getPath) && requested.exists && !requested.isDirectory) {
+              val bytes = java.nio.file.Files.readAllBytes(requested.toPath)
               Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
             } else {
               next.handle(req, ctx, vars, scope)
@@ -414,16 +460,22 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val resourcePath = if (basePath.isEmpty) req.path.toString.stripPrefix("/") else s"$basePath/${req.path.toString.stripPrefix("/")}"
-            val stream = getClass.getClassLoader.getResourceAsStream(resourcePath)
-            if (stream != null) {
-              val bytes = stream.readAllBytes()
-              stream.close()
-              Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
-            } else {
+            val resourcePath = req.path.toString.stripPrefix("/")
+            if (resourcePath.contains("..")) {
               next.handle(req, ctx, vars, scope)
+            } else {
+              val fullPath = if (basePath.isEmpty) resourcePath else s"$basePath/$resourcePath"
+              val stream   = getClass.getClassLoader.getResourceAsStream(fullPath)
+              if (stream != null) {
+                try {
+                  val bytes = stream.readAllBytes()
+                  Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
+                } finally { stream.close() }
+              } else {
+                next.handle(req, ctx, vars, scope)
+              }
             }
           }
           Route(route.pattern, wrapped)
@@ -439,7 +491,7 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             foldResult(next.handle(req, ctx, vars, scope))(r => r.addHeader(header), h => h)
           }
@@ -452,16 +504,19 @@ object Middleware {
     addHeader(Header.Custom(name, value))
 
   /**
-   * Updates response headers using a transformation function.
-   * `f` receives the current headers and returns modified headers.
+   * Updates response headers using a transformation function. `f` receives the
+   * current headers and returns modified headers.
    */
   def updateHeaders(f: Headers => Headers): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            foldResult(next.handle(req, ctx, vars, scope))(r => Response(r.status, f(r.headers), r.body, r.version), h => h)
+            foldResult(next.handle(req, ctx, vars, scope))(
+              r => Response(r.status, f(r.headers), r.body, r.version),
+              h => h,
+            )
           }
           Route(route.pattern, wrapped)
         })
@@ -480,13 +535,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val oldPath = req.url.path
+            val oldPath     = req.url.path
             val newSegments = oldPath.segments :+ segment
-            val newPath = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
-            val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
+            val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
+            val newUrl      = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+            val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
             next.handle(newReq, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
@@ -498,13 +553,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val oldPath = req.url.path
+            val oldPath     = req.url.path
             val newSegments = zio.blocks.chunk.Chunk(segment) ++ oldPath.segments
-            val newPath = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
-            val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
+            val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
+            val newUrl      = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+            val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
             next.handle(newReq, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
@@ -516,14 +571,14 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val path = req.url.path
-            val segments = path.segments
+            val path       = req.url.path
+            val segments   = path.segments
             val prefixSegs = prefix.stripPrefix("/").stripSuffix("/").split("/").filter(_.nonEmpty)
             if (segments.take(prefixSegs.length).toList.map(_.toString) == prefixSegs.toSeq) {
               val newSegments = segments.drop(prefixSegs.length)
-              val newPath = Path(newSegments, hasLeadingSlash = true, trailingSlash = path.trailingSlash)
+              val newPath     = Path(newSegments, hasLeadingSlash = true, trailingSlash = path.trailingSlash)
               val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
               val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
@@ -538,13 +593,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val p = req.url.path
             if (p.trailingSlash && p.segments.nonEmpty) {
               val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = false)
-              val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
-              val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
+              val newUrl  = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+              val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
             } else next.handle(req, ctx, vars, scope)
           }
@@ -557,13 +612,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val p = req.url.path
             if (!p.trailingSlash && p.segments.nonEmpty) {
               val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = true)
-              val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
-              val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
+              val newUrl  = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+              val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
             } else next.handle(req, ctx, vars, scope)
           }
@@ -576,22 +631,22 @@ object Middleware {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Runs `effect` before every handler. If the effect returns a
-   * `Response` or `Halt`, the handler is short-circuited.
-   * If it returns `None`, the handler proceeds normally.
+   * Runs `effect` before every handler. If the effect returns a `Response` or
+   * `Halt`, the handler is short-circuited. If it returns `None`, the handler
+   * proceeds normally.
    */
   def runBefore(effect: Request => Option[Response | Halt]): Middleware[Any, Any] =
     this.interceptHandler((req: Request) => effect(req))
 
   /**
-   * Runs `effect` after every handler. The effect receives the request
-   * and the result from the downstream handler.
+   * Runs `effect` after every handler. The effect receives the request and the
+   * result from the downstream handler.
    */
   def runAfter(effect: (Request, Response | Halt) => Response | Halt): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             effect(req, next.handle(req, ctx, vars, scope))
           }
@@ -634,10 +689,11 @@ object Middleware {
    * Middleware that signs response Set-Cookie headers using HMAC-SHA256.
    * Incoming request cookies are verified; invalid cookies are removed.
    *
-   * @param secret  The shared secret key for HMAC signing
+   * @param secret
+   *   The shared secret key for HMAC signing
    */
   def signCookies(secret: String): Middleware[Any, Any] = {
-    val hmacKey = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
+    val hmacKey                     = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
     def sign(value: String): String = {
       val mac = javax.crypto.Mac.getInstance("HmacSHA256")
       mac.init(hmacKey)
@@ -646,25 +702,27 @@ object Middleware {
     }
     def verify(signed: String): Option[String] = {
       val dot = signed.lastIndexOf('.')
-      if (dot < 0) None else {
-        val value = signed.substring(0, dot)
+      if (dot < 0) None
+      else {
+        val value    = signed.substring(0, dot)
         val expected = sign(value)
-        if (signed == expected) Some(value) else None
+        if (java.security.MessageDigest.isEqual(signed.getBytes("UTF-8"), expected.getBytes("UTF-8"))) Some(value)
+        else None
       }
     }
 
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             // Verify incoming cookies
             val verifiedReq = {
-              val cookies = req.cookies
+              val cookies  = req.cookies
               val verified = cookies.flatMap { c =>
                 verify(c.value) match {
                   case Some(orig) => Some(RequestCookie(c.name, orig))
-                  case None => None
+                  case None       => None
                 }
               }
               // Reconstruct request with verified cookies
@@ -675,20 +733,32 @@ object Middleware {
                 req.addHeader("Cookie", cookieHeader)
               }
             }
-            val result = next.handle(verifiedReq, ctx, vars, scope)
+            val result      = next.handle(verifiedReq, ctx, vars, scope)
             // Sign outgoing set-cookie headers
             foldResult(result)(
               r => {
                 val signedCookies = r.cookies.map { c =>
-                  ResponseCookie(c.name, sign(c.value), c.expires, c.domain, c.path, c.maxAge, c.isSecure, c.isHttpOnly, c.sameSite, c.isPartitioned, c.priority)
+                  ResponseCookie(
+                    c.name,
+                    sign(c.value),
+                    c.expires,
+                    c.domain,
+                    c.path,
+                    c.maxAge,
+                    c.isSecure,
+                    c.isHttpOnly,
+                    c.sameSite,
+                    c.isPartitioned,
+                    c.priority,
+                  )
                 }
-                var resp = r
+                var resp          = r
                 signedCookies.foreach { c =>
-                  resp = resp.addHeader(Header.Custom("Set-Cookie", c.name + "=" + c.value))
+                  resp = resp.addHeader(Header.Custom("Set-Cookie", c.toString))
                 }
                 resp
               },
-              h => h
+              h => h,
             )
           }
           Route(route.pattern, wrapped)
@@ -701,8 +771,8 @@ object Middleware {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Middleware that intercepts responses whose status code matches
-   * `predicate` and replaces them via `handler`.
+   * Middleware that intercepts responses whose status code matches `predicate`
+   * and replaces them via `handler`.
    *
    * Example: `Middleware.status(_ == 404, _ => Response.text("Not Found"))`
    */
@@ -710,11 +780,11 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             foldResult(next.handle(req, ctx, vars, scope))(
               r => if (predicate(r.status.asInstanceOf[Status])) handler(r) else r,
-              h => h
+              h => h,
             )
           }
           Route(route.pattern, wrapped)
@@ -730,9 +800,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            logger(s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n${req.headers.toList.map { case (k, v) => s"    $k: $v" }.mkString("\n")}\n  body:   ${req.body}")
+            logger(
+              s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n${req.headers.toList.map {
+                  case (k, v) => s"    $k: $v"
+                }.mkString("\n")}\n  body:   ${req.body}",
+            )
             next.handle(req, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
@@ -744,12 +818,15 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next = route.handler
+          val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val result = next.handle(req, ctx, vars, scope)
             foldResult(result)(
-              r => logger(s"── Response ──\n  status: ${r.status}\n  headers:\n${r.headers.toList.map { case (k, v) => s"    $k: $v" }.mkString("\n")}\n  body:   ${r.body}"),
-              h => logger(s"── Halt ──")
+              r =>
+                logger(s"── Response ──\n  status: ${r.status}\n  headers:\n${r.headers.toList.map { case (k, v) =>
+                    s"    $k: $v"
+                  }.mkString("\n")}\n  body:   ${r.body}"),
+              h => logger(s"── Halt ──"),
             )
             result
           }

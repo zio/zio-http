@@ -80,7 +80,10 @@ private[http] object ContextHandlerMacro {
                 .asInstanceOf[Function5[Request, Any, Any, Any, Any, Any]]
                 .apply($req, ${ acc(0) }, ${ acc(1) }, ${ acc(2) }, ${ acc(3) })
             }
-          case _ => '{ $fn.asInstanceOf[Function2[Request, Any, Any]].apply($req, ${ acc(0) }) }
+          case _ =>
+            report.errorAndAbort(
+              s"contextHandler: unsupported arity ${n}. Supported are 2-5 (Request + 1-4 context types).",
+            )
         }
         '{ ${ call }.asInstanceOf[Response | Halt] }
       case t :: rest =>

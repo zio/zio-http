@@ -9,7 +9,7 @@ object ResultType {
 
   def foldResult[A](result: Response | Halt)(onResponse: Response => A, onHalt: Halt => A): A =
     result match {
-      case Left(r) => onResponse(r)
+      case Left(r)  => onResponse(r)
       case Right(h) => onHalt(h)
     }
 }

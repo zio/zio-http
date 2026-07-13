@@ -85,7 +85,11 @@ private[http] object MiddlewareMacro {
       case t :: rest =>
         t.asType match {
           case '[tpe] =>
-            val g: Expr[tpe] = '{ $ctxExpr.asInstanceOf[Context[tpe]].get[tpe] }
+            val evTerm                           = findIsNominal(using q)(t)
+            val evExpr: Expr[IsNominalType[tpe]] = evTerm.asExprOf[IsNominalType[tpe]]
+            val g: Expr[tpe]                     = '{
+              $ctxExpr.asInstanceOf[Context[tpe]].get[tpe](using $evExpr)
+            }
             loop(rest, acc :+ g.asExprOf[Any])
         }
     }
@@ -123,7 +127,10 @@ private[http] object MiddlewareMacro {
             .asInstanceOf[Function5[Request, Scope, Any, Any, Any, Any]]
             .apply($reqExpr, $scopeExpr, ${ getters(0) }, ${ getters(1) }, ${ getters(2) })
         }
-      case _ => '{ $fnExpr.asInstanceOf[Function2[Request, Scope, Any]].apply($reqExpr, $scopeExpr) }
+      case _ =>
+        report.errorAndAbort(
+          s"Middleware.custom: unsupported arity ${n}. Supported arities are 2-5 (Request, Scope + 0-3 context params).",
+        )
     }
 
     if (outTypes.isEmpty) {
