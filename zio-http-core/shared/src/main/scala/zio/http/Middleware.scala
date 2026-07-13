@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package zio.http
 
 import scala.collection.immutable.Map
@@ -408,19 +423,14 @@ object Middleware {
 
   def timeout(millis: Long): Middleware[Any, Any] =
     new Middleware[Any, Any] {
-      private val executor = java.util.concurrent.Executors.newSingleThreadExecutor((r: Runnable) => {
-        val t = new Thread(r, "middleware-timeout")
-        t.setDaemon(true)
-        t
-      })
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
           val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val task   = new java.util.concurrent.Callable[Response | Halt] {
-              def call(): Response | Halt = next.handle(req, ctx, vars, scope)
-            }
-            val future = executor.submit(task)
+            val future = java.util.concurrent.CompletableFuture.supplyAsync(
+              () => next.handle(req, ctx, vars, scope),
+              java.util.concurrent.ForkJoinPool.commonPool(),
+            )
             try {
               future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
             } catch {
@@ -463,7 +473,8 @@ object Middleware {
           val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val resourcePath = req.path.toString.stripPrefix("/")
-            if (resourcePath.contains("..")) {
+            val segments     = resourcePath.split("/").toList
+            if (segments.contains("..") || segments.contains(".")) {
               next.handle(req, ctx, vars, scope)
             } else {
               val fullPath = if (basePath.isEmpty) resourcePath else s"$basePath/$resourcePath"
@@ -783,7 +794,7 @@ object Middleware {
           val next    = route.handler
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             foldResult(next.handle(req, ctx, vars, scope))(
-              r => if (predicate(r.status.asInstanceOf[Status])) handler(r) else r,
+              r => if (predicate(r.status)) handler(r) else r,
               h => h,
             )
           }

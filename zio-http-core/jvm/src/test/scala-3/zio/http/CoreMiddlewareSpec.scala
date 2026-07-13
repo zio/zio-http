@@ -33,7 +33,10 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val mw      = Middleware.cors(config)
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val corsReq = req.addHeader(Header.Origin.Value("https", "evil.com", None))
-        assertTrue(runSingle(app, corsReq).isInstanceOf[Halt])
+        assertTrue(runSingle(app, corsReq) match {
+          case r: Response => r.status == Status.Forbidden
+          case _           => false
+        })
       },
       test("responds to preflight OPTIONS request") {
         val mw         = Middleware.cors()
