@@ -6,6 +6,12 @@ import zio.blocks.scope.Scope
 
 private[http] object MiddlewareMacro {
 
+  /**
+   * Generates a `Middleware` from a function literal.
+   *
+   * Scala 3 supports arbitrary function arity (including FunctionXXL > 22).
+   * Each context type `T` must have an `IsNominalType[T]` instance available.
+   */
   def customImpl[F: Type](f: Expr[F])(using q: Quotes): Expr[Middleware[?, ?]] = {
     import q.reflect.*
 
@@ -23,18 +29,18 @@ private[http] object MiddlewareMacro {
     if (!(paramTypes(1) <:< TypeRepr.of[Scope]))
       report.errorAndAbort(s"Second param must be Scope, got ${paramTypes(1).show}.")
 
-    val inTypes           = paramTypes.drop(2)
-    val outTypes          = extractOutTypes(retType)
-    val fnExpr: Expr[Any] = f.asExprOf[Any]
+    val inTypes  = paramTypes.drop(2)
+    val outTypes = extractOutTypes(retType)
+    val fnTerm   = f.asTerm
 
     '{
       new Middleware[Any, Any] {
         def apply(routes: Routes[Any]): Routes[Any] = {
-          val _fn: Any = $fnExpr
+          val _fn: Any = ${ fnTerm.asExprOf[Any] }
           Routes.fromIterable(routes.routes.toList.map { (route: Route[Any]) =>
             val _next    = route.handler
             val _wrapped = Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
-              ${ genBody(using q)(inTypes, outTypes, '_fn, '_next, 'req, 'ctx, 'vars, 'scope) }
+              ${ genBody(using q)(inTypes, outTypes, fnTerm, '_next, 'req, 'ctx, 'vars, 'scope) }
             }
             Route(route.pattern, _wrapped)
           })
@@ -68,7 +74,7 @@ private[http] object MiddlewareMacro {
   )(
     inTypes: List[q.reflect.TypeRepr],
     outTypes: List[q.reflect.TypeRepr],
-    fnExpr: Expr[Any],
+    fnTerm: q.reflect.Term,
     nextExpr: Expr[Handler[Any, Any]],
     reqExpr: Expr[Request],
     ctxExpr: Expr[Context[Any]],
@@ -77,11 +83,9 @@ private[http] object MiddlewareMacro {
   ): Expr[Response | Halt] = {
     import q.reflect.*
 
-    // Recursively build getters (Expr-level)
     def loop(rem: List[q.reflect.TypeRepr], acc: List[Expr[Any]]): Expr[Response | Halt] = rem match {
       case Nil       =>
-        // Build the call via runtime dispatch, then handle the result
-        buildResult(using q)(fnExpr, acc, outTypes, nextExpr, reqExpr, ctxExpr, varsExpr, scopeExpr)
+        buildResult(using q)(fnTerm, acc, outTypes, nextExpr, reqExpr, ctxExpr, varsExpr, scopeExpr)
       case t :: rest =>
         t.asType match {
           case '[tpe] =>
@@ -99,7 +103,7 @@ private[http] object MiddlewareMacro {
   private def buildResult(using
     q: Quotes,
   )(
-    fnExpr: Expr[Any],
+    fnTerm: q.reflect.Term,
     getters: List[Expr[Any]],
     outTypes: List[q.reflect.TypeRepr],
     nextExpr: Expr[Handler[Any, Any]],
@@ -110,28 +114,21 @@ private[http] object MiddlewareMacro {
   ): Expr[Response | Halt] = {
     import q.reflect.*
 
-    val n                   = getters.size + 2
-    val callExpr: Expr[Any] = n match {
-      case 2 => '{ $fnExpr.asInstanceOf[Function2[Request, Scope, Any]].apply($reqExpr, $scopeExpr) }
-      case 3 =>
-        '{ $fnExpr.asInstanceOf[Function3[Request, Scope, Any, Any]].apply($reqExpr, $scopeExpr, ${ getters(0) }) }
-      case 4 =>
-        '{
-          $fnExpr
-            .asInstanceOf[Function4[Request, Scope, Any, Any, Any]]
-            .apply($reqExpr, $scopeExpr, ${ getters(0) }, ${ getters(1) })
-        }
-      case 5 =>
-        '{
-          $fnExpr
-            .asInstanceOf[Function5[Request, Scope, Any, Any, Any, Any]]
-            .apply($reqExpr, $scopeExpr, ${ getters(0) }, ${ getters(1) }, ${ getters(2) })
-        }
-      case _ =>
-        report.errorAndAbort(
-          s"Middleware.custom: unsupported arity ${n}. Supported arities are 2-5 (Request, Scope + 0-3 context params).",
-        )
-    }
+    val args: List[Term]    = (reqExpr.asTerm :: scopeExpr.asTerm :: getters.map(_.asTerm)).asInstanceOf[List[Term]]
+    val fnTpe               = fnTerm.tpe.widen
+    val callTerm: Term      =
+      if (fnTpe.typeSymbol.fullName == "scala.FunctionXXL") {
+        val iarrayTpe  = TypeRepr.of[IArray[Any]]
+        val consSym    = iarrayTpe.typeSymbol.companionModule.methodMember("apply").head
+        val consSelect = Select(Ref(iarrayTpe.typeSymbol.companionModule), consSym)
+        val iarrayCall = args.foldLeft[Term](consSelect) { (acc, a) => Apply(acc, List(a)) }
+        val applyXXL   = fnTpe.typeSymbol.methodMember("apply").head
+        Apply(Select(fnTerm, applyXXL), List(iarrayCall))
+      } else {
+        val applySym = fnTpe.typeSymbol.methodMember("apply").head
+        Apply(Select(fnTerm, applySym), args)
+      }
+    val callExpr: Expr[Any] = callTerm.asExprOf[Any]
 
     if (outTypes.isEmpty) {
       '{ ${ callExpr }.asInstanceOf[Response | Halt] }
