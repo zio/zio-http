@@ -6,12 +6,20 @@ import zio.blocks.scope.Scope
 
 private[http] object ContextHandlerMacro {
 
+  /**
+   * Generates a `Handler` from a function literal with trailing context
+   * parameters.
+   *
+   * Scala 3 supports arbitrary function arity (including FunctionXXL > 22).
+   * Each context type `T` must have an `IsNominalType[T]` instance available.
+   * No artificial arity cap exists.
+   */
   def impl[H: Type](h: Expr[H])(using q: Quotes): Expr[Handler[?, ?]] = {
     import q.reflect.*
 
     val T = TypeRepr.of[H].dealias
     T match {
-      case AppliedType(fn, args) if fn.typeSymbol.fullName.startsWith("scala.Function") && args.size >= 3 =>
+      case AppliedType(fn, args) if fn.typeSymbol.fullName.startsWith("scala.Function") && args.size >= 2 =>
         val params   = args.init
         val ret      = args.last
         if (!(params.head <:< TypeRepr.of[Request]))
@@ -41,11 +49,11 @@ private[http] object ContextHandlerMacro {
     // combined is a TypeRepr; we need to convert to Type[c] for the quote
     combined.asType match {
       case t @ '[c] =>
-        val fn = h.asExprOf[Any]
+        val fnTerm = h.asTerm
         '{
           Handler.extracted[c, Any] { (req: Request, ctx: Context[c], vars: Any, scope: Scope) =>
             ${
-              val body = genBody(fn, ctxTypes, '{ req }, '{ ctx })
+              val body = genBody(using q)(fnTerm, ctxTypes, '{ req }, '{ ctx })
               body
             }
           }
@@ -53,39 +61,34 @@ private[http] object ContextHandlerMacro {
     }
   }
 
-  private def genBody(
-    fn: Expr[Any],
+  private def genBody(using
+    q: Quotes,
+  )(
+    fnTerm: q.reflect.Term,
     ctxTypesRaw: List[Any],
     req: Expr[Request],
     ctx: Expr[Context[?]],
-  )(using q: Quotes): Expr[Response | Halt] = {
+  ): Expr[Response | Halt] = {
     import q.reflect.*
     val ctxTypes = ctxTypesRaw.asInstanceOf[List[q.reflect.TypeRepr]]
 
     def loop(rem: List[q.reflect.TypeRepr], acc: List[Expr[Any]]): Expr[Response | Halt] = rem match {
       case Nil       =>
-        val n    = acc.size + 1
-        val call = n match {
-          case 2 => '{ $fn.asInstanceOf[Function2[Request, Any, Any]].apply($req, ${ acc(0) }) }
-          case 3 => '{ $fn.asInstanceOf[Function3[Request, Any, Any, Any]].apply($req, ${ acc(0) }, ${ acc(1) }) }
-          case 4 =>
-            '{
-              $fn
-                .asInstanceOf[Function4[Request, Any, Any, Any, Any]]
-                .apply($req, ${ acc(0) }, ${ acc(1) }, ${ acc(2) })
-            }
-          case 5 =>
-            '{
-              $fn
-                .asInstanceOf[Function5[Request, Any, Any, Any, Any, Any]]
-                .apply($req, ${ acc(0) }, ${ acc(1) }, ${ acc(2) }, ${ acc(3) })
-            }
-          case _ =>
-            report.errorAndAbort(
-              s"contextHandler: unsupported arity ${n}. Supported are 2-5 (Request + 1-4 context types).",
-            )
-        }
-        '{ ${ call }.asInstanceOf[Response | Halt] }
+        val args: List[Term] = (req.asTerm :: acc.map(_.asTerm)).asInstanceOf[List[Term]]
+        val fnTpe            = fnTerm.tpe.widen
+        val callTerm: Term   =
+          if (fnTpe.typeSymbol.fullName == "scala.FunctionXXL") {
+            val iarrayTpe  = TypeRepr.of[IArray[Any]]
+            val consSym    = iarrayTpe.typeSymbol.companionModule.methodMember("apply").head
+            val consSelect = Select(Ref(iarrayTpe.typeSymbol.companionModule), consSym)
+            val iarrayCall = args.foldLeft[Term](consSelect) { (acc, a) => Apply(acc, List(a)) }
+            val applyXXL   = fnTpe.typeSymbol.methodMember("apply").head
+            Apply(Select(fnTerm, applyXXL), List(iarrayCall))
+          } else {
+            val applySym = fnTpe.typeSymbol.methodMember("apply").head
+            Apply(Select(fnTerm, applySym), args)
+          }
+        callTerm.asExprOf[Response | Halt]
       case t :: rest =>
         t.asType match {
           case '[tpe] =>
