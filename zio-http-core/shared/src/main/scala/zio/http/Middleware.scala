@@ -271,14 +271,17 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next        = route.handler
-          val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+          val next           = route.handler
+          val passthrough    = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             next.handle(req, ctx, vars, scope)
           }
-          val mwRoute     = Route(route.pattern, passthrough)
-          val wrapped     = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val mw = map.getOrElse(req.method, default)
-            mw(Routes(mwRoute)).routes.toList.head.handler.handle(req, ctx, vars, scope)
+          val mwRoute        = Route(route.pattern, passthrough)
+          // Apply middleware once per route at build time, not per request.
+          val defaultHandler = default(Routes(mwRoute)).routes.toList.head.handler
+          val perMethod      =
+            map.map { case (method, mw) => method -> mw(Routes(mwRoute)).routes.toList.head.handler }
+          val wrapped        = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            perMethod.getOrElse(req.method, defaultHandler).handle(req, ctx, vars, scope)
           }
           Route(route.pattern, wrapped)
         })
@@ -337,8 +340,7 @@ object Middleware {
                 val originStr = origin.renderedValue
                 if (!originAllowed(originStr)) {
                   responseAsResult(Response.forbidden)
-                } else if (req.method == Method.OPTIONS) {
-                  // Preflight
+                } else if (req.method == Method.OPTIONS && req.header(Header.AccessControlRequestMethod).isDefined) {
                   val hdrs = corsPreflightHeaders(originStr)
                   val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
                   resp
@@ -434,9 +436,15 @@ object Middleware {
             try {
               future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
             } catch {
-              case _: java.util.concurrent.TimeoutException =>
+              case _: java.util.concurrent.TimeoutException   =>
                 future.cancel(true)
                 haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+              case _: InterruptedException                    =>
+                future.cancel(true)
+                Thread.currentThread().interrupt()
+                haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+              case _: java.util.concurrent.ExecutionException =>
+                haltAsResult(Halt(Response(Status.InternalServerError)))
             }
           }
           Route(route.pattern, wrapped)
@@ -456,8 +464,12 @@ object Middleware {
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
             if (requested.getPath.startsWith(baseDir.getPath) && requested.exists && !requested.isDirectory) {
-              val bytes = java.nio.file.Files.readAllBytes(requested.toPath)
-              Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
+              try {
+                val bytes = java.nio.file.Files.readAllBytes(requested.toPath)
+                Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
+              } catch {
+                case _: java.io.IOException => next.handle(req, ctx, vars, scope)
+              }
             } else {
               next.handle(req, ctx, vars, scope)
             }
@@ -483,6 +495,8 @@ object Middleware {
                 try {
                   val bytes = stream.readAllBytes()
                   Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
+                } catch {
+                  case _: java.io.IOException => next.handle(req, ctx, vars, scope)
                 } finally { stream.close() }
               } else {
                 next.handle(req, ctx, vars, scope)
@@ -551,7 +565,7 @@ object Middleware {
             val oldPath     = req.url.path
             val newSegments = oldPath.segments :+ segment
             val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl      = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+            val newUrl      = req.url.copy(path = newPath)
             val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
             next.handle(newReq, ctx, vars, scope)
           }
@@ -569,7 +583,7 @@ object Middleware {
             val oldPath     = req.url.path
             val newSegments = zio.blocks.chunk.Chunk(segment) ++ oldPath.segments
             val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl      = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+            val newUrl      = req.url.copy(path = newPath)
             val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
             next.handle(newReq, ctx, vars, scope)
           }
@@ -590,8 +604,8 @@ object Middleware {
             if (segments.take(prefixSegs.length).toList.map(_.toString) == prefixSegs.toSeq) {
               val newSegments = segments.drop(prefixSegs.length)
               val newPath     = Path(newSegments, hasLeadingSlash = true, trailingSlash = path.trailingSlash)
-              val newUrl = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
-              val newReq = Request(req.method, newUrl, req.headers, req.body, req.version)
+              val newUrl      = req.url.copy(path = newPath)
+              val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
             } else next.handle(req, ctx, vars, scope)
           }
@@ -609,7 +623,7 @@ object Middleware {
             val p = req.url.path
             if (p.trailingSlash && p.segments.nonEmpty) {
               val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = false)
-              val newUrl  = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+              val newUrl  = req.url.copy(path = newPath)
               val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
             } else next.handle(req, ctx, vars, scope)
@@ -628,7 +642,7 @@ object Middleware {
             val p = req.url.path
             if (!p.trailingSlash && p.segments.nonEmpty) {
               val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = true)
-              val newUrl  = URL(Option.empty, Option.empty, Option.empty, newPath, req.url.queryParams, Option.empty)
+              val newUrl  = req.url.copy(path = newPath)
               val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
               next.handle(newReq, ctx, vars, scope)
             } else next.handle(req, ctx, vars, scope)
@@ -704,19 +718,21 @@ object Middleware {
    *   The shared secret key for HMAC signing
    */
   def signCookies(secret: String): Middleware[Any, Any] = {
-    val hmacKey                     = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
-    def sign(value: String): String = {
-      val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+    val hmacKey = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
+    def sign(name: String, value: String): String            = {
+      val mac      = javax.crypto.Mac.getInstance("HmacSHA256")
       mac.init(hmacKey)
-      val sig = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(mac.doFinal(value.getBytes("UTF-8")))
+      // Bind the signature to the cookie name to prevent cookie-swapping.
+      val macInput = s"$name=$value"
+      val sig = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(mac.doFinal(macInput.getBytes("UTF-8")))
       s"$value.$sig"
     }
-    def verify(signed: String): Option[String] = {
+    def verify(name: String, signed: String): Option[String] = {
       val dot = signed.lastIndexOf('.')
       if (dot < 0) None
       else {
         val value    = signed.substring(0, dot)
-        val expected = sign(value)
+        val expected = sign(name, value)
         if (java.security.MessageDigest.isEqual(signed.getBytes("UTF-8"), expected.getBytes("UTF-8"))) Some(value)
         else None
       }
@@ -731,7 +747,7 @@ object Middleware {
             val verifiedReq = {
               val cookies  = req.cookies
               val verified = cookies.flatMap { c =>
-                verify(c.value) match {
+                verify(c.name, c.value) match {
                   case Some(orig) => Some(RequestCookie(c.name, orig))
                   case None       => None
                 }
@@ -751,7 +767,7 @@ object Middleware {
                 val signedCookies = r.cookies.map { c =>
                   ResponseCookie(
                     c.name,
-                    sign(c.value),
+                    sign(c.name, c.value),
                     c.expires,
                     c.domain,
                     c.path,

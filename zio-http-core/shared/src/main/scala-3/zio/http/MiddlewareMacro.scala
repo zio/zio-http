@@ -33,10 +33,16 @@ private[http] object MiddlewareMacro {
     val outTypes = extractOutTypes(retType)
     val fnTerm   = f.asTerm
 
+    val returnsResult    = retType <:< TypeRepr.of[Response | Halt]
+    val returnsInjection = outTypes.nonEmpty
+    if (!returnsResult && !returnsInjection)
+      report.errorAndAbort(
+        s"Middleware.custom: return type must be `Response | Halt` or `(Response, Ctx...)`, got ${retType.show}.",
+      )
+
     '{
       new Middleware[Any, Any] {
-        def apply(routes: Routes[Any]): Routes[Any] = {
-          val _fn: Any = ${ fnTerm.asExprOf[Any] }
+        def apply(routes: Routes[Any]): Routes[Any] =
           Routes.fromIterable(routes.routes.toList.map { (route: Route[Any]) =>
             val _next    = route.handler
             val _wrapped = Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
@@ -44,7 +50,6 @@ private[http] object MiddlewareMacro {
             }
             Route(route.pattern, _wrapped)
           })
-        }
       }
     }.asExprOf[Middleware[?, ?]]
   }

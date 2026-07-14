@@ -76,5 +76,3 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
     ),
   )
 }
-
-// ═══════════════════════════════════════════════════════════════════
