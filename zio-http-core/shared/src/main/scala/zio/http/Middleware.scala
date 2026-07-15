@@ -77,7 +77,7 @@ object Middleware {
       }
     }
 
-  // legacy non-generic overloads kept for backward compat (not used by tests)
+  // legacy non-generic overloads kept for backward compat
   def basicAuth(
     realm: String = "Access to the resource",
     validate: (String, String) => Boolean,
@@ -147,9 +147,6 @@ object Middleware {
           Route(route.pattern, wrapped)
         })
     }
-
-  def customAuthProvidingWith[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[Any, A] =
-    customAuthProviding(provide)(using ev)
 
   // ═══════════════════════════════════════════════════════════════════
   // INTERCEPT
@@ -322,7 +319,7 @@ object Middleware {
           Header.AccessControlAllowOrigin.All
         else
           Header.AccessControlAllowOrigin.Specific(originStr)
-      List(
+      val headers           = List(
         originHdr,
         Header.AccessControlAllowMethods(methodsVal),
         Header.AccessControlAllowHeaders(headersVal),
@@ -331,6 +328,7 @@ object Middleware {
       ) ++ (if (config.exposedHeaders.nonEmpty)
               List(Header.AccessControlExposeHeaders(exposeHeadersVal))
             else Nil)
+      headers :+ Header.Vary("Origin")
     }
 
     new Middleware[Any, Any] {
@@ -420,7 +418,10 @@ object Middleware {
               vars,
               scope,
             )
-            foldResult(result)(r => r, h => h)
+            foldResult(result)(
+              r => r.addHeader(Header.Custom("Set-Cookie", "flash=; Max-Age=0; Path=/")),
+              h => h,
+            )
           }
           Route(route.pattern, wrapped)
         })
@@ -450,7 +451,8 @@ object Middleware {
                 future.cancel(true)
                 Thread.currentThread().interrupt()
                 haltAsResult(Halt(Response(Status.ServiceUnavailable)))
-              case _: java.util.concurrent.ExecutionException =>
+              case e: java.util.concurrent.ExecutionException =>
+                System.err.println(s"Middleware.timeout: handler threw ${e.getCause}")
                 haltAsResult(Halt(Response(Status.InternalServerError)))
             }
           }
@@ -470,16 +472,22 @@ object Middleware {
           val baseDir = new java.io.File(directoryPath).getCanonicalFile
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
-            if (requested.toPath.startsWith(baseDir.toPath) && requested.exists && !requested.isDirectory) {
-              try {
-                val bytes = java.nio.file.Files.readAllBytes(requested.toPath)
-                Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
-              } catch {
-                case _: java.io.IOException => next.handle(req, ctx, vars, scope)
-              }
-            } else {
-              next.handle(req, ctx, vars, scope)
-            }
+            try {
+              val path = requested.toPath
+              if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
+                val bytes     = java.nio.file.Files.readAllBytes(path)
+                val mediaType = requested.getName match {
+                  case n if n.endsWith(".html")                       => "text/html"
+                  case n if n.endsWith(".css")                        => "text/css"
+                  case n if n.endsWith(".js")                         => "application/javascript"
+                  case n if n.endsWith(".png")                        => "image/png"
+                  case n if n.endsWith(".jpg") || n.endsWith(".jpeg") => "image/jpeg"
+                  case n if n.endsWith(".svg")                        => "image/svg+xml"
+                  case _                                              => "application/octet-stream"
+                }
+                Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
+              } else next.handle(req, ctx, vars, scope)
+            } catch { case _: java.io.IOException => next.handle(req, ctx, vars, scope) }
           }
           Route(route.pattern, wrapped)
         })
@@ -500,11 +508,23 @@ object Middleware {
               val stream   = getClass.getClassLoader.getResourceAsStream(fullPath)
               if (stream != null) {
                 try {
-                  val bytes = stream.readAllBytes()
-                  Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
+                  val bytes     = stream.readAllBytes()
+                  val mediaType = fullPath match {
+                    case n if n.endsWith(".html")                       => "text/html"
+                    case n if n.endsWith(".css")                        => "text/css"
+                    case n if n.endsWith(".js")                         => "application/javascript"
+                    case n if n.endsWith(".png")                        => "image/png"
+                    case n if n.endsWith(".jpg") || n.endsWith(".jpeg") => "image/jpeg"
+                    case n if n.endsWith(".svg")                        => "image/svg+xml"
+                    case _                                              => "application/octet-stream"
+                  }
+                  Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
                 } catch {
                   case _: java.io.IOException => next.handle(req, ctx, vars, scope)
-                } finally { stream.close() }
+                } finally {
+                  try { stream.close() }
+                  catch { case _: java.io.IOException => () }
+                }
               } else {
                 next.handle(req, ctx, vars, scope)
               }
@@ -706,8 +726,10 @@ object Middleware {
     }
 
   /** Redirects all requests with 302 Found. */
-  def redirectTemporary(location: String): Middleware[Any, Any] =
-    redirect(Status.fromInt(302), location)
+  def redirectTemporary(location: String): Middleware[Any, Any] = {
+    val status302 = Status.fromInt(302)
+    redirect(status302, location)
+  }
 
   /** Redirects all requests with 301 Moved Permanently. */
   def redirectPermanent(location: String): Middleware[Any, Any] =
@@ -759,12 +781,14 @@ object Middleware {
                   case None       => None
                 }
               }
-              // Reconstruct request with verified (signature-stripped) cookies
+              // Reconstruct request with verified (signature-stripped) cookies (or remove Cookie header if none valid)
               if (verified.nonEmpty) {
                 val cookieHeader = verified.map(c => s"${c.name}=${c.value}").mkString("; ")
                 Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
                   .addHeader("Cookie", cookieHeader)
-              } else req
+              } else {
+                Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
+              }
             }
             val result      = next.handle(verifiedReq, ctx, vars, scope)
             // Sign outgoing set-cookie headers
@@ -785,7 +809,8 @@ object Middleware {
                     c.priority,
                   )
                 }
-                var resp          = r
+                // Strip original Set-Cookie headers before adding signed ones
+                var resp          = Response(r.status, r.headers.remove("Set-Cookie"), r.body, r.version)
                 signedCookies.foreach { c =>
                   resp = resp.addHeader(Header.Custom("Set-Cookie", c.toString))
                 }

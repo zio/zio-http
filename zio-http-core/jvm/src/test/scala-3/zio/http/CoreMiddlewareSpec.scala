@@ -66,6 +66,19 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
+      test("returns ServiceUnavailable on timeout") {
+        val mw          = Middleware.timeout(10L)
+        val slowHandler = Handler.extracted[Any, Any] { (_, _, _, _) =>
+          java.util.concurrent.TimeUnit.MILLISECONDS.sleep(100)
+          Response.text("too late")
+        }
+        val app         = mkRoute[Any](slowHandler) @@ mw
+        assertTrue(runSingle(app) match {
+          case r: Response                                        => r.status == Status.ServiceUnavailable
+          case Halt(Response(Status.ServiceUnavailable, _, _, _)) => true
+          case _                                                  => false
+        })
+      },
     ),
     suite("flashScope")(
       test("compiles and runs") {
@@ -73,7 +86,10 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
           IsNominalType.derived[Middleware.FlashMap]
         val mw                                                                 = Middleware.flashScope()
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw.asInstanceOf[Middleware[Any, Any]]
-        assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
+        assertTrue(runSingle(app) match {
+          case r: Response => r.status == Status.Ok
+          case _           => false
+        })
       },
     ),
     suite("serveDirectory")(
@@ -135,6 +151,32 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
           case r: Response => r.status == Status.Ok
           case _           => false
         })
+      },
+      test("removes all cookies when none verify") {
+        val req     = Request.get(URL.root).addHeader("Cookie", "session=bad1; token=bad2")
+        val mw      = Middleware.signCookies("test-secret")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.cookies.size.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("0")))
+      },
+      test("removes invalid cookies while keeping valid ones") {
+        // Create a valid signed cookie
+        val mac         = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(new javax.crypto.spec.SecretKeySpec("test-secret".getBytes("UTF-8"), "HmacSHA256"))
+        val sig         = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(
+          mac.doFinal("session=validValue".getBytes("UTF-8")),
+        )
+        val validCookie = s"session=validValue.$sig"
+        // Mix valid + invalid cookies
+        val req         = Request.get(URL.root).addHeader("Cookie", s"$validCookie; tampered=bad")
+        val mw          = Middleware.signCookies("test-secret")
+        val handler     = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.cookies.size.toString)
+        }
+        val app         = mkRoute[Any](handler) @@ mw
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("1")))
       },
     ),
   )

@@ -126,7 +126,7 @@ private[http] object MiddlewareMacro {
         val iarrayTpe  = TypeRepr.of[IArray[Any]]
         val consSym    = iarrayTpe.typeSymbol.companionModule.methodMember("apply").head
         val consSelect = Select(Ref(iarrayTpe.typeSymbol.companionModule), consSym)
-        val iarrayCall = args.foldLeft[Term](consSelect) { (acc, a) => Apply(acc, List(a)) }
+        val iarrayCall = Apply(consSelect, args)
         val applyXXL   = fnTpe.typeSymbol.methodMember("apply").head
         Apply(Select(fnTerm, applyXXL), List(iarrayCall))
       } else {

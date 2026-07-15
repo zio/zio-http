@@ -51,24 +51,34 @@ object FinalMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("appendPath")(
       test("appends segment to request path") {
-        val mw     = Middleware.appendPath("extra")
-        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        val result = runSingle(app)
-        assertTrue(result == responseAsResult(Response.text("ok")))
+        val mw      = Middleware.appendPath("extra")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        assertTrue(runSingle(app, Request.get(URL.root)) == responseAsResult(Response.text("/extra")))
       },
     ),
     suite("prependPath")(
       test("prepends segment to request path") {
-        val mw  = Middleware.prependPath("prefix")
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
+        val mw      = Middleware.prependPath("prefix")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val req     = Request.get(URL.root / "api")
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("/prefix/api")))
       },
     ),
     suite("dropTrailingSlash")(
-      test("runs without error") {
-        val mw  = Middleware.dropTrailingSlash
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
+      test("drops trailing slash from path") {
+        val mw      = Middleware.dropTrailingSlash
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val req     = Request.get(URL.root.copy(path = Path.empty / ""))
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("")))
       },
     ),
     suite("runBefore")(
@@ -89,7 +99,10 @@ object FinalMiddlewareSpec extends ZIOSpecDefault {
       test("returns redirect response") {
         val mw  = Middleware.redirect(Status.fromInt(302), "/new-location")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app).isInstanceOf[Halt])
+        assertTrue(runSingle(app) match {
+          case h: Halt => h.response.status == Status.Found && h.response.headers.has("Location")
+          case _       => false
+        })
       },
     ),
     suite("status")(

@@ -41,6 +41,14 @@ private[http] object ContextHandlerMacro {
     }
   }
 
+  private def findIsNominal(using q: Quotes)(t: q.reflect.TypeRepr): q.reflect.Term = {
+    import q.reflect.*
+    Implicits.search(TypeRepr.of[IsNominalType].appliedTo(List(t))) match {
+      case s: ImplicitSearchSuccess => s.tree
+      case _                        => report.errorAndAbort(s"Cannot find IsNominalType for ${t.show}.")
+    }
+  }
+
   private def genHandler[H: Type](h: Expr[H], ctxTypesRaw: List[Any])(using q: Quotes): Expr[Handler[?, ?]] = {
     import q.reflect.*
     val ctxTypes = ctxTypesRaw.asInstanceOf[List[q.reflect.TypeRepr]]
@@ -81,7 +89,7 @@ private[http] object ContextHandlerMacro {
             val iarrayTpe  = TypeRepr.of[IArray[Any]]
             val consSym    = iarrayTpe.typeSymbol.companionModule.methodMember("apply").head
             val consSelect = Select(Ref(iarrayTpe.typeSymbol.companionModule), consSym)
-            val iarrayCall = args.foldLeft[Term](consSelect) { (acc, a) => Apply(acc, List(a)) }
+            val iarrayCall = Apply(consSelect, args)
             val applyXXL   = fnTpe.typeSymbol.methodMember("apply").head
             Apply(Select(fnTerm, applyXXL), List(iarrayCall))
           } else {
@@ -92,7 +100,9 @@ private[http] object ContextHandlerMacro {
       case t :: rest =>
         t.asType match {
           case '[tpe] =>
-            val g: Expr[tpe] = '{ $ctx.asInstanceOf[Context[tpe]].get[tpe] }
+            val evTerm                           = findIsNominal(using q)(t)
+            val evExpr: Expr[IsNominalType[tpe]] = evTerm.asExprOf[IsNominalType[tpe]]
+            val g: Expr[tpe]                     = '{ $ctx.asInstanceOf[Context[tpe]].get[tpe](using $evExpr) }
             loop(rest, acc :+ g.asExprOf[Any])
         }
     }
