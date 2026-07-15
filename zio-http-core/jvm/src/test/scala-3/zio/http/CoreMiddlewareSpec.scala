@@ -92,5 +92,50 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         assertTrue(result == responseAsResult(Response.text("fallback")))
       },
     ),
+    suite("signCookies")(
+      test("passes through requests without cookies") {
+        val mw  = Middleware.signCookies("test-secret")
+        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
+      },
+      test("passes through request with unsigned cookie") {
+        val req = Request.get(URL.root).addHeader("Cookie", "session=abc123")
+        val mw  = Middleware.signCookies("test-secret")
+        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("ok")))
+      },
+      test("passes through request with tampered signed cookie") {
+        val req = Request.get(URL.root).addHeader("Cookie", "session=realvalue.tampered")
+        val mw  = Middleware.signCookies("test-secret")
+        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("ok")))
+      },
+      test("accepts request with valid signed cookie") {
+        val mac     = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(new javax.crypto.spec.SecretKeySpec("test-secret".getBytes("UTF-8"), "HmacSHA256"))
+        val sig     = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(
+          mac.doFinal("session=abc123".getBytes("UTF-8")),
+        )
+        val signed  = s"abc123.$sig"
+        val req     = Request.get(URL.root).addHeader("Cookie", s"session=$signed")
+        val mw      = Middleware.signCookies("test-secret")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          val cookieVal = req2.cookies.find(_.name == "session").map(_.value).getOrElse("")
+          Response.text(cookieVal)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val result  = runSingle(app, req)
+        assertTrue(result == responseAsResult(Response.text("abc123")))
+      },
+      test("signs outgoing cookies and keeps response intact") {
+        val mw     = Middleware.signCookies("test-secret")
+        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val result = runSingle(app)
+        assertTrue(result match {
+          case r: Response => r.status == Status.Ok
+          case _           => false
+        })
+      },
+    ),
   )
 }

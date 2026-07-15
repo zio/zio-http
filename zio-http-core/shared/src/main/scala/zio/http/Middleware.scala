@@ -399,7 +399,11 @@ object Middleware {
                   .flatMap { pair =>
                     pair.split("=", 2) match {
                       case Array(k, v) =>
-                        Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
+                        try {
+                          Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
+                        } catch {
+                          case _: IllegalArgumentException => None
+                        }
                       case _           => None
                     }
                   }
@@ -463,7 +467,7 @@ object Middleware {
           val baseDir = new java.io.File(directoryPath).getCanonicalFile
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
-            if (requested.getPath.startsWith(baseDir.getPath) && requested.exists && !requested.isDirectory) {
+            if (requested.toPath.startsWith(baseDir.toPath) && requested.exists && !requested.isDirectory) {
               try {
                 val bytes = java.nio.file.Files.readAllBytes(requested.toPath)
                 Response(Status.Ok, Headers.empty, Body.fromArray(bytes))
@@ -752,13 +756,12 @@ object Middleware {
                   case None       => None
                 }
               }
-              // Reconstruct request with verified cookies
-              if (verified.size == cookies.size) req
-              else {
-                // Add header with verified cookies
+              // Reconstruct request with verified (signature-stripped) cookies
+              if (verified.nonEmpty) {
                 val cookieHeader = verified.map(c => s"${c.name}=${c.value}").mkString("; ")
-                req.addHeader("Cookie", cookieHeader)
-              }
+                Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
+                  .addHeader("Cookie", cookieHeader)
+              } else req
             }
             val result      = next.handle(verifiedReq, ctx, vars, scope)
             // Sign outgoing set-cookie headers
