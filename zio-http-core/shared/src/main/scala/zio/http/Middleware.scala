@@ -29,6 +29,9 @@ trait Middleware[UpperCtx, Ctx] { self =>
 }
 
 object Middleware {
+  private val timeoutExecutor: java.util.concurrent.Executor =
+    java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()
+
   def identity[Ctx]: Middleware[Ctx, Ctx] = new Middleware[Ctx, Ctx] {
     def apply(routes: Routes[Ctx]): Routes[Ctx] = routes
   }
@@ -435,7 +438,7 @@ object Middleware {
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val future = java.util.concurrent.CompletableFuture.supplyAsync(
               () => next.handle(req, ctx, vars, scope),
-              java.util.concurrent.ForkJoinPool.commonPool(),
+              timeoutExecutor,
             )
             try {
               future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
