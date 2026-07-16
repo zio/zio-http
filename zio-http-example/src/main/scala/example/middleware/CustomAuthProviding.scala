@@ -14,15 +14,14 @@ object CustomAuthProviding extends ZIOAppDefault {
   final case class AuthContext(value: String)
 
   // Provides an AuthContext to the request handler
-  val provideContext: HandlerAspect[Any, AuthContext] = HandlerAspect.customAuthProviding[AuthContext] { r =>
-    {
+  val provideContext: Middleware[Any, AuthContext] = Middleware.customAuth[AuthContext] { r =>
+    Right {
       r.headers.get(Header.Authorization).flatMap {
         case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
           Some(AuthContext(uname))
         case _                                                                                =>
           None
-      }
-
+      }.getOrElse(AuthContext("anonymous"))
     }
   }
 

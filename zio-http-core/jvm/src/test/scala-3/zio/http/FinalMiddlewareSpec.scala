@@ -81,6 +81,46 @@ object FinalMiddlewareSpec extends ZIOSpecDefault {
         assertTrue(runSingle(app, req) == responseAsResult(Response.text("")))
       },
     ),
+    suite("stripPathPrefix")(
+      test("strips matching prefix from path") {
+        val mw      = Middleware.stripPathPrefix("api/v1")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val req     = Request.get(URL.root / "api" / "v1" / "users")
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("/users")))
+      },
+      test("passes through non-matching prefix unchanged") {
+        val mw      = Middleware.stripPathPrefix("api/v1")
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val req     = Request.get(URL.root / "other" / "path")
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("/other/path")))
+      },
+    ),
+    suite("addTrailingSlash")(
+      test("adds trailing slash when absent") {
+        val mw      = Middleware.addTrailingSlash
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val req     = Request.get(URL.root / "users")
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("/users/")))
+      },
+      test("idempotent — applying twice yields same result") {
+        val mw      = Middleware.addTrailingSlash
+        val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
+          Response.text(req2.url.path.toString)
+        }
+        val app     = mkRoute[Any](handler) @@ mw @@ mw
+        val req     = Request.get(URL.root / "users")
+        assertTrue(runSingle(app, req) == responseAsResult(Response.text("/users/")))
+      },
+    ),
     suite("runBefore")(
       test("passes through when effect returns None") {
         val mw  = Middleware.runBefore(_ => None)

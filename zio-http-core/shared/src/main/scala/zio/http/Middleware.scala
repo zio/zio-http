@@ -135,19 +135,6 @@ object Middleware {
     }
   }
 
-  def customAuthProviding[A](provide: Request => A)(implicit ev: IsNominalType[A]): Middleware[Any, A] =
-    new Middleware[Any, A] {
-      def apply(routes: Routes[A]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler.asInstanceOf[Handler[A, Any]]
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val a = provide(req)
-            next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
-    }
-
   // ═══════════════════════════════════════════════════════════════════
   // INTERCEPT
   // ═══════════════════════════════════════════════════════════════════
@@ -386,12 +373,12 @@ object Middleware {
     def fromMap(m: Map[String, String]): FlashMap  = FlashMap(m)
   }
 
-  def flashScope()(implicit ev: IsNominalType[FlashMap]): Middleware[FlashMap, Any] =
-    new Middleware[FlashMap, Any] {
-      def apply(routes: Routes[Any]): Routes[FlashMap] =
+  def flashScope()(implicit ev: IsNominalType[FlashMap]): Middleware[Any, FlashMap] =
+    new Middleware[Any, FlashMap] {
+      def apply(routes: Routes[FlashMap]): Routes[Any] =
         Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler.asInstanceOf[Handler[FlashMap, Any]]
-          val wrapped = Handler.extracted[FlashMap, Any] { (req, ctx, vars, scope) =>
+          val next    = route.handler
+          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             val incomingFlash: Map[String, String] = req.cookies.iterator
               .find(_.name == "flash")
               .map { c =>
@@ -414,7 +401,7 @@ object Middleware {
             val flash                              = FlashMap.fromMap(incomingFlash)
             val result                             = next.handle(
               req,
-              ctx.asInstanceOf[Context[Any]].add(flash)(using ev).asInstanceOf[Context[FlashMap]],
+              ctx.add(flash)(using ev),
               vars,
               scope,
             )

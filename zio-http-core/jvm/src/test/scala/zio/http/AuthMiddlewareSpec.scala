@@ -68,7 +68,7 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("customAuthProviding")(
       test("injects context for every request") {
-        val mw      = Middleware.customAuthProviding[User](req => User("bob", "user"))
+        val mw      = Middleware.customAuth[User](req => Right(User("bob", "user")))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
