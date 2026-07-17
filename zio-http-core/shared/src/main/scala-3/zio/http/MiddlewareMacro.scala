@@ -57,7 +57,15 @@ private[http] object MiddlewareMacro {
   private def extractOutTypes(using q: Quotes)(t: q.reflect.TypeRepr): List[q.reflect.TypeRepr] = {
     import q.reflect.*
     t.dealias match {
-      case OrType(a, b) => extractOutTypes(a) ++ extractOutTypes(b)
+      case OrType(a, b) =>
+        val left  = extractOutTypes(a)
+        val right = extractOutTypes(b)
+        if (left.map(_.show) != right.map(_.show))
+          report.errorAndAbort(
+            s"Middleware.custom: all branches must return the same context tuple shape, " +
+              s"but got left=${left.map(_.show)} right=${right.map(_.show)}.",
+          )
+        left
       case AppliedType(tc, as)
           if tc.typeSymbol.fullName.startsWith("scala.Tuple") && as.nonEmpty
             && (as.head <:< TypeRepr.of[Response]) =>
