@@ -12,8 +12,11 @@ import scala.quoted.*
  *   }
  * }}}
  *
- * This generates a `Handler.extracted[AuthContext & RequestId, Any]` that
- * extracts context values via `ctx.get[T]` at runtime.
+ * The macro generates a handler whose inferred type is structurally equivalent
+ * to `Handler.extracted[C & D, Any]` where `C` and `D` are the context
+ * parameter types. The public signature returns `Handler[?, ?]`; the precise
+ * context type is preserved for the compiler through the `transparent inline`
+ * modifier.
  */
 transparent inline def contextHandler[H](inline h: H): Handler[?, ?] =
   ${ ContextHandlerMacro.impl[H]('h) }

@@ -99,6 +99,23 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val result = runSingle(app)
         assertTrue(result == responseAsResult(Response.text("fallback")))
       },
+      test("serves a file from the directory") {
+        val tmpFile = java.io.File.createTempFile("sd-test", ".html")
+        try {
+          java.nio.file.Files.writeString(tmpFile.toPath, "hello from serveDirectory")
+          val dir = tmpFile.getParentFile.getCanonicalPath
+          val mw  = Middleware.serveDirectory(dir)
+          val req = Request.get(URL.root.copy(path = Path(tmpFile.getName)))
+          val app = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
+          val ok  = runSingle(app, req) match {
+            case r: Response if r.status == Status.Ok => true
+            case _                                    => false
+          }
+          assertTrue(ok)
+        } finally {
+          tmpFile.delete()
+        }
+      },
     ),
     suite("serveResources")(
       test("falls through to downstream handler for non-existent resource") {
@@ -106,6 +123,17 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val app    = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
         val result = runSingle(app)
         assertTrue(result == responseAsResult(Response.text("fallback")))
+      },
+      test("serves an embedded resource") {
+        val mw   = Middleware.serveResources(basePath = "")
+        val path = "zio/http/Middleware.class"
+        val req  = Request.get(URL.root.copy(path = Path(path)))
+        val app  = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
+        val ok   = runSingle(app, req) match {
+          case r: Response if r.status == Status.Ok => true
+          case _                                    => false
+        }
+        assertTrue(ok)
       },
     ),
     suite("signCookies")(

@@ -29,7 +29,7 @@ trait Middleware[UpperCtx, Ctx] { self =>
 }
 
 object Middleware {
-  private val timeoutExecutor: java.util.concurrent.Executor =
+  private val timeoutExecutor: java.util.concurrent.ExecutorService =
     java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()
 
   def identity[Ctx]: Middleware[Ctx, Ctx] = new Middleware[Ctx, Ctx] {
@@ -126,7 +126,7 @@ object Middleware {
           val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             validate(req) match {
               case Some(a) =>
-                next.handle(req, ctx.asInstanceOf[Context[Any]].add(a)(using ev).asInstanceOf[Context[A]], vars, scope)
+                next.handle(req, ctx.asInstanceOf[Context[Any]].add(a).asInstanceOf[Context[A]], vars, scope)
               case None    => Halt(Response.unauthorized.addHeader(wwwAuth))
             }
           }
@@ -217,7 +217,7 @@ object Middleware {
             next.handle(req, ctx, vars, scope)
           }
           val mwRoute     = Route(route.pattern, passthrough)
-          val applied     = middleware(Routes(mwRoute)).routes.toList.head.handler
+          val applied     = middleware(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
           val wrapped     = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             if (predicate(req)) applied.handle(req, ctx, vars, scope)
             else next.handle(req, ctx, vars, scope)
@@ -239,8 +239,8 @@ object Middleware {
             next.handle(req, ctx, vars, scope)
           }
           val mwRoute      = Route(route.pattern, passthrough)
-          val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.head.handler
-          val falseApplied = onFalse(Routes(mwRoute)).routes.toList.head.handler
+          val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+          val falseApplied = onFalse(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
           val wrapped      = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             if (predicate(req)) trueApplied.handle(req, ctx, vars, scope)
             else falseApplied.handle(req, ctx, vars, scope)
@@ -264,9 +264,11 @@ object Middleware {
           }
           val mwRoute        = Route(route.pattern, passthrough)
           // Apply middleware once per route at build time, not per request.
-          val defaultHandler = default(Routes(mwRoute)).routes.toList.head.handler
+          val defaultHandler = default(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
           val perMethod      =
-            map.map { case (method, mw) => method -> mw(Routes(mwRoute)).routes.toList.head.handler }
+            map.map { case (method, mw) =>
+              method -> mw(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+            }
           val wrapped        = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
             perMethod.getOrElse(req.method, defaultHandler).handle(req, ctx, vars, scope)
           }
@@ -401,7 +403,7 @@ object Middleware {
             val flash                              = FlashMap.fromMap(incomingFlash)
             val result                             = next.handle(
               req,
-              ctx.add(flash)(using ev),
+              ctx.add(flash),
               vars,
               scope,
             )
