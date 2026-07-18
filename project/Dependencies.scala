@@ -9,7 +9,7 @@ object Dependencies {
   val ZioJsonVersion               = "0.9.2"
   val ZioSchemaVersion             = "1.8.5"
   val SttpVersion                  = "3.3.18"
-  val ZioConfigVersion             = "4.0.7"
+  val ZioConfigVersion             = "4.0.8"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
