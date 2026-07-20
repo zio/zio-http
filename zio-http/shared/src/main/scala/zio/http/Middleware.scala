@@ -149,9 +149,9 @@ object Middleware extends HandlerAspects {
           originHeader match {
             case Some(origin) =>
               config.allowedOrigin(origin) match {
-                case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
+                case Some(allowOrigin) =>
                   ZIO.succeed((corsHeaders(allowOrigin, acrhHeader, isPreflight = false), (request, ())))
-                case _                                                                   =>
+                case _ =>
                   // Origin is not allowed - reject the request with 403 Forbidden
                   ZIO.fail(Response.status(Status.Forbidden))
               }
