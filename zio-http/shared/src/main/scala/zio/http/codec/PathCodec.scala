@@ -757,8 +757,12 @@ object PathCodec {
 
   final case class Annotated[A](codec: PathCodec[A], annotations: Chunk[MetaData[A]]) extends PathCodec[A] {
 
-    override def equals(that: Any): Boolean =
-      codec.equals(that)
+    override def equals(that: Any): Boolean = that match {
+      case o: Annotated[_] => codec.equals(o.codec)
+      case _               => false
+    }
+
+    override def hashCode(): Int = codec.hashCode
 
   }
 
