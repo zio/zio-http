@@ -218,8 +218,8 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     testFrameworks     := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     libraryDependencies ++= Seq(
       "org.scala-lang.modules" %%% "scala-collection-compat" % ScalaCompatCollectionVersion,
-      "io.github.cquiroz"      %%% "scala-java-time"         % "2.6.0",
-      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.6.0",
+      "io.github.cquiroz"      %%% "scala-java-time"         % "2.7.0",
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb"    % "2.7.0",
       "org.scala-js"           %%% "scalajs-dom"             % "2.8.1",
       "dev.zio"                %%% "zio-test"                % ZioVersion % "test",
       "dev.zio"                %%% "zio-test-sbt"            % ZioVersion % "test",
@@ -279,8 +279,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.21",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.21",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.28",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.28",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.18",
@@ -352,8 +352,8 @@ lazy val zioHttpMetrics = (project in file("zio-http-metrics"))
     stdSettings("zio-http-metrics"),
     publishSetting(true),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.6",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.6",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.7",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.7",
       `zio-test`,
       `zio-test-sbt`,
     ),
@@ -378,8 +378,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.6",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.6",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.5.7",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.7",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)

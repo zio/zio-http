@@ -2,20 +2,20 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "11.0.4"
-  val NettyVersion                 = "4.2.14.Final"
+  val NettyVersion                 = "4.2.16.Final"
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.26"
   val ZioCliVersion                = "0.8.1"
   val ZioJsonVersion               = "0.9.2"
   val ZioSchemaVersion             = "1.8.5"
   val SttpVersion                  = "3.3.18"
-  val ZioConfigVersion             = "4.0.7"
+  val ZioConfigVersion             = "4.0.8"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
   val `scala-compat-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompatCollectionVersion
 
-  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.11.1"
+  val scalafmt         = "org.scalameta" %% "scalafmt-dynamic" % "3.11.4"
   val scalametaParsers = "org.scalameta" %% "parsers"          % "4.14.7"
 
   val netty =
@@ -30,7 +30,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
       "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
-      "com.aayushatharva.brotli4j" % "brotli4j" % "1.22.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.23.0" % "provided",
     )
 
   val unroll = Seq(

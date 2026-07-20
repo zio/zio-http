@@ -24,7 +24,8 @@ import zio.http.internal.ChannelState
 import zio.http.netty.NettyResponse
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.FullHttpResponse
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException
+import io.netty.handler.codec.http.{FullHttpResponse, HttpResponseStatus}
 
 private[netty] final class WebSocketClientInboundHandler(
   onResponse: Promise[Throwable, Response],
@@ -36,8 +37,19 @@ private[netty] final class WebSocketClientInboundHandler(
     ctx.fireChannelActive(): Unit
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))
-    ctx.fireChannelRead(msg.retain())
+    msg.status match {
+      case HttpResponseStatus.SWITCHING_PROTOCOLS =>
+        onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))
+        ctx.fireChannelRead(msg.retain())
+      case status                                 =>
+        val exit = Exit.fail(
+          new WebSocketHandshakeException(
+            s"WebSocket upgrade failed: expected a '101 Switching Protocols' response but got '$status'",
+          ),
+        )
+        onResponse.unsafe.done(exit)
+        onComplete.unsafe.done(exit)
+    }
     ctx.pipeline().remove(ctx.name()): Unit
   }
 
