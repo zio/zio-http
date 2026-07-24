@@ -72,9 +72,9 @@ trait Body { self =>
    */
   def asJson[A](implicit schema: Schema[A], trace: Trace): Task[A] = {
     import zio.schema.codec.JsonCodec
-    asString.flatMap { str =>
+    asChunk.flatMap { chunk =>
       ZIO
-        .fromEither(JsonCodec.schemaBasedBinaryCodec[A].decode(Chunk.fromArray(str.getBytes(Charsets.Http))))
+        .fromEither(JsonCodec.schemaBasedBinaryCodec[A].decode(chunk))
         .mapError(err => new RuntimeException(s"Failed to decode JSON: $err"))
     }
   }
