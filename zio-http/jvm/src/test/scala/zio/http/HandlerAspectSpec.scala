@@ -1,11 +1,45 @@
 package zio.http
 
 import zio._
+import zio.test.Assertion._
 import zio.test._
 
 object HandlerAspectSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("HandlerAspect")(
+      test("applying an aspect to a handler with path parameters does not compile") {
+        // Regression test for #3141.
+        //
+        // `Handler.@@` casts the handler's input to `Request` and requires an
+        // `IsRequest[In1]` to justify that cast. When a route has path
+        // parameters the handler's input is a tuple such as
+        // `(String, Request)`, and there is no `IsRequest` instance for it —
+        // but `IsRequest` used to be contravariant, so `IsRequest[Request]`
+        // also conformed to `IsRequest[Nothing]`. The compiler simply inferred
+        // `In1 = Nothing`, the implicit was found, and the unsound cast went
+        // through, failing at runtime with:
+        //
+        //   java.lang.ClassCastException: class zio.http.Request cannot be cast
+        //   to class scala.Tuple2
+        //
+        // With `IsRequest` invariant there is no instance to infer and this is
+        // rejected at compile time instead.
+        val result = typeCheck {
+          """import zio.http._
+             import zio._
+
+             val aspect: HandlerAspect[Any, Option[Int]] =
+               HandlerAspect.interceptIncomingHandler(
+                 Handler.fromFunctionZIO[Request](req => ZIO.succeed((req, None)))
+               )
+
+             Method.GET / "base" / string("p") -> handler { (_: String, _: Request) =>
+               withContext((_: Option[Int]) => ZIO.succeed(Response.ok))
+             } @@ aspect
+          """
+        }
+        assertZIO(result)(isLeft)
+      },
       test("HandlerAspect with context can eliminate environment type") {
         val handler0 = handler((_: Request) => ZIO.serviceWith[Int](i => Response.text(i.toString))) @@
           HandlerAspect.interceptIncomingHandler(handler((req: Request) => (req, req.headers.size)))

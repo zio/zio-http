@@ -703,7 +703,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A]
 
   object IsRequest {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
