@@ -1,12 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
-import { FaBolt, FaPuzzlePiece, FaCloud, FaDiagramProject } from 'react-icons/fa6';
+import { LuZap, LuBlocks, LuCloud, LuWorkflow } from 'react-icons/lu';
 import styles from './styles.module.css';
 
 const FeatureList = [
   {
     title: 'High Performance & Non-blocking',
-    Icon: FaBolt,
+    Icon: LuZap,
     description: (
       <>
         ZIO HTTP is powered by Netty and ZIO's asynchronous runtime, so all I/O is
@@ -17,7 +17,7 @@ const FeatureList = [
   },
   {
     title: 'Unified ZIO Experience',
-    Icon: FaPuzzlePiece,
+    Icon: LuBlocks,
     description: (
       <>
         Built on ZIO's effect system, ZIO HTTP provides lightweight fibers,
@@ -29,7 +29,7 @@ const FeatureList = [
   },
   {
     title: 'Cloud-Native Support',
-    Icon: FaCloud,
+    Icon: LuCloud,
     description: (
       <>
         Designed for cloud-scale deployments, ZIO HTTP supports massive
@@ -41,7 +41,7 @@ const FeatureList = [
   },
   {
     title: 'Type-driven Endpoints',
-    Icon: FaDiagramProject,
+    Icon: LuWorkflow,
     description: (
       <>
         ZIO HTTP supports both imperative routing and declarative,

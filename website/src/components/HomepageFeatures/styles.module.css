@@ -54,35 +54,44 @@
 
 .featureCardHeader {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  text-align: center;
-  margin-bottom: 1.5rem;
+  gap: 1rem;
+  text-align: left;
+  margin-bottom: 1.25rem;
 }
 
 .featureCardIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
   flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  color: var(--ifm-color-primary);
+  background: linear-gradient(
+    135deg,
+    rgba(129, 199, 132, 0.22),
+    rgba(129, 199, 132, 0.06)
+  );
+  transition: transform 0.3s ease;
 }
 
 .featureCardIcon svg {
-  width: 200px;
-  height: 200px;
-  color: var(--ifm-color-primary);
-  transition: filter 0.3s ease;
+  width: 1.5rem;
+  height: 1.5rem;
+  stroke-width: 2;
 }
 
-.featureCard:hover .featureCardIcon svg {
-  filter: brightness(1.1) saturate(1.1);
+.featureCard:hover .featureCardIcon {
+  transform: translateY(-2px);
 }
 
 .featureCardHeader h3 {
   margin: 0;
-  font-size: 1.5rem;
-  color: var(--ifm-color-primary);
+  font-size: 1.25rem;
+  color: var(--ifm-heading-color);
 }
 
 .featureCardDescription {
