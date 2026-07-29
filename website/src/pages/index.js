@@ -6,20 +6,30 @@ import HomepageCodeSnippet from '@site/src/components/HomepageCodeSnippet';
 import HomepageZionomicon from '@site/src/components/HomepageZionomicon';
 import HomepageEcosystem from '@site/src/components/HomepageEcosystem';
 import HomepageUsers from '@site/src/components/HomepageUsers';
+import Reveal from '@site/src/components/Reveal';
 
 export default function Home() {
   return (
     <Layout
       title="ZIO HTTP"
-      description="ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers."
-      wrapperClassName="homepageDark">
+      description="ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.">
       <HomepageHero />
       <main>
-        <HomepageCodeSnippet />
-        <HomepageFeatures />
-        <HomepageEcosystem />
-        <HomepageZionomicon />
-        <HomepageUsers />
+        <Reveal>
+          <HomepageCodeSnippet />
+        </Reveal>
+        <Reveal>
+          <HomepageFeatures />
+        </Reveal>
+        <Reveal>
+          <HomepageEcosystem />
+        </Reveal>
+        <Reveal>
+          <HomepageZionomicon />
+        </Reveal>
+        <Reveal>
+          <HomepageUsers />
+        </Reveal>
       </main>
     </Layout>
   );
