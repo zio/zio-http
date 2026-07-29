@@ -3,7 +3,9 @@
 .heroBanner {
   position: relative;
   width: 100%;
-  min-height: 600px;
+  /* Fill the viewport (minus the navbar) so only the hero is visible before
+     the user scrolls; the next sections sit below the fold. */
+  min-height: calc(100vh - var(--ifm-navbar-height));
   background-image: url('/img/banner.png');
   background-size: cover;
   background-position: center;
@@ -26,7 +28,7 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  min-height: 600px;
+  min-height: calc(100vh - var(--ifm-navbar-height));
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: stretch;
