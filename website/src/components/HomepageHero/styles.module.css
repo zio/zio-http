@@ -116,19 +116,14 @@
   color: var(--ifm-color-primary);
 }
 
-/* CTA block: the two-button row (Get Started + Star on GitHub) spans the
-   same total width as the single Onboard button above it. The block is sized
-   to its widest row (the Onboard button); the two bottom buttons each flex to
-   fill half of that width. */
+/* CTA cluster, zio.dev-style: each row is content-width and centered — the
+   Onboard button on top, Get Started + Star on GitHub below, stats beneath.
+   Buttons hug their labels (no fixed-width block, no flex stretch). */
 .heroCta {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1rem;
-  /* Fixed block width (not fit-content): the two-button row splits it and
-     stays put even when the Onboard button shrinks to "Copied!". Sized to fit
-     the full Onboard label without being wider than it needs. */
-  width: 100%;
-  max-width: 28rem;
 }
 
 .onboardRow {
@@ -136,21 +131,18 @@
   justify-content: center;
 }
 
-/* Natural (content) width so the copy button hugs its label and shrinks when
-   it flips to "Copied!" instead of staying stretched to the block width. */
 .onboardRow > * {
   white-space: nowrap;
 }
 
 .buttons {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
   gap: 1rem;
 }
 
 .buttons > * {
-  flex: 1 1 0;
-  min-width: 0;
   white-space: nowrap;
 }
 
