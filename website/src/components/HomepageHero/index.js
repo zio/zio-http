@@ -3,6 +3,7 @@ import Link from '@docusaurus/Link';
 import { FaRocket, FaShieldHalved, FaCubes, FaArrowRight } from 'react-icons/fa6';
 import styles from './styles.module.css';
 import OnboardAgentButton from '@site/src/components/OnboardAgentButton';
+import RepoStats from '@site/src/components/RepoStats';
 
 const featureTags = [
   { icon: FaRocket, label: 'Ultra-Fast' },
@@ -49,6 +50,7 @@ export default function HomepageHero() {
             </Link>
             <OnboardAgentButton tone="onDark" />
           </div>
+          <RepoStats />
         </div>
       </div>
     </header>
