@@ -13,26 +13,6 @@
   padding: 0;
 }
 
-/* Feather the hard bottom edge of the always-dark hero into the section
-   that follows it (which uses --ifm-color-emphasis-100), so the header
-   blends seamlessly in both light and dark themes. Sits below the hero
-   content (z-index 5 < contentGrid's 10) so it never dims the buttons. */
-.heroBanner::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 110px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    var(--ifm-color-emphasis-100)
-  );
-  pointer-events: none;
-  z-index: 5;
-}
-
 .overlay {
   position: absolute;
   top: 0;

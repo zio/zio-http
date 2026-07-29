@@ -11,7 +11,8 @@ export default function Home() {
   return (
     <Layout
       title="ZIO HTTP"
-      description="ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.">
+      description="ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers."
+      wrapperClassName="homepageDark">
       <HomepageHero />
       <main>
         <HomepageCodeSnippet />

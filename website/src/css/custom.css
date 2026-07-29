@@ -87,3 +87,38 @@
     font-size: 3.5rem;
     margin-bottom: 2rem;
 }
+
+/* ==========================================================================
+   Homepage dark surface
+   The hero banner is always dark (bottom edge ~#0d1117). To make the whole
+   homepage read as one continuous surface with the header, force the page
+   content to a dark GitHub-slate palette regardless of the site theme, and
+   overlay a faint circuit-node dot texture. Applied via <Layout
+   wrapperClassName="homepageDark"> so it scopes to the page content only —
+   the navbar and footer still follow the theme toggle. Sections consume
+   Infima vars, so redefining those vars here flips every section to dark
+   with no per-section edits.
+   ========================================================================== */
+.homepageDark {
+  /* surfaces */
+  --ifm-background-color: #0d1117;
+  --ifm-background-surface-color: #161b22;
+  --ifm-card-background-color: #161b22;
+  --ifm-color-emphasis-100: #161b22;
+  --ifm-color-emphasis-200: #21262d;
+  --ifm-color-emphasis-300: #30363d;
+  /* text (emphasis-600..800 are used as body/heading text by the sections) */
+  --ifm-color-emphasis-600: #b1bac4;
+  --ifm-color-emphasis-700: #c9d1d9;
+  --ifm-color-emphasis-800: #e6edf3;
+  --ifm-heading-color: #e6edf3;
+  --ifm-font-color-base: #e0e6ed;
+  --ifm-text-color-secondary: rgba(230, 237, 243, 0.7);
+  --ifm-color-content-secondary: rgba(230, 237, 243, 0.7);
+
+  background-color: #0d1117;
+  color: var(--ifm-font-color-base);
+  /* faint circuit-node dots to echo the header's tech texture */
+  background-image: url("data:image/svg+xml,%3Csvg width='26' height='26' viewBox='0 0 26 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2328323e' fill-opacity='0.45'%3E%3Ccircle cx='1.5' cy='1.5' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
