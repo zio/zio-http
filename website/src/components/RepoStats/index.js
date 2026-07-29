@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { FaStar } from 'react-icons/fa6';
 import { repoStats } from './data';
 
 function formatStars(n) {
@@ -10,10 +9,10 @@ function formatStars(n) {
 }
 
 /**
- * Hero trust row: a "Star on GitHub" button plus live star count and latest
- * release version (static contributor count). The GitHub calls are
- * unauthenticated and best-effort — any failure (offline, rate limit) silently
- * keeps the baked-in fallbacks. Styled for the always-dark hero banner.
+ * Hero trust labels: live star count and latest release version (static
+ * contributor count). The GitHub calls are unauthenticated and best-effort —
+ * any failure (offline, rate limit) silently keeps the baked-in fallbacks.
+ * Styled for the always-dark hero banner.
  */
 export default function RepoStats() {
   const [stars, setStars] = useState(repoStats.stars);
@@ -57,24 +56,13 @@ export default function RepoStats() {
   ];
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-      <a
-        href={`https://github.com/${repoStats.owner}/${repoStats.repo}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hover:border-primary hover:text-primary flex items-center gap-2 rounded-full border-2 border-white/70 bg-black/40 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:no-underline"
-      >
-        <FaStar aria-hidden="true" />
-        Star on GitHub
-      </a>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-zinc-300">
-        {items.map((item) => (
-          <span key={item.label}>
-            <span className="font-bold text-white">{item.value}</span>{' '}
-            {item.label}
-          </span>
-        ))}
-      </div>
+    <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-zinc-300">
+      {items.map((item) => (
+        <span key={item.label}>
+          <span className="font-bold text-white">{item.value}</span>{' '}
+          {item.label}
+        </span>
+      ))}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from '@docusaurus/Link';
-import { FaRocket, FaShieldHalved, FaCubes, FaArrowRight } from 'react-icons/fa6';
+import { FaRocket, FaShieldHalved, FaCubes, FaArrowRight, FaGithub } from 'react-icons/fa6';
 import styles from './styles.module.css';
 import OnboardAgentButton from '@site/src/components/OnboardAgentButton';
 import RepoStats from '@site/src/components/RepoStats';
@@ -40,6 +40,9 @@ export default function HomepageHero() {
               </div>
             ))}
           </div>
+          <div className={styles.onboardRow}>
+            <OnboardAgentButton tone="onDark" />
+          </div>
           <div className={styles.buttons}>
             <Link
               className="button button--secondary button--lg"
@@ -48,7 +51,14 @@ export default function HomepageHero() {
               <span> </span>
               <FaArrowRight className={styles.arrowIcon} />
             </Link>
-            <OnboardAgentButton tone="onDark" />
+            <a
+              href="https://github.com/zio/zio-http"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:border-primary hover:text-primary flex items-center gap-2 rounded-full border-2 border-white bg-black/40 px-7 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition-colors hover:no-underline">
+              <FaGithub aria-hidden="true" />
+              <span>Star on GitHub</span>
+            </a>
           </div>
           <RepoStats />
         </div>

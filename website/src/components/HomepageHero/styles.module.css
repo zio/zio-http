@@ -116,6 +116,12 @@
   color: var(--ifm-color-primary);
 }
 
+.onboardRow {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
 .buttons {
   display: flex;
   align-items: center;
