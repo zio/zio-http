@@ -116,17 +116,9 @@
 /* The JS hook (useFullpageScroll) intercepts wheel/keyboard so each gesture
    animates to the adjacent section boundary. This supplies the smooth scroll
    and the offset so a section lands below the sticky navbar, not under it.
-   Scoped to the homepage via a class added to <html> (see pages/index.js). */
-html.homepage-snap {
-  scroll-behavior: smooth;
-}
-
+   Scoped to the homepage via a class added to <html> (see pages/index.js).
+   scroll-behavior stays `auto`: the hook animates each glide frame-by-frame
+   with its own easing, so CSS smooth scrolling would double up and fight it. */
 html.homepage-snap .fp-section {
   scroll-margin-top: 4.5rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.homepage-snap {
-    scroll-behavior: auto;
-  }
 }

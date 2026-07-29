@@ -4,8 +4,14 @@ import { useEffect } from 'react';
 // keyboard paging: a single scroll gesture animates to the adjacent section
 // instead of free-scrolling. Edge-aware — a section taller than the viewport
 // still scrolls internally until its edge, then the next gesture advances.
-const LOCK_MS = 800;
+const DURATION_MS = 900; // tween length for one section-to-section glide
+const LOCK_MS = DURATION_MS + 120; // ignore gestures until the glide settles
 const EPS = 4;
+
+// Smooth, symmetric acceleration/deceleration — feels gentler than the
+// browser's native `behavior: 'smooth'`, whose speed/easing can't be tuned.
+const easeInOutCubic = (t) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 export default function useFullpageScroll(selector) {
   useEffect(() => {
@@ -23,6 +29,7 @@ export default function useFullpageScroll(selector) {
     };
 
     let lockUntil = 0;
+    let rafId = null;
 
     const currentIndex = (list) => {
       const offset = navHeight() + 8;
@@ -36,9 +43,27 @@ export default function useFullpageScroll(selector) {
 
     const goTo = (el) => {
       lockUntil = Date.now() + LOCK_MS;
-      const top =
-        el.getBoundingClientRect().top + window.pageYOffset - navHeight();
-      window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+      const startY = window.pageYOffset;
+      const targetY =
+        el.getBoundingClientRect().top + startY - navHeight();
+
+      if (reduceMotion) {
+        window.scrollTo(0, targetY);
+        return;
+      }
+
+      const distance = targetY - startY;
+      const start = performance.now();
+      if (rafId) cancelAnimationFrame(rafId);
+
+      const step = (now) => {
+        const t = Math.min(1, (now - start) / DURATION_MS);
+        // 2-arg scrollTo is an instant jump per frame; the easing curve —
+        // not CSS scroll-behavior — supplies the smoothness.
+        window.scrollTo(0, startY + distance * easeInOutCubic(t));
+        rafId = t < 1 ? requestAnimationFrame(step) : null;
+      };
+      rafId = requestAnimationFrame(step);
     };
 
     const onWheel = (e) => {
@@ -96,6 +121,7 @@ export default function useFullpageScroll(selector) {
     return () => {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKeyDown);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [selector]);
 }
