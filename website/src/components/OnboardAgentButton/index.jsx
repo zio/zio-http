@@ -57,7 +57,7 @@ export default function OnboardAgentButton({ tone = 'default' }) {
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={`flex items-center gap-2 rounded-full border-2 px-6 py-2.5 text-base font-semibold leading-normal transition-colors ${toneClasses}`}
+      className={`flex items-center gap-2 rounded-full border-2 px-7 py-3.5 text-base font-semibold leading-normal transition-colors ${toneClasses}`}
     >
       <span>{copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}</span>
       <span className="flex items-center gap-1" aria-hidden="true">

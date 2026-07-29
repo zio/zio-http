@@ -136,7 +136,7 @@
   backdrop-filter: blur(4px);
   border: 2px solid var(--ifm-color-primary);
   border-radius: 9999px;
-  padding: 0.625rem 1.5rem;
+  padding: 0.875rem 1.75rem;
   font-size: 1rem;
   font-weight: 600;
   line-height: normal;
