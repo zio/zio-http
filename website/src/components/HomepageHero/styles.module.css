@@ -124,12 +124,16 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  width: fit-content;
-  max-width: 100%;
+  /* Fixed block width (not fit-content): the two-button row splits it and
+     stays put even when the Onboard button shrinks to "Copied!". Sized to fit
+     the full Onboard label without being wider than it needs. */
+  width: 100%;
+  max-width: 28rem;
 }
 
 .onboardRow {
   display: flex;
+  justify-content: center;
 }
 
 /* Natural (content) width so the copy button hugs its label and shrinks when

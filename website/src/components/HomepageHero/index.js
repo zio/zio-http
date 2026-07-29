@@ -61,8 +61,8 @@ export default function HomepageHero() {
                 <span>Star on GitHub</span>
               </a>
             </div>
+            <RepoStats />
           </div>
-          <RepoStats />
         </div>
       </div>
     </header>

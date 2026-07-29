@@ -56,7 +56,7 @@ export default function RepoStats() {
   ];
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-zinc-300">
+    <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-zinc-300">
       {items.map((item) => (
         <span key={item.label}>
           <span className="font-bold text-white">{item.value}</span>{' '}
