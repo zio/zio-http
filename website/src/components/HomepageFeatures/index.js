@@ -1,11 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
+import { FaBolt, FaPuzzlePiece, FaCloud, FaDiagramProject } from 'react-icons/fa6';
 import styles from './styles.module.css';
 
 const FeatureList = [
   {
     title: 'High Performance & Non-blocking',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    Icon: FaBolt,
     description: (
       <>
         ZIO HTTP is powered by Netty and ZIO's asynchronous runtime, so all I/O is
@@ -16,7 +17,7 @@ const FeatureList = [
   },
   {
     title: 'Unified ZIO Experience',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    Icon: FaPuzzlePiece,
     description: (
       <>
         Built on ZIO's effect system, ZIO HTTP provides lightweight fibers,
@@ -28,7 +29,7 @@ const FeatureList = [
   },
   {
     title: 'Cloud-Native Support',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    Icon: FaCloud,
     description: (
       <>
         Designed for cloud-scale deployments, ZIO HTTP supports massive
@@ -40,7 +41,7 @@ const FeatureList = [
   },
   {
     title: 'Type-driven Endpoints',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    Icon: FaDiagramProject,
     description: (
       <>
         ZIO HTTP supports both imperative routing and declarative,
@@ -52,13 +53,13 @@ const FeatureList = [
   },
 ];
 
-function Feature({Svg, title, description, features = []}) {
+function Feature({Icon, title, description, features = []}) {
   return (
     <div className={clsx('col col--4', styles.featureCardCol)}>
       <div className={styles.featureCard}>
         <div className={styles.featureCardHeader}>
           <div className={styles.featureCardIcon}>
-            <Svg role="img" />
+            <Icon role="img" aria-hidden="true" />
           </div>
           <h3>{title}</h3>
         </div>
