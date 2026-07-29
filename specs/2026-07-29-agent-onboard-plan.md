@@ -10,12 +10,13 @@
 
 ## Global Constraints
 
-- **No unit-test harness on this website.** The verification cycle for every task is `npm run build` (from `website/`) + SSR-HTML grep + manual browser check at `localhost:3000`. There are no Jest/Vitest tests to write.
+- **No unit-test harness on this website.** The verification cycle for every task is `yarn build` (from `website/`) + SSR-HTML grep + manual browser check at `localhost:3000`. There are no Jest/Vitest tests to write.
 - Domain: `ziohttp.com`. All absolute links in copy point there.
 - Brand primary is **green** (`--ifm-color-primary: #81c784`); the Tailwind `primary` token maps to `colors.green` (DEFAULT `green[600]`). Never red.
 - Tailwind dependency pinned to `@tailwindcss/postcss@4.3.3` (same as zio.dev).
 - `important: true` in `tailwind.config.js` — every utility is `!important` (intentional, so utilities beat Infima).
-- All website source lives under `website/`. Run all `npm`/build commands from `website/`.
+- **This website uses Yarn (classic v1).** `yarn.lock` is tracked; netlify (`YARN_VERSION`) and CI (`cache: yarn`) both use yarn. Use `yarn`, never `npm` — never commit a `package-lock.json`. Run all yarn/build commands from `website/`.
+- Full site build is `./build.sh` from repo root: it runs `sbt mdoc` (generates `website/docs` from root `docs/`) then `cd website && yarn install && yarn build`. Running `yarn build` alone fails on missing generated docs (e.g. `concepts/*` in `sidebars.js`) — that is a pre-existing pipeline artifact, not a regression. For task verification, either run `sbt mdoc` first or confirm webpack compiles CSS/JS with no Tailwind/PostCSS errors.
 - Specs and plans live in the repo-root `specs/` directory, never in `docs/` (the `docs/` tree is mdoc-published to `website/docs`).
 - Commits: Conventional Commits; end each commit message with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 - Work on the current branch `modern-website`.
@@ -150,20 +151,20 @@ At the very top of `website/src/css/custom.css` (above the existing `/** Any CSS
 Run from `website/`:
 
 ```bash
-npm install
-npm run build
+yarn install
+yarn build   # run `sbt mdoc` from repo root first, or expect the pre-existing concepts/* docs break
 ```
 
-Expected: `npm install` adds `@tailwindcss/postcss`; `npm run build` succeeds with no PostCSS/CSS errors.
+Expected: `yarn install` adds `@tailwindcss/postcss` and updates `yarn.lock` only (no `package-lock.json`); webpack compiles CSS/JS with no PostCSS/Tailwind errors.
 
 - [ ] **Step 7: Verify no visual regression**
 
-Run `npm run start` (or serve `build/`), open `localhost:3000`. Confirm the homepage, a docs page, navbar, and footer look unchanged from before (Tailwind's reset + `border-compat` block should leave Infima styling intact). No utility classes are used yet, so nothing new should appear.
+Run `yarn start` (or serve `build/`), open `localhost:3000`. Confirm the homepage, a docs page, navbar, and footer look unchanged from before (Tailwind's reset + `border-compat` block should leave Infima styling intact). No utility classes are used yet, so nothing new should appear.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add website/package.json website/package-lock.json website/postcss.config.js website/tailwind.config.js website/docusaurus.config.js website/src/css/custom.css
+git add website/package.json website/yarn.lock website/postcss.config.js website/tailwind.config.js website/docusaurus.config.js website/src/css/custom.css
 git commit -m "build(website): add Tailwind v4 foundation
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -372,7 +373,7 @@ In `website/src/components/HomepageHero/styles.module.css`, change the `.buttons
 
 - [ ] **Step 5: Build and verify SSR output**
 
-Run from `website/`: `npm run build`
+Run from `website/`: `yarn build`
 Expected: build succeeds. Then:
 
 ```bash
@@ -507,7 +508,7 @@ export default function ColorModeToggleWrapper(props) {
 
 - [ ] **Step 4: Build and verify SSR output**
 
-Run from `website/`: `npm run build`
+Run from `website/`: `yarn build`
 Expected: build succeeds (the swizzle wraps the original component; Docusaurus may print a swizzle "unsafe/safe" note — that is fine). Then:
 
 ```bash
@@ -591,7 +592,7 @@ If you cannot install the skills, fetch the documentation index yourself and use
 
 - [ ] **Step 2: Build and verify the asset is served**
 
-Run from `website/`: `npm run build`
+Run from `website/`: `yarn build`
 Expected: build succeeds. Then:
 
 ```bash
@@ -655,7 +656,7 @@ git rm -r website/src/components/HomepageCodingAgent
 
 - [ ] **Step 3: Build and verify removal**
 
-Run from `website/`: `npm run build`
+Run from `website/`: `yarn build`
 Expected: build succeeds with no unresolved-import error. Then:
 
 ```bash
