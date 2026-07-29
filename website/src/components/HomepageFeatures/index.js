@@ -9,9 +9,7 @@ const FeatureList = [
     Icon: LuZap,
     description: (
       <>
-        ZIO HTTP is powered by Netty and ZIO's asynchronous runtime, so all I/O is
-        event-driven and non-blocking. This yields extremely high throughput and
-        low latency with minimal resource use.
+        Event-driven, non-blocking I/O on Netty — high throughput, low latency.
       </>
     ),
   },
@@ -20,10 +18,7 @@ const FeatureList = [
     Icon: LuBlocks,
     description: (
       <>
-        Built on ZIO's effect system, ZIO HTTP provides lightweight fibers,
-        structured error handling, and resource safety for your web applications,
-        with seamless access to ZIO ecosystem libraries, such as ZIO Schema,
-        ZIO Logging, ZIO Config, ZIO Streams, and ZIO Test libraries.
+        Fibers, typed errors, and resource safety, plus the full ZIO ecosystem.
       </>
     ),
   },
@@ -32,10 +27,7 @@ const FeatureList = [
     Icon: LuCloud,
     description: (
       <>
-        Designed for cloud-scale deployments, ZIO HTTP supports massive
-        concurrency and parallelism inherently. It efficiently manages
-        thousands of fibers (lightweight threads) and connections, so your
-        services can scale horizontally under load.
+        Massive concurrency over thousands of fibers — scale out under load.
       </>
     ),
   },
@@ -44,10 +36,7 @@ const FeatureList = [
     Icon: LuWorkflow,
     description: (
       <>
-        ZIO HTTP supports both imperative routing and declarative,
-        schema-driven endpoints. You describe request and response schemas
-        in types and the framework type-checks your handler logic against
-        them at compile time.
+        Imperative or schema-driven endpoints, type-checked at compile time.
       </>
     ),
   },
