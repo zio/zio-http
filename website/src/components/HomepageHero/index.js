@@ -2,6 +2,7 @@ import React from 'react';
 import Link from '@docusaurus/Link';
 import { FaRocket, FaShieldHalved, FaCubes, FaArrowRight } from 'react-icons/fa6';
 import styles from './styles.module.css';
+import OnboardAgentButton from '@site/src/components/OnboardAgentButton';
 
 const featureTags = [
   { icon: FaRocket, label: 'Ultra-Fast' },
@@ -46,6 +47,7 @@ export default function HomepageHero() {
               <span> </span>
               <FaArrowRight className={styles.arrowIcon} />
             </Link>
+            <OnboardAgentButton tone="onDark" />
           </div>
         </div>
       </div>
