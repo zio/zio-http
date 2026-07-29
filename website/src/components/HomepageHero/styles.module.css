@@ -116,17 +116,38 @@
   color: var(--ifm-color-primary);
 }
 
+/* CTA block: the two-button row (Get Started + Star on GitHub) spans the
+   same total width as the single Onboard button above it. The block is sized
+   to its widest row (the Onboard button); the two bottom buttons each flex to
+   fill half of that width. */
+.heroCta {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .onboardRow {
   display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
+}
+
+.onboardRow > * {
+  flex: 1;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .buttons {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: stretch;
   gap: 1rem;
+}
+
+.buttons > * {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .arrowIcon {
