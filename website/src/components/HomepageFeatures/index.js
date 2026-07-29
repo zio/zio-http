@@ -1,42 +1,70 @@
 import React from 'react';
 import clsx from 'clsx';
-import { LuZap, LuBlocks, LuCloud, LuWorkflow } from 'react-icons/lu';
+import {
+  LuShieldCheck,
+  LuFileText,
+  LuBraces,
+  LuLayers,
+  LuRadio,
+  LuFlaskConical,
+} from 'react-icons/lu';
 import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'High Performance & Non-blocking',
-    Icon: LuZap,
+    title: 'Type-Driven Endpoints',
+    Icon: LuShieldCheck,
     description: (
       <>
-        Event-driven, non-blocking I/O on Netty — high throughput, low latency.
+        Declarative or imperative endpoints, type-checked against the
+        description at compile time.
       </>
     ),
   },
   {
-    title: 'Unified ZIO Experience',
-    Icon: LuBlocks,
+    title: 'OpenAPI, Both Ways',
+    Icon: LuFileText,
     description: (
       <>
-        Fibers, typed errors, and resource safety, plus the full ZIO ecosystem.
+        Generate OpenAPI docs from your endpoints — or endpoints from an
+        OpenAPI spec.
       </>
     ),
   },
   {
-    title: 'Cloud-Native Support',
-    Icon: LuCloud,
+    title: 'Schema-Powered Codecs',
+    Icon: LuBraces,
     description: (
       <>
-        Massive concurrency over thousands of fibers — scale out under load.
+        Encode and decode bodies via ZIO Schema: JSON, Protobuf, Avro, and
+        Thrift.
       </>
     ),
   },
   {
-    title: 'Type-driven Endpoints',
-    Icon: LuWorkflow,
+    title: 'Composable Middleware',
+    Icon: LuLayers,
     description: (
       <>
-        Imperative or schema-driven endpoints, type-checked at compile time.
+        Auth, CORS, logging, and metrics as reusable HandlerAspects.
+      </>
+    ),
+  },
+  {
+    title: 'Real-Time Ready',
+    Icon: LuRadio,
+    description: (
+      <>
+        Built-in WebSockets and Server-Sent Events for live, streaming apps.
+      </>
+    ),
+  },
+  {
+    title: 'First-Class Testing',
+    Icon: LuFlaskConical,
+    description: (
+      <>
+        Test routes and clients without a live server, using the testkit.
       </>
     ),
   },
