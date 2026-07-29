@@ -127,11 +127,19 @@
   top: 2px;
 }
 
-/* Ensure button is visible on the always-dark banner in both themes */
+/* Ensure button is visible on the always-dark banner in both themes.
+   Matches the Onboard-your-agent pill: same pill shape, height, padding,
+   and typography so the two hero buttons read as a consistent pair. */
 .buttons :global(.button--secondary) {
   color: #ffffff;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
   border: 2px solid var(--ifm-color-primary);
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: normal;
 }
 
 .buttons :global(.button--secondary:hover) {

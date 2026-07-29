@@ -48,8 +48,8 @@ export default function OnboardAgentButton({ tone = 'default' }) {
 
   const toneClasses =
     tone === 'onDark'
-      ? 'border-white/40 text-white hover:border-primary hover:text-primary'
-      : 'border-zinc-300 text-zinc-800 hover:border-primary hover:text-primary dark:border-zinc-700 dark:text-zinc-100';
+      ? 'border-white bg-black/40 text-white backdrop-blur-sm hover:border-primary hover:text-primary'
+      : 'border-zinc-400 text-zinc-800 hover:border-primary hover:text-primary dark:border-zinc-600 dark:text-zinc-100';
 
   return (
     <button
@@ -57,7 +57,7 @@ export default function OnboardAgentButton({ tone = 'default' }) {
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={`flex items-center gap-2 rounded-full border px-6 py-2.5 text-base font-semibold leading-normal transition-colors ${toneClasses}`}
+      className={`flex items-center gap-2 rounded-full border-2 px-6 py-2.5 text-base font-semibold leading-normal transition-colors ${toneClasses}`}
     >
       <span>{copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}</span>
       <span className="flex items-center gap-1" aria-hidden="true">
