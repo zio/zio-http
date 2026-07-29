@@ -17,6 +17,7 @@
     "@docusaurus/core": "3.10.1",
     "@docusaurus/preset-classic": "3.10.1",
     "@mdx-js/react": "3",
+    "@tailwindcss/postcss": "4.3.3",
     "clsx": "^1.2.1",
     "docusaurus-plugin-copy-page-button": "^0.7.0",
     "docusaurus-plugin-llms": "0.4.0",
