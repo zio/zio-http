@@ -132,9 +132,9 @@
   display: flex;
 }
 
+/* Natural (content) width so the copy button hugs its label and shrinks when
+   it flips to "Copied!" instead of staying stretched to the block width. */
 .onboardRow > * {
-  flex: 1;
-  justify-content: center;
   white-space: nowrap;
 }
 
