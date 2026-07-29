@@ -22,10 +22,11 @@ export default function useFullpageScroll(selector) {
 
     const sections = () => Array.from(document.querySelectorAll(selector));
 
-    // Real sticky-navbar height, so a section lands just below it (not under).
+    // Real sticky-navbar height, so a section lands flush below it (not under,
+    // and with no sliver of the previous section peeking above it).
     const navHeight = () => {
       const nav = document.querySelector('.navbar');
-      return (nav ? nav.offsetHeight : 60) + 12;
+      return nav ? nav.offsetHeight : 60;
     };
 
     let lockUntil = 0;

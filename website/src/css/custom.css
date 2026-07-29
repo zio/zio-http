@@ -120,5 +120,5 @@
    scroll-behavior stays `auto`: the hook animates each glide frame-by-frame
    with its own easing, so CSS smooth scrolling would double up and fight it. */
 html.homepage-snap .fp-section {
-  scroll-margin-top: 4.5rem;
+  scroll-margin-top: var(--ifm-navbar-height);
 }
