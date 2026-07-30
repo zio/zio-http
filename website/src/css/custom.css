@@ -122,3 +122,107 @@
 html.homepage-snap .fp-section {
   scroll-margin-top: var(--ifm-navbar-height);
 }
+
+/* ── Section system + modern card primitives ─────────────────────────── */
+:root {
+  --gradient-brand: linear-gradient(90deg, #81c784, #26a69a);
+  --brand-shadow: rgba(129, 199, 132, 0.18);
+}
+
+.section-modern {
+  padding: 3.5rem 0;
+}
+
+.section-modern__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.section-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0.5rem 0 0;
+}
+
+.section-subtitle {
+  margin: 1rem 0 0;
+  max-width: 42rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #2e7d32;
+  background: rgba(129, 199, 132, 0.16);
+  padding: 0.28rem 0.85rem;
+  border-radius: 999px;
+}
+
+.gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-rule {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gradient-brand);
+  margin: 0.85rem auto 0;
+}
+
+/* Glass card for the dark homepage surface */
+.card-modern {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(30, 32, 48, 0.6); /* opaque fallback (before blur) */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.card-modern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px var(--brand-shadow);
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+  .card-modern:hover::before {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-modern:hover {
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+}
