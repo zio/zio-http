@@ -13,15 +13,6 @@
   max-width: 1400px;
 }
 
-.featuresHeader {
-  margin-bottom: 2rem;
-}
-
-.featuresSubtitle {
-  font-size: 1.2rem;
-  color: var(--ifm-color-primary);
-}
-
 .featureCards {
   display: flex;
   flex-wrap: wrap;
@@ -39,12 +30,6 @@
   flex-direction: column;
   padding: 2rem;
   transition: all 0.3s ease;
-}
-
-.featureCard:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  border-color: var(--ifm-color-primary);
 }
 
 .featureCardHeader {
