@@ -38,12 +38,7 @@
   display: flex;
   flex-direction: column;
   padding: 2rem;
-  border-radius: 8px;
-  background-color: var(--ifm-card-background-color);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  border: 1px solid var(--ifm-color-emphasis-200);
-  border-top: 3px solid var(--ifm-color-primary);
 }
 
 .featureCard:hover {

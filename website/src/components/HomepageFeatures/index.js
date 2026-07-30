@@ -8,6 +8,7 @@ import {
   LuRadio,
   LuFlaskConical,
 } from 'react-icons/lu';
+import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
 
 const FeatureList = [
@@ -73,7 +74,7 @@ const FeatureList = [
 function Feature({Icon, title, description, features = []}) {
   return (
     <div className={clsx('col col--4', styles.featureCardCol)}>
-      <div className={styles.featureCard}>
+      <div className={clsx('card-modern', styles.featureCard)}>
         <div className={styles.featureCardHeader}>
           <div className={styles.featureCardIcon}>
             <Icon role="img" aria-hidden="true" />
@@ -95,23 +96,18 @@ function Feature({Icon, title, description, features = []}) {
 
 export default function HomepageFeatures() {
   return (
-    <section className={styles.features}>
+    <SectionWrapper
+      title="Key Features"
+      subtitle="Build high-performance, scalable web applications with ZIO HTTP"
+      className={styles.features}
+    >
       <div className={styles.wideContainer}>
-        <div className={clsx('row', styles.featuresHeader)}>
-          <div className="col col--12 text--center">
-            <h2 className="sectionHeader">Key Features</h2>
-            <p className={styles.featuresSubtitle}>
-              Build high-performance, scalable web applications with ZIO HTTP
-            </p>
-          </div>
-        </div>
-
         <div className={clsx('row', styles.featureCards)}>
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
         </div>
       </div>
-    </section>
+    </SectionWrapper>
   );
 }
