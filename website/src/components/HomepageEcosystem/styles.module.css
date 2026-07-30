@@ -50,15 +50,6 @@
   max-width: 1400px;
 }
 
-.ecosystemHeader {
-  margin-bottom: .5rem;
-}
-
-.ecosystemSubtitle {
-  font-size: 1.2rem;
-  color: var(--ifm-color-primary);
-}
-
 .ecosystemCards {
   display: flex;
   flex-wrap: wrap;
