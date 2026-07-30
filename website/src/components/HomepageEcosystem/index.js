@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
+import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
 
 const EcosystemProjects = [
@@ -126,21 +127,16 @@ export default function HomepageEcosystem() {
   const otherProjects = EcosystemProjects.slice(1);
 
   return (
-    <section className={styles.ecosystem}>
+    <SectionWrapper
+      title="Ecosystem"
+      subtitle="A complete toolkit for building scalable, resilient applications"
+      className={styles.ecosystem}
+    >
       <div className={styles.wideContainer}>
-        <div className={clsx('row', styles.ecosystemHeader)}>
-          <div className="col col--12 text--center">
-            <h2 class="sectionHeader">Ecosystem</h2>
-            <p className={styles.ecosystemSubtitle}>
-              A complete toolkit for building scalable, resilient applications
-            </p>
-          </div>
-        </div>
-
         {/* ZIO in its own row */}
         <div className={clsx('row', styles.ecosystemCards)}>
           <div className={clsx('col col--8 col--offset-2', styles.mainProjectCol)}>
-            <div className={styles.ecosystemCard}>
+            <div className={clsx('card-modern', styles.ecosystemCard)}>
               <div className={styles.mainProjectHeader}>
                 {zioProject.icon.type === 'image' ? (
                   <img
@@ -178,7 +174,7 @@ export default function HomepageEcosystem() {
         <div className={clsx('row', styles.ecosystemCards)}>
           {otherProjects.map((project, idx) => (
             <div key={idx} className={clsx('col col--4 col--md-6', styles.ecosystemCardCol)}>
-              <div className={styles.ecosystemCard}>
+              <div className={clsx('card-modern', styles.ecosystemCard)}>
                 <div className={styles.ecosystemCardHeader}>
                   <div className={styles.ecosystemCardIcon}>
                     {project.icon.type === 'image' ? (
@@ -209,6 +205,6 @@ export default function HomepageEcosystem() {
           ))}
         </div>
       </div>
-    </section>
+    </SectionWrapper>
   );
 }
