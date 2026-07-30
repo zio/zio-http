@@ -46,7 +46,7 @@ const FeatureList = [
     Icon: LuLayers,
     description: (
       <>
-        Auth, CORS, logging, and metrics as reusable HandlerAspects.
+        Auth, CORS, logging, and metrics as reusable, composable middleware.
       </>
     ),
   },
