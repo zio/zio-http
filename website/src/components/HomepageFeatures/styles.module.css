@@ -1,8 +1,4 @@
 .features {
-  display: flex;
-  align-items: center;
-  padding: 4rem 0;
-  width: 100%;
   background-color: var(--ifm-color-emphasis-100);
 }
 
