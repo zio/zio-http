@@ -187,7 +187,7 @@ export default function HomepageCodeSnippet() {
       <div className={styles.innerContainer}>
         {/* Left Column */}
         <div className={styles.leftColumn}>
-          <h2>ZIO HTTP in Action</h2>
+          <h2 className="section-title">ZIO HTTP in Action</h2>
           <p>
             Explore idiomatic Scala patterns for building high-performance,
             type-safe HTTP servers and clients. From routing and endpoints to
