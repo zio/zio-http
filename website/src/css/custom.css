@@ -237,3 +237,26 @@ html.homepage-snap .fp-section {
 }
 
 
+
+/* ── Staggered reveal: cascade cards in a marked section ──────────────── */
+/* Sections tagged .reveal-stagger skip the whole-section block fade and
+   instead fade their cards in one-by-one, ordered by the inline --reveal-i.
+   Opacity-only (transform stays free for the card hover-lift). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-stagger {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .reveal-stagger .card-modern {
+    opacity: 0;
+  }
+  .reveal-stagger.reveal--visible .card-modern {
+    opacity: 1;
+    transition:
+      opacity 0.5s ease calc(var(--reveal-i, 0) * 70ms),
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+}
+

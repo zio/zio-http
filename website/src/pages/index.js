@@ -32,10 +32,10 @@ export default function Home() {
         <Reveal className="fp-section">
           <HomepageCodeSnippet />
         </Reveal>
-        <Reveal className="fp-section">
+        <Reveal className="fp-section reveal-stagger">
           <HomepageFeatures />
         </Reveal>
-        <Reveal className="fp-section">
+        <Reveal className="fp-section reveal-stagger">
           <HomepageEcosystem />
         </Reveal>
         <Reveal className="fp-section">

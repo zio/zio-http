@@ -71,9 +71,11 @@ const FeatureList = [
   },
 ];
 
-function Feature({Icon, title, description, features = []}) {
+function Feature({Icon, title, description, features = [], index = 0}) {
   return (
-    <div className={clsx('col col--4', styles.featureCardCol)}>
+    <div
+      className={clsx('col col--4', styles.featureCardCol)}
+      style={{ '--reveal-i': index }}>
       <div className={clsx('card-modern', styles.featureCard)}>
         <div className={styles.featureCardHeader}>
           <div className={styles.featureCardIcon}>
@@ -97,14 +99,14 @@ function Feature({Icon, title, description, features = []}) {
 export default function HomepageFeatures() {
   return (
     <SectionWrapper
-      title="Key Features"
+      title={<>Key <span className="gradient-text">Features</span></>}
       subtitle="Build high-performance, scalable web applications with ZIO HTTP"
       className={styles.features}
     >
       <div className={styles.wideContainer}>
         <div className={clsx('row', styles.featureCards)}>
           {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
+            <Feature key={idx} index={idx} {...props} />
           ))}
         </div>
       </div>

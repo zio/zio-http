@@ -11,7 +11,10 @@ export default function HomepageZionomicon() {
         <div className="row">
           <div className="col col--6">
             <div className={styles.ziconContent}>
-              <h2 className="section-title">Learn ZIO HTTP with Zionomicon</h2>
+              <h2 className="section-title">
+                Learn ZIO HTTP with{' '}
+                <span className="gradient-text">Zionomicon</span>
+              </h2>
               <p className={styles.ziconSubtitle}>
                 The comprehensive guide to building scalable applications with ZIO
               </p>

@@ -28,7 +28,7 @@ export default function HomepageUsers() {
 
   return (
     <SectionWrapper
-      title="Who is Using ZIO HTTP?"
+      title={<>Who is Using <span className="gradient-text">ZIO HTTP</span>?</>}
       subtitle="Organizations and projects building with ZIO HTTP in production"
       className={styles.users}
     >

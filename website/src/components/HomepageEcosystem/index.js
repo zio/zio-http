@@ -128,14 +128,16 @@ export default function HomepageEcosystem() {
 
   return (
     <SectionWrapper
-      title="Ecosystem"
+      title={<span className="gradient-text">Ecosystem</span>}
       subtitle="A complete toolkit for building scalable, resilient applications"
       className={styles.ecosystem}
     >
       <div className={styles.wideContainer}>
         {/* ZIO in its own row */}
         <div className={clsx('row', styles.ecosystemCards)}>
-          <div className={clsx('col col--8 col--offset-2', styles.mainProjectCol)}>
+          <div
+            className={clsx('col col--8 col--offset-2', styles.mainProjectCol)}
+            style={{ '--reveal-i': 0 }}>
             <div className={clsx('card-modern', styles.ecosystemCard)}>
               <div className={styles.mainProjectHeader}>
                 {zioProject.icon.type === 'image' ? (
@@ -173,7 +175,10 @@ export default function HomepageEcosystem() {
         {/* Other projects in a second row */}
         <div className={clsx('row', styles.ecosystemCards)}>
           {otherProjects.map((project, idx) => (
-            <div key={idx} className={clsx('col col--4 col--md-6', styles.ecosystemCardCol)}>
+            <div
+              key={idx}
+              className={clsx('col col--4 col--md-6', styles.ecosystemCardCol)}
+              style={{ '--reveal-i': idx }}>
               <div className={clsx('card-modern', styles.ecosystemCard)}>
                 <div className={styles.ecosystemCardHeader}>
                   <div className={styles.ecosystemCardIcon}>
