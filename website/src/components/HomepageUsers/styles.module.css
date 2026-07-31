@@ -13,12 +13,6 @@
   max-width: 1400px;
 }
 
-.subtitle {
-  font-size: 1.2rem;
-  margin-bottom: 3rem;
-  color: var(--ifm-color-emphasis-600);
-}
-
 .usersGrid {
   display: flex;
   flex-wrap: wrap;
