@@ -1,11 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import Highlight, { defaultProps } from 'prism-react-renderer';
+import Highlight, { defaultProps, Prism } from 'prism-react-renderer';
 import dracula from 'prism-react-renderer/themes/dracula';
 import useIsBrowser from '@docusaurus/useIsBrowser';
 import Link from '@docusaurus/Link';
 import clsx from 'clsx';
 import { FaCopy, FaCheck } from 'react-icons/fa6';
 import styles from './styles.module.css';
+
+// prism-react-renderer v1 bundles only a few languages (no Scala), so the
+// snippets render monochrome. Load the Scala grammar (it extends Java) into
+// prism-react-renderer's Prism instance so the tabs get real highlighting.
+globalThis.Prism = Prism;
+require('prismjs/components/prism-java');
+require('prismjs/components/prism-scala');
+delete globalThis.Prism;
 
 const TABS = [
   {
@@ -234,6 +242,7 @@ export default function HomepageCodeSnippet() {
               <Highlight
                 key={activeTab}
                 {...defaultProps}
+                Prism={Prism}
                 theme={dracula}
                 code={TABS[activeTab].code.trim()}
                 language="scala">
