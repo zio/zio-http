@@ -202,3 +202,8 @@
   overflow: auto;
   border-radius: 0;
 }
+
+/* No italics in the code (some prism themes italicize comments/keywords). */
+.codeArea :global(.token) {
+  font-style: normal !important;
+}
