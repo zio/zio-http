@@ -25,6 +25,7 @@ export default function Home() {
     <Layout
       title="ZIO HTTP"
       description="ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.">
+      <div className="ambient-bg" aria-hidden="true" />
       <div className="fp-section">
         <HomepageHero />
       </div>
