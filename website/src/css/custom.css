@@ -283,3 +283,13 @@ html[data-theme='dark'].homepage-snap main {
   );
 }
 
+
+
+
+
+
+/* No italics in any code block site-wide (Prism themes italicize comments and
+   some keywords); applies to docs pages too, not just the homepage panel. */
+.token {
+  font-style: normal !important;
+}
