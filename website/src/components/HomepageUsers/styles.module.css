@@ -34,15 +34,11 @@
   align-items: center;
   text-decoration: none;
   color: var(--ifm-font-color-base);
-  transition: transform 0.3s ease;
   padding: 1rem;
-  border-radius: 8px;
   width: calc(25% - 2rem); /* Default: 4 items per row with 2rem gap */
 }
 
 .userItem:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
   text-decoration: none;
 }
 
