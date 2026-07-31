@@ -2,6 +2,10 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
+/* Self-hosted variable fonts: Inter (UI) + JetBrains Mono (code). */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
 @config '../../tailwind.config.js';
 
 /* Tailwind v4 changed the default border color to currentColor; restore the
@@ -33,6 +37,10 @@
   --ifm-color-primary-lightest: #a5d6a7;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-font-family-base: 'Inter Variable', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono Variable', ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
