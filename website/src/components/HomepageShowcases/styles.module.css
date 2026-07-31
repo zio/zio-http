@@ -51,3 +51,10 @@
   text-align: center;
   font-weight: 700;
 }
+
+.showcaseCard {
+  padding: 0.5rem;
+}
+.showcaseCard :global(pre) {
+  margin: 0;
+}
