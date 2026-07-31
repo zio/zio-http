@@ -188,3 +188,17 @@
     height: 460px;
   }
 }
+
+/* Fit the Docusaurus CodeBlock into the panel + keep a stable height so
+   switching tabs doesn't resize the panel. */
+.codeArea :global(.theme-code-block) {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.codeArea :global(pre) {
+  margin: 0;
+  height: 560px;
+  overflow: auto;
+  border-radius: 0;
+}
