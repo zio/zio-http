@@ -260,3 +260,26 @@ html.homepage-snap .fp-section {
   }
 }
 
+
+/* ── Ambient: single static page-wide wash (homepage main) ────────────── */
+/* One subtle green→teal gradient on the homepage <main>. It scrolls with the
+   content (not fixed, so it never swims relative to sections) and is a single
+   continuous fade (no per-section color seams). No orbs, no motion, no JS. */
+html.homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.06),
+    rgba(38, 166, 154, 0.035) 45%,
+    transparent 90%
+  );
+}
+
+html[data-theme='dark'].homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.1),
+    rgba(38, 166, 154, 0.06) 45%,
+    transparent 90%
+  );
+}
+
