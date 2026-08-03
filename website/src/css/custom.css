@@ -406,3 +406,20 @@ html[data-theme='dark'].homepage-snap main {
 .DocSearch-Label {
   color: var(--ifm-color-emphasis-600) !important;
 }
+
+/* Sub-item hash icons + breadcrumb path labels are indigo — green them too. */
+.DocSearch-Hit-icon,
+.DocSearch-Hit-icon svg,
+.DocSearch-Hit-path {
+  color: var(--docsearch-primary-color) !important;
+}
+
+/* Powered-by Algolia logo → green as well (site owner's choice; Algolia's
+   brand guidelines normally prefer their own colors). */
+.DocSearch-Logo svg .cls-1,
+.DocSearch-Logo svg .cls-2,
+.DocSearch-Logo svg path,
+.DocSearch-Logo svg rect,
+.DocSearch-Logo svg polygon {
+  fill: var(--docsearch-primary-color) !important;
+}
