@@ -374,3 +374,35 @@ html[data-theme='dark'].homepage-snap main {
 .DocSearch-Clear {
   border-color: var(--docsearch-primary-color) !important;
 }
+
+/* Keycaps: navbar "Ctrl K" button + modal footer hints (Navigate/Select/Close)
+   default to indigo; tint them brand-green to match. */
+:root {
+  --docsearch-key-background: rgba(129, 199, 132, 0.16) !important;
+  --docsearch-key-color: #2e7d32 !important;
+  --docsearch-key-shadow: none !important;
+  --docsearch-key-pressed-shadow: none !important;
+}
+[data-theme='dark'] {
+  --docsearch-key-color: #a5d6a7 !important;
+}
+.DocSearch-Commands-Key,
+.DocSearch-Button-Key {
+  color: var(--docsearch-key-color) !important;
+}
+
+/* Modal footer hints: keycap bg still #f5f5fa, arrow SVGs are black-filled,
+   and the command labels are indigo — bring them onto the theme. */
+.DocSearch-Commands-Key {
+  background: rgba(129, 199, 132, 0.16) !important;
+  box-shadow: none !important;
+}
+.DocSearch-Commands-Key svg,
+.DocSearch-Commands-Key path {
+  fill: var(--docsearch-key-color) !important;
+}
+.DocSearch-Commands li,
+.DocSearch-Commands li span,
+.DocSearch-Label {
+  color: var(--ifm-color-emphasis-600) !important;
+}
