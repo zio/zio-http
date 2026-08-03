@@ -332,3 +332,17 @@ html[data-theme='dark'].homepage-snap main {
 .DocSearch-Hit-path {
   font-family: var(--ifm-font-family-base);
 }
+
+/* Search match highlight → brand green (default is yellow). Covers the search
+   page (.search-result-match) and the DocSearch modal (mark). */
+.search-result-match,
+.DocSearch-Hit mark {
+  background-color: rgba(129, 199, 132, 0.28) !important;
+  color: inherit !important;
+  padding: 0 0.15em;
+  border-radius: 3px;
+}
+[data-theme='dark'] .search-result-match,
+[data-theme='dark'] .DocSearch-Hit mark {
+  background-color: rgba(129, 199, 132, 0.34) !important;
+}
