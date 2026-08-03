@@ -299,29 +299,30 @@ html[data-theme='dark'].homepage-snap main {
    accent uses a darker green than the light --ifm primary so white text on
    the active hit (which uses --docsearch-primary-color as its background)
    stays readable. Surfaces map to the site's Infima tokens. */
+/* !important: @docsearch/css declares these on :root too and loads AFTER this
+   file, so without it the DocSearch modal keeps its default blue accent. */
 :root {
-  --docsearch-primary-color: #2e7d32;
-  --docsearch-text-color: var(--ifm-font-color-base);
-  --docsearch-muted-color: var(--ifm-color-emphasis-600);
-  --docsearch-container-background: rgba(10, 12, 16, 0.55);
-  --docsearch-modal-background: var(--ifm-background-surface-color);
-  --docsearch-searchbox-background: var(--ifm-color-emphasis-100);
-  --docsearch-searchbox-focus-background: var(--ifm-background-color);
-  --docsearch-hit-color: var(--ifm-font-color-base);
-  --docsearch-hit-active-color: #ffffff;
-  --docsearch-hit-background: var(--ifm-background-color);
-  --docsearch-footer-background: var(--ifm-background-surface-color);
-  --docsearch-logo-color: var(--ifm-color-primary);
+  --docsearch-primary-color: #2e7d32 !important;
+  --docsearch-text-color: var(--ifm-font-color-base) !important;
+  --docsearch-muted-color: var(--ifm-color-emphasis-600) !important;
+  --docsearch-container-background: rgba(10, 12, 16, 0.55) !important;
+  --docsearch-modal-background: var(--ifm-background-surface-color) !important;
+  --docsearch-searchbox-background: var(--ifm-color-emphasis-100) !important;
+  --docsearch-searchbox-focus-background: var(--ifm-background-color) !important;
+  --docsearch-hit-color: var(--ifm-font-color-base) !important;
+  --docsearch-hit-background: var(--ifm-background-color) !important;
+  --docsearch-footer-background: var(--ifm-background-surface-color) !important;
+  --docsearch-logo-color: var(--ifm-color-primary) !important;
 }
 
 [data-theme='dark'] {
-  --docsearch-primary-color: #4caf50;
-  --docsearch-modal-background: var(--ifm-background-surface-color);
-  --docsearch-searchbox-background: var(--ifm-background-color);
-  --docsearch-searchbox-focus-background: var(--ifm-background-surface-color);
-  --docsearch-hit-background: var(--ifm-background-surface-color);
-  --docsearch-footer-background: var(--ifm-background-surface-color);
-  --docsearch-logo-color: var(--ifm-color-primary);
+  --docsearch-primary-color: #4caf50 !important;
+  --docsearch-modal-background: var(--ifm-background-surface-color) !important;
+  --docsearch-searchbox-background: var(--ifm-background-color) !important;
+  --docsearch-searchbox-focus-background: var(--ifm-background-surface-color) !important;
+  --docsearch-hit-background: var(--ifm-background-surface-color) !important;
+  --docsearch-footer-background: var(--ifm-background-surface-color) !important;
+  --docsearch-logo-color: var(--ifm-color-primary) !important;
 }
 
 /* Site font throughout the button, modal, input and results. */
@@ -345,4 +346,31 @@ html[data-theme='dark'].homepage-snap main {
 [data-theme='dark'] .search-result-match,
 [data-theme='dark'] .DocSearch-Hit mark {
   background-color: rgba(129, 199, 132, 0.34) !important;
+}
+
+/* DocSearch v4 hardcodes #003dff for the active row, icons, and magnifier
+   instead of reading --docsearch-primary-color, so override those directly. */
+.DocSearch-Search-Icon,
+.DocSearch-Prefill,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-icon,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-action,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-Tree,
+.DocSearch-Hit[aria-selected='true'] mark {
+  color: var(--docsearch-primary-color) !important;
+}
+.DocSearch-Hit[aria-selected='true'] a {
+  background-color: rgba(129, 199, 132, 0.2) !important;
+}
+
+/* Remaining DocSearch v4 hardcoded blues: the magnifier label, the "Clear the
+   query" button, and the hover/active hit tint. (The Algolia logo stays.) */
+:root {
+  --docsearch-hit-highlight-color: rgba(129, 199, 132, 0.2) !important;
+}
+.DocSearch-MagnifierLabel,
+.DocSearch-Clear {
+  color: var(--docsearch-primary-color) !important;
+}
+.DocSearch-Clear {
+  border-color: var(--docsearch-primary-color) !important;
 }
