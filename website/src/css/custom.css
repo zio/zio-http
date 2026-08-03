@@ -294,21 +294,41 @@ html[data-theme='dark'].homepage-snap main {
   font-style: normal !important;
 }
 
-/* ── Algolia DocSearch: match the site (Inter font, brand-green accent) ── */
-/* Vars live on :root because the modal renders in a body-level portal. Use a
-   darker green than the light brand primary so white text on the active hit
-   (which uses --docsearch-primary-color as its background) stays readable. */
+/* ── Algolia DocSearch: match the site theme end-to-end ───────────────── */
+/* Vars live on :root because the modal renders in a body-level portal. The
+   accent uses a darker green than the light --ifm primary so white text on
+   the active hit (which uses --docsearch-primary-color as its background)
+   stays readable. Surfaces map to the site's Infima tokens. */
 :root {
   --docsearch-primary-color: #2e7d32;
+  --docsearch-text-color: var(--ifm-font-color-base);
+  --docsearch-muted-color: var(--ifm-color-emphasis-600);
+  --docsearch-container-background: rgba(10, 12, 16, 0.55);
+  --docsearch-modal-background: var(--ifm-background-surface-color);
+  --docsearch-searchbox-background: var(--ifm-color-emphasis-100);
+  --docsearch-searchbox-focus-background: var(--ifm-background-color);
+  --docsearch-hit-color: var(--ifm-font-color-base);
+  --docsearch-hit-active-color: #ffffff;
+  --docsearch-hit-background: var(--ifm-background-color);
+  --docsearch-footer-background: var(--ifm-background-surface-color);
   --docsearch-logo-color: var(--ifm-color-primary);
 }
 
 [data-theme='dark'] {
   --docsearch-primary-color: #4caf50;
+  --docsearch-modal-background: var(--ifm-background-surface-color);
+  --docsearch-searchbox-background: var(--ifm-background-color);
+  --docsearch-searchbox-focus-background: var(--ifm-background-surface-color);
+  --docsearch-hit-background: var(--ifm-background-surface-color);
+  --docsearch-footer-background: var(--ifm-background-surface-color);
   --docsearch-logo-color: var(--ifm-color-primary);
 }
 
+/* Site font throughout the button, modal, input and results. */
 .DocSearch-Button,
-.DocSearch-Modal {
+.DocSearch-Modal,
+.DocSearch-Input,
+.DocSearch-Hit-title,
+.DocSearch-Hit-path {
   font-family: var(--ifm-font-family-base);
 }
