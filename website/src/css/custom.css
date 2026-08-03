@@ -293,3 +293,22 @@ html[data-theme='dark'].homepage-snap main {
 .token {
   font-style: normal !important;
 }
+
+/* ── Algolia DocSearch: match the site (Inter font, brand-green accent) ── */
+/* Vars live on :root because the modal renders in a body-level portal. Use a
+   darker green than the light brand primary so white text on the active hit
+   (which uses --docsearch-primary-color as its background) stays readable. */
+:root {
+  --docsearch-primary-color: #2e7d32;
+  --docsearch-logo-color: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] {
+  --docsearch-primary-color: #4caf50;
+  --docsearch-logo-color: var(--ifm-color-primary);
+}
+
+.DocSearch-Button,
+.DocSearch-Modal {
+  font-family: var(--ifm-font-family-base);
+}
