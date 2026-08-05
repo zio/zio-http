@@ -3,7 +3,9 @@
 .heroBanner {
   position: relative;
   width: 100%;
-  min-height: 600px;
+  /* Fill the viewport (minus the navbar) so only the hero is visible before
+     the user scrolls; the next sections sit below the fold. */
+  min-height: calc(100vh - var(--ifm-navbar-height));
   background-image: url('/img/banner.png');
   background-size: cover;
   background-position: center;
@@ -26,7 +28,7 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  min-height: 600px;
+  min-height: calc(100vh - var(--ifm-navbar-height));
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: stretch;
@@ -114,9 +116,34 @@
   color: var(--ifm-color-primary);
 }
 
+/* CTA cluster, zio.dev-style: each row is content-width and centered — the
+   Onboard button on top, Get Started + Star on GitHub below, stats beneath.
+   Buttons hug their labels (no fixed-width block, no flex stretch). */
+.heroCta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.onboardRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.onboardRow > * {
+  white-space: nowrap;
+}
+
 .buttons {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+}
+
+.buttons > * {
+  white-space: nowrap;
 }
 
 .arrowIcon {
@@ -125,11 +152,19 @@
   top: 2px;
 }
 
-/* Ensure button is visible on the always-dark banner in both themes */
+/* Ensure button is visible on the always-dark banner in both themes.
+   Matches the Onboard-your-agent pill: same pill shape, height, padding,
+   and typography so the two hero buttons read as a consistent pair. */
 .buttons :global(.button--secondary) {
   color: #ffffff;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
   border: 2px solid var(--ifm-color-primary);
+  border-radius: 9999px;
+  padding: 0.875rem 1.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: normal;
 }
 
 .buttons :global(.button--secondary:hover) {
