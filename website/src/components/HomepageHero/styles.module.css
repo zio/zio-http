@@ -170,7 +170,10 @@
 .buttons :global(.button--secondary:hover) {
   background-color: rgba(129, 199, 132, 0.15);
   color: #ffffff;
-  border-color: var(--ifm-color-primary);
+  /* Matches the hover:border-primary green used by the Onboard/GitHub
+     buttons in this row (Tailwind green-600), so all three CTAs share
+     the same hover accent. */
+  border-color: #00a447;
 }
 
 /* ===== Tablet (996px) ===== */

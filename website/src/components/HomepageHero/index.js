@@ -47,7 +47,8 @@ export default function HomepageHero() {
             <div className={styles.buttons}>
               <Link
                 className="button button--secondary button--lg"
-                to="/installation">
+                to="/installation"
+                title="View the ZIO HTTP installation guide">
                 <span>Get Started</span>
                 <span> </span>
                 <FaArrowRight className={styles.arrowIcon} />
@@ -56,6 +57,7 @@ export default function HomepageHero() {
                 href="https://github.com/zio/zio-http"
                 target="_blank"
                 rel="noopener noreferrer"
+                title="Star ZIO HTTP on GitHub"
                 className="hover:border-primary hover:text-primary flex items-center justify-center gap-2 rounded-full border-2 border-white bg-black/40 px-7 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition-colors hover:no-underline">
                 <FaGithub aria-hidden="true" />
                 <span>Star on GitHub</span>
