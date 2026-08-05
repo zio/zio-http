@@ -256,7 +256,7 @@
 
 @media screen and (max-width: 480px) {
   .leftColumn {
-    min-height: 220px;
+    min-height: calc(100vh - var(--ifm-navbar-height));
   }
 
   .zioTitle {
