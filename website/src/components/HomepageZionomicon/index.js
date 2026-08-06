@@ -1,16 +1,20 @@
 import React from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
+import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
 
 export default function HomepageZionomicon() {
   return (
-    <section className={styles.zionomicon}>
+    <SectionWrapper className={styles.zionomicon}>
       <div className={styles.wideContainer}>
         <div className="row">
           <div className="col col--6">
             <div className={styles.ziconContent}>
-              <h2 class="sectionHeader">Learn ZIO HTTP with Zionomicon</h2>
+              <h2 className="section-title">
+                Learn ZIO HTTP with{' '}
+                <span className="gradient-text">Zionomicon</span>
+              </h2>
               <p className={styles.ziconSubtitle}>
                 The comprehensive guide to building scalable applications with ZIO
               </p>
@@ -40,7 +44,7 @@ export default function HomepageZionomicon() {
             </div>
           </div>
           <div className="col col--6">
-            <div className={styles.ziconImageContainer}>
+            <div className={clsx('card-modern', styles.ziconImageContainer)}>
               <Link
                 to="https://www.zionomicon.com"
                 target="_blank">
@@ -54,6 +58,6 @@ export default function HomepageZionomicon() {
           </div>
         </div>
       </div>
-    </section>
+    </SectionWrapper>
   );
 }
