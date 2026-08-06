@@ -1,4 +1,6 @@
 import React from 'react';
+import clsx from 'clsx';
+import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
 
 const usersList = [
@@ -25,16 +27,12 @@ export default function HomepageUsers() {
   };
 
   return (
-    <section className={styles.users}>
+    <SectionWrapper
+      title={<>Who is Using <span className="gradient-text">ZIO HTTP</span>?</>}
+      subtitle="Organizations and projects building with ZIO HTTP in production"
+      className={styles.users}
+    >
       <div className={styles.wideContainer}>
-        <div className="row">
-          <div className="col col--12 text--center">
-            <h2  class="sectionHeader">Who are Using ZIO HTTP?</h2>
-            <p className={styles.subtitle}>
-              Organizations and projects building with ZIO HTTP in production
-            </p>
-          </div>
-        </div>
         <div className={styles.usersGrid}>
           {usersList.map((user, idx) => (
             <a
@@ -42,7 +40,7 @@ export default function HomepageUsers() {
               href={user.url}
               target="_blank"
               rel="noopener noreferrer"
-              className={styles.userItem}
+              className={clsx('card-modern', styles.userItem)}
               style={getUserItemStyle()}
             >
               <div className={styles.userImageContainer}>
@@ -80,6 +78,6 @@ export default function HomepageUsers() {
           </div>
         </div>
       </div>
-    </section>
+    </SectionWrapper>
   );
 }
