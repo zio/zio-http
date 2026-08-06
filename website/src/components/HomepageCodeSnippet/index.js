@@ -1,10 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Highlight, { defaultProps } from 'prism-react-renderer';
-import dracula from 'prism-react-renderer/themes/dracula';
-import useIsBrowser from '@docusaurus/useIsBrowser';
+import React, { useState } from 'react';
+import CodeBlock from '@theme/CodeBlock';
 import Link from '@docusaurus/Link';
 import clsx from 'clsx';
-import { FaCopy, FaCheck } from 'react-icons/fa6';
 import styles from './styles.module.css';
 
 const TABS = [
@@ -128,66 +125,13 @@ def run = Server
 
 export default function HomepageCodeSnippet() {
   const [activeTab, setActiveTab] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const isBrowser = useIsBrowser();
-  const timeoutRef = useRef(null);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleTabClick = (idx) => {
-    setActiveTab(idx);
-    setCopied(false);
-    // Clear any pending timeout when switching tabs
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  };
-
-  const handleCopy = () => {
-    if (!isBrowser) return;
-
-    const textToCopy = TABS[activeTab].code.trim();
-
-    try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error('Clipboard API is not available');
-      }
-
-      navigator.clipboard
-        .writeText(textToCopy)
-        .then(() => {
-          setCopied(true);
-          // Clear any existing timeout
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-          }
-          // Set new timeout
-          timeoutRef.current = setTimeout(() => {
-            setCopied(false);
-            timeoutRef.current = null;
-          }, 2000);
-        })
-        .catch((err) => {
-          console.error('Failed to copy:', err);
-        });
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
 
   return (
     <section className={styles.codeSnippetSection}>
       <div className={styles.innerContainer}>
         {/* Left Column */}
         <div className={styles.leftColumn}>
-          <h2>ZIO HTTP in Action</h2>
+          <h2 className="section-title">ZIO HTTP in Action</h2>
           <p>
             Explore idiomatic Scala patterns for building high-performance,
             type-safe HTTP servers and clients. From routing and endpoints to
@@ -215,7 +159,7 @@ export default function HomepageCodeSnippet() {
                     styles.tab,
                     activeTab === idx && styles.tabActive
                   )}
-                  onClick={() => handleTabClick(idx)}
+                  onClick={() => setActiveTab(idx)}
                   aria-selected={activeTab === idx}
                   aria-controls={`tabpanel-${idx}`}
                   type="button"
@@ -225,68 +169,15 @@ export default function HomepageCodeSnippet() {
               ))}
             </div>
 
-            {/* Code Area */}
+            {/* Code Area — Docusaurus CodeBlock (highlights Scala + has copy) */}
             <div
               id={`tabpanel-${activeTab}`}
               className={styles.codeArea}
               role="tabpanel"
               aria-labelledby={`tab-${activeTab}`}>
-              <Highlight
-                key={activeTab}
-                {...defaultProps}
-                theme={dracula}
-                code={TABS[activeTab].code.trim()}
-                language="scala">
-                {({
-                  className,
-                  style,
-                  tokens,
-                  getLineProps,
-                  getTokenProps,
-                }) => (
-                  <pre
-                    className={`${className} ${styles.pre}`}
-                    style={style}>
-                    <code>
-                      {tokens.map((line, i) => (
-                        <div
-                          key={i}
-                          {...getLineProps({ line, key: i })}
-                          className={styles.codeLine}>
-                          <span className={styles.lineNumber}>{i + 1}</span>
-                          <span className={styles.lineContent}>
-                            {line.map((token, key) => (
-                              <span
-                                key={key}
-                                {...getTokenProps({ token, key })}
-                              />
-                            ))}
-                          </span>
-                        </div>
-                      ))}
-                    </code>
-                  </pre>
-                )}
-              </Highlight>
-            </div>
-
-            {/* Toolbar */}
-            <div className={styles.toolbar}>
-              <span className={styles.langBadge}>Scala</span>
-              {isBrowser && (
-                <button
-                  type="button"
-                  className={clsx(
-                    styles.copyButton,
-                    copied && styles.copyButtonCopied
-                  )}
-                  onClick={handleCopy}
-                  aria-label={copied ? 'Copied!' : 'Copy code'}
-                  title={copied ? 'Copied!' : 'Copy to clipboard'}>
-                  {copied ? <FaCheck size={14} /> : <FaCopy size={14} />}
-                  <span>{copied ? 'Copied!' : 'Copy'}</span>
-                </button>
-              )}
+              <CodeBlock key={activeTab} language="scala" showLineNumbers>
+                {TABS[activeTab].code.trim()}
+              </CodeBlock>
             </div>
           </div>
         </div>

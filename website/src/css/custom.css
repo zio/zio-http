@@ -1,3 +1,25 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Self-hosted variable fonts: Inter (UI) + JetBrains Mono (code). */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@config '../../tailwind.config.js';
+
+/* Tailwind v4 changed the default border color to currentColor; restore the
+   v3 gray default so existing Infima-bordered elements are unchanged. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
@@ -15,6 +37,10 @@
   --ifm-color-primary-lightest: #a5d6a7;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-font-family-base: 'Inter Variable', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono Variable', ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -54,13 +80,6 @@
   justify-content: center;
 }
 
-.sectionHeader {
-  font-size: 3.0rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  font-weight: 700;
-}
-
 .hero__title {
     font-size: 5rem;
 }
@@ -68,4 +87,339 @@
 .hero__subtitle {
     font-size: 3.5rem;
     margin-bottom: 2rem;
+}
+
+/* ── Motion: scroll reveal + reduced-motion guard ─────────────────────── */
+/* Base state is the final, visible one so SSR / no-JS / reduced-motion users
+   see fully-rendered sections. The entrance animation only applies when the
+   user has not requested reduced motion. */
+.reveal {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.6s ease,
+      transform 0.6s ease;
+    will-change: opacity, transform;
+  }
+
+  .reveal.reveal--visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Fullpage-style scroll: one section per gesture ───────────────────── */
+/* The JS hook (useFullpageScroll) intercepts wheel/keyboard so each gesture
+   animates to the adjacent section boundary. This supplies the smooth scroll
+   and the offset so a section lands below the sticky navbar, not under it.
+   Scoped to the homepage via a class added to <html> (see pages/index.js).
+   scroll-behavior stays `auto`: the hook animates each glide frame-by-frame
+   with its own easing, so CSS smooth scrolling would double up and fight it. */
+html.homepage-snap .fp-section {
+  scroll-margin-top: var(--ifm-navbar-height);
+}
+
+/* ── Section system + modern card primitives ─────────────────────────── */
+:root {
+  --gradient-brand: linear-gradient(90deg, #81c784, #26a69a);
+  --brand-shadow: rgba(129, 199, 132, 0.18);
+}
+
+.section-modern {
+  padding: 3.5rem 0;
+}
+
+.section-modern__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.section-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0.5rem 0 0;
+}
+
+.section-subtitle {
+  margin: 1rem 0 0;
+  max-width: 42rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #2e7d32;
+  background: rgba(129, 199, 132, 0.16);
+  padding: 0.28rem 0.85rem;
+  border-radius: 999px;
+}
+
+.gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-rule {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gradient-brand);
+  margin: 0.85rem auto 0;
+}
+
+/* Theme-aware modern card: solid in light, glass in dark. */
+.card-modern {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  /* Light theme: solid card so it reads on the light section surface. */
+  background: var(--ifm-card-background-color, #fff);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* Dark theme: glass surface. Opaque fallback declared before backdrop-filter. */
+[data-theme='dark'] .card-modern {
+  background: rgba(30, 32, 48, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.card-modern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px var(--brand-shadow);
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+  .card-modern:hover::before {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-modern:hover {
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+}
+
+
+
+/* ── Staggered reveal: cascade cards in a marked section ──────────────── */
+/* Sections tagged .reveal-stagger skip the whole-section block fade and
+   instead fade their cards in one-by-one, ordered by the inline --reveal-i.
+   Opacity-only (transform stays free for the card hover-lift). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-stagger {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .reveal-stagger .card-modern {
+    opacity: 0;
+  }
+  .reveal-stagger.reveal--visible .card-modern {
+    opacity: 1;
+    transition:
+      opacity 0.5s ease calc(var(--reveal-i, 0) * 70ms),
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+}
+
+
+/* ── Ambient: single static page-wide wash (homepage main) ────────────── */
+/* One subtle green→teal gradient on the homepage <main>. It scrolls with the
+   content (not fixed, so it never swims relative to sections) and is a single
+   continuous fade (no per-section color seams). No orbs, no motion, no JS. */
+html.homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.06),
+    rgba(38, 166, 154, 0.035) 45%,
+    transparent 90%
+  );
+}
+
+html[data-theme='dark'].homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.1),
+    rgba(38, 166, 154, 0.06) 45%,
+    transparent 90%
+  );
+}
+
+
+
+
+
+
+/* No italics in any code block site-wide (Prism themes italicize comments and
+   some keywords); applies to docs pages too, not just the homepage panel. */
+.token {
+  font-style: normal !important;
+}
+
+/* ── Algolia DocSearch: match the site theme end-to-end ───────────────── */
+/* Vars live on :root because the modal renders in a body-level portal. The
+   accent uses a darker green than the light --ifm primary so white text on
+   the active hit (which uses --docsearch-primary-color as its background)
+   stays readable. Surfaces map to the site's Infima tokens. */
+/* !important: @docsearch/css declares these on :root too and loads AFTER this
+   file, so without it the DocSearch modal keeps its default blue accent. */
+:root {
+  --docsearch-primary-color: #2e7d32 !important;
+  --docsearch-text-color: var(--ifm-font-color-base) !important;
+  --docsearch-muted-color: var(--ifm-color-emphasis-600) !important;
+  --docsearch-container-background: rgba(10, 12, 16, 0.55) !important;
+  --docsearch-modal-background: var(--ifm-background-surface-color) !important;
+  --docsearch-searchbox-background: var(--ifm-color-emphasis-100) !important;
+  --docsearch-searchbox-focus-background: var(--ifm-background-color) !important;
+  --docsearch-hit-color: var(--ifm-font-color-base) !important;
+  --docsearch-hit-background: var(--ifm-background-color) !important;
+  --docsearch-footer-background: var(--ifm-background-surface-color) !important;
+  --docsearch-logo-color: var(--ifm-color-primary) !important;
+}
+
+[data-theme='dark'] {
+  --docsearch-primary-color: #4caf50 !important;
+  --docsearch-modal-background: var(--ifm-background-surface-color) !important;
+  --docsearch-searchbox-background: var(--ifm-background-color) !important;
+  --docsearch-searchbox-focus-background: var(--ifm-background-surface-color) !important;
+  --docsearch-hit-background: var(--ifm-background-surface-color) !important;
+  --docsearch-footer-background: var(--ifm-background-surface-color) !important;
+  --docsearch-logo-color: var(--ifm-color-primary) !important;
+}
+
+/* Site font throughout the button, modal, input and results. */
+.DocSearch-Button,
+.DocSearch-Modal,
+.DocSearch-Input,
+.DocSearch-Hit-title,
+.DocSearch-Hit-path {
+  font-family: var(--ifm-font-family-base);
+}
+
+/* Search match highlight → brand green (default is yellow). Covers the search
+   page (.search-result-match) and the DocSearch modal (mark). */
+.search-result-match,
+.DocSearch-Hit mark {
+  background-color: rgba(129, 199, 132, 0.28) !important;
+  color: inherit !important;
+  padding: 0 0.15em;
+  border-radius: 3px;
+}
+[data-theme='dark'] .search-result-match,
+[data-theme='dark'] .DocSearch-Hit mark {
+  background-color: rgba(129, 199, 132, 0.34) !important;
+}
+
+/* DocSearch v4 hardcodes #003dff for the active row, icons, and magnifier
+   instead of reading --docsearch-primary-color, so override those directly. */
+.DocSearch-Search-Icon,
+.DocSearch-Prefill,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-icon,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-action,
+.DocSearch-Hit[aria-selected='true'] .DocSearch-Hit-Tree,
+.DocSearch-Hit[aria-selected='true'] mark {
+  color: var(--docsearch-primary-color) !important;
+}
+.DocSearch-Hit[aria-selected='true'] a {
+  background-color: rgba(129, 199, 132, 0.2) !important;
+}
+
+/* Remaining DocSearch v4 hardcoded blues: the magnifier label, the "Clear the
+   query" button, and the hover/active hit tint. (The Algolia logo stays.) */
+:root {
+  --docsearch-hit-highlight-color: rgba(129, 199, 132, 0.2) !important;
+}
+.DocSearch-MagnifierLabel,
+.DocSearch-Clear {
+  color: var(--docsearch-primary-color) !important;
+}
+.DocSearch-Clear {
+  border-color: var(--docsearch-primary-color) !important;
+}
+
+/* Keycaps: navbar "Ctrl K" button + modal footer hints (Navigate/Select/Close)
+   default to indigo; tint them brand-green to match. */
+:root {
+  --docsearch-key-background: rgba(129, 199, 132, 0.16) !important;
+  --docsearch-key-color: #2e7d32 !important;
+  --docsearch-key-shadow: none !important;
+  --docsearch-key-pressed-shadow: none !important;
+}
+[data-theme='dark'] {
+  --docsearch-key-color: #a5d6a7 !important;
+}
+.DocSearch-Commands-Key,
+.DocSearch-Button-Key {
+  color: var(--docsearch-key-color) !important;
+}
+
+/* Modal footer hints: keycap bg still #f5f5fa, arrow SVGs are black-filled,
+   and the command labels are indigo — bring them onto the theme. */
+.DocSearch-Commands-Key {
+  background: rgba(129, 199, 132, 0.16) !important;
+  box-shadow: none !important;
+}
+.DocSearch-Commands-Key svg,
+.DocSearch-Commands-Key path {
+  fill: var(--docsearch-key-color) !important;
+}
+.DocSearch-Commands li,
+.DocSearch-Commands li span,
+.DocSearch-Label {
+  color: var(--ifm-color-emphasis-600) !important;
+}
+
+/* Sub-item hash icons + breadcrumb path labels are indigo — green them too. */
+.DocSearch-Hit-icon,
+.DocSearch-Hit-icon svg,
+.DocSearch-Hit-path {
+  color: var(--docsearch-primary-color) !important;
+}
+
+/* Powered-by Algolia logo → green as well (site owner's choice; Algolia's
+   brand guidelines normally prefer their own colors). */
+.DocSearch-Logo svg .cls-1,
+.DocSearch-Logo svg .cls-2,
+.DocSearch-Logo svg path,
+.DocSearch-Logo svg rect,
+.DocSearch-Logo svg polygon {
+  fill: var(--docsearch-primary-color) !important;
 }
