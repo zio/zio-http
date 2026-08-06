@@ -48,6 +48,15 @@ const config = {
   ],
 
   plugins: [
+    async function tailwindPlugin(context, options) {
+      return {
+        name: 'docusaurus-tailwindcss',
+        configurePostCss(postcssOptions) {
+          postcssOptions.plugins.push(require('@tailwindcss/postcss'));
+          return postcssOptions;
+        },
+      };
+    },
     [
       'docusaurus-plugin-llms',
       /** @type {import('docusaurus-plugin-llms').PluginOptions} */
