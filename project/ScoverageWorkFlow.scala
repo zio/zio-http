@@ -31,7 +31,7 @@ object ScoverageWorkFlow {
             name = Some("Update Build Definition"),
           ),
           WorkflowStep.Sbt(
-            commands = List(s"coverage; project zioHttpJVM; test; coverageReport"),
+            commands = List("coverage", "zioHttpJVM/test", "zioHttpJVM/coverageReport"),
             id = Some("run_coverage"),
             name = Some("Run Coverage"),
           ),

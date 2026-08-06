@@ -76,6 +76,8 @@ object Server extends ServerPlatformSpecific {
     tcpNoDelay: Boolean,
     @unroll
     generateHeadRoutes: Boolean = false,
+    @unroll
+    requestBodyPreConnectBufferSize: Int = 64 * 1024,
   ) { self =>
 
     /**
@@ -198,6 +200,24 @@ object Server extends ServerPlatformSpecific {
       self.copy(requestStreaming = requestStreaming)
 
     /**
+     * Soft cap on the bytes the server will buffer from a streamed request body
+     * before the route handler starts consuming it. The cap may be overshot by
+     * up to one `HttpContent` chunk: the chunk that crosses the threshold is
+     * appended to the buffer before reads stop. Once the threshold is reached,
+     * Netty's TCP back-pressure kicks in and the client is paused until the
+     * handler calls `request.body.asStream` (or similar) and begins reading.
+     * Prevents heap exhaustion when an async handler defers consuming the body
+     * and the client uploads faster than the handler can connect. Applies when
+     * [[RequestStreaming.Enabled]] is configured, and also with
+     * [[RequestStreaming.Hybrid]] for request bodies that exceed the aggregated
+     * threshold and are therefore handled as streamed bodies.
+     */
+    def requestBodyPreConnectBufferSize(size: Int): Config = {
+      require(size >= 0, "requestBodyPreConnectBufferSize must be >= 0")
+      self.copy(requestBodyPreConnectBufferSize = size)
+    }
+
+    /**
      * Sets the maximum number of connection requests that will be queued before
      * being rejected
      */
@@ -232,7 +252,10 @@ object Server extends ServerPlatformSpecific {
         zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
         zio.Config.boolean("avoid-context-switching").withDefault(Config.default.avoidContextSwitching) ++
         zio.Config.int("so-backlog").withDefault(Config.default.soBacklog) ++
-        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay)
+        zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay) ++
+        zio.Config
+          .int("request-body-pre-connect-buffer-size")
+          .withDefault(Config.default.requestBodyPreConnectBufferSize)
 
     }.map {
       case (
@@ -252,6 +275,7 @@ object Server extends ServerPlatformSpecific {
             avoidCtxSwitch,
             soBacklog,
             tcpNoDelay,
+            requestBodyPreConnectBufferSize,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -269,6 +293,7 @@ object Server extends ServerPlatformSpecific {
           avoidContextSwitching = avoidCtxSwitch,
           soBacklog = soBacklog,
           tcpNoDelay = tcpNoDelay,
+          requestBodyPreConnectBufferSize = requestBodyPreConnectBufferSize,
         )
     }
 
@@ -289,6 +314,7 @@ object Server extends ServerPlatformSpecific {
       avoidContextSwitching = false,
       soBacklog = 100,
       tcpNoDelay = true,
+      requestBodyPreConnectBufferSize = 64 * 1024,
     )
 
     final case class ResponseCompressionConfig(
