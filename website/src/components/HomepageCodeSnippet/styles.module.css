@@ -35,7 +35,16 @@
   margin: 0;
 }
 
-/* Button uses default Infima styling that respects light/dark theme */
+/* Button uses default Infima styling that respects light/dark theme.
+   Override the outline hover: Infima fills with the light brand green and
+   keeps white text (low contrast in both themes). Use dark text on the
+   green fill so the label stays legible. */
+.leftColumn :global(.button--outline:hover),
+.leftColumn :global(.button--outline:active) {
+  background-color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #0d1117;
+}
 
 .rightColumn {
   display: flex;
@@ -96,7 +105,9 @@
   margin: 0;
   padding: 1.25rem 1rem;
   overflow: auto;
-  max-height: 500px;
+  /* Fixed height (fits the tallest snippet) so the panel doesn't resize
+     when switching tabs; taller content scrolls within this box. */
+  height: 560px;
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -174,6 +185,25 @@
 
   .pre {
     overflow: auto;
-    max-height: 450px;
+    height: 460px;
   }
+}
+
+/* Fit the Docusaurus CodeBlock into the panel + keep a stable height so
+   switching tabs doesn't resize the panel. */
+.codeArea :global(.theme-code-block) {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.codeArea :global(pre) {
+  margin: 0;
+  height: 560px;
+  overflow: auto;
+  border-radius: 0;
+}
+
+/* No italics in the code (some prism themes italicize comments/keywords). */
+.codeArea :global(.token) {
+  font-style: normal !important;
 }
