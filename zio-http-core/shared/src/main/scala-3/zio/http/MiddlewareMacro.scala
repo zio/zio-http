@@ -40,18 +40,26 @@ private[http] object MiddlewareMacro {
         s"Middleware.custom: return type must be `Response | Halt` or `(Response, Ctx...)`, got ${retType.show}.",
       )
 
-    '{
-      new Middleware[Any, Any] {
-        def apply(routes: Routes[Any]): Routes[Any] =
-          Routes.fromIterable(routes.routes.toList.map { (route: Route[Any]) =>
-            val _next    = route.handler
-            val _wrapped = Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
-              ${ genBody(using q)(inTypes, outTypes, fnTerm, '_next, 'req, 'ctx, 'vars, 'scope) }
-            }
-            Route(route.pattern, _wrapped)
-          })
-      }
-    }.asExprOf[Middleware[?, ?]]
+    val ctxTpe: TypeRepr =
+      if (inTypes.nonEmpty) inTypes.reduce(AndType(_, _))
+      else if (outTypes.nonEmpty) outTypes.reduce(AndType(_, _))
+      else TypeRepr.of[Any]
+    ctxTpe.asType match {
+      case '[c] =>
+        '{
+          new Middleware[Any, c] {
+            def apply(routes: Routes[c]): Routes[Any] =
+              Routes.fromIterable(routes.routes.toList.map { (route: Route[c]) =>
+                val _next    = route.handler.asInstanceOf[Handler[Any, Any]]
+                val _wrapped =
+                  Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
+                    ${ genBody(using q)(inTypes, outTypes, fnTerm, '_next, 'req, 'ctx, 'vars, 'scope) }
+                  }
+                Route(route.pattern, _wrapped)
+              })
+          }
+        }.asExprOf[Middleware[?, ?]]
+    }
   }
 
   private def extractOutTypes(using q: Quotes)(t: q.reflect.TypeRepr): List[q.reflect.TypeRepr] = {
@@ -125,7 +133,7 @@ private[http] object MiddlewareMacro {
 
     val args: List[Term]    = (reqExpr.asTerm :: scopeExpr.asTerm :: getters.map(_.asTerm)).asInstanceOf[List[Term]]
     val fnTpe               = fnTerm.tpe.widen
-    val callTerm: Term = MacroUtils.buildFunctionCall(using q)(fnTerm, args)
+    val callTerm: Term      = MacroUtils.buildFunctionCall(using q)(fnTerm, args)
     val callExpr: Expr[Any] = callTerm.asExprOf[Any]
 
     if (outTypes.isEmpty) {
@@ -195,7 +203,10 @@ private[http] object MiddlewareMacro {
           prevCtx = Ref(eS).asInstanceOf[Term]
           ValDef(eS, Some(addR))
         }
-        val hCall  = Select(TypeApply(Select(nextTerm, asI), List(Inferred(TypeRepr.of[Handler[Any, Any]]))), hS) // cast sound: macro boundary erases to Handler[Any,Any]
+        val hCall  = Select(
+          TypeApply(Select(nextTerm, asI), List(Inferred(TypeRepr.of[Handler[Any, Any]]))),
+          hS,
+        ) // cast sound: macro boundary erases to Handler[Any,Any]
           .appliedToArgs(
             List(
               reqTerm,
@@ -210,7 +221,9 @@ private[http] object MiddlewareMacro {
     l.asExprOf[Any => Response | Halt]
   }
 
-  private def tupleProductAccessor(using q: Quotes)(pR: q.reflect.Term, pE: q.reflect.Symbol, idx: Int): q.reflect.Term = {
+  private def tupleProductAccessor(using
+    q: Quotes,
+  )(pR: q.reflect.Term, pE: q.reflect.Symbol, idx: Int): q.reflect.Term = {
     import q.reflect.*
     Select(pR, pE).appliedToArgs(List(Literal(IntConstant(idx + 1))))
   }

@@ -13,7 +13,10 @@ private[http] object MacroUtils {
     }
   }
 
-  /** Builds the apply call term for a function (handles FunctionXXL via IArray wrapper). */
+  /**
+   * Builds the apply call term for a function (handles FunctionXXL via IArray
+   * wrapper).
+   */
   def buildFunctionCall(using q: Quotes)(fnTerm: q.reflect.Term, args: List[q.reflect.Term]): q.reflect.Term = {
     import q.reflect.*
     val fnTpe = fnTerm.tpe.widen

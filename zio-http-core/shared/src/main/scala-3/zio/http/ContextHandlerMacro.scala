@@ -79,14 +79,16 @@ private[http] object ContextHandlerMacro {
       case Nil       =>
         val args: List[Term] = (req.asTerm :: acc.map(_.asTerm)).asInstanceOf[List[Term]]
         val fnTpe            = fnTerm.tpe.widen
-        val callTerm: Term = MacroUtils.buildFunctionCall(using q)(fnTerm, args)
+        val callTerm: Term   = MacroUtils.buildFunctionCall(using q)(fnTerm, args)
         callTerm.asExprOf[Response | Halt]
       case t :: rest =>
         t.asType match {
           case '[tpe] =>
             val evTerm                           = findIsNominal(using q)(t)
             val evExpr: Expr[IsNominalType[tpe]] = evTerm.asExprOf[IsNominalType[tpe]]
-            val g: Expr[tpe]                     = '{ $ctx.asInstanceOf[Context[tpe]].get[tpe](using $evExpr) } // cast sound: IsNominalType evidence
+            val g: Expr[tpe]                     = '{
+              $ctx.asInstanceOf[Context[tpe]].get[tpe](using $evExpr)
+            } // cast sound: IsNominalType evidence
             loop(rest, acc :+ g.asExprOf[Any])
         }
     }

@@ -34,12 +34,8 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
         val m = Middleware.custom { (req: Request, scope: Scope) => Response.ok }
         assertTrue(m != null)
       },
-      test("intercept alias") {
-        val m = Middleware.intercept { (req: Request, scope: Scope) => Response.ok }
-        assertTrue(m != null)
-      },
-      test("whenContext alias") {
-        val m = Middleware.whenContext { (req: Request, scope: Scope, c: AuthCtx) =>
+      test("context consumption via custom") {
+        val m = Middleware.custom { (req: Request, scope: Scope, c: AuthCtx) =>
           if (c.userId.nonEmpty) Response.ok else Response.forbidden
         }
         assertTrue(m != null)
@@ -63,52 +59,54 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
       test("pass-through middleware executes and wraps routes") {
         val m: Middleware[Any, Any] =
           Middleware.custom { (req: Request, scope: Scope) => Response.ok }
-            .asInstanceOf[Middleware[Any, Any]]
         val base                    = route[Any](Handler.succeed(Response(Status.Created)))
         val app                     = base @@ m
         val result                  = exec(app)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.ok))
       },
       test("injected context arrives in downstream handler") {
-        val m: Middleware[Any, Any] =
+        val m: Middleware[Any, AuthCtx] =
           Middleware.custom { (req: Request, scope: Scope) =>
             (Response.ok, AuthCtx("alice"))
-          }.asInstanceOf[Middleware[Any, Any]]
-        val downstream              = Handler.extracted[Any, Any] { (_, ctx, _, _) =>
+          }
+        val downstream                  = Handler.extracted[Any, Any] { (_, ctx, _, _) =>
           val auth = ctx.asInstanceOf[Context[AuthCtx]].get[AuthCtx]
           zio.http.ResultType.responseAsResult(Response.text(auth.userId))
         }
-        val base                    = route[Any](downstream)
-        val app                     = base @@ m
-        val result                  = exec(app)
+        val base                        = route[Any](downstream)
+        val app                         = base @@ m
+        val result                      = exec(app)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.text("alice")))
       },
       test("context consumption reads provided context") {
-        val m: Middleware[Any, Any] =
+        val m: Middleware[Any, AuthCtx] =
           Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
             if (auth.userId == "admin") Response.ok else Response.forbidden
-          }.asInstanceOf[Middleware[Any, Any]]
-        val base                    = route[Any](Handler.succeed(Response(Status.Created)))
-        val app                     = base @@ m
-        val ctx                     = Context(AuthCtx("admin"))
-        val result                  = exec(app, ctx)
+          }
+        val base                        = route[Any](Handler.succeed(Response(Status.Created)))
+        val app                         = base @@ m
+        val ctx                         = Context(AuthCtx("admin"))
+        val result                      = exec(app, ctx)
         // m short-circuits with Response.ok for admin
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.ok))
       },
       test("short-circuit blocks non-admin") {
-        val m: Middleware[Any, Any] =
+        val m: Middleware[Any, AuthCtx] =
           Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
             if (auth.userId == "admin") Response.ok else Response.forbidden
-          }.asInstanceOf[Middleware[Any, Any]]
-        val base                    = route[Any](Handler.succeed(Response(Status.Created)))
-        val app                     = base @@ m
-        val ctx                     = Context(AuthCtx("eve"))
-        val result                  = exec(app, ctx)
+          }
+        val base                        = route[Any](Handler.succeed(Response(Status.Created)))
+        val app                         = base @@ m
+        val ctx                         = Context(AuthCtx("eve"))
+        val result                      = exec(app, ctx)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.forbidden))
       },
       test("24-arg middleware (>22) executes correctly") {
         // 2 fixed (Request, Scope) + 22 context = 24 total args (FunctionXXL)
-        val m: Middleware[Any, Any] =
+        val m: Middleware[
+          Any,
+          C1 & C2 & C3 & C4 & C5 & C6 & C7 & C8 & C9 & C10 & C11 & C12 & C13 & C14 & C15 & C16 & C17 & C18 & C19 & C20 & C21 & C22,
+        ] =
           Middleware.custom {
             (
               req: Request,
@@ -137,11 +135,11 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
               c22: C22,
             ) =>
               Response.text(s"${c1.v}/${c11.v}/${c22.v}")
-          }.asInstanceOf[Middleware[Any, Any]]
-        val base                    = route[Any](Handler.succeed(Response(Status.Created)))
-        val app                     = base @@ m
-        val ctx0                    = Context.empty
-        val ctx: Context[Any]       = ctx0
+          }
+        val base              = route[Any](Handler.succeed(Response(Status.Created)))
+        val app               = base @@ m
+        val ctx0              = Context.empty
+        val ctx: Context[Any] = ctx0
           .add(C1("a"))
           .add(C2("b"))
           .add(C3("c"))
@@ -165,7 +163,7 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
           .add(C21("u"))
           .add(C22("v"))
           .asInstanceOf[Context[Any]]
-        val result                  = app.routes.toList.head.handler.handle(req, ctx, (), Scope.global)
+        val result            = app.routes.toList.head.handler.handle(req, ctx, (), Scope.global)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.text("a/k/v")))
       },
     ),
