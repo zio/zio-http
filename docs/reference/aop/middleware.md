@@ -152,7 +152,7 @@ import zio._
 import zio.http._
 
 // compose basic auth, request/response logging, timeouts middlewares
-val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
+val composedMiddlewares = Middleware.basicAuth[String](_ => Right("user")) ++ 
         Middleware.debug ++ 
         Middleware.timeout(5.seconds) 
 ```
