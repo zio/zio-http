@@ -17,6 +17,7 @@ package zio.http
 
 import scala.collection.immutable.Map
 import zio.blocks.context.{Context, IsNominalType}
+import zio.blocks.endpoint.RoutePattern
 import zio.blocks.scope.Scope
 import zio.http.ResultType._
 
@@ -29,8 +30,17 @@ trait Middleware[UpperCtx, Ctx] { self =>
 }
 
 object Middleware {
-  private val timeoutExecutor: java.util.concurrent.ExecutorService =
+  private lazy val timeoutExecutor: java.util.concurrent.ExecutorService =
     java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()
+
+  private def wrap(
+    routes: Routes[Any],
+  )(f: (Request, Context[Any], Any, Scope, Handler[Any, Any]) => Response | Halt): Routes[Any] =
+    Routes.fromIterable(routes.routes.toList.map { route =>
+      val next    = route.handler
+      val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) => f(req, ctx, vars, scope, next) }
+      Route(route.pattern, wrapped)
+    })
 
   def identity[Ctx]: Middleware[Ctx, Ctx] = new Middleware[Ctx, Ctx] {
     def apply(routes: Routes[Ctx]): Routes[Ctx] = routes
@@ -40,6 +50,11 @@ object Middleware {
   // AUTH
   // ═══════════════════════════════════════════════════════════════════
 
+  /**
+   * @param validate
+   *   MUST use constant-time comparison (e.g.
+   *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   */
   def customAuth[Session](
     validate: Request => Either[Response, Session],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
@@ -57,6 +72,11 @@ object Middleware {
       }
     }
 
+  /**
+   * @param validate
+   *   MUST use constant-time comparison (e.g.
+   *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   */
   def basicAuth[Session](
     validate: Header.Authorization.Basic => Either[Response, Session],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
@@ -67,6 +87,11 @@ object Middleware {
       }
     }
 
+  /**
+   * @param validate
+   *   MUST use constant-time comparison (e.g.
+   *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   */
   def bearerAuth[Session](
     validate: Header.Authorization.Bearer => Either[Response, Session],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
@@ -77,64 +102,6 @@ object Middleware {
       }
     }
 
-  // legacy non-generic overloads kept for backward compat
-  def basicAuth(
-    realm: String = "Access to the resource",
-    validate: (String, String) => Boolean,
-  ): Middleware[Any, Any] = {
-    val wwwAuth = Header.WWWAuthenticate("Basic", Map("realm" -> realm))
-    new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            req.header(Header.Authorization) match {
-              case Some(Header.Authorization.Basic(u, p)) if validate(u, p) => next.handle(req, ctx, vars, scope)
-              case _ => Halt(Response.unauthorized.addHeader(wwwAuth))
-            }
-          }
-          Route(route.pattern, wrapped)
-        })
-    }
-  }
-
-  def bearerAuth(realm: String = "Access to the resource", validate: String => Boolean): Middleware[Any, Any] = {
-    val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> realm))
-    new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            req.header(Header.Authorization) match {
-              case Some(Header.Authorization.Bearer(token)) if validate(token) => next.handle(req, ctx, vars, scope)
-              case _ => Halt(Response.unauthorized.addHeader(wwwAuth))
-            }
-          }
-          Route(route.pattern, wrapped)
-        })
-    }
-  }
-
-  def customAuth[A](validate: Request => Option[A], realm: String = "Access to the resource")(implicit
-    ev: IsNominalType[A],
-  ): Middleware[Any, A] = {
-    val wwwAuth = Header.WWWAuthenticate("Bearer", Map("realm" -> realm))
-    new Middleware[Any, A] {
-      def apply(routes: Routes[A]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler.asInstanceOf[Handler[A, Any]]
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            validate(req) match {
-              case Some(a) =>
-                next.handle(req, ctx.asInstanceOf[Context[Any]].add(a).asInstanceOf[Context[A]], vars, scope)
-              case None    => Halt(Response.unauthorized.addHeader(wwwAuth))
-            }
-          }
-          Route(route.pattern, wrapped)
-        })
-    }
-  }
-
   // ═══════════════════════════════════════════════════════════════════
   // INTERCEPT
   // ═══════════════════════════════════════════════════════════════════
@@ -142,16 +109,12 @@ object Middleware {
   def interceptHandler(interceptor: Request => Option[Response | Halt]): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            interceptor(req) match {
-              case Some(result) => result
-              case None         => next.handle(req, ctx, vars, scope)
-            }
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          interceptor(req) match {
+            case Some(result) => result
+            case None         => next.handle(req, ctx, vars, scope)
           }
-          Route(route.pattern, wrapped)
-        })
+        }
     }
 
   def interceptPatch(
@@ -160,48 +123,36 @@ object Middleware {
   ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            interceptor(req) match {
-              case Some(result) => result
-              case None         =>
-                foldResult(next.handle(req, ctx, vars, scope))(r => patcher(r), h => h)
-            }
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          interceptor(req) match {
+            case Some(result) => result
+            case None         =>
+              foldResult(next.handle(req, ctx, vars, scope))(r => patcher(r), h => h)
           }
-          Route(route.pattern, wrapped)
-        })
+        }
     }
 
   def debug(logger: String => Unit = println): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            logger(s"> ${req.method} ${req.url}")
-            val result = next.handle(req, ctx, vars, scope)
-            foldResult(result)(r => logger(s"< ${r.status} ${req.url}"), h => logger(s"! HALT ${req.url}"))
-            result
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          logger(s"> ${req.method} ${req.url}")
+          val result = next.handle(req, ctx, vars, scope)
+          foldResult(result)(r => logger(s"< ${r.status} ${req.url}"), h => logger(s"! HALT ${req.url}"))
+          result
+        }
     }
 
   def timing(reporter: (Method, String, Long) => Unit): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val start   = System.nanoTime()
-            val result  = next.handle(req, ctx, vars, scope)
-            val elapsed = System.nanoTime() - start
-            reporter(req.method, req.url.toString, elapsed)
-            result
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val start   = System.nanoTime()
+          val result  = next.handle(req, ctx, vars, scope)
+          val elapsed = System.nanoTime() - start
+          reporter(req.method, req.url.toString, elapsed)
+          result
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -210,20 +161,25 @@ object Middleware {
 
   def when(predicate: Request => Boolean, middleware: Middleware[Any, Any]): Middleware[Any, Any] =
     new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next        = route.handler
-          val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            next.handle(req, ctx, vars, scope)
-          }
-          val mwRoute     = Route(route.pattern, passthrough)
-          val applied     = middleware(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-          val wrapped     = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            if (predicate(req)) applied.handle(req, ctx, vars, scope)
-            else next.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+      def apply(routes: Routes[Any]): Routes[Any] = {
+        // Apply middleware once per route at build time, not per request.
+        val appliedByNext: Map[Handler[Any, Any], Handler[Any, Any]] =
+          routes.routes.toList.map { route =>
+            val next        = route.handler
+            val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+              next.handle(req, ctx, vars, scope)
+            }
+            val applied     =
+              middleware(Routes(Route(RoutePattern.any, passthrough))).routes.toList.headOption
+                .map(_.handler)
+                .getOrElse(passthrough)
+            next -> applied
+          }.toMap
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          if (predicate(req)) appliedByNext.getOrElse(next, next).handle(req, ctx, vars, scope)
+          else next.handle(req, ctx, vars, scope)
+        }
+      }
     }
 
   def ifRequestThenElse(
@@ -232,21 +188,25 @@ object Middleware {
     onFalse: Middleware[Any, Any],
   ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next         = route.handler
-          val passthrough  = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            next.handle(req, ctx, vars, scope)
-          }
-          val mwRoute      = Route(route.pattern, passthrough)
-          val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-          val falseApplied = onFalse(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-          val wrapped      = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            if (predicate(req)) trueApplied.handle(req, ctx, vars, scope)
-            else falseApplied.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+      def apply(routes: Routes[Any]): Routes[Any] = {
+        // Apply both branches once per route at build time, not per request.
+        val appliedByNext: Map[Handler[Any, Any], (Handler[Any, Any], Handler[Any, Any])] =
+          routes.routes.toList.map { route =>
+            val next         = route.handler
+            val passthrough  = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+              next.handle(req, ctx, vars, scope)
+            }
+            val mwRoute      = Route(RoutePattern.any, passthrough)
+            val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+            val falseApplied = onFalse(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+            next -> ((trueApplied, falseApplied))
+          }.toMap
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val (trueApplied, falseApplied) = appliedByNext.getOrElse(next, (next, next))
+          if (predicate(req)) trueApplied.handle(req, ctx, vars, scope)
+          else falseApplied.handle(req, ctx, vars, scope)
+        }
+      }
     }
 
   def ifRequestThen(predicate: Request => Boolean, onTrue: Middleware[Any, Any]): Middleware[Any, Any] =
@@ -256,24 +216,25 @@ object Middleware {
     val default: Middleware[Any, Any] = Middleware.identity[Any]
     val map                           = mapping.toMap
     new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next           = route.handler
-          val passthrough    = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            next.handle(req, ctx, vars, scope)
-          }
-          val mwRoute        = Route(route.pattern, passthrough)
-          // Apply middleware once per route at build time, not per request.
-          val defaultHandler = default(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-          val perMethod      =
-            map.map { case (method, mw) =>
-              method -> mw(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+      def apply(routes: Routes[Any]): Routes[Any] = {
+        // Apply middleware once per route at build time, not per request.
+        val perMethodByNext: Map[Handler[Any, Any], Map[Method, Handler[Any, Any]]] =
+          routes.routes.toList.map { route =>
+            val next        = route.handler
+            val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+              next.handle(req, ctx, vars, scope)
             }
-          val wrapped        = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            perMethod.getOrElse(req.method, defaultHandler).handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+            val mwRoute     = Route(RoutePattern.any, passthrough)
+            val perMethod   =
+              map.map { case (method, mw) =>
+                method -> mw(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+              }
+            next -> perMethod
+          }.toMap
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          perMethodByNext.getOrElse(next, Map.empty).getOrElse(req.method, next).handle(req, ctx, vars, scope)
+        }
+      }
     }
   }
 
@@ -322,30 +283,26 @@ object Middleware {
 
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            req.header(Header.Origin) match {
-              case Some(origin: Header.Origin) =>
-                val originStr = origin.renderedValue
-                if (!originAllowed(originStr)) {
-                  responseAsResult(Response.forbidden)
-                } else if (req.method == Method.OPTIONS && req.header(Header.AccessControlRequestMethod).isDefined) {
-                  val hdrs = corsPreflightHeaders(originStr)
-                  val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
-                  resp
-                } else {
-                  val hdrs = corsPreflightHeaders(originStr)
-                  foldResult(next.handle(req, ctx, vars, scope))(
-                    r => hdrs.foldLeft(r)((acc, h) => acc.addHeader(h)),
-                    h => h,
-                  )
-                }
-              case None                        => next.handle(req, ctx, vars, scope)
-            }
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          req.header(Header.Origin) match {
+            case Some(origin: Header.Origin) =>
+              val originStr = origin.renderedValue
+              if (!originAllowed(originStr)) {
+                responseAsResult(Response.forbidden)
+              } else if (req.method == Method.OPTIONS && req.header(Header.AccessControlRequestMethod).isDefined) {
+                val hdrs = corsPreflightHeaders(originStr)
+                val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
+                resp
+              } else {
+                val hdrs = corsPreflightHeaders(originStr)
+                foldResult(next.handle(req, ctx, vars, scope))(
+                  r => hdrs.foldLeft(r)((acc, h) => acc.addHeader(h)),
+                  h => h,
+                )
+              }
+            case None                        => next.handle(req, ctx, vars, scope)
           }
-          Route(route.pattern, wrapped)
-        })
+        }
     }
   }
 
@@ -378,94 +335,127 @@ object Middleware {
   def flashScope()(implicit ev: IsNominalType[FlashMap]): Middleware[Any, FlashMap] =
     new Middleware[Any, FlashMap] {
       def apply(routes: Routes[FlashMap]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val incomingFlash: Map[String, String] = req.cookies.iterator
-              .find(_.name == "flash")
-              .map { c =>
-                c.value
-                  .split("&")
-                  .flatMap { pair =>
-                    pair.split("=", 2) match {
-                      case Array(k, v) =>
-                        try {
-                          Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
-                        } catch {
-                          case _: IllegalArgumentException => None
-                        }
-                      case _           => None
+        Routes.fromIterable(
+          routes.routes.toList.map { route =>
+            val next    = route.handler
+            val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+              val incomingFlash: Map[String, String] = req.cookies.iterator
+                .find(_.name == "flash")
+                .map { c =>
+                  c.value
+                    .split("&")
+                    .flatMap { pair =>
+                      pair.split("=", 2) match {
+                        case Array(k, v) =>
+                          try {
+                            Some(java.net.URLDecoder.decode(k, "UTF-8") -> java.net.URLDecoder.decode(v, "UTF-8"))
+                          } catch {
+                            case _: IllegalArgumentException => None
+                          }
+                        case _           => None
+                      }
                     }
-                  }
-                  .toMap
-              }
-              .getOrElse(Map.empty)
-            val flash                              = FlashMap.fromMap(incomingFlash)
-            val result                             = next.handle(
-              req,
-              ctx.add(flash),
-              vars,
-              scope,
-            )
-            foldResult(result)(
-              r => r.addHeader(Header.Custom("Set-Cookie", "flash=; Max-Age=0; Path=/")),
-              h => h,
-            )
-          }
-          Route(route.pattern, wrapped)
-        })
+                    .toMap
+                }
+                .getOrElse(Map.empty)
+              val flash                              = FlashMap.fromMap(incomingFlash)
+              val result                             = next.handle(
+                req,
+                ctx.add(flash),
+                vars,
+                scope,
+              )
+              foldResult(result)(
+                r => r.addHeader(Header.Custom("Set-Cookie", "flash=; Max-Age=0; Path=/")),
+                h => h,
+              )
+            }
+            Route(route.pattern, wrapped)
+          },
+        )
     }
 
   // ═══════════════════════════════════════════════════════════════════
   // TIMEOUT
   // ═══════════════════════════════════════════════════════════════════
 
-  def timeout(millis: Long): Middleware[Any, Any] =
+  def timeout(
+    millis: Long,
+    logger: Throwable => Unit = t => Console.err.println(s"Middleware.timeout: handler threw ${t.getCause}"),
+  ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val future = java.util.concurrent.CompletableFuture.supplyAsync(
-              () => next.handle(req, ctx, vars, scope),
-              timeoutExecutor,
-            )
-            try {
-              future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
-            } catch {
-              case _: java.util.concurrent.TimeoutException   =>
-                future.cancel(true)
-                haltAsResult(Halt(Response(Status.ServiceUnavailable)))
-              case _: InterruptedException                    =>
-                future.cancel(true)
-                Thread.currentThread().interrupt()
-                haltAsResult(Halt(Response(Status.ServiceUnavailable)))
-              case e: java.util.concurrent.ExecutionException =>
-                System.err.println(s"Middleware.timeout: handler threw ${e.getCause}")
-                haltAsResult(Halt(Response(Status.InternalServerError)))
-            }
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val future = java.util.concurrent.CompletableFuture.supplyAsync(
+            () => next.handle(req, ctx, vars, scope),
+            timeoutExecutor,
+          )
+          try {
+            future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
+          } catch {
+            case _: java.util.concurrent.TimeoutException   =>
+              future.cancel(true)
+              haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+            case _: InterruptedException                    =>
+              future.cancel(true)
+              Thread.currentThread().interrupt()
+              haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+            case e: java.util.concurrent.ExecutionException =>
+              logger(e)
+              haltAsResult(Halt(Response(Status.InternalServerError)))
           }
-          Route(route.pattern, wrapped)
-        })
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
   // STATIC FILE SERVING
   // ═══════════════════════════════════════════════════════════════════
 
-  def serveDirectory(directoryPath: String): Middleware[Any, Any] =
+  def serveDirectory(directoryPath: String): Middleware[Any, Any] = {
+    val baseDir = new java.io.File(directoryPath).getCanonicalFile
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val baseDir = new java.io.File(directoryPath).getCanonicalFile
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
-            try {
-              val path = requested.toPath
-              if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
-                val bytes     = java.nio.file.Files.readAllBytes(path)
-                val mediaType = requested.getName match {
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
+          try {
+            val path = requested.toPath
+            if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
+              val bytes     = java.nio.file.Files.readAllBytes(path)
+              val mediaType = requested.getName match {
+                case n if n.endsWith(".html")                       => "text/html"
+                case n if n.endsWith(".css")                        => "text/css"
+                case n if n.endsWith(".js")                         => "application/javascript"
+                case n if n.endsWith(".png")                        => "image/png"
+                case n if n.endsWith(".jpg") || n.endsWith(".jpeg") => "image/jpeg"
+                case n if n.endsWith(".svg")                        => "image/svg+xml"
+                case _                                              => "application/octet-stream"
+              }
+              Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
+            } else next.handle(req, ctx, vars, scope)
+          } catch { case _: java.io.IOException => next.handle(req, ctx, vars, scope) }
+        }
+    }
+  }
+
+  def serveResources(basePath: String = "public"): Middleware[Any, Any] =
+    new Middleware[Any, Any] {
+      def apply(routes: Routes[Any]): Routes[Any] =
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val resourcePath = req.path.toString.stripPrefix("/")
+          val segments     = resourcePath.split("/").toList
+          val decoded      = segments.map { s =>
+            try { java.net.URLDecoder.decode(s, "UTF-8") }
+            catch { case _: IllegalArgumentException => s }
+          }
+          if (decoded.contains("..") || decoded.contains(".")) {
+            next.handle(req, ctx, vars, scope)
+          } else {
+            val fullPath = if (basePath.isEmpty) resourcePath else s"$basePath/$resourcePath"
+            val stream   = getClass.getClassLoader.getResourceAsStream(fullPath)
+            if (stream != null) {
+              try {
+                val bytes     = stream.readAllBytes()
+                val mediaType = fullPath match {
                   case n if n.endsWith(".html")                       => "text/html"
                   case n if n.endsWith(".css")                        => "text/css"
                   case n if n.endsWith(".js")                         => "application/javascript"
@@ -475,52 +465,17 @@ object Middleware {
                   case _                                              => "application/octet-stream"
                 }
                 Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
-              } else next.handle(req, ctx, vars, scope)
-            } catch { case _: java.io.IOException => next.handle(req, ctx, vars, scope) }
-          }
-          Route(route.pattern, wrapped)
-        })
-    }
-
-  def serveResources(basePath: String = "public"): Middleware[Any, Any] =
-    new Middleware[Any, Any] {
-      def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val resourcePath = req.path.toString.stripPrefix("/")
-            val segments     = resourcePath.split("/").toList
-            if (segments.contains("..") || segments.contains(".")) {
-              next.handle(req, ctx, vars, scope)
-            } else {
-              val fullPath = if (basePath.isEmpty) resourcePath else s"$basePath/$resourcePath"
-              val stream   = getClass.getClassLoader.getResourceAsStream(fullPath)
-              if (stream != null) {
-                try {
-                  val bytes     = stream.readAllBytes()
-                  val mediaType = fullPath match {
-                    case n if n.endsWith(".html")                       => "text/html"
-                    case n if n.endsWith(".css")                        => "text/css"
-                    case n if n.endsWith(".js")                         => "application/javascript"
-                    case n if n.endsWith(".png")                        => "image/png"
-                    case n if n.endsWith(".jpg") || n.endsWith(".jpeg") => "image/jpeg"
-                    case n if n.endsWith(".svg")                        => "image/svg+xml"
-                    case _                                              => "application/octet-stream"
-                  }
-                  Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
-                } catch {
-                  case _: java.io.IOException => next.handle(req, ctx, vars, scope)
-                } finally {
-                  try { stream.close() }
-                  catch { case _: java.io.IOException => () }
-                }
-              } else {
-                next.handle(req, ctx, vars, scope)
+              } catch {
+                case _: java.io.IOException => next.handle(req, ctx, vars, scope)
+              } finally {
+                try { stream.close() }
+                catch { case _: java.io.IOException => () }
               }
+            } else {
+              next.handle(req, ctx, vars, scope)
             }
           }
-          Route(route.pattern, wrapped)
-        })
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -531,13 +486,9 @@ object Middleware {
   def addHeader(header: Header): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            foldResult(next.handle(req, ctx, vars, scope))(r => r.addHeader(header), h => h)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          foldResult(next.handle(req, ctx, vars, scope))(r => r.addHeader(header), h => h)
+        }
     }
 
   /** Adds a header by name and value to every response. */
@@ -551,16 +502,12 @@ object Middleware {
   def updateHeaders(f: Headers => Headers): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            foldResult(next.handle(req, ctx, vars, scope))(
-              r => Response(r.status, f(r.headers), r.body, r.version),
-              h => h,
-            )
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          foldResult(next.handle(req, ctx, vars, scope))(
+            r => Response(r.status, f(r.headers), r.body, r.version),
+            h => h,
+          )
+        }
     }
 
   /** Removes a response header by name. */
@@ -575,96 +522,76 @@ object Middleware {
   def appendPath(segment: String): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val oldPath     = req.url.path
-            val newSegments = oldPath.segments :+ segment
-            val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl      = req.url.copy(path = newPath)
-            val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
-            next.handle(newReq, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val oldPath     = req.url.path
+          val newSegments = oldPath.segments :+ segment
+          val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
+          val newUrl      = req.url.copy(path = newPath)
+          val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
+          next.handle(newReq, ctx, vars, scope)
+        }
     }
 
   /** Prepends a segment to the request path. */
   def prependPath(segment: String): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val oldPath     = req.url.path
-            val newSegments = zio.blocks.chunk.Chunk(segment) ++ oldPath.segments
-            val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
-            val newUrl      = req.url.copy(path = newPath)
-            val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
-            next.handle(newReq, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val oldPath     = req.url.path
+          val newSegments = zio.blocks.chunk.Chunk(segment) ++ oldPath.segments
+          val newPath     = Path(newSegments, oldPath.hasLeadingSlash, oldPath.trailingSlash)
+          val newUrl      = req.url.copy(path = newPath)
+          val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
+          next.handle(newReq, ctx, vars, scope)
+        }
     }
 
   /** Strips a prefix from the request path. */
   def stripPathPrefix(prefix: String): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val path       = req.url.path
-            val segments   = path.segments
-            val prefixSegs = prefix.stripPrefix("/").stripSuffix("/").split("/").filter(_.nonEmpty)
-            if (segments.take(prefixSegs.length).toList.map(_.toString) == prefixSegs.toSeq) {
-              val newSegments = segments.drop(prefixSegs.length)
-              val newPath     = Path(newSegments, hasLeadingSlash = true, trailingSlash = path.trailingSlash)
-              val newUrl      = req.url.copy(path = newPath)
-              val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
-              next.handle(newReq, ctx, vars, scope)
-            } else next.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val path       = req.url.path
+          val segments   = path.segments
+          val prefixSegs = prefix.stripPrefix("/").stripSuffix("/").split("/").filter(_.nonEmpty)
+          if (segments.take(prefixSegs.length).toList.map(_.toString) == prefixSegs.toSeq) {
+            val newSegments = segments.drop(prefixSegs.length)
+            val newPath     = Path(newSegments, hasLeadingSlash = true, trailingSlash = path.trailingSlash)
+            val newUrl      = req.url.copy(path = newPath)
+            val newReq      = Request(req.method, newUrl, req.headers, req.body, req.version)
+            next.handle(newReq, ctx, vars, scope)
+          } else next.handle(req, ctx, vars, scope)
+        }
     }
 
   /** Removes the trailing slash from the request path. */
   val dropTrailingSlash: Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val p = req.url.path
-            if (p.trailingSlash && p.segments.nonEmpty) {
-              val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = false)
-              val newUrl  = req.url.copy(path = newPath)
-              val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
-              next.handle(newReq, ctx, vars, scope)
-            } else next.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val p = req.url.path
+          if (p.trailingSlash && p.segments.nonEmpty) {
+            val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = false)
+            val newUrl  = req.url.copy(path = newPath)
+            val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
+            next.handle(newReq, ctx, vars, scope)
+          } else next.handle(req, ctx, vars, scope)
+        }
     }
 
   /** Adds a trailing slash to the request path if absent. */
   val addTrailingSlash: Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val p = req.url.path
-            if (!p.trailingSlash && p.segments.nonEmpty) {
-              val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = true)
-              val newUrl  = req.url.copy(path = newPath)
-              val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
-              next.handle(newReq, ctx, vars, scope)
-            } else next.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val p = req.url.path
+          if (!p.trailingSlash && p.segments.nonEmpty) {
+            val newPath = Path(p.segments, p.hasLeadingSlash, trailingSlash = true)
+            val newUrl  = req.url.copy(path = newPath)
+            val newReq  = Request(req.method, newUrl, req.headers, req.body, req.version)
+            next.handle(newReq, ctx, vars, scope)
+          } else next.handle(req, ctx, vars, scope)
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -686,13 +613,9 @@ object Middleware {
   def runAfter(effect: (Request, Response | Halt) => Response | Halt): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            effect(req, next.handle(req, ctx, vars, scope))
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          effect(req, next.handle(req, ctx, vars, scope))
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -706,12 +629,9 @@ object Middleware {
   def redirect(status: Status, location: String): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            Halt(Response(status, Headers.empty.add("Location", location), Body.empty, req.version))
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          Halt(Response(status, Headers.empty.add("Location", location), Body.empty, req.version))
+        }
     }
 
   /** Redirects all requests with 302 Found. */
@@ -733,9 +653,11 @@ object Middleware {
    * Incoming request cookies are verified; invalid cookies are removed.
    *
    * @param secret
-   *   The shared secret key for HMAC signing
+   *   The shared secret key for HMAC signing. Must be at least 32 characters
+   *   long to provide sufficient entropy for HMAC-SHA256.
    */
   def signCookies(secret: String): Middleware[Any, Any] = {
+    require(secret != null && secret.length >= 32, "signCookies requires a secret of at least 32 characters")
     val hmacKey = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
     def sign(name: String, value: String): String            = {
       val mac      = javax.crypto.Mac.getInstance("HmacSHA256")
@@ -758,58 +680,54 @@ object Middleware {
 
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            // Verify incoming cookies
-            val verifiedReq = {
-              val cookies  = req.cookies
-              val verified = cookies.flatMap { c =>
-                verify(c.name, c.value) match {
-                  case Some(orig) => Some(RequestCookie(c.name, orig))
-                  case None       => None
-                }
-              }
-              // Reconstruct request with verified (signature-stripped) cookies (or remove Cookie header if none valid)
-              if (verified.nonEmpty) {
-                val cookieHeader = verified.map(c => s"${c.name}=${c.value}").mkString("; ")
-                Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
-                  .addHeader("Cookie", cookieHeader)
-              } else {
-                Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          // Verify incoming cookies
+          val verifiedReq = {
+            val cookies  = req.cookies
+            val verified = cookies.flatMap { c =>
+              verify(c.name, c.value) match {
+                case Some(orig) => Some(RequestCookie(c.name, orig))
+                case None       => None
               }
             }
-            val result      = next.handle(verifiedReq, ctx, vars, scope)
-            // Sign outgoing set-cookie headers
-            foldResult(result)(
-              r => {
-                val signedCookies = r.cookies.map { c =>
-                  ResponseCookie(
-                    c.name,
-                    sign(c.name, c.value),
-                    c.expires,
-                    c.domain,
-                    c.path,
-                    c.maxAge,
-                    c.isSecure,
-                    c.isHttpOnly,
-                    c.sameSite,
-                    c.isPartitioned,
-                    c.priority,
-                  )
-                }
-                // Strip original Set-Cookie headers before adding signed ones
-                var resp          = Response(r.status, r.headers.remove("Set-Cookie"), r.body, r.version)
-                signedCookies.foreach { c =>
-                  resp = resp.addHeader(Header.Custom("Set-Cookie", c.toString))
-                }
-                resp
-              },
-              h => h,
-            )
+            // Reconstruct request with verified (signature-stripped) cookies (or remove Cookie header if none valid)
+            if (verified.nonEmpty) {
+              val cookieHeader = verified.map(c => s"${c.name}=${c.value}").mkString("; ")
+              Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
+                .addHeader("Cookie", cookieHeader)
+            } else {
+              Request(req.method, req.url, req.headers.remove("Cookie"), req.body, req.version)
+            }
           }
-          Route(route.pattern, wrapped)
-        })
+          val result      = next.handle(verifiedReq, ctx, vars, scope)
+          // Sign outgoing set-cookie headers
+          foldResult(result)(
+            r => {
+              val signedCookies = r.cookies.map { c =>
+                ResponseCookie(
+                  c.name,
+                  sign(c.name, c.value),
+                  c.expires,
+                  c.domain,
+                  c.path,
+                  c.maxAge,
+                  c.isSecure,
+                  c.isHttpOnly,
+                  c.sameSite,
+                  c.isPartitioned,
+                  c.priority,
+                )
+              }
+              // Strip original Set-Cookie headers before adding signed ones
+              var resp          = Response(r.status, r.headers.remove("Set-Cookie"), r.body, r.version)
+              signedCookies.foreach { c =>
+                resp = resp.addHeader(Header.Custom("Set-Cookie", c.toString))
+              }
+              resp
+            },
+            h => h,
+          )
+        }
     }
   }
 
@@ -826,58 +744,68 @@ object Middleware {
   def status(predicate: Status => Boolean, handler: Response => Response | Halt): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            foldResult(next.handle(req, ctx, vars, scope))(
-              r => if (predicate(r.status)) handler(r) else r,
-              h => h,
-            )
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          foldResult(next.handle(req, ctx, vars, scope))(
+            r => if (predicate(r.status)) handler(r) else r,
+            h => h,
+          )
+        }
     }
 
   // ═══════════════════════════════════════════════════════════════════
   // DUMP REQUEST / RESPONSE
   // ═══════════════════════════════════════════════════════════════════
 
-  /** Logs a full dump of the incoming request. */
-  def requestDump(logger: String => Unit = println): Middleware[Any, Any] =
+  private def redactHeader(name: String, value: String): String = {
+    val sensitive = Set(
+      "authorization",
+      "cookie",
+      "set-cookie",
+      "proxy-authorization",
+      "x-api-key",
+      "x-auth-token",
+      "proxy-authenticate",
+    )
+    if (sensitive.contains(name.toLowerCase)) s"[REDACTED (len=${value.length})]" else value
+  }
+
+  /**
+   * Logs a full dump of the incoming request. WARNING: Only wire to sanitized
+   * loggers in production. Sensitive headers are redacted; body logging is
+   * disabled by default.
+   */
+  def requestDump(logger: String => Unit = println, includeBody: Boolean = false): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            logger(
-              s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n${req.headers.toList.map {
-                  case (k, v) => s"    $k: $v"
-                }.mkString("\n")}\n  body:   ${req.body}",
-            )
-            next.handle(req, ctx, vars, scope)
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val headersStr = req.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
+          val bodyStr    = if (includeBody) req.body.toString else "[body omitted — pass includeBody = true to log]"
+          logger(
+            s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n$headersStr\n  body:   $bodyStr",
+          )
+          next.handle(req, ctx, vars, scope)
+        }
     }
 
-  /** Logs a full dump of the outgoing response. */
-  def responseDump(logger: String => Unit = println): Middleware[Any, Any] =
+  /**
+   * Logs a full dump of the outgoing response. WARNING: Only wire to sanitized
+   * loggers in production. Sensitive headers are redacted; body logging is
+   * disabled by default.
+   */
+  def responseDump(logger: String => Unit = println, includeBody: Boolean = false): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
-        Routes.fromIterable(routes.routes.toList.map { route =>
-          val next    = route.handler
-          val wrapped = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
-            val result = next.handle(req, ctx, vars, scope)
-            foldResult(result)(
-              r =>
-                logger(s"── Response ──\n  status: ${r.status}\n  headers:\n${r.headers.toList.map { case (k, v) =>
-                    s"    $k: $v"
-                  }.mkString("\n")}\n  body:   ${r.body}"),
-              h => logger(s"── Halt ──"),
-            )
-            result
-          }
-          Route(route.pattern, wrapped)
-        })
+        wrap(routes) { (req, ctx, vars, scope, next) =>
+          val result = next.handle(req, ctx, vars, scope)
+          foldResult(result)(
+            r => {
+              val headersStr = r.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
+              val bodyStr    = if (includeBody) r.body.toString else "[body omitted — pass includeBody = true to log]"
+              logger(s"── Response ──\n  status: ${r.status}\n  headers:\n$headersStr\n  body:   $bodyStr")
+            },
+            h => logger(s"── Halt ──"),
+          )
+          result
+        }
     }
 }

@@ -29,7 +29,7 @@ object CookieBasedAuthentication extends ZIOAppDefault {
             sameSite = Some(Cookie.SameSite.Strict),
           ),
         )
-      } @@ Middleware.basicAuth("admin", "admin"),
+      } @@ Middleware.basicAuth[String] { case Header.Authorization.Basic(u, p) if u == "admin" && p == "admin" => Right("admin"); case _ => Left(Response.unauthorized) },
       Method.GET / "logout"         -> handler {
         Response.ok.addCookie(Cookie.clear("session_id"))
       },

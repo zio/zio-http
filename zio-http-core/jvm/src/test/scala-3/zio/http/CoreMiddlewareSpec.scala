@@ -138,31 +138,33 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("signCookies")(
       test("passes through requests without cookies") {
-        val mw  = Middleware.signCookies("test-secret")
+        val mw  = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
       test("passes through request with unsigned cookie") {
         val req = Request.get(URL.root).addHeader("Cookie", "session=abc123")
-        val mw  = Middleware.signCookies("test-secret")
+        val mw  = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app, req) == responseAsResult(Response.text("ok")))
       },
       test("passes through request with tampered signed cookie") {
         val req = Request.get(URL.root).addHeader("Cookie", "session=realvalue.tampered")
-        val mw  = Middleware.signCookies("test-secret")
+        val mw  = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app, req) == responseAsResult(Response.text("ok")))
       },
       test("accepts request with valid signed cookie") {
         val mac     = javax.crypto.Mac.getInstance("HmacSHA256")
-        mac.init(new javax.crypto.spec.SecretKeySpec("test-secret".getBytes("UTF-8"), "HmacSHA256"))
+        mac.init(
+          new javax.crypto.spec.SecretKeySpec("test-secret-test-secret-test-secret!".getBytes("UTF-8"), "HmacSHA256"),
+        )
         val sig     = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(
           mac.doFinal("session=abc123".getBytes("UTF-8")),
         )
         val signed  = s"abc123.$sig"
         val req     = Request.get(URL.root).addHeader("Cookie", s"session=$signed")
-        val mw      = Middleware.signCookies("test-secret")
+        val mw      = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
           val cookieVal = req2.cookies.find(_.name == "session").map(_.value).getOrElse("")
           Response.text(cookieVal)
@@ -172,7 +174,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         assertTrue(result == responseAsResult(Response.text("abc123")))
       },
       test("signs outgoing cookies and keeps response intact") {
-        val mw     = Middleware.signCookies("test-secret")
+        val mw     = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val result = runSingle(app)
         assertTrue(result match {
@@ -182,7 +184,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
       },
       test("removes all cookies when none verify") {
         val req     = Request.get(URL.root).addHeader("Cookie", "session=bad1; token=bad2")
-        val mw      = Middleware.signCookies("test-secret")
+        val mw      = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val handler = Handler.extracted[Any, Any] { (req2, _, _, _) =>
           Response.text(req2.cookies.size.toString)
         }
@@ -192,14 +194,16 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
       test("removes invalid cookies while keeping valid ones") {
         // Create a valid signed cookie
         val mac         = javax.crypto.Mac.getInstance("HmacSHA256")
-        mac.init(new javax.crypto.spec.SecretKeySpec("test-secret".getBytes("UTF-8"), "HmacSHA256"))
+        mac.init(
+          new javax.crypto.spec.SecretKeySpec("test-secret-test-secret-test-secret!".getBytes("UTF-8"), "HmacSHA256"),
+        )
         val sig         = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(
           mac.doFinal("session=validValue".getBytes("UTF-8")),
         )
         val validCookie = s"session=validValue.$sig"
         // Mix valid + invalid cookies
         val req         = Request.get(URL.root).addHeader("Cookie", s"$validCookie; tampered=bad")
-        val mw          = Middleware.signCookies("test-secret")
+        val mw          = Middleware.signCookies("test-secret-test-secret-test-secret!")
         val handler     = Handler.extracted[Any, Any] { (req2, _, _, _) =>
           Response.text(req2.cookies.size.toString)
         }

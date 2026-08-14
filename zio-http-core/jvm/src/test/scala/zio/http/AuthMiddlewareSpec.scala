@@ -21,49 +21,57 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
   def spec = suite("AuthMiddleware")(
     suite("basicAuth")(
       test("allows valid credentials") {
-        val mw      = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
+        val mw      = Middleware.basicAuth[String](validate =
+          b => if (b.username == "admin" && b.password == "pass") Right("admin") else Left(Response.unauthorized),
+        )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "pass"))
         assertTrue(runSingle(app, authReq) == responseAsResult(Response.text("ok")))
       },
       test("rejects invalid credentials") {
-        val mw      = Middleware.basicAuth(validate = (u, p) => u == "admin" && p == "pass")
+        val mw      = Middleware.basicAuth[String](validate =
+          b => if (b.username == "admin" && b.password == "pass") Right("admin") else Left(Response.unauthorized),
+        )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "wrong"))
-        assertTrue(foldResult(runSingle(app, authReq))(_ => false, _ => true))
+        assertTrue(runSingle(app, authReq) == responseAsResult(Response.unauthorized))
       },
       test("rejects missing header") {
-        val mw  = Middleware.basicAuth(validate = (_, _) => true)
+        val mw  = Middleware.basicAuth[String](validate = _ => Left(Response.unauthorized))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(foldResult(runSingle(app))(_ => false, _ => true))
+        assertTrue(runSingle(app) == responseAsResult(Response.unauthorized))
       },
     ),
     suite("bearerAuth")(
       test("allows valid token") {
-        val mw      = Middleware.bearerAuth(validate = (t: String) => t == "secret-token")
+        val mw      = Middleware.bearerAuth[String](validate =
+          t => if (t.token == "secret-token") Right("ok") else Left(Response.unauthorized),
+        )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("secret-token"))
         assertTrue(runSingle(app, authReq) == responseAsResult(Response.text("ok")))
       },
       test("rejects invalid token") {
-        val mw      = Middleware.bearerAuth(validate = (t: String) => t == "secret-token")
+        val mw      = Middleware.bearerAuth[String](validate =
+          t => if (t.token == "secret-token") Right("ok") else Left(Response.unauthorized),
+        )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("bad-token"))
-        assertTrue(foldResult(runSingle(app, authReq))(_ => false, _ => true))
+        assertTrue(runSingle(app, authReq) == responseAsResult(Response.unauthorized))
       },
     ),
     suite("customAuth")(
       test("injects User context on success") {
-        val mw      = Middleware.customAuth[User](req => Some(User("alice", "admin")))
+        val mw      = Middleware.customAuth[User](req => Right(User("alice", "admin")))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
       },
-      test("rejects with Halt on failure") {
-        val mw      = Middleware.customAuth[User](_ => None)
+      test("rejects with unauthorized response on failure") {
+        val mw      = Middleware.customAuth[User](_ => Left(Response.unauthorized))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
-        assertTrue(foldResult(runSingle(wrapped))(_ => false, _ => true))
+        assertTrue(runSingle(wrapped) == responseAsResult(Response.unauthorized))
       },
     ),
     suite("customAuthProviding")(
