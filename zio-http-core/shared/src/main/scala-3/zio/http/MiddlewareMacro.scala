@@ -74,13 +74,8 @@ private[http] object MiddlewareMacro {
     }
   }
 
-  private def findIsNominal(using q: Quotes)(t: q.reflect.TypeRepr): q.reflect.Term = {
-    import q.reflect.*
-    Implicits.search(TypeRepr.of[IsNominalType].appliedTo(List(t))) match {
-      case s: ImplicitSearchSuccess => s.tree
-      case _                        => report.errorAndAbort(s"Cannot find IsNominalType for ${t.show}.")
-    }
-  }
+  private def findIsNominal(using q: Quotes)(t: q.reflect.TypeRepr): q.reflect.Term =
+    MacroUtils.findIsNominal(using q)(t)
 
   private def genBody(using
     q: Quotes,
@@ -105,6 +100,7 @@ private[http] object MiddlewareMacro {
             val evTerm                           = findIsNominal(using q)(t)
             val evExpr: Expr[IsNominalType[tpe]] = evTerm.asExprOf[IsNominalType[tpe]]
             val g: Expr[tpe]                     = '{
+              // cast sound: guarded by IsNominalType evidence from implicit search
               $ctxExpr.asInstanceOf[Context[tpe]].get[tpe](using $evExpr)
             }
             loop(rest, acc :+ g.asExprOf[Any])
@@ -129,18 +125,7 @@ private[http] object MiddlewareMacro {
 
     val args: List[Term]    = (reqExpr.asTerm :: scopeExpr.asTerm :: getters.map(_.asTerm)).asInstanceOf[List[Term]]
     val fnTpe               = fnTerm.tpe.widen
-    val callTerm: Term      =
-      if (fnTpe.typeSymbol.fullName == "scala.FunctionXXL") {
-        val iarrayTpe  = TypeRepr.of[IArray[Any]]
-        val consSym    = iarrayTpe.typeSymbol.companionModule.methodMember("apply").head
-        val consSelect = Select(Ref(iarrayTpe.typeSymbol.companionModule), consSym)
-        val iarrayCall = Apply(consSelect, args)
-        val applyXXL   = fnTpe.typeSymbol.methodMember("apply").head
-        Apply(Select(fnTerm, applyXXL), List(iarrayCall))
-      } else {
-        val applySym = fnTpe.typeSymbol.methodMember("apply").head
-        Apply(Select(fnTerm, applySym), args)
-      }
+    val callTerm: Term = MacroUtils.buildFunctionCall(using q)(fnTerm, args)
     val callExpr: Expr[Any] = callTerm.asExprOf[Any]
 
     if (outTypes.isEmpty) {
@@ -199,7 +184,7 @@ private[http] object MiddlewareMacro {
           Symbol.newVal(Symbol.spliceOwner, "_o" + i, outTypes(i), Flags.EmptyFlags, Symbol.noSymbol),
         )
         val oV = oS.zipWithIndex.map { case (s, i) =>
-          val el = Select(pR, pE).appliedToArgs(List(Literal(IntConstant(i + 1))))
+          val el = tupleProductAccessor(using q)(pR, pE, i)
           ValDef(s, Some(TypeApply(Select(el, asI), List(Inferred(outTypes(i))))))
         }
         var prevCtx = ctxTerm
@@ -210,7 +195,7 @@ private[http] object MiddlewareMacro {
           prevCtx = Ref(eS).asInstanceOf[Term]
           ValDef(eS, Some(addR))
         }
-        val hCall  = Select(TypeApply(Select(nextTerm, asI), List(Inferred(TypeRepr.of[Handler[Any, Any]]))), hS)
+        val hCall  = Select(TypeApply(Select(nextTerm, asI), List(Inferred(TypeRepr.of[Handler[Any, Any]]))), hS) // cast sound: macro boundary erases to Handler[Any,Any]
           .appliedToArgs(
             List(
               reqTerm,
@@ -223,5 +208,10 @@ private[http] object MiddlewareMacro {
       },
     )
     l.asExprOf[Any => Response | Halt]
+  }
+
+  private def tupleProductAccessor(using q: Quotes)(pR: q.reflect.Term, pE: q.reflect.Symbol, idx: Int): q.reflect.Term = {
+    import q.reflect.*
+    Select(pR, pE).appliedToArgs(List(Literal(IntConstant(idx + 1))))
   }
 }
