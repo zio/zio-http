@@ -416,9 +416,9 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
-          val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
           try {
-            val path = requested.toPath
+            val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
+            val path      = requested.toPath
             if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
               val bytes     = java.nio.file.Files.readAllBytes(path)
               val mediaType = requested.getName match {
@@ -650,7 +650,8 @@ object Middleware {
 
   /**
    * Middleware that signs response Set-Cookie headers using HMAC-SHA256.
-   * Incoming request cookies are verified; invalid cookies are removed.
+   * Incoming request cookies are verified; any cookie without a valid signature
+   * (including unsigned cookies) is removed from the request.
    *
    * @param secret
    *   The shared secret key for HMAC signing. Must be at least 32 characters
@@ -658,13 +659,15 @@ object Middleware {
    */
   def signCookies(secret: String): Middleware[Any, Any] = {
     require(secret != null && secret.length >= 32, "signCookies requires a secret of at least 32 characters")
-    val hmacKey = new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256")
+    val hmacKey                                              =
+      new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256")
     def sign(name: String, value: String): String            = {
       val mac      = javax.crypto.Mac.getInstance("HmacSHA256")
       mac.init(hmacKey)
       // Bind the signature to the cookie name to prevent cookie-swapping.
       val macInput = s"$name=$value"
-      val sig = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(mac.doFinal(macInput.getBytes("UTF-8")))
+      val sig      = java.util.Base64.getUrlEncoder.withoutPadding
+        .encodeToString(mac.doFinal(macInput.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
       s"$value.$sig"
     }
     def verify(name: String, signed: String): Option[String] = {
@@ -673,7 +676,12 @@ object Middleware {
       else {
         val value    = signed.substring(0, dot)
         val expected = sign(name, value)
-        if (java.security.MessageDigest.isEqual(signed.getBytes("UTF-8"), expected.getBytes("UTF-8"))) Some(value)
+        if (
+          java.security.MessageDigest.isEqual(
+            signed.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            expected.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+          )
+        ) Some(value)
         else None
       }
     }
