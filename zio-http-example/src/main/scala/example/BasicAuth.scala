@@ -20,7 +20,7 @@ object BasicAuth extends ZIOAppDefault {
   )
 
   // Add basic auth middleware
-  val routes: Routes[Any, Response] = user @@ basicAuth("admin", "admin")
+  val routes: Routes[Any, Response] = user @@ basicAuth[String] { case Header.Authorization.Basic(u, p) if u == "admin" && p == "admin" => Right("admin"); case _ => Left(Response.unauthorized) }
 
   val run = Server.serve(routes).provide(NettyServer.default)
 }
