@@ -1,0 +1,111 @@
+<!doctype html>
+<!--
+  Template for website/static/img/zio-http-social-card.jpg (og:image).
+
+  Rendered by a browser rather than an image library so the title is set in
+  Inter — the site's own typeface, loaded straight out of node_modules. Run
+  `yarn install` in website/ first, then from the repository root:
+
+    chromium --headless --allow-file-access-from-files \
+      --window-size=1200,630 --screenshot=card.png \
+      website/scripts/social-card.html
+
+  Save the result as JPEG (quality ~92). The gradient and glow compress to
+  ~67KB that way versus ~448KB as an optimised PNG, with no visible artifacts
+  around the text.
+
+  The mark is cropped out of the full-resolution master with CSS, using the same
+  box as website/scripts/generate-icons.py, so the strands stay sharp.
+-->
+<meta charset="utf-8">
+<title>ZIO HTTP social card</title>
+<style>
+  @font-face {
+    font-family: 'Inter Variable';
+    src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+      format('woff2');
+    font-weight: 100 900;
+  }
+
+  :root {
+    /* crop box shared with generate-icons.py: 1320px square at (362, 350) */
+    --master: 2048;
+    --crop: 1320;
+    --crop-left: 362;
+    --crop-top: 350;
+    --mark: 340px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1200px; height: 630px; }
+
+  body {
+    display: flex;
+    align-items: center;
+    gap: 64px;
+    padding: 0 80px;
+    /* sampled from the site's own hero */
+    background: linear-gradient(120deg, #121c2c 0%, #1b2a38 55%, #263a46 100%);
+    font-family: 'Inter Variable', system-ui, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* soft green bloom echoing the mark's glow */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(520px 520px at 22% 50%, rgba(129, 199, 132, 0.2), transparent 70%);
+  }
+
+  .mark {
+    position: relative;
+    flex: none;
+    width: var(--mark);
+    height: var(--mark);
+    overflow: hidden;
+  }
+
+  .mark img {
+    position: absolute;
+    width: calc(var(--mark) * var(--master) / var(--crop));
+    left: calc(-1 * var(--mark) * var(--crop-left) / var(--crop));
+    top: calc(-1 * var(--mark) * var(--crop-top) / var(--crop));
+  }
+
+  .copy { position: relative; }
+
+  h1 {
+    font-size: 104px;
+    font-weight: 800;
+    letter-spacing: -3px;
+    line-height: 1;
+  }
+
+  p {
+    margin-top: 28px;
+    max-width: 620px;
+    font-size: 34px;
+    line-height: 1.35;
+    color: #c3d2dc;
+  }
+
+  .rule {
+    margin-top: 36px;
+    width: 132px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #cddc39, #81c784);
+  }
+</style>
+<div class="mark">
+  <img src="../assets/zio-http-logo.png" alt="">
+</div>
+<div class="copy">
+  <h1>ZIO HTTP</h1>
+  <p>Scalable, correct, and efficient HTTP clients and servers for Scala</p>
+  <div class="rule"></div>
+</div>
