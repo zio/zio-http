@@ -14,6 +14,39 @@ const config = {
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.png',
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        type: 'image/x-icon',
+        href: '/img/favicon.ico',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'apple-touch-icon',
+        sizes: '180x180',
+        href: '/img/apple-touch-icon.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image:width',
+        content: '1200',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image:height',
+        content: '630',
+      },
+    },
+  ],
+
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'facebook', // Usually your GitHub org/user name.
@@ -99,7 +132,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-    image: 'img/ZIO.png',
+    image: 'img/zio-http-social-card.jpg',
 
     algolia: {
       // The application ID provided by Algolia
@@ -125,7 +158,8 @@ const config = {
         title: 'ZIO HTTP',
         logo: {
           alt: 'ZIO HTTP Logo',
-          src: 'img/ZIO.png',
+          src: 'img/zio-http-logo-tile.png',
+          srcDark: 'img/zio-http-logo-mark.png',
         },
         items: [
           {
