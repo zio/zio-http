@@ -31,6 +31,20 @@ const config = {
         href: '/img/apple-touch-icon.png',
       },
     },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image:width',
+        content: '1200',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image:height',
+        content: '630',
+      },
+    },
   ],
 
   // GitHub pages deployment config.
@@ -118,7 +132,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-    image: 'img/ZIO.png',
+    image: 'img/zio-http-social-card.jpg',
 
     algolia: {
       // The application ID provided by Algolia
