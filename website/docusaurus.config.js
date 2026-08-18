@@ -144,7 +144,8 @@ const config = {
         title: 'ZIO HTTP',
         logo: {
           alt: 'ZIO HTTP Logo',
-          src: 'img/ZIO.png',
+          src: 'img/zio-http-logo-tile.png',
+          srcDark: 'img/zio-http-logo-mark.png',
         },
         items: [
           {
