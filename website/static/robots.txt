@@ -1,0 +1,8 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Search result pages carry no unique content.
+Disallow: /search
+
+Sitemap: https://ziohttp.com/sitemap.xml
