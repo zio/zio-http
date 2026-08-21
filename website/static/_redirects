@@ -1,2 +1,5 @@
 https://zio-http.netlify.app/*   https://ziohttp.com/:splat       301!
 http://zio-http.netlify.app/*    https://ziohttp.com/:splat       301!
+
+# /examples/static-files was a duplicate of /examples/serving-static-files
+/examples/static-files           /examples/serving-static-files    301!
