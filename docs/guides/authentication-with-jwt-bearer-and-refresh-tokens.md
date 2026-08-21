@@ -1,6 +1,6 @@
 ---
 id: authentication-with-jwt-bearer-and-refresh-tokens
-title: "Securing Your APIs: Authentication with JWT Bearer and Refresh Tokens"
+title: "Authentication with JWT Bearer and Refresh Tokens"
 sidebar_label: "Authentication with JWT Bearer and Refresh Tokens"
 ---
 

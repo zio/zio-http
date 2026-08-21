@@ -1,6 +1,6 @@
 ---
 id: authentication-with-a-third-party-oauth-provider
-title: "Securing Your APIs: Authentication with a Third-party OAuth Provider"
+title: "Authentication with a Third-party OAuth Provider"
 sidebar_label: "Authentication with a Third-party OAuth Provider"
 ---
 

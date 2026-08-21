@@ -1,6 +1,6 @@
 ---
 id: implementing-mutual-tls
-title: Implementing Mutual TLS (mTLS) 
+title: "Mutual TLS (mTLS)" 
 description: "Configure mutual TLS in ZIO HTTP so that server and client authenticate each other with certificates."
 ---
 

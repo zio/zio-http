@@ -1,6 +1,6 @@
 ---
 id: passwordless-authentication-with-webauthn
-title: "Securing Your APIs: Passwordless Authentication with WebAuthn"
+title: "Passwordless Authentication with WebAuthn"
 sidebar_label: "Passwordless Authentication with WebAuthn"
 ---
 

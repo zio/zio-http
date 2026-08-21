@@ -1,6 +1,6 @@
 ---
 id: authentication-with-jwt-bearer-tokens
-title: "Securing Your APIs: Authentication with JWT Bearer Tokens"
+title: "Authentication with JWT Bearer Tokens"
 sidebar_label: "Authentication with JWT Bearer Tokens"
 ---
 

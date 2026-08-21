@@ -1,6 +1,6 @@
 ---
 id: implementing-tls-with-root-ca-signed-server-certificate
-title: Implementing TLS with Root CA-Signed Server Certificate
+title: "TLS with a Root CA-signed Certificate"
 description: "Secure a ZIO HTTP server with TLS using a certificate signed by a root certificate authority."
 ---
 
