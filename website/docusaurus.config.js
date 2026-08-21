@@ -45,12 +45,77 @@ const config = {
         content: '630',
       },
     },
+    // Structured data. Helps search engines resolve "ZIO HTTP" as a single
+    // entity across this site, the GitHub repository and Maven Central,
+    // instead of three unrelated pages that happen to share a name.
+    {
+      tagName: 'script',
+      attributes: {
+        type: 'application/ld+json',
+      },
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            '@id': 'https://zio.dev/#organization',
+            name: 'ZIO',
+            url: 'https://zio.dev',
+            logo: {
+              '@type': 'ImageObject',
+              url: 'https://ziohttp.com/img/ZIO.png',
+            },
+            sameAs: ['https://github.com/zio'],
+          },
+          {
+            '@type': 'WebSite',
+            '@id': 'https://ziohttp.com/#website',
+            url: 'https://ziohttp.com/',
+            name: 'ZIO HTTP',
+            description:
+              'ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers.',
+            inLanguage: 'en-US',
+            publisher: { '@id': 'https://zio.dev/#organization' },
+          },
+          {
+            '@type': 'SoftwareSourceCode',
+            '@id': 'https://ziohttp.com/#software',
+            name: 'ZIO HTTP',
+            alternateName: 'zio-http',
+            description:
+              'ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers. Powered by ZIO and Netty, it provides a purely functional, type-safe API for HTTP servers, clients, WebSockets, Server-Sent Events and OpenAPI-documented endpoints.',
+            url: 'https://ziohttp.com/',
+            codeRepository: 'https://github.com/zio/zio-http',
+            programmingLanguage: {
+              '@type': 'ComputerLanguage',
+              name: 'Scala',
+            },
+            runtimePlatform: ['JVM', 'Scala.js', 'Scala Native'],
+            license: 'https://www.apache.org/licenses/LICENSE-2.0',
+            author: { '@id': 'https://zio.dev/#organization' },
+            maintainer: { '@id': 'https://zio.dev/#organization' },
+            isPartOf: { '@id': 'https://ziohttp.com/#website' },
+            keywords: [
+              'ZIO HTTP',
+              'Scala HTTP server',
+              'Scala HTTP client',
+              'functional programming',
+              'WebSocket',
+              'OpenAPI',
+              'Netty',
+            ],
+            discussionUrl:
+              'https://stackoverflow.com/questions/tagged/zio-http',
+          },
+        ],
+      }),
+    },
   ],
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName: 'zio',
+  projectName: 'zio-http',
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -73,8 +138,18 @@ const config = {
           editUrl:
             'https://github.com/zio/zio-http/tree/main/docs/',
         },
+        // No blog posts exist; the classic preset would otherwise publish an
+        // empty /blog listing page and put it in the sitemap.
+        blog: false,
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
+        },
+        sitemap: {
+          lastmod: 'date',
+          changefreq: 'weekly',
+          priority: 0.5,
+          ignorePatterns: ['/search/**'],
+          filename: 'sitemap.xml',
         },
       }),
     ],

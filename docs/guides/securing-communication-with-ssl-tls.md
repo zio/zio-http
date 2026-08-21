@@ -15,9 +15,9 @@ We aim to offer a comprehensive guide on this topic through a series of articles
 
 If you're already familiar with PKI and SSL/TLS, feel free to skip this article and move directly to the implementation guides:
 
-- [Implementing TLS With Self-Signed Server Certificate](./implementing-tls-with-self-signed-server-certificate)
+- [Implementing TLS With Self-Signed Server Certificate](./implementing-tls-with-self-signed-server-certificate.md)
 - [Implementing TLS With Root CA-Signed Server Certificate](./implementing-tls-with-root-ca-signed-server-certificate.md)
-- [Implementing TLS With an Intermediate CA-signed Server Certificate](./implementing-tls-with-intermediate-ca-signed-server-certificate)
+- [Implementing TLS With an Intermediate CA-signed Server Certificate](./implementing-tls-with-intermediate-ca-signed-server-certificate.md)
 - [Implementing Mutual TLS (mTLS)](./implementing-mutual-tls.md)
 
 ## Certificates and Public Key Infrastructure (PKI)

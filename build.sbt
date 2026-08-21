@@ -122,7 +122,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
 inThisBuild(
   List(
     organization := "dev.zio",
-    homepage     := Some(url("https://zio.dev/zio-http/")),
+    homepage     := Some(url("https://ziohttp.com/")),
     licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   ),
 )
@@ -505,7 +505,7 @@ lazy val docs = project
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
-    projectName                                := "ZIO Http",
+    projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttpJVM),
