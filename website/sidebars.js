@@ -158,23 +158,82 @@ const sidebars = {
   ],
 
   examples: [
-    //            "examples/index",
-    "examples/hello-world",
-    "examples/http-client-server",
-    "examples/https-client-server",
-    "examples/serving-static-files",
-    "examples/html-templating",
-    "examples/websocket",
-    "examples/streaming",
-    "examples/endpoint",
-    "examples/endpoint-scala3",
-    "examples/middleware-cors-handling",
-    "examples/authentication",
-    "examples/graceful-shutdown",
-    "examples/cli",
-    "examples/concrete-entity",
-    "examples/multipart-form-data",
-    "examples/server-sent-events-in-endpoints",
+    "examples/index",
+    {
+      type: "category",
+      label: "Getting Started",
+      collapsed: false,
+      link: {
+        type: "generated-index",
+        description:
+          "Minimal examples to get a ZIO HTTP server and client running.",
+      },
+      items: ["examples/hello-world", "examples/http-client-server"],
+    },
+    {
+      type: "category",
+      label: "Servers and Clients",
+      link: {
+        type: "generated-index",
+        description:
+          "Configuring servers and clients: TLS and graceful shutdown.",
+      },
+      items: ["examples/https-client-server", "examples/graceful-shutdown"],
+    },
+    {
+      type: "category",
+      label: "Requests and Responses",
+      link: {
+        type: "generated-index",
+        description:
+          "Working with request and response payloads, from domain types to multipart form data.",
+      },
+      items: ["examples/concrete-entity", "examples/multipart-form-data"],
+    },
+    {
+      type: "category",
+      label: "Serving Content",
+      link: {
+        type: "generated-index",
+        description: "Serving static files and rendering HTML templates.",
+      },
+      items: ["examples/serving-static-files", "examples/html-templating"],
+    },
+    {
+      type: "category",
+      label: "Declarative Endpoints",
+      link: {
+        type: "generated-index",
+        description:
+          "Describing endpoints declaratively, and what that description makes possible: Scala 3 syntax, server-sent events, and generated command-line clients.",
+      },
+      items: [
+        "examples/endpoint",
+        "examples/endpoint-scala3",
+        "examples/server-sent-events-in-endpoints",
+        "examples/cli",
+      ],
+    },
+    {
+      type: "category",
+      label: "Streaming and WebSockets",
+      link: {
+        type: "generated-index",
+        description:
+          "Streaming request and response bodies, and bidirectional communication over WebSockets.",
+      },
+      items: ["examples/streaming", "examples/websocket"],
+    },
+    {
+      type: "category",
+      label: "Middleware and Authentication",
+      link: {
+        type: "generated-index",
+        description:
+          "Applying cross-cutting concerns such as CORS handling and authentication.",
+      },
+      items: ["examples/middleware-cors-handling", "examples/authentication"],
+    },
   ],
   guides: [
     "guides/integration-with-zio-config",
