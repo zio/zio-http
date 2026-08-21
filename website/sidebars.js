@@ -27,6 +27,11 @@ const sidebars = {
       type: "category",
       label: "Routing",
       collapsed: false,
+      link: {
+        type: "generated-index",
+        description:
+          "How ZIO HTTP matches an incoming request to a handler: routes, route patterns, and path codecs.",
+      },
       items: [
         "reference/routing/routes",
         "reference/routing/route_pattern",
@@ -38,6 +43,11 @@ const sidebars = {
       type: "category",
       label: "HTTP Messages",
       collapsed: false,
+      link: {
+        type: "generated-index",
+        description:
+          "The data types that model HTTP requests and responses, including headers and bodies.",
+      },
       items: [
         "reference/request",
         "reference/response/response",
@@ -45,8 +55,8 @@ const sidebars = {
         {
           type: "category",
           label: "Headers",
+          link: { type: "doc", id: "reference/headers/headers" },
           items: [
-            "reference/headers/headers",
             "reference/headers/session/cookies",
             "reference/headers/session/flash",
           ],
@@ -54,8 +64,8 @@ const sidebars = {
         {
           type: "category",
           label: "Message Body",
+          link: { type: "doc", id: "reference/body/body" },
           items: [
-            "reference/body/body",
             "reference/body/form",
             "reference/body/binary_codecs",
             "reference/body/template",
@@ -68,13 +78,19 @@ const sidebars = {
       type: "category",
       label: "Declarative Endpoints",
       collapsed: false,
-      items: ["reference/endpoint", "reference/http-codec"],
+      link: { type: "doc", id: "reference/endpoint" },
+      items: ["reference/http-codec"],
     },
 
     // Aspects subsection
     {
       type: "category",
       label: "Aspects",
+      link: {
+        type: "generated-index",
+        description:
+          "Cross-cutting concerns in ZIO HTTP: protocol stacks, middleware, and handler aspects.",
+      },
       items: [
         "reference/aop/protocol-stack",
         "reference/aop/middleware",
@@ -97,7 +113,8 @@ const sidebars = {
     {
       type: "category",
       label: "WebSocket",
-      items: ["reference/socket/socket", "reference/socket/websocketframe"],
+      link: { type: "doc", id: "reference/socket/socket" },
+      items: ["reference/socket/websocketframe"],
     },
 
     // ZIO HTTP Testkit subsection
@@ -118,8 +135,8 @@ const sidebars = {
     {
       type: "category",
       label: "Configs",
+      link: { type: "doc", id: "reference/configs/introduction" },
       items: [
-        "reference/configs/introduction",
         "reference/configs/connection-pool",
         "reference/configs/dns-resolver",
         "reference/configs/server",
@@ -166,6 +183,11 @@ const sidebars = {
        type: "category",
        collapsed: false,
        label: "Authentication",
+       link: {
+         type: "generated-index",
+         description:
+           "Guides for adding authentication to a ZIO HTTP application, from basic authentication to OAuth and WebAuthn.",
+       },
        items: [
           "guides/basic-authentication",
           "guides/cookie-based-authentication",
@@ -181,6 +203,11 @@ const sidebars = {
         type: "category",
         collapsed: false,
         label: "Datastar",
+        link: {
+          type: "generated-index",
+          description:
+            "Guides for building real-time applications with the ZIO HTTP Datastar integration.",
+        },
         items: [
            "guides/real-time-chat-with-datastar",
         ],
@@ -207,6 +234,11 @@ const sidebars = {
       type: "category",
       collapsed: false,
       label: "Concepts",
+      link: {
+        type: "generated-index",
+        description:
+          "The core ideas behind ZIO HTTP: servers, clients, routing, request handling, middleware, and endpoints.",
+      },
       items: [
         "concepts/server",
         "concepts/client",
