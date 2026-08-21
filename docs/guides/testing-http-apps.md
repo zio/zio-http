@@ -1,6 +1,7 @@
 ---
 id: testing-http-apps
 title: Testing HTTP Applications
+description: "Write fast, reliable tests for ZIO HTTP applications without starting a live server, using the testkit."
 ---
 
 ## Introduction

@@ -1,6 +1,7 @@
 ---
 id: implementing-tls-with-intermediate-ca-signed-server-certificate
 title: Implementing TLS with an Intermediate CA-signed Server Certificate
+description: "Secure a ZIO HTTP server with TLS using a certificate signed by an intermediate certificate authority."
 ---
 
 ## Introduction

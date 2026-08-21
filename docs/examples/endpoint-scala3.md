@@ -2,6 +2,7 @@
 id: endpoint-scala3
 title: "Endpoint Scala 3 Syntax"
 sidebar_label: "Endpoint Scala 3 Syntax"
+description: "Define ZIO HTTP endpoints using Scala 3 syntax."
 ---
 
 ```scala
