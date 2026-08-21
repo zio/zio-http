@@ -1,6 +1,7 @@
 ---
 id: implementing-tls-with-self-signed-server-certificate
 title: Implementing TLS with Self-signed Server Certificate
+description: "Secure a ZIO HTTP server with TLS using a self-signed certificate, and configure a client to trust it."
 ---
 
 ## Introduction

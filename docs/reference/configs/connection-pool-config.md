@@ -1,6 +1,7 @@
 ---
 id: connection-pool
 title: "ConnectionPoolConfig"
+description: "Reference for the ZIO HTTP client connection pool configuration, covering fixed, dynamic and per-host pooling."
 ---
 
 ```scala mdoc:passthrough

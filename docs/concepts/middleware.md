@@ -1,3 +1,9 @@
+---
+title: "Middleware Concepts"
+sidebar_label: "Middleware"
+description: "What middleware is in ZIO HTTP, and how it intercepts requests and responses to implement cross-cutting concerns."
+---
+
 # Middleware
 
 A middleware has the purpose of intercepting a request, a response or both. It helps in implementing cross-cutting concerns like access logging, authentication, etc.

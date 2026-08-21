@@ -1,3 +1,9 @@
+---
+title: "Routing Concepts"
+sidebar_label: "Routing"
+description: "Why ZIO HTTP models routing as a declarative data structure, and how that differs from other Scala HTTP libraries."
+---
+
 # Routing
 
 ZIO HTTP routing does some things differently than other (Scala) HTTP libraries.

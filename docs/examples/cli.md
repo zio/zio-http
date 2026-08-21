@@ -2,6 +2,7 @@
 id: cli
 title: "Command-line Interface (CLI)"
 sidebar_label: "Command-line Interface (CLI)"
+description: "Generate a command-line client from a ZIO HTTP endpoint description using zio-http-cli."
 ---
 
 ```scala mdoc:passthrough

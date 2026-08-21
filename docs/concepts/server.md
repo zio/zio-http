@@ -1,3 +1,9 @@
+---
+title: "Server Concepts"
+sidebar_label: "Server"
+description: "How the ZIO HTTP server is modeled as a ZIO resource, and how its lifecycle, configuration and graceful shutdown fit together."
+---
+
 # Server
 
 The ZIO HTTP Server is the component that listens for incoming HTTP connections, processes requests through your application's routes, and sends back responses. It handles all the low-level networking concerns so you can focus on your application logic.
