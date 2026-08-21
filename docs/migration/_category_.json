@@ -1,0 +1,7 @@
+{
+  "label": "Migration",
+  "link": {
+    "type": "generated-index",
+    "description": "Guides for migrating an existing application to a newer version of ZIO HTTP."
+  }
+}
