@@ -1,3 +1,9 @@
+---
+title: "Client Concepts"
+sidebar_label: "Client"
+description: "How the ZIO HTTP client works as a function from Request to Response, including connection pooling, streaming and middleware."
+---
+
 # Client
 
 The ZIO HTTP Client allows your application to make outbound HTTP requests to external services. Built on ZIO and Netty, it provides a purely functional, type-safe API for HTTP communication with support for connection pooling, streaming, and middleware.
