@@ -35,7 +35,7 @@ import zio.http.template._
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: Handler.IsRequest[In1],
+    ev: Request <:< In,
     out: Out <:< Response,
     err: Err <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
@@ -46,7 +46,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
-    in: Handler.IsRequest[In1],
+    ev: Request <:< In,
     out: Out <:< Response,
     err: Err <:< Response,
     trace: Trace,
@@ -703,8 +703,23 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
+  /**
+   * Evidence that a handler's input is a `Request`.
+   *
+   * No longer used to guard `Handler.@@`: being contravariant, `IsRequest[
+   * Request]` also conformed to `IsRequest[Nothing]`, so the compiler could
+   * satisfy it by inferring `In1 = Nothing` on a handler whose input was a
+   * tuple — admitting an unsound cast that failed at runtime (#3141). The guard
+   * now constrains `In` directly with `Request <:< In`, which cannot be
+   * inferred around.
+   *
+   * Kept for source compatibility; it has no remaining callers in this
+   * codebase.
+   */
+  @deprecated("Constrain the handler's input with `Request <:< In` instead", "3.11.3")
   sealed trait IsRequest[-A]
 
+  @deprecated("Constrain the handler's input with `Request <:< In` instead", "3.11.3")
   object IsRequest {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
   }
