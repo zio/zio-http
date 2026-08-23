@@ -152,9 +152,11 @@ import zio._
 import zio.http._
 
 // compose basic auth, request/response logging, timeouts middlewares
-val composedMiddlewares = Middleware.basicAuth[String](_ => Right("user")) ++ 
-        Middleware.debug ++ 
-        Middleware.timeout(5.seconds) 
+val composedMiddlewares =
+  Middleware.basicAuth[String] { basic =>
+    if (basic.user == "admin" && basic.password == "secret") Right(basic.user)
+    else Left(Response.unauthorized)
+  }.andThen(Middleware.debug).andThen(Middleware.timeout(5.seconds))
 ```
 
 And then we can attach our composed bundle of middlewares to an Http using `@@`

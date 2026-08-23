@@ -1,5 +1,3 @@
-//> using dep "dev.zio::zio-http:3.4.0"
-
 package example.middleware
 
 import zio._

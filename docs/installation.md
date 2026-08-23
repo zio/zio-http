@@ -7,7 +7,7 @@ In this guide, we will learn how to get started with a new ZIO HTTP project.
 
 Before we dive in, we should make sure that we have the following on our computer:
 
-* JDK 17 or higher
+* JDK 25 or higher
 * a Scala build tool such as mill (scalaVersion >= 2.12)
 
 ## Manual Installation

@@ -380,12 +380,13 @@ object Middleware {
   // ═══════════════════════════════════════════════════════════════════
 
   def timeout(
-    millis: Long,
+    duration: zio.Duration,
     logger: Throwable => Unit = t => Console.err.println(s"Middleware.timeout: handler threw ${t.getCause}"),
   ): Middleware[Any, Any] =
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
+          val millis = duration.toMillis
           val future = java.util.concurrent.CompletableFuture.supplyAsync(
             () => next.handle(req, ctx, vars, scope),
             timeoutExecutor,
@@ -411,8 +412,8 @@ object Middleware {
   // STATIC FILE SERVING
   // ═══════════════════════════════════════════════════════════════════
 
-  def serveDirectory(directoryPath: String): Middleware[Any, Any] = {
-    val baseDir = new java.io.File(directoryPath).getCanonicalFile
+  def serveDirectory(docRoot: java.io.File): Middleware[Any, Any] = {
+    val baseDir = docRoot.getCanonicalFile
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
@@ -420,7 +421,6 @@ object Middleware {
             val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
             val path      = requested.toPath
             if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
-              val bytes     = java.nio.file.Files.readAllBytes(path)
               val mediaType = requested.getName match {
                 case n if n.endsWith(".html")                       => "text/html"
                 case n if n.endsWith(".css")                        => "text/css"
@@ -430,14 +430,21 @@ object Middleware {
                 case n if n.endsWith(".svg")                        => "image/svg+xml"
                 case _                                              => "application/octet-stream"
               }
-              Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
+              val fis       = new java.io.FileInputStream(requested)
+              val body      = Body.fromStream(
+                zio.blocks.streams.Stream
+                  .fromInputStream(fis)
+                  .catchAll(t => zio.blocks.streams.Stream.die(t)),
+              )
+              Response(Status.Ok, Headers(("Content-Type", mediaType)), body)
             } else next.handle(req, ctx, vars, scope)
           } catch { case _: java.io.IOException => next.handle(req, ctx, vars, scope) }
         }
     }
   }
 
-  def serveResources(basePath: String = "public"): Middleware[Any, Any] =
+  def serveResources(basePath: zio.http.Path): Middleware[Any, Any] = {
+    val prefix = basePath.toString.stripPrefix("/")
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
@@ -450,11 +457,10 @@ object Middleware {
           if (decoded.contains("..") || decoded.contains(".")) {
             next.handle(req, ctx, vars, scope)
           } else {
-            val fullPath = if (basePath.isEmpty) resourcePath else s"$basePath/$resourcePath"
+            val fullPath = if (prefix.isEmpty) resourcePath else s"$prefix/$resourcePath"
             val stream   = getClass.getClassLoader.getResourceAsStream(fullPath)
             if (stream != null) {
               try {
-                val bytes     = stream.readAllBytes()
                 val mediaType = fullPath match {
                   case n if n.endsWith(".html")                       => "text/html"
                   case n if n.endsWith(".css")                        => "text/css"
@@ -464,12 +470,14 @@ object Middleware {
                   case n if n.endsWith(".svg")                        => "image/svg+xml"
                   case _                                              => "application/octet-stream"
                 }
-                Response(Status.Ok, Headers(("Content-Type", mediaType)), Body.fromArray(bytes))
+                val body      = Body.fromStream(
+                  zio.blocks.streams.Stream
+                    .fromInputStream(stream)
+                    .catchAll(t => zio.blocks.streams.Stream.die(t)),
+                )
+                Response(Status.Ok, Headers(("Content-Type", mediaType)), body)
               } catch {
                 case _: java.io.IOException => next.handle(req, ctx, vars, scope)
-              } finally {
-                try { stream.close() }
-                catch { case _: java.io.IOException => () }
               }
             } else {
               next.handle(req, ctx, vars, scope)
@@ -477,6 +485,7 @@ object Middleware {
           }
         }
     }
+  }
 
   // ═══════════════════════════════════════════════════════════════════
   // HEADER OPERATIONS
@@ -777,6 +786,18 @@ object Middleware {
     if (sensitive.contains(name.toLowerCase)) s"[REDACTED (len=${value.length})]" else value
   }
 
+  private def renderBody(body: zio.http.Body, includeBody: Boolean): String = {
+    if (!includeBody) "[body omitted — pass includeBody = true to log]"
+    else
+      body.length match {
+        case Some(n) if n <= 8192L =>
+          val s = body.text
+          if (s.length > 2048) s.take(2048) + "...[truncated]" else s
+        case Some(n)               => s"[materialized body, $n bytes]"
+        case None                  => "[streaming body]"
+      }
+  }
+
   /**
    * Logs a full dump of the incoming request. WARNING: Only wire to sanitized
    * loggers in production. Sensitive headers are redacted; body logging is
@@ -787,7 +808,7 @@ object Middleware {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
           val headersStr = req.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
-          val bodyStr    = if (includeBody) req.body.toString else "[body omitted — pass includeBody = true to log]"
+          val bodyStr    = renderBody(req.body, includeBody)
           logger(
             s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n$headersStr\n  body:   $bodyStr",
           )
@@ -808,7 +829,7 @@ object Middleware {
           foldResult(result)(
             r => {
               val headersStr = r.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
-              val bodyStr    = if (includeBody) r.body.toString else "[body omitted — pass includeBody = true to log]"
+              val bodyStr    = renderBody(r.body, includeBody)
               logger(s"── Response ──\n  status: ${r.status}\n  headers:\n$headersStr\n  body:   $bodyStr")
             },
             h => logger(s"── Halt ──"),

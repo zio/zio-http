@@ -40,25 +40,26 @@ private[http] object MiddlewareMacro {
         s"Middleware.custom: return type must be `Response | Halt` or `(Response, Ctx...)`, got ${retType.show}.",
       )
 
-    val ctxTpe: TypeRepr =
-      if (inTypes.nonEmpty) inTypes.reduce(AndType(_, _))
-      else if (outTypes.nonEmpty) outTypes.reduce(AndType(_, _))
-      else TypeRepr.of[Any]
-    ctxTpe.asType match {
-      case '[c] =>
-        '{
-          new Middleware[Any, c] {
-            def apply(routes: Routes[c]): Routes[Any] =
-              Routes.fromIterable(routes.routes.toList.map { (route: Route[c]) =>
-                val _next    = route.handler.asInstanceOf[Handler[Any, Any]]
-                val _wrapped =
-                  Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
-                    ${ genBody(using q)(inTypes, outTypes, fnTerm, '_next, 'req, 'ctx, 'vars, 'scope) }
-                  }
-                Route(route.pattern, _wrapped)
-              })
-          }
-        }.asExprOf[Middleware[?, ?]]
+    val inTpe  = if (inTypes.nonEmpty) inTypes.reduce(AndType(_, _)) else TypeRepr.of[Any]
+    val outTpe = if (outTypes.nonEmpty) outTypes.reduce(AndType(_, _)) else TypeRepr.of[Any]
+    inTpe.asType match {
+      case '[inC] =>
+        outTpe.asType match {
+          case '[outC] =>
+            '{
+              new Middleware[inC, outC] {
+                def apply(routes: Routes[outC]): Routes[inC] =
+                  Routes.fromIterable(routes.routes.toList.map { (route: Route[outC]) =>
+                    val _next    = route.handler.asInstanceOf[Handler[Any, Any]]
+                    val _wrapped =
+                      Handler.extracted[Any, Any] { (req: Request, ctx: Context[Any], vars: Any, scope: Scope) =>
+                        ${ genBody(using q)(inTypes, outTypes, fnTerm, '_next, 'req, 'ctx, 'vars, 'scope) }
+                      }
+                    Route(route.pattern, _wrapped)
+                  })
+              }
+            }.asExprOf[Middleware[?, ?]]
+        }
     }
   }
 

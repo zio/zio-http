@@ -79,7 +79,7 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.text("alice")))
       },
       test("context consumption reads provided context") {
-        val m: Middleware[Any, AuthCtx] =
+        val m: Middleware[AuthCtx, Any] =
           Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
             if (auth.userId == "admin") Response.ok else Response.forbidden
           }
@@ -91,7 +91,7 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.ok))
       },
       test("short-circuit blocks non-admin") {
-        val m: Middleware[Any, AuthCtx] =
+        val m: Middleware[AuthCtx, Any] =
           Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
             if (auth.userId == "admin") Response.ok else Response.forbidden
           }
@@ -104,8 +104,8 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
       test("24-arg middleware (>22) executes correctly") {
         // 2 fixed (Request, Scope) + 22 context = 24 total args (FunctionXXL)
         val m: Middleware[
-          Any,
           C1 & C2 & C3 & C4 & C5 & C6 & C7 & C8 & C9 & C10 & C11 & C12 & C13 & C14 & C15 & C16 & C17 & C18 & C19 & C20 & C21 & C22,
+          Any,
         ] =
           Middleware.custom {
             (
@@ -136,10 +136,10 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
             ) =>
               Response.text(s"${c1.v}/${c11.v}/${c22.v}")
           }
-        val base              = route[Any](Handler.succeed(Response(Status.Created)))
-        val app               = base @@ m
-        val ctx0              = Context.empty
-        val ctx: Context[Any] = ctx0
+        val base   = route[Any](Handler.succeed(Response(Status.Created)))
+        val app    = base @@ m
+        val ctx0   = Context.empty
+        val ctx    = ctx0
           .add(C1("a"))
           .add(C2("b"))
           .add(C3("c"))
@@ -162,8 +162,9 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
           .add(C20("t"))
           .add(C21("u"))
           .add(C22("v"))
-          .asInstanceOf[Context[Any]]
-        val result            = app.routes.toList.head.handler.handle(req, ctx, (), Scope.global)
+        val result = app.routes.toList.head.handler
+          .asInstanceOf[Handler[Any, Any]]
+          .handle(req, ctx.asInstanceOf[Context[Any]], (), Scope.global)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.text("a/k/v")))
       },
     ),

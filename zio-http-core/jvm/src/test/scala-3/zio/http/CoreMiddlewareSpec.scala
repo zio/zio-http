@@ -62,12 +62,12 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("timeout")(
       test("passes through fast requests") {
-        val mw  = Middleware.timeout(5000L)
+        val mw  = Middleware.timeout(zio.Duration.fromMillis(5000L))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
       test("returns ServiceUnavailable on timeout") {
-        val mw          = Middleware.timeout(10L)
+        val mw          = Middleware.timeout(zio.Duration.fromMillis(10L))
         val slowHandler = Handler.extracted[Any, Any] { (_, _, _, _) =>
           java.util.concurrent.TimeUnit.MILLISECONDS.sleep(100)
           Response.text("too late")
@@ -85,7 +85,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         implicit val isNominalTypeFlashMap: IsNominalType[Middleware.FlashMap] =
           IsNominalType.derived[Middleware.FlashMap]
         val mw                                                                 = Middleware.flashScope()
-        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw.asInstanceOf[Middleware[Any, Any]]
+        val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) match {
           case r: Response => r.status == Status.Ok
           case _           => false
@@ -94,7 +94,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("serveDirectory")(
       test("falls through to downstream handler for non-existent file") {
-        val mw     = Middleware.serveDirectory("/nonexistent")
+        val mw     = Middleware.serveDirectory(new java.io.File("/nonexistent"))
         val app    = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
         val result = runSingle(app)
         assertTrue(result == responseAsResult(Response.text("fallback")))
@@ -104,7 +104,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         try {
           java.nio.file.Files.writeString(tmpFile.toPath, "hello from serveDirectory")
           val dir = tmpFile.getParentFile.getCanonicalPath
-          val mw  = Middleware.serveDirectory(dir)
+          val mw  = Middleware.serveDirectory(new java.io.File(dir))
           val req = Request.get(URL.root.copy(path = Path(tmpFile.getName)))
           val app = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
           val ok  = runSingle(app, req) match {
@@ -119,13 +119,13 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
     ),
     suite("serveResources")(
       test("falls through to downstream handler for non-existent resource") {
-        val mw     = Middleware.serveResources()
+        val mw     = Middleware.serveResources(Path("public"))
         val app    = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
         val result = runSingle(app)
         assertTrue(result == responseAsResult(Response.text("fallback")))
       },
       test("serves an embedded resource") {
-        val mw   = Middleware.serveResources(basePath = "")
+        val mw   = Middleware.serveResources(Path.empty)
         val path = "zio/http/Middleware.class"
         val req  = Request.get(URL.root.copy(path = Path(path)))
         val app  = mkRoute[Any](Handler.succeed(Response.text("fallback"))) @@ mw
