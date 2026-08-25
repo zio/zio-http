@@ -786,6 +786,46 @@ object Middleware {
     if (sensitive.contains(name.toLowerCase)) s"[REDACTED (len=${value.length})]" else value
   }
 
+  private val MaxLoggedStreamedBytes = 4096
+
+  /**
+   * Wraps a streaming body so that up to [[MaxLoggedStreamedBytes]] bytes are
+   * buffered while the stream is consumed; the buffered prefix is emitted via
+   * `logger` on stream completion. Every byte still passes through unchanged.
+   */
+  private def tapLogged(body: zio.http.Body, logger: String => Unit): zio.http.Body = {
+    val buf              = new java.io.ByteArrayOutputStream(MaxLoggedStreamedBytes)
+    @volatile var capped = false
+    val charset          = body.contentType.charset
+      .map(_.toJava)
+      .getOrElse(java.nio.charset.StandardCharsets.UTF_8)
+    implicit val infer: zio.blocks.streams.JvmType.Infer[Object] =
+      zio.blocks.streams.JvmType.Infer.anyRef
+    val tapped                                                   = body.stream.tapEach { (chunk: Any) =>
+      if (!capped) {
+        val bytes: Array[Byte] = chunk match {
+          case a: Array[Byte]                             => a
+          case c: zio.blocks.chunk.Chunk[Byte @unchecked] =>
+            c.toArray[Byte]
+          case b: Byte                                    => Array(b)
+          case other                                      =>
+            String.valueOf(other).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        }
+        val take               = math.min(bytes.length, MaxLoggedStreamedBytes - buf.size())
+        if (take > 0) buf.write(bytes, 0, take)
+        if (buf.size() >= MaxLoggedStreamedBytes) capped = true
+      }
+    }
+    val ensured                                                  = tapped.ensuring {
+      val text = new String(buf.toByteArray, charset)
+      val msg  =
+        if (capped) text + s"...[truncated at $MaxLoggedStreamedBytes bytes]"
+        else text
+      logger(msg)
+    }
+    zio.http.Body.fromStream(ensured)
+  }
+
   private def renderBody(body: zio.http.Body, includeBody: Boolean): String = {
     if (!includeBody) "[body omitted — pass includeBody = true to log]"
     else
@@ -794,7 +834,7 @@ object Middleware {
           val s = body.text
           if (s.length > 2048) s.take(2048) + "...[truncated]" else s
         case Some(n)               => s"[materialized body, $n bytes]"
-        case None                  => "[streaming body]"
+        case None                  => "[streaming body — content follows on completion]"
       }
   }
 
@@ -812,7 +852,10 @@ object Middleware {
           logger(
             s"── Request ──\n  method: ${req.method}\n  path:   ${req.url}\n  headers:\n$headersStr\n  body:   $bodyStr",
           )
-          next.handle(req, ctx, vars, scope)
+          val outReq     =
+            if (includeBody && req.body.length.isEmpty) req.body(tapLogged(req.body, logger))
+            else req
+          next.handle(outReq, ctx, vars, scope)
         }
     }
 
@@ -825,16 +868,15 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
-          val result = next.handle(req, ctx, vars, scope)
-          foldResult(result)(
-            r => {
-              val headersStr = r.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
-              val bodyStr    = renderBody(r.body, includeBody)
-              logger(s"── Response ──\n  status: ${r.status}\n  headers:\n$headersStr\n  body:   $bodyStr")
-            },
-            h => logger(s"── Halt ──"),
-          )
-          result
+          val result                                 = next.handle(req, ctx, vars, scope)
+          val logAndTap: Response => Response | Halt = { r =>
+            val headersStr = r.headers.toList.map { case (k, v) => s"    $k: ${redactHeader(k, v)}" }.mkString("\n")
+            val bodyStr    = renderBody(r.body, includeBody)
+            logger(s"── Response ──\n  status: ${r.status}\n  headers:\n$headersStr\n  body:   $bodyStr")
+            if (includeBody && r.body.length.isEmpty) r.body(tapLogged(r.body, logger))
+            else r
+          }
+          foldResult(result)(logAndTap, h => { logger(s"── Halt ──"); h })
         }
     }
 }

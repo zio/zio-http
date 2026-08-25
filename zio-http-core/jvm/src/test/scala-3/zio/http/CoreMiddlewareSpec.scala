@@ -211,5 +211,43 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         assertTrue(runSingle(app, req) == responseAsResult(Response.text("1")))
       },
     ),
+    suite("responseDump")(
+      test("logs streaming body content on completion") {
+        val log    = scala.collection.mutable.ArrayBuffer[String]()
+        val mw     = Middleware.responseDump(logger = s => log += s, includeBody = true)
+        val stream = zio.blocks.streams.Stream
+          .fromInputStream(new java.io.ByteArrayInputStream("hello-stream".getBytes))
+          .catchAll(t => zio.blocks.streams.Stream.die(t))
+        val body   = Body.fromStream(stream)
+        val resp   = Response(Status.Ok, Headers.empty, body)
+        val app    = mkRoute[Any](Handler.succeed(resp)) @@ mw
+        val result = runSingle(app)
+        result match {
+          case r: Response =>
+            val consumed = r.body.text
+            assertTrue(consumed == "hello-stream") &&
+            assertTrue(log.exists(_.contains("hello-stream")))
+          case _           => assertTrue(false)
+        }
+      },
+      test("logs request streaming body content on completion") {
+        val log     = scala.collection.mutable.ArrayBuffer[String]()
+        val mw      = Middleware.requestDump(logger = s => log += s, includeBody = true)
+        val stream  = zio.blocks.streams.Stream
+          .fromInputStream(new java.io.ByteArrayInputStream("req-stream-body".getBytes))
+          .catchAll(t => zio.blocks.streams.Stream.die(t))
+        val body    = Body.fromStream(stream)
+        val req     = Request.post(URL.root, body)
+        var seen    = ""
+        val handler = Handler.extracted[Any, Any] { (r, _, _, _) =>
+          seen = r.body.text
+          Response.text("ok")
+        }
+        val app     = mkRoute[Any](handler) @@ mw
+        val _       = runSingle(app, req)
+        assertTrue(seen == "req-stream-body") &&
+        assertTrue(log.exists(_.contains("req-stream-body")))
+      },
+    ),
   )
 }
