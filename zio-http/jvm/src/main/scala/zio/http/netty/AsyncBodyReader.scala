@@ -46,6 +46,8 @@ private[netty] abstract class AsyncBodyReader(
   // before the consumer connects. `ArrayBuilder#knownSize` is unreliable on
   // Scala 2.12, so we count bytes ourselves.
   private var bufferedBytes: Int              = 0
+  // Budget left for throwing away an unconsumed request body; see discardRemainingBody.
+  private var discardableBytes: Long          = 0L
   private var previousAutoRead: Boolean       = false
   private var readingDone: Boolean            = false
   private var ctx: ChannelHandlerContext      = _
@@ -89,6 +91,33 @@ private[netty] abstract class AsyncBodyReader(
     }
   }
 
+  /**
+   * Reads and throws away whatever is left of the request body, so that the
+   * connection can be used for the next request.
+   *
+   * Called when a response has been written while this reader is still in the
+   * pipeline, which means the body was never consumed or was only consumed in
+   * part. Reading stops in that situation - `handlerAdded` disables `autoRead`
+   * and the only calls to `ctx.read()` come from a consumer asking for the next
+   * chunk - so without this the connection stays open but is never read from
+   * again, and the next request the client sends over it is silently dropped.
+   *
+   * HTTP/1.1 gives a server no way to ask a client to stop sending, so the only
+   * two correct options once a response has been sent early are to read the
+   * rest and discard it, or to close the connection. This discards up to
+   * `maxDiscardedBytes` and closes the connection if the body turns out to be
+   * larger than that.
+   */
+  private[zio] def discardRemainingBody(maxDiscardedBytes: Long): Unit =
+    self.synchronized {
+      if (!readingDone && ctx.channel().isOpen) {
+        cancelTimeoutTask()
+        discardableBytes = maxDiscardedBytes
+        state = State.Discarding
+        ctx.read(): Unit
+      }
+    }
+
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     previousAutoRead = ctx.channel().config().isAutoRead
     ctx.channel().config().setAutoRead(false)
@@ -121,6 +150,15 @@ private[netty] abstract class AsyncBodyReader(
 
       val readMore =
         state match {
+          case State.Discarding                                           =>
+            // The consumer is gone; read on until the body ends so that the connection stays usable,
+            // and give up on the connection if the client turns out to be sending more than we are
+            // willing to throw away.
+            discardableBytes -= content.length
+            if (discardableBytes < 0) {
+              ctx.close(): Unit
+              false
+            } else !isLast
           case State.Buffering                                            =>
             // `connect` method hasn't been called yet, add all incoming content to the buffer.
             // Cap the pre-connect buffer to avoid unbounded heap growth when a fast producer
@@ -197,6 +235,7 @@ private[netty] abstract class AsyncBodyReader(
       cancelTimeoutTask()
       state match {
         case State.Buffering        =>
+        case State.Discarding       =>
         case State.Direct(callback) =>
           callback.fail(cause)
       }
@@ -210,6 +249,7 @@ private[netty] abstract class AsyncBodyReader(
 
       state match {
         case State.Buffering                        =>
+        case State.Discarding                       =>
         case State.Direct(callback) if !readingDone =>
           // Step 4: Premature channel closure detection
           // This is the core issue from #2383 - server sent headers but closed before body completed
@@ -243,6 +283,13 @@ private[netty] object AsyncBodyReader {
     case object Buffering extends State
 
     final case class Direct(callback: UnsafeAsync) extends State
+
+    /**
+     * The consumer is gone and whatever is left of the body is read and thrown
+     * away, so that the connection is left in a state where the next request on
+     * it can be read.
+     */
+    case object Discarding extends State
   }
 
   // For Scala 2.12. In Scala 2.13+, the methods directly implemented on ArrayBuilder[Byte] are selected over syntax.
