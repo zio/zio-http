@@ -111,7 +111,11 @@ object ServerUnconsumedRequestBodySpec extends ZIOHttpSpec {
       readHeaders(Chunk.empty)
     }
 
-  private final case class Exchange(rejected: String, reused: String)
+  /**
+   * The status line of the rejection, and what came of reusing that same
+   * connection afterwards.
+   */
+  private final case class Exchange(rejected: String, reused: Either[Throwable, String])
 
   private def scenario(
     readBody: Request => ZIO[Any, Nothing, Unit],
@@ -125,8 +129,8 @@ object ServerUnconsumedRequestBodySpec extends ZIOHttpSpec {
       _        <- ZIO.sleep(300.millis)
       _        <- sendBody(socket, bodySize)
       rejected <- readStatusLine(socket)
-      _        <- sendHead(socket, "GET /ping HTTP/1.1", contentLength = 0)
-      reused   <- readStatusLine(socket)
+      _        <- sendHead(socket, "GET /ping HTTP/1.1", contentLength = 0).either
+      reused   <- readStatusLine(socket).either
     } yield Exchange(rejected, reused)
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -134,25 +138,39 @@ object ServerUnconsumedRequestBodySpec extends ZIOHttpSpec {
       test("a handler that never touches the body leaves the connection usable") {
         for {
           exchange <- scenario(_ => ZIO.unit)
-        } yield assertTrue(exchange.rejected.startsWith("HTTP/1.1 400"), exchange.reused.startsWith("HTTP/1.1 200"))
+        } yield assertTrue(
+          exchange.rejected.startsWith("HTTP/1.1 400"),
+          exchange.reused.exists(_.startsWith("HTTP/1.1 200")),
+        )
       },
       test("a handler that consumes only part of the body leaves the connection usable") {
         for {
           exchange <- scenario(_.body.asStream.take(1).runDrain.orDie)
-        } yield assertTrue(exchange.rejected.startsWith("HTTP/1.1 400"), exchange.reused.startsWith("HTTP/1.1 200"))
+        } yield assertTrue(
+          exchange.rejected.startsWith("HTTP/1.1 400"),
+          exchange.reused.exists(_.startsWith("HTTP/1.1 200")),
+        )
       },
       test("a handler that consumes the whole body leaves the connection usable") {
         for {
           exchange <- scenario(_.body.asStream.runDrain.orDie)
-        } yield assertTrue(exchange.rejected.startsWith("HTTP/1.1 400"), exchange.reused.startsWith("HTTP/1.1 200"))
+        } yield assertTrue(
+          exchange.rejected.startsWith("HTTP/1.1 400"),
+          exchange.reused.exists(_.startsWith("HTTP/1.1 200")),
+        )
       },
-      test("a body too large to discard closes the connection instead of leaving it unreadable") {
+      test("a body too large to discard is answered, and then the connection is closed rather than left unreadable") {
         for {
-          result <- scenario(
+          exchange <- scenario(
             _ => ZIO.unit,
             Server.Config.default.maxDiscardedRequestBodySize(bodySize.toLong / 2),
-          ).either
-        } yield assertTrue(result.isLeft)
+          )
+        } yield assertTrue(
+          // The response to the request that was rejected still has to arrive ...
+          exchange.rejected.startsWith("HTTP/1.1 400"),
+          // ... and only then may the connection go, rather than silently swallowing the next request.
+          exchange.reused.isLeft,
+        )
       },
     ) @@ withLiveClock @@ sequential @@ timeout(2.minutes)
 }

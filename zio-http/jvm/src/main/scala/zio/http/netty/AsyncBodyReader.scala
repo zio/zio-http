@@ -139,7 +139,8 @@ private[netty] abstract class AsyncBodyReader(
 
     self.synchronized {
       val isLast  = msg.isInstanceOf[LastHttpContent]
-      val content = ByteBufUtil.getBytes(msg.content())
+      // A discarded chunk is only ever counted, so its bytes are copied out of the ByteBuf lazily.
+      def content = ByteBufUtil.getBytes(msg.content())
 
       // Cancel timeout task since we received data
       if (isLast) {
@@ -153,9 +154,11 @@ private[netty] abstract class AsyncBodyReader(
           case State.Discarding                                           =>
             // The consumer is gone; read on until the body ends so that the connection stays usable,
             // and give up on the connection if the client turns out to be sending more than we are
-            // willing to throw away.
-            discardableBytes -= content.length
+            // willing to throw away. Flushed first, so that a response still sitting in the outbound
+            // buffer is not dropped along with the connection.
+            discardableBytes -= msg.content().readableBytes()
             if (discardableBytes < 0) {
+              ctx.flush()
               ctx.close(): Unit
               false
             } else !isLast
@@ -163,8 +166,9 @@ private[netty] abstract class AsyncBodyReader(
             // `connect` method hasn't been called yet, add all incoming content to the buffer.
             // Cap the pre-connect buffer to avoid unbounded heap growth when a fast producer
             // outpaces a slow-to-start consumer (see issue #3173).
-            buffer0.addAll(content)
-            bufferedBytes += content.length
+            val bytes = content
+            buffer0.addAll(bytes)
+            bufferedBytes += bytes.length
             bufferedBytes < maxPreConnectBufferSize
           case State.Direct(callback) if isLast && buffer0.knownSize == 0 =>
             // Buffer is empty, we can just use the array directly
