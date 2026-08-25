@@ -107,11 +107,14 @@ private[netty] abstract class AsyncBodyReader(
    * rest and discard it, or to close the connection. This discards up to
    * `maxDiscardedBytes` and closes the connection if the body turns out to be
    * larger than that.
+   *
+   * Any body read timeout is deliberately left running: it is the only thing
+   * that would stop a client that goes quiet half way from holding on to the
+   * connection while we are draining it.
    */
   private[zio] def discardRemainingBody(maxDiscardedBytes: Long): Unit =
     self.synchronized {
       if (!readingDone && ctx.channel().isOpen) {
-        cancelTimeoutTask()
         discardableBytes = maxDiscardedBytes
         state = State.Discarding
         ctx.read(): Unit
