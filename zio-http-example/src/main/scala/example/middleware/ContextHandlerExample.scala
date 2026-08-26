@@ -2,7 +2,9 @@ package example.middleware
 
 import zio._
 import zio.blocks.context.IsNominalType
+import zio.blocks.scope.Scope
 import zio.http._
+import zio.http.netty.server.NettyServer
 
 object ContextHandlerExample extends ZIOAppDefault {
 
@@ -25,5 +27,5 @@ object ContextHandlerExample extends ZIOAppDefault {
 
   val app: Routes[Any] = routes @@ provideUser
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(NettyServer.default)
 }

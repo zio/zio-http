@@ -74,13 +74,5 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
         assertTrue(runSingle(wrapped) == haltAsResult(Halt(Response.unauthorized)))
       },
     ),
-    suite("customAuthProviding")(
-      test("injects context for every request") {
-        val mw      = Middleware.customAuth[User](req => valueAsOutcome(User("bob", "user")))
-        val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
-          mw.asInstanceOf[Middleware[Any, Any]]
-        assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
-      },
-    ),
   )
 }

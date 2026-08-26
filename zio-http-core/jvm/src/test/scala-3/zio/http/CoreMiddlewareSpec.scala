@@ -63,6 +63,54 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
           case _           => false
         })
       },
+      test("cors synthesizes OPTIONS routes so preflights survive method-keyed dispatch") {
+        val mw           = Middleware.cors()
+        val app          = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val optionsRoute = app.routes.find(_.pattern.method == Method.OPTIONS)
+        val preflight    = Request(Method.OPTIONS, URL.root, Headers.empty, Body.empty, Version.`HTTP/1.1`)
+          .addHeader(Header.Origin.Value("https", "example.com", None))
+          .addHeader(Header.AccessControlRequestMethod(Method.GET))
+        val handled      = optionsRoute.map { r =>
+          r.handler.handle(preflight, Context.empty.asInstanceOf[Context[Any]], (), Scope.global)
+        }
+        assertTrue(
+          optionsRoute.isDefined &&
+            handled.exists(foldResult(_)(_.status == Status.NoContent, _ => false)),
+        )
+      },
+      test("synthesized preflight rejects disallowed methods") {
+        val config    = Middleware.CorsConfig(allowedMethods = Set(Method.GET))
+        val mw        = Middleware.cors(config)
+        val app       = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val preflight = Request(Method.OPTIONS, URL.root, Headers.empty, Body.empty, Version.`HTTP/1.1`)
+          .addHeader(Header.Origin.Value("https", "example.com", None))
+          .addHeader(Header.AccessControlRequestMethod(Method.DELETE))
+        val result    = app.routes
+          .find(_.pattern.method == Method.OPTIONS)
+          .get
+          .handler
+          .handle(preflight, Context.empty.asInstanceOf[Context[Any]], (), Scope.global)
+        assertTrue(foldResult(result)(_ => false, h => h.response.status == Status.Forbidden))
+      },
+      test("default CorsConfig does not emit Allow-Credentials; explicit opt-in echoes origin") {
+        val defaultApp = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ Middleware.cors()
+        val credApp    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
+          Middleware.cors(Middleware.CorsConfig(allowCredentials = true))
+        val preflight  = Request(Method.OPTIONS, URL.root, Headers.empty, Body.empty, Version.`HTTP/1.1`)
+          .addHeader(Header.Origin.Value("https", "example.com", None))
+          .addHeader(Header.AccessControlRequestMethod(Method.GET))
+        def acac(routes: Routes[Any]): List[String] =
+          routes.routes
+            .find(_.pattern.method == Method.OPTIONS)
+            .get
+            .handler
+            .handle(preflight, Context.empty.asInstanceOf[Context[Any]], (), Scope.global) match {
+            case r: Response =>
+              r.headers.toList.collect { case (k, v) if k.equalsIgnoreCase("Access-Control-Allow-Credentials") => v }
+            case _           => Nil
+          }
+        assertTrue(acac(defaultApp).isEmpty && acac(credApp).headOption.contains("true"))
+      },
     ),
     suite("requestLogging")(
       test("invokes logger for each request") {
@@ -186,14 +234,23 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val result  = runSingle(app, req)
         assertTrue(result == responseAsResult(Response.text("abc123")))
       },
-      test("signs outgoing cookies and keeps response intact") {
-        val mw     = Middleware.signCookies("test-secret-test-secret-test-secret!")
-        val app    = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        val result = runSingle(app)
-        assertTrue(result match {
-          case r: Response => r.status == Status.Ok
-          case _           => false
-        })
+      test("signs outgoing cookies and preserves attributes") {
+        val secret     = "test-secret-test-secret-test-secret!"
+        val mac        = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256"))
+        val sig        = java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(
+          mac.doFinal("session=abc123".getBytes("UTF-8")),
+        )
+        val mw         = Middleware.signCookies(secret)
+        val handler    = Handler.extracted[Any, Any] { (_, _, _, _) =>
+          Response.ok.addCookie(ResponseCookie("session", "abc123", path = Some(Path("/secure"))))
+        }
+        val app        = mkRoute[Any](handler) @@ mw
+        val setCookies = runSingle(app) match {
+          case r: Response => r.headers.toList.collect { case (k, v) if k.equalsIgnoreCase("set-cookie") => v }
+          case _           => Nil
+        }
+        assertTrue(setCookies.nonEmpty && setCookies.head.contains(sig) && setCookies.head.contains("/secure"))
       },
       test("removes all cookies when none verify") {
         val req     = Request.get(URL.root).addHeader("Cookie", "session=bad1; token=bad2")
