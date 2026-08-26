@@ -154,10 +154,14 @@ import zio.http._
 // compose basic auth, request/response logging, timeouts middlewares
 val composedMiddlewares =
   Middleware.basicAuth[String] { basic =>
-    if (basic.user == "admin" && basic.password == "secret") Right(basic.user)
+    // Note: production validators should use constant-time comparison
+    // (e.g. java.security.MessageDigest.isEqual) to avoid timing side-channels.
+    if (basic.username == "admin" && basic.password == "secret") Right(basic.username)
     else Left(Response.unauthorized)
   }.andThen(Middleware.debug).andThen(Middleware.timeout(5.seconds))
 ```
+
+`Middleware.customAuth` supports two outcomes via `valueAsOutcome` and `haltAsOutcome`: `S` (any provided value) continues with the injected context, and `Halt` rejects the request.
 
 And then we can attach our composed bundle of middlewares to an Http using `@@`
 

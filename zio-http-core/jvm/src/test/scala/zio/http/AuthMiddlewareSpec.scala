@@ -34,12 +34,12 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
         )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Basic("admin", "wrong"))
-        assertTrue(runSingle(app, authReq) == responseAsResult(Response.unauthorized))
+        assertTrue(runSingle(app, authReq) == haltAsResult(Halt(Response.unauthorized)))
       },
       test("rejects missing header") {
         val mw  = Middleware.basicAuth[String](validate = _ => Left(Response.unauthorized))
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
-        assertTrue(runSingle(app) == responseAsResult(Response.unauthorized))
+        assertTrue(runSingle(app) == haltAsResult(Halt(Response.unauthorized)))
       },
     ),
     suite("bearerAuth")(
@@ -57,26 +57,26 @@ object AuthMiddlewareSpec extends ZIOSpecDefault {
         )
         val app     = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         val authReq = req.addHeader(Header.Authorization.Bearer("bad-token"))
-        assertTrue(runSingle(app, authReq) == responseAsResult(Response.unauthorized))
+        assertTrue(runSingle(app, authReq) == haltAsResult(Halt(Response.unauthorized)))
       },
     ),
     suite("customAuth")(
       test("injects User context on success") {
-        val mw      = Middleware.customAuth[User](req => Right(User("alice", "admin")))
+        val mw      = Middleware.customAuth[User](req => valueAsOutcome(User("alice", "admin")))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))
       },
-      test("rejects with unauthorized response on failure") {
-        val mw      = Middleware.customAuth[User](_ => Left(Response.unauthorized))
+      test("rejects with Halt outcome on failure") {
+        val mw      = Middleware.customAuth[User](_ => haltAsOutcome(Halt(Response.unauthorized)))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
-        assertTrue(runSingle(wrapped) == responseAsResult(Response.unauthorized))
+        assertTrue(runSingle(wrapped) == haltAsResult(Halt(Response.unauthorized)))
       },
     ),
     suite("customAuthProviding")(
       test("injects context for every request") {
-        val mw      = Middleware.customAuth[User](req => Right(User("bob", "user")))
+        val mw      = Middleware.customAuth[User](req => valueAsOutcome(User("bob", "user")))
         val wrapped = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@
           mw.asInstanceOf[Middleware[Any, Any]]
         assertTrue(runSingle(wrapped) == responseAsResult(Response.text("ok")))

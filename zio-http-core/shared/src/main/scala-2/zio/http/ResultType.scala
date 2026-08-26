@@ -12,4 +12,9 @@ object ResultType {
       case Left(r)  => onResponse(r)
       case Right(h) => onHalt(h)
     }
+
+  def haltAsOutcome[S](halt: Halt): Halt | S                                      = Left(halt)
+  def valueAsOutcome[S](value: S): Halt | S                                       = Right(value)
+  def foldOutcome[S, Z](outcome: Halt | S)(onHalt: Halt => Z, onValue: S => Z): Z =
+    outcome.fold(onHalt, onValue)
 }

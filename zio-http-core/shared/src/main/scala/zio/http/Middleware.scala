@@ -52,21 +52,41 @@ object Middleware {
 
   /**
    * @param validate
-   *   MUST use constant-time comparison (e.g.
-   *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   *   A function that inspects the request and returns one of two outcomes:
+   *   - `Halt` (via `haltAsOutcome(halt)`) — rejection; the middleware returns
+   *     it as-is.
+   *   - `S` (via `valueAsOutcome(value)`) — success; the value is injected into
+   *     the handler context.
+   *
+   * MUST use constant-time comparison (e.g.
+   * java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   *
+   * {{{
+   *   Middleware.customAuth[User] { req =>
+   *     req.header(Header.Authorization) match {
+   *       case Some(Header.Authorization.Bearer(token)) =>
+   *         validateToken(token) match {
+   *           case Some(user) => valueAsOutcome(user)
+   *           case None       => haltAsOutcome(Halt(Response.unauthorized))
+   *         }
+   *       case _ => haltAsOutcome(Halt(Response.unauthorized))
+   *     }
+   *   }
+   * }}}
    */
-  def customAuth[Session](
-    validate: Request => Either[Response, Session],
-  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
-    new Middleware[Any, Session] {
-      def apply(routes: Routes[Session]): Routes[Any]       =
+  def customAuth[S](
+    validate: Request => Halt | S,
+    realm: String = "Access to the resource",
+  )(implicit ev: IsNominalType[S]): Middleware[Any, S] =
+    new Middleware[Any, S] {
+      def apply(routes: Routes[S]): Routes[Any]       =
         Routes.fromIterable(routes.routes.map(secure))
-      private def secure(route: Route[Session]): Route[Any] = {
+      private def secure(route: Route[S]): Route[Any] = {
         val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
-          validate(request) match {
-            case Left(response) => responseAsResult(response)
-            case Right(session) => route.handler.handle(request, context.add[Session](session), vars, scope)
-          }
+          foldOutcome(validate(request))(
+            onHalt = h => haltAsResult(h),
+            onValue = value => route.handler.handle(request, context.add[S](value), vars, scope),
+          )
         }
         Route(route.pattern, wrapped)
       }
@@ -77,13 +97,17 @@ object Middleware {
    *   MUST use constant-time comparison (e.g.
    *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
    */
-  def basicAuth[Session](
-    validate: Header.Authorization.Basic => Either[Response, Session],
-  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+  def basicAuth[S](
+    validate: Header.Authorization.Basic => Either[Response, S],
+  )(implicit ev: IsNominalType[S]): Middleware[Any, S] =
     customAuth { request =>
       request.header(Header.Authorization) match {
-        case Some(basic: Header.Authorization.Basic) => validate(basic)
-        case _                                       => Left(Response.unauthorized)
+        case Some(basic: Header.Authorization.Basic) =>
+          validate(basic) match {
+            case Right(session) => valueAsOutcome(session)
+            case Left(response) => haltAsOutcome(Halt(response))
+          }
+        case _                                       => haltAsOutcome(Halt(Response.unauthorized))
       }
     }
 
@@ -92,13 +116,17 @@ object Middleware {
    *   MUST use constant-time comparison (e.g.
    *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
    */
-  def bearerAuth[Session](
-    validate: Header.Authorization.Bearer => Either[Response, Session],
-  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+  def bearerAuth[S](
+    validate: Header.Authorization.Bearer => Either[Response, S],
+  )(implicit ev: IsNominalType[S]): Middleware[Any, S] =
     customAuth { request =>
       request.header(Header.Authorization) match {
-        case Some(bearer: Header.Authorization.Bearer) => validate(bearer)
-        case _                                         => Left(Response.unauthorized)
+        case Some(bearer: Header.Authorization.Bearer) =>
+          validate(bearer) match {
+            case Right(session) => valueAsOutcome(session)
+            case Left(response) => haltAsOutcome(Halt(response))
+          }
+        case _                                         => haltAsOutcome(Halt(Response.unauthorized))
       }
     }
 
@@ -290,9 +318,23 @@ object Middleware {
               if (!originAllowed(originStr)) {
                 responseAsResult(Response.forbidden)
               } else if (req.method == Method.OPTIONS && req.header(Header.AccessControlRequestMethod).isDefined) {
-                val hdrs = corsPreflightHeaders(originStr)
-                val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
-                resp
+                // Validate requested method and headers against allowlists
+                val requestedMethod  = req.header(Header.AccessControlRequestMethod).get.method
+                val methodAllowed    = config.allowedMethods.contains(requestedMethod)
+                val requestedHeaders = req.headers.toList.collectFirst {
+                  case (k, v) if k.equalsIgnoreCase("Access-Control-Request-Headers") => v
+                } match {
+                  case Some(h) => h.split(",").map(_.trim).toSet
+                  case None    => Set.empty[String]
+                }
+                val headersAllowed   = requestedHeaders.forall(h => config.allowedHeaders.exists(_.equalsIgnoreCase(h)))
+                if (methodAllowed && headersAllowed) {
+                  val hdrs = corsPreflightHeaders(originStr)
+                  val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
+                  resp
+                } else {
+                  next.handle(req, ctx, vars, scope)
+                }
               } else {
                 val hdrs = corsPreflightHeaders(originStr)
                 foldResult(next.handle(req, ctx, vars, scope))(
@@ -396,11 +438,11 @@ object Middleware {
           } catch {
             case _: java.util.concurrent.TimeoutException   =>
               future.cancel(true)
-              haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+              haltAsResult(Halt(Response(Status.RequestTimeout)))
             case _: InterruptedException                    =>
               future.cancel(true)
               Thread.currentThread().interrupt()
-              haltAsResult(Halt(Response(Status.ServiceUnavailable)))
+              haltAsResult(Halt(Response(Status.RequestTimeout)))
             case e: java.util.concurrent.ExecutionException =>
               logger(e)
               haltAsResult(Halt(Response(Status.InternalServerError)))

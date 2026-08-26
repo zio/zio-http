@@ -101,6 +101,32 @@ object MiddlewareMacroSpec extends ZIOSpecDefault {
         val result                      = exec(app, ctx)
         assertTrue(result == zio.http.ResultType.responseAsResult(Response.forbidden))
       },
+      test("union return: Response | (Response, Ctx) — blocked path") {
+        val m: Middleware[AuthCtx, ReqId] =
+          Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
+            if (auth.userId == "blocked") Response.forbidden else (Response.ok, ReqId("x"))
+          }
+        val base                          = route[Any](Handler.succeed(Response(Status.Created)))
+        val app                           = base @@ m
+        val ctx                           = Context(AuthCtx("blocked"))
+        val result                        = exec(app, ctx)
+        assertTrue(result == zio.http.ResultType.responseAsResult(Response.forbidden))
+      },
+      test("union return: Response | (Response, Ctx) — normal path injects ReqId") {
+        val m: Middleware[AuthCtx, ReqId] =
+          Middleware.custom { (req: Request, scope: Scope, auth: AuthCtx) =>
+            if (auth.userId == "blocked") Response.forbidden else (Response.ok, ReqId("x"))
+          }
+        val downstream                    = Handler.extracted[Any, Any] { (_, ctx, _, _) =>
+          val rid = ctx.asInstanceOf[Context[ReqId]].get[ReqId]
+          zio.http.ResultType.responseAsResult(Response.text(rid.value))
+        }
+        val base                          = route[Any](downstream)
+        val app                           = base @@ m
+        val ctx                           = Context(AuthCtx("alice"))
+        val result                        = exec(app, ctx)
+        assertTrue(result == zio.http.ResultType.responseAsResult(Response.text("x")))
+      },
       test("24-arg middleware (>22) executes correctly") {
         // 2 fixed (Request, Scope) + 22 context = 24 total args (FunctionXXL)
         val m: Middleware[

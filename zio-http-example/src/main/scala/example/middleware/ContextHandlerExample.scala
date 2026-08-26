@@ -14,7 +14,7 @@ object ContextHandlerExample extends ZIOAppDefault {
     Response.text(s"User ${user.id} with role ${user.role}")
   }
 
-  val routes: Routes[User, Response] = Routes(
+  val routes: Routes[User] = Routes(
     Method.GET / "me" -> userHandler
   )
 
@@ -23,7 +23,7 @@ object ContextHandlerExample extends ZIOAppDefault {
     (Response.ok, User("42", "admin"))
   }
 
-  val app: Routes[Any, Response] = routes @@ provideUser
+  val app: Routes[Any] = routes @@ provideUser
 
   val run = Server.serve(app).provide(Server.default)
 }

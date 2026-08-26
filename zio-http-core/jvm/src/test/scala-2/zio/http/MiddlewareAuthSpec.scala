@@ -23,7 +23,7 @@ import zio.blocks.endpoint.RoutePattern.MethodSyntax
 import zio.blocks.scope.Scope
 import zio.http.Method.GET
 import zio.http.PathVarHandler.handler
-import zio.http.ResultType.{responseAsResult, |}
+import zio.http.ResultType.{haltAsResult, responseAsResult, |}
 import zio.http.RouteBinding._
 
 final case class AuthSession(user: String)
@@ -50,7 +50,7 @@ object MiddlewareAuthSpec extends ZIOSpecDefault {
   def spec: Spec[Any, Nothing] = suite("MiddlewareAuth (Scala 2.13)")(
     test("no credentials -> unauthorized, handler never runs") {
       val result = dispatch(basicRoutes, Request.get(URL.root / "secure"))
-      assertTrue(result == responseAsResult(Response.unauthorized))
+      assertTrue(result == haltAsResult(Halt(Response.unauthorized)))
     },
     test("valid credentials -> handler runs with injected session") {
       val request = Request.get(URL.root / "secure").addHeader(Header.Authorization.Basic("admin", "secret"))
@@ -60,7 +60,7 @@ object MiddlewareAuthSpec extends ZIOSpecDefault {
     test("wrong scheme (Bearer against basicAuth) -> unauthorized") {
       val request = Request.get(URL.root / "secure").addHeader(Header.Authorization.Bearer("some-token"))
       val result  = dispatch(basicRoutes, request)
-      assertTrue(result == responseAsResult(Response.unauthorized))
+      assertTrue(result == haltAsResult(Halt(Response.unauthorized)))
     },
   )
 }

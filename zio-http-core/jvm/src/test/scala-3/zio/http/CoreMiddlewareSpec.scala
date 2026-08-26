@@ -50,6 +50,19 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
           case _           => false
         })
       },
+      test("preflight with disallowed method falls through to downstream") {
+        val config     = Middleware.CorsConfig(allowedMethods = Set(Method.GET, Method.POST))
+        val mw         = Middleware.cors(config)
+        val app        = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
+        val optionsReq = Request(Method.OPTIONS, URL.root, Headers.empty, Body.empty, Version.`HTTP/1.1`)
+          .addHeader(Header.Origin.Value("https", "example.com", None))
+          .addHeader(Header.AccessControlRequestMethod(Method.DELETE))
+        val result     = runSingle(app, optionsReq)
+        assertTrue(result match {
+          case r: Response => r.status == Status.Ok
+          case _           => false
+        })
+      },
     ),
     suite("requestLogging")(
       test("invokes logger for each request") {
@@ -66,7 +79,7 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         val app = mkRoute[Any](Handler.succeed(Response.text("ok"))) @@ mw
         assertTrue(runSingle(app) == responseAsResult(Response.text("ok")))
       },
-      test("returns ServiceUnavailable on timeout") {
+      test("returns RequestTimeout on timeout") {
         val mw          = Middleware.timeout(zio.Duration.fromMillis(10L))
         val slowHandler = Handler.extracted[Any, Any] { (_, _, _, _) =>
           java.util.concurrent.TimeUnit.MILLISECONDS.sleep(100)
@@ -74,9 +87,9 @@ object CoreMiddlewareSpec extends ZIOSpecDefault {
         }
         val app         = mkRoute[Any](slowHandler) @@ mw
         assertTrue(runSingle(app) match {
-          case r: Response                                        => r.status == Status.ServiceUnavailable
-          case Halt(Response(Status.ServiceUnavailable, _, _, _)) => true
-          case _                                                  => false
+          case r: Response                                    => r.status == Status.RequestTimeout
+          case Halt(Response(Status.RequestTimeout, _, _, _)) => true
+          case _                                              => false
         })
       },
     ),

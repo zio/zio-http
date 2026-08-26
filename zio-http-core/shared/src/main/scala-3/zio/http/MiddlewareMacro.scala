@@ -69,12 +69,14 @@ private[http] object MiddlewareMacro {
       case OrType(a, b) =>
         val left  = extractOutTypes(a)
         val right = extractOutTypes(b)
-        if (left.map(_.show) != right.map(_.show))
+        if (left.isEmpty && right.nonEmpty) right
+        else if (right.isEmpty && left.nonEmpty) left
+        else if (left.map(_.show) != right.map(_.show))
           report.errorAndAbort(
             s"Middleware.custom: all branches must return the same context tuple shape, " +
               s"but got left=${left.map(_.show)} right=${right.map(_.show)}.",
           )
-        left
+        else left
       case AppliedType(tc, as)
           if tc.typeSymbol.fullName.startsWith("scala.Tuple") && as.nonEmpty
             && (as.head <:< TypeRepr.of[Response]) =>
