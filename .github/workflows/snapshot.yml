@@ -1,0 +1,34 @@
+name: Snapshot
+on:
+  push:
+    branches: ['v4.x']
+  workflow_dispatch:
+concurrency:
+  group: snapshot-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  publishSnapshot:
+    name: Publish Snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup JDK
+        uses: coursier/setup-action@v3
+        with:
+          jvm: temurin:25
+      - name: Cache
+        uses: coursier/cache-action@v8
+      - name: Publish snapshot
+        run: |
+          chmod +x ./mill && ./mill mill.javalib.SonatypeCentralPublishModule/publishAll \
+            --publishArtifacts "{core,server,client,endpoint,h2Codec,serverLoom,clientJava,zio,testkit}.jvm.__.publishArtifacts" \
+            --username $SONATYPE_USERNAME --password $SONATYPE_PASSWORD
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}

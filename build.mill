@@ -7,6 +7,7 @@ import mill.contrib.scoverage._
 import mill.scalajslib.*
 import mill.scalalib.*
 import mill.contrib.jmh.JmhModule
+import mill.scalalib.publish.{Developer, License, PomSettings, VersionControl}
 
 object Versions {
   val Scala213              = "2.13.18"
@@ -20,6 +21,26 @@ object Versions {
 
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
 val wsRoot        = BuildCtx.workspaceRoot
+
+trait ZioHttpPublishModule extends PublishModule {
+  def publishVersion = Task {
+    sys.env.getOrElse("ZIO_HTTP_SNAPSHOT_VERSION", "4.0.0-SNAPSHOT")
+  }
+  def pomSettings = Task {
+    PomSettings(
+      description = "ZIO HTTP is a scala library for building http apps.",
+      organization = "dev.zio",
+      url = "https://github.com/zio/zio-http",
+      licenses = Seq(License.`Apache-2.0`),
+      versionControl = VersionControl.github("zio", "zio-http"),
+      developers = Seq(
+        Developer("jdegoes", "John De Goes", "https://github.com/jdegoes"),
+        Developer("vigoo", "Daniel Vigovszky", "https://github.com/vigoo"),
+        Developer("987Nabil", "Nabil Abdel-Hafeez", "https://github.com/987Nabil"),
+      ),
+    )
+  }
+}
 
 trait ZioHttpModule extends CrossScalaModule {
 
@@ -76,14 +97,14 @@ trait ZioHttpModule extends CrossScalaModule {
   }
 }
 
-trait ZioHttpJvmModule extends ZioHttpModule with ScoverageModule {
+trait ZioHttpJvmModule extends ZioHttpModule with ScoverageModule with ZioHttpPublishModule {
 
   def scoverageVersion      = "2.5.2"
   def statementCoverageMin  = Some(85.0)
   def branchCoverageMin     = Some(85.0)
 }
 
-trait ZioHttpJSModule extends ZioHttpModule with ScalaJSModule {
+trait ZioHttpJSModule extends ZioHttpModule with ScalaJSModule with ZioHttpPublishModule {
   def scalaJSVersion = Versions.ScalaJS
 }
 
@@ -176,6 +197,9 @@ object core extends Module {
         "PathVarHandler.scala",
         "PathVarHandlerMacros.scala",
         "HandlerMacros.scala",
+        "MiddlewareMacro.scala",
+        "ContextHandlerAPI.scala",
+        "ContextHandlerMacro.scala",
       )
       val sourceFiles = BuildCtx.watchValue {
         sourceDirs.flatMap(dir => os.walk(dir).filter(_.ext == "scala")).filterNot { path =>
