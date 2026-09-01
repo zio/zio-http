@@ -154,9 +154,10 @@ import zio.http._
 // compose basic auth, request/response logging, timeouts middlewares
 val composedMiddlewares =
   Middleware.basicAuth[String] { basic =>
-    // Note: production validators should use constant-time comparison
-    // (e.g. java.security.MessageDigest.isEqual) to avoid timing side-channels.
-    if (basic.username == "admin" && basic.password == "secret") Right(basic.username)
+    // Constant-time comparison to avoid timing side-channels (RFC 6919).
+    val userOk = java.security.MessageDigest.isEqual(basic.username.getBytes, "admin".getBytes)
+    val passOk = java.security.MessageDigest.isEqual(basic.password.getBytes, "secret".getBytes)
+    if (userOk && passOk) Right(basic.username)
     else Left(Response.unauthorized)
   }.andThen(Middleware.debug).andThen(Middleware.timeout(5.seconds))
 ```
@@ -243,11 +244,9 @@ To create a CORS middleware, we can use the `Middleware.cors` constructor. It ta
 1. **`allowedOrigin`**— A function that takes the origin of the client and returns allowed origins of type `Option[Header.AccessControlAllowOrigin]`. By default, the configuration object allows all origins (`*`).
 2. **`allowedMethods`**— The `Access-Control-Allow-Methods` response header is used in response to a preflight request which includes the `Access-Control-Request-Method` to indicate which HTTP methods can be used during the actual request. By default, the configuration object allows all methods (`*`).
 3. **`allowedHeaders`**— The `Access-Control-Allow-Headers` response header is used in response to a preflight request which includes the `Access-Control-Request-Headers` to indicate which HTTP headers can be used during the actual request. By default, the configuration object allows all headers (`*`).
-4. **`allowCredentials`**— The `Access-Control-Allow-Credentials` header is sent in response to a preflight request which includes the `Access-Control-Request-Headers` to indicate whether the actual request can be made using credentials. By default, this is disabled (set to `false`). When enabled together with wildcard (`*`) origins, the middleware echoes the specific request `Origin` header in the response rather than `*`, because browsers reject credentials when `Access-Control-Allow-Origin` is literally `*`.
+4. **`allowCredentials`**— The `Access-Control-Allow-Credentials` header is sent in response to a preflight request which includes the `Access-Control-Request-Headers` to indicate whether the actual request can be made using credentials. By default, this configuration is set to `Allow`.
 5. **`exposedHeaders`**— The `Access-Control-Expose-Headers` header is used in response to a preflight request to indicate which headers can be exposed as part of the response. By default, the configuration object exposes all headers (`*`).
 6. **`maxAge`**— The `Access-Control-Max-Age` response header is used in response to a preflight request to indicate how long the results of a preflight request can be cached. By default, this configuration is set to `None`.
-
-When `Middleware.cors` is applied, preflight `OPTIONS` requests are answered by synthetic OPTIONS routes generated for each known path, so preflights work even when the application only declares GET or POST routes; explicitly declared OPTIONS routes take precedence.
 
 In the following example, we are going to serve two HTTP apps. The first app is a backend that serves a JSON response that contains a message. The second app is a frontend that serves an HTML page with a script that fetches the JSON response from the backend. The frontend is hosted on `http://localhost:3000` and the backend is hosted on `http://localhost:8080`. If we try to fetch the JSON response from the frontend, the server will reject the request because the client is hosted on a different origin.
 

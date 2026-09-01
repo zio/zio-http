@@ -1,8 +1,7 @@
 package example.middleware
 
 import zio._
-import zio.blocks.context.{Context, IsNominalType}
-import zio.blocks.scope.Scope
+import zio.blocks.context.IsNominalType
 import zio.http._
 
 object ContextHandlerExample extends ZIOAppDefault {
@@ -26,11 +25,5 @@ object ContextHandlerExample extends ZIOAppDefault {
 
   val app: Routes[Any] = routes @@ provideUser
 
-  // Serve with the v4 Loom server (H2 over virtual threads). `serve` returns a
-  // ServerHandle; hold it open until the application is interrupted.
-  val run = ZIO.acquireRelease(
-    ZIO.attempt(LoomServer().serve(app, Context.empty)),
-  )(handle => ZIO.succeed(handle.shutdownAndWait())).flatMap { handle =>
-    Console.printLine(s"Listening on ${handle.bindings.map(_.address).mkString(", ")}").orDie *> ZIO.never
-  }
+  val run = Server.serve(app).provide(Server.default)
 }

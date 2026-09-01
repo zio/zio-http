@@ -93,21 +93,36 @@ object Middleware {
     }
 
   /**
+   * Adds WWW-Authenticate challenge header to a 401 response if absent. Per RFC
+   * 7235, every 401 response MUST include a WWW-Authenticate header.
+   */
+  private def withChallenge(response: Response, authHeader: Header): Response =
+    if (response.status == Status.Unauthorized && response.headers.get(Header.WWWAuthenticate).isEmpty)
+      response.addHeader(authHeader)
+    else response
+
+  private def basicChallenge(realm: String): Header  =
+    Header.Custom("WWW-Authenticate", s"""Basic realm="$realm"""")
+  private def bearerChallenge(realm: String): Header =
+    Header.Custom("WWW-Authenticate", s"""Bearer realm="$realm"""")
+
+  /**
    * @param validate
    *   MUST use constant-time comparison (e.g.
    *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
    */
   def basicAuth[S](
     validate: Header.Authorization.Basic => Either[Response, S],
+    realm: String = "Access to the resource",
   )(implicit ev: IsNominalType[S]): Middleware[Any, S] =
     customAuth { request =>
       request.header(Header.Authorization) match {
         case Some(basic: Header.Authorization.Basic) =>
           validate(basic) match {
             case Right(session) => valueAsOutcome(session)
-            case Left(response) => haltAsOutcome(Halt(response))
+            case Left(response) => haltAsOutcome(Halt(withChallenge(response, basicChallenge(realm))))
           }
-        case _                                       => haltAsOutcome(Halt(Response.unauthorized))
+        case _ => haltAsOutcome(Halt(withChallenge(Response.unauthorized, basicChallenge(realm))))
       }
     }
 
@@ -118,15 +133,16 @@ object Middleware {
    */
   def bearerAuth[S](
     validate: Header.Authorization.Bearer => Either[Response, S],
+    realm: String = "Access to the resource",
   )(implicit ev: IsNominalType[S]): Middleware[Any, S] =
     customAuth { request =>
       request.header(Header.Authorization) match {
         case Some(bearer: Header.Authorization.Bearer) =>
           validate(bearer) match {
             case Right(session) => valueAsOutcome(session)
-            case Left(response) => haltAsOutcome(Halt(response))
+            case Left(response) => haltAsOutcome(Halt(withChallenge(response, bearerChallenge(realm))))
           }
-        case _                                         => haltAsOutcome(Halt(Response.unauthorized))
+        case _ => haltAsOutcome(Halt(withChallenge(Response.unauthorized, bearerChallenge(realm))))
       }
     }
 
@@ -191,22 +207,30 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] = {
         // Apply middleware once per route at build time, not per request.
-        val appliedByNext: Map[Handler[Any, Any], Handler[Any, Any]] =
+        // Collect both the primary (head) handler and any synthetic tail routes
+        // produced by route-expanding middleware (safety net for future middleware).
+        val results: List[(Handler[Any, Any], Handler[Any, Any], List[Route[Any]])] =
           routes.routes.toList.map { route =>
-            val next        = route.handler
-            val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
+            val next           = route.handler
+            val passthrough    = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
               next.handle(req, ctx, vars, scope)
             }
-            val applied     =
-              middleware(Routes(Route(RoutePattern.any, passthrough))).routes.toList.headOption
-                .map(_.handler)
-                .getOrElse(passthrough)
-            next -> applied
-          }.toMap
-        wrap(routes) { (req, ctx, vars, scope, next) =>
+            val mwRoutes       =
+              middleware(Routes(Route(RoutePattern.any, passthrough))).routes.toList
+            val primary        = mwRoutes.headOption.map(_.handler).getOrElse(passthrough)
+            val syntheticTails = mwRoutes.drop(1)
+            (next, primary, syntheticTails)
+          }
+        val appliedByNext: Map[Handler[Any, Any], Handler[Any, Any]]                =
+          results.map { case (next, primary, _) => next -> primary }.toMap
+        val syntheticTails: List[Route[Any]]                                        =
+          results.flatMap { case (_, _, tails) => tails }
+        val wrappedRoutes = wrap(routes) { (req, ctx, vars, scope, next) =>
           if (predicate(req)) appliedByNext.getOrElse(next, next).handle(req, ctx, vars, scope)
           else next.handle(req, ctx, vars, scope)
         }
+        if (syntheticTails.isEmpty) wrappedRoutes
+        else Routes.fromIterable(wrappedRoutes.routes.toList ++ syntheticTails)
       }
     }
 
@@ -218,22 +242,33 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] = {
         // Apply both branches once per route at build time, not per request.
-        val appliedByNext: Map[Handler[Any, Any], (Handler[Any, Any], Handler[Any, Any])] =
+        // Collect synthetic tail routes from both branches (safety net for
+        // route-expanding middleware).
+        val results: List[(Handler[Any, Any], (Handler[Any, Any], Handler[Any, Any]), List[Route[Any]])] =
           routes.routes.toList.map { route =>
             val next         = route.handler
             val passthrough  = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
               next.handle(req, ctx, vars, scope)
             }
             val mwRoute      = Route(RoutePattern.any, passthrough)
-            val trueApplied  = onTrue(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-            val falseApplied = onFalse(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
-            next -> ((trueApplied, falseApplied))
-          }.toMap
-        wrap(routes) { (req, ctx, vars, scope, next) =>
+            val trueRoutes   = onTrue(Routes(mwRoute)).routes.toList
+            val falseRoutes  = onFalse(Routes(mwRoute)).routes.toList
+            val truePrimary  = trueRoutes.headOption.map(_.handler).getOrElse(passthrough)
+            val falsePrimary = falseRoutes.headOption.map(_.handler).getOrElse(passthrough)
+            val tails        = trueRoutes.drop(1) ++ falseRoutes.drop(1)
+            (next, (truePrimary, falsePrimary), tails)
+          }
+        val appliedByNext: Map[Handler[Any, Any], (Handler[Any, Any], Handler[Any, Any])]                =
+          results.map { case (next, pair, _) => next -> pair }.toMap
+        val syntheticTails: List[Route[Any]]                                                             =
+          results.flatMap { case (_, _, tails) => tails }
+        val wrappedRoutes = wrap(routes) { (req, ctx, vars, scope, next) =>
           val (trueApplied, falseApplied) = appliedByNext.getOrElse(next, (next, next))
           if (predicate(req)) trueApplied.handle(req, ctx, vars, scope)
           else falseApplied.handle(req, ctx, vars, scope)
         }
+        if (syntheticTails.isEmpty) wrappedRoutes
+        else Routes.fromIterable(wrappedRoutes.routes.toList ++ syntheticTails)
       }
     }
 
@@ -246,22 +281,34 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] = {
         // Apply middleware once per route at build time, not per request.
-        val perMethodByNext: Map[Handler[Any, Any], Map[Method, Handler[Any, Any]]] =
+        // Collect synthetic tail routes from each method's middleware output
+        // (safety net for route-expanding middleware).
+        val results: List[(Handler[Any, Any], Map[Method, Handler[Any, Any]], List[Route[Any]])] =
           routes.routes.toList.map { route =>
             val next        = route.handler
             val passthrough = Handler.extracted[Any, Any] { (req, ctx, vars, scope) =>
               next.handle(req, ctx, vars, scope)
             }
             val mwRoute     = Route(RoutePattern.any, passthrough)
-            val perMethod   =
+            val mwOutputs   =
               map.map { case (method, mw) =>
-                method -> mw(Routes(mwRoute)).routes.toList.headOption.map(_.handler).getOrElse(passthrough)
+                method -> mw(Routes(mwRoute)).routes.toList
               }
-            next -> perMethod
-          }.toMap
-        wrap(routes) { (req, ctx, vars, scope, next) =>
+            val perMethod   = mwOutputs.map { case (method, mwRoutes) =>
+              method -> mwRoutes.headOption.map(_.handler).getOrElse(passthrough)
+            }
+            val tails       = mwOutputs.values.toList.flatMap(_.drop(1))
+            (next, perMethod, tails)
+          }
+        val perMethodByNext: Map[Handler[Any, Any], Map[Method, Handler[Any, Any]]]              =
+          results.map { case (next, pm, _) => next -> pm }.toMap
+        val syntheticTails: List[Route[Any]]                                                     =
+          results.flatMap { case (_, _, tails) => tails }
+        val wrappedRoutes = wrap(routes) { (req, ctx, vars, scope, next) =>
           perMethodByNext.getOrElse(next, Map.empty).getOrElse(req.method, next).handle(req, ctx, vars, scope)
         }
+        if (syntheticTails.isEmpty) wrappedRoutes
+        else Routes.fromIterable(wrappedRoutes.routes.toList ++ syntheticTails)
       }
     }
   }
@@ -276,7 +323,7 @@ object Middleware {
       Set(Method.GET, Method.POST, Method.PUT, Method.DELETE, Method.PATCH, Method.OPTIONS),
     allowedHeaders: Set[String] = Set("Content-Type", "Authorization", "X-Requested-With"),
     exposedHeaders: Set[String] = Set.empty,
-    allowCredentials: Boolean = false,
+    allowCredentials: Boolean = true,
     maxAge: java.time.Duration = java.time.Duration.ofHours(1),
   )
 
@@ -292,9 +339,6 @@ object Middleware {
     def corsPreflightHeaders(originStr: String): List[Header] = {
       val originHdr: Header =
         if (config.allowedOrigins.contains("*") && config.allowCredentials)
-          // Browsers reject `*` combined with credentials, so echo the request
-          // origin instead. Only reachable when credentials were explicitly
-          // enabled (the default is false).
           Header.AccessControlAllowOrigin.Specific(originStr)
         else if (config.allowedOrigins.contains("*"))
           Header.AccessControlAllowOrigin.All
@@ -304,45 +348,47 @@ object Middleware {
         originHdr,
         Header.AccessControlAllowMethods(methodsVal),
         Header.AccessControlAllowHeaders(headersVal),
+        Header.AccessControlAllowCredentials(config.allowCredentials),
         Header.AccessControlMaxAge(maxAgeSeconds),
-      ) ++
-        (if (config.allowCredentials) List(Header.AccessControlAllowCredentials(true)) else Nil) ++
-        (if (config.exposedHeaders.nonEmpty)
-           List(Header.AccessControlExposeHeaders(exposeHeadersVal))
-         else Nil)
-      headers :+ Header.Vary("Origin")
-    }
-
-    // Validates the requested method and headers against the configured
-    // allowlists. Preflights for disallowed methods/headers must be rejected.
-    def isAllowedPreflight(req: Request): Boolean = {
-      val methodAllowed    =
-        req.header(Header.AccessControlRequestMethod).exists(acrm => config.allowedMethods.contains(acrm.method))
-      val requestedHeaders = req.headers.toList.collectFirst {
-        case (k, v) if k.equalsIgnoreCase("Access-Control-Request-Headers") => v
-      } match {
-        case Some(h) => h.split(",").map(_.trim).toSet
-        case None    => Set.empty[String]
-      }
-      methodAllowed && requestedHeaders.forall(h => config.allowedHeaders.exists(_.equalsIgnoreCase(h)))
-    }
-
-    def preflightResponse(originStr: String): Response = {
-      val hdrs = corsPreflightHeaders(originStr)
-      hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
+      ) ++ (if (config.exposedHeaders.nonEmpty)
+              List(Header.AccessControlExposeHeaders(exposeHeadersVal))
+            else Nil)
+      headers :+ Header.Vary("Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
     }
 
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] = {
-        val wrapped   = wrap(routes) { (req, ctx, vars, scope, next) =>
+        // Partition: declared OPTIONS routes stay unwrapped so they take
+        // precedence over the synthetic CORS preflight response (M1a fix).
+        val (declaredOptions, otherRoutes) =
+          routes.routes.toList.partition(_.pattern.method == Method.OPTIONS)
+        val wrappedOther                   = wrap(Routes.fromIterable(otherRoutes)) { (req, ctx, vars, scope, next) =>
           req.header(Header.Origin) match {
             case Some(origin: Header.Origin) =>
               val originStr = origin.renderedValue
               if (!originAllowed(originStr)) {
                 responseAsResult(Response.forbidden)
               } else if (req.method == Method.OPTIONS && req.header(Header.AccessControlRequestMethod).isDefined) {
-                if (isAllowedPreflight(req)) preflightResponse(originStr)
-                else next.handle(req, ctx, vars, scope)
+                // Validate requested method and headers against allowlists
+                val requestedMethod      = req.header(Header.AccessControlRequestMethod).get.method
+                val methodAllowed        = config.allowedMethods.contains(requestedMethod)
+                val requestedHeaders     = req.headers.toList.collectFirst {
+                  case (k, v) if k.equalsIgnoreCase("Access-Control-Request-Headers") => v
+                } match {
+                  case Some(h) => h.split(",").map(_.trim).toSet
+                  case None    => Set.empty[String]
+                }
+                val isWildcardAllHeaders = config.allowedHeaders.contains("*")
+                val headersAllowed       =
+                  if (isWildcardAllHeaders && !config.allowCredentials) true
+                  else requestedHeaders.forall(h => config.allowedHeaders.exists(_.equalsIgnoreCase(h)))
+                if (methodAllowed && headersAllowed) {
+                  val hdrs = corsPreflightHeaders(originStr)
+                  val resp = hdrs.foldLeft(Response(Status.NoContent))((acc, h) => acc.addHeader(h))
+                  resp
+                } else {
+                  next.handle(req, ctx, vars, scope)
+                }
               } else {
                 val hdrs = corsPreflightHeaders(originStr)
                 foldResult(next.handle(req, ctx, vars, scope))(
@@ -353,35 +399,7 @@ object Middleware {
             case None                        => next.handle(req, ctx, vars, scope)
           }
         }
-        // Routes are dispatched per method before any handler runs, so an
-        // OPTIONS preflight never reaches the wrapped handler of a GET/POST
-        // route. Synthesize OPTIONS routes mirroring each known path so
-        // preflights survive routing. User-declared OPTIONS routes keep
-        // precedence because synthetic routes are appended last.
-        val synthetic = routes.routes.toList.flatMap { route =>
-          if (
-            routes.routes
-              .exists(r => r.pattern.method == Method.OPTIONS && r.pattern.pathCodec == route.pattern.pathCodec)
-          )
-            None
-          else {
-            val pattern = RoutePattern(Method.OPTIONS, route.pattern.pathCodec)
-            val handler = Handler.extracted[Any, Any] { (req, _, _, _) =>
-              req.header(Header.Origin) match {
-                case Some(origin) if req.header(Header.AccessControlRequestMethod).isDefined =>
-                  if (!originAllowed(origin.renderedValue)) Halt(Response.forbidden)
-                  else if (isAllowedPreflight(req)) preflightResponse(origin.renderedValue)
-                  else Halt(Response.forbidden)
-                case _                                                                       =>
-                  // Not a preflight: there is no user-declared OPTIONS handler
-                  // for this path (otherwise this route would not exist).
-                  Halt(Response(Status.MethodNotAllowed))
-              }
-            }
-            Some(Route(pattern, handler))
-          }
-        }
-        wrapped ++ Routes.fromIterable(synthetic)
+        Routes.fromIterable(wrappedOther.routes.toList ++ declaredOptions)
       }
     }
   }
@@ -466,13 +484,13 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
-          val millis = duration.toMillis
+          val nanos  = duration.toNanos
           val future = java.util.concurrent.CompletableFuture.supplyAsync(
             () => next.handle(req, ctx, vars, scope),
             timeoutExecutor,
           )
           try {
-            future.get(millis, java.util.concurrent.TimeUnit.MILLISECONDS)
+            future.get(nanos, java.util.concurrent.TimeUnit.NANOSECONDS)
           } catch {
             case _: java.util.concurrent.TimeoutException   =>
               future.cancel(true)
@@ -497,16 +515,11 @@ object Middleware {
     new Middleware[Any, Any] {
       def apply(routes: Routes[Any]): Routes[Any] =
         wrap(routes) { (req, ctx, vars, scope, next) =>
-          val target: Option[java.io.File] =
-            try {
-              val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
-              val path      = requested.toPath
-              if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) Some(requested)
-              else None
-            } catch { case _: java.io.IOException => None }
-          target match {
-            case Some(file) =>
-              val mediaType = file.getName match {
+          try {
+            val requested = new java.io.File(baseDir, req.path.toString.stripPrefix("/")).getCanonicalFile
+            val path      = requested.toPath
+            if (path.startsWith(baseDir.toPath) && java.nio.file.Files.isRegularFile(path)) {
+              val mediaType = requested.getName match {
                 case n if n.endsWith(".html")                       => "text/html"
                 case n if n.endsWith(".css")                        => "text/css"
                 case n if n.endsWith(".js")                         => "application/javascript"
@@ -515,15 +528,15 @@ object Middleware {
                 case n if n.endsWith(".svg")                        => "image/svg+xml"
                 case _                                              => "application/octet-stream"
               }
-              val fis       = new java.io.FileInputStream(file)
+              val fis       = new java.io.FileInputStream(requested)
               val body      = Body.fromStream(
                 zio.blocks.streams.Stream
                   .fromInputStream(fis)
                   .catchAll(t => zio.blocks.streams.Stream.die(t)),
               )
               Response(Status.Ok, Headers(("Content-Type", mediaType)), body)
-            case None       => next.handle(req, ctx, vars, scope)
-          }
+            } else next.handle(req, ctx, vars, scope)
+          } catch { case _: java.io.IOException => next.handle(req, ctx, vars, scope) }
         }
     }
   }
@@ -868,7 +881,7 @@ object Middleware {
       "x-auth-token",
       "proxy-authenticate",
     )
-    if (sensitive.contains(name.toLowerCase(java.util.Locale.ROOT))) s"[REDACTED (len=${value.length})]" else value
+    if (sensitive.contains(name.toLowerCase)) s"[REDACTED (len=${value.length})]" else value
   }
 
   private val MaxLoggedStreamedBytes = 4096

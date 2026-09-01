@@ -50,7 +50,12 @@ object MiddlewareAuthSpec extends ZIOSpecDefault {
   def spec: Spec[Any, Nothing] = suite("MiddlewareAuth (Scala 2.13)")(
     test("no credentials -> unauthorized, handler never runs") {
       val result = dispatch(basicRoutes, Request.get(URL.root / "secure"))
-      assertTrue(result == haltAsResult(Halt(Response.unauthorized)))
+      assertTrue(result match {
+        case Right(Halt(r: Response)) =>
+          r.status == Status.Unauthorized &&
+          r.headers.get(Header.WWWAuthenticate).isDefined
+        case _                        => false
+      })
     },
     test("valid credentials -> handler runs with injected session") {
       val request = Request.get(URL.root / "secure").addHeader(Header.Authorization.Basic("admin", "secret"))
@@ -60,7 +65,12 @@ object MiddlewareAuthSpec extends ZIOSpecDefault {
     test("wrong scheme (Bearer against basicAuth) -> unauthorized") {
       val request = Request.get(URL.root / "secure").addHeader(Header.Authorization.Bearer("some-token"))
       val result  = dispatch(basicRoutes, request)
-      assertTrue(result == haltAsResult(Halt(Response.unauthorized)))
+      assertTrue(result match {
+        case Right(Halt(r: Response)) =>
+          r.status == Status.Unauthorized &&
+          r.headers.get(Header.WWWAuthenticate).isDefined
+        case _                        => false
+      })
     },
   )
 }

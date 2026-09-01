@@ -41,12 +41,7 @@ private[http] object MiddlewareMacro {
       )
 
     val inTpe  = if (inTypes.nonEmpty) inTypes.reduce(AndType(_, _)) else TypeRepr.of[Any]
-    // Downstream handlers still see consumed context types (ctx flows through
-    // unchanged and injected values are added on top), so the inner requirement
-    // is the union of consumed and injected types.
-    val outTpe =
-      if (inTypes.nonEmpty || outTypes.nonEmpty) (inTypes ++ outTypes).reduce(AndType(_, _))
-      else TypeRepr.of[Any]
+    val outTpe = if (outTypes.nonEmpty) outTypes.reduce(AndType(_, _)) else TypeRepr.of[Any]
     inTpe.asType match {
       case '[inC] =>
         outTpe.asType match {
