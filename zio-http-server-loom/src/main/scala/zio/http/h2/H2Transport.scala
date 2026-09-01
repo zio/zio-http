@@ -57,6 +57,10 @@ final class H2Transport[Ctx](
     case Protocol.H3(_, _, _)  => throw new UnsupportedOperationException("H3/QUIC is not implemented yet")
   }
 
+  // Single source for the wire SETTINGS payload: validated eagerly so an
+  // invalid Http2Config fails fast at transport construction, before bind.
+  private val localSettings: List[Setting] = H2Connection.settingsFor(http2Config)
+
   def start(): BoundConnectorHandle =
     connector.bind match {
       case BindAddress.Tcp(host, port) =>
@@ -72,7 +76,14 @@ final class H2Transport[Ctx](
                 new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
               val hpackCodec     = new HpackCodec()
               val connection     =
-                new H2Connection(input, output, http2Config.maxConcurrentStreams, flowController, hpackCodec)
+                new H2Connection(
+                  input,
+                  output,
+                  http2Config.maxConcurrentStreams,
+                  flowController,
+                  hpackCodec,
+                  Some(localSettings),
+                )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
             } catch {
               case e: Throwable =>

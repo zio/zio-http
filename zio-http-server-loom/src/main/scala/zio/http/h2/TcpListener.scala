@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 
 import zio.blocks.config.Secret
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider}
-import zio.http.{TlsConfig, TlsSource}
+import zio.http.{AlpnPolicy, TlsConfig, TlsSource}
 
 class TcpListener(
   host: String,
@@ -44,7 +44,7 @@ class TcpListener(
     val acceptor = Thread
       .ofVirtual()
       .name(s"zio-http-h2-$host:$port")
-      .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext))
+        .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext, tls))
 
     val localAddress = serverChannel.getLocalAddress.asInstanceOf[InetSocketAddress]
 
@@ -69,6 +69,7 @@ class TcpListener(
     activeConnections: java.util.Set[AutoCloseable],
     connectionCounter: AtomicLong,
     sslContext: Option[SSLContext],
+    tls: Option[TlsConfig],
   ): Unit = {
     while (running.get() && serverChannel.isOpen) {
       try {
@@ -77,7 +78,7 @@ class TcpListener(
         Thread
           .ofVirtual()
           .name(s"zio-http-conn-$connectionId")
-          .start(() => handleConnection(channel, activeConnections, sslContext))
+          .start(() => handleConnection(channel, activeConnections, sslContext, tls))
       } catch {
         case _: java.nio.channels.AsynchronousCloseException if !running.get() || !serverChannel.isOpen => ()
         case _: java.net.SocketException if !running.get() || !serverChannel.isOpen                     => ()
@@ -104,10 +105,11 @@ class TcpListener(
     channel: SocketChannel,
     activeConnections: java.util.Set[AutoCloseable],
     sslContext: Option[SSLContext],
+    tls: Option[TlsConfig],
   ): Unit = {
     sslContext match {
       case Some(context) =>
-        val sslSocket = TcpListener.createTlsSocket(context, channel)
+        val sslSocket = TcpListener.createTlsSocket(context, channel, tls)
         activeConnections.add(sslSocket)
         try {
           connectionHandler(sslSocket.getInputStream, sslSocket.getOutputStream)
@@ -169,13 +171,19 @@ private object TcpListener {
       sslContext
     }
 
-  def createTlsSocket(sslContext: SSLContext, channel: SocketChannel): SSLSocket = {
+  def createTlsSocket(sslContext: SSLContext, channel: SocketChannel, tls: Option[TlsConfig]): SSLSocket = {
     val socket = sslContext.getSocketFactory
       .createSocket(channel.socket(), channel.socket().getInetAddress.getHostAddress, channel.socket().getPort, true)
       .asInstanceOf[SSLSocket]
 
+    // ALPN comes from TlsConfig on every path (including the firstSslContext
+    // bypass, which only skips keystore loading): per-socket parameters are
+    // applied here, downstream of either SSLContext source.
+    val alpnProtocols = tls.map(_.alpnProtocols).getOrElse(List("h2"))
+    val alpnPolicy    = tls.map(_.alpnPolicy).getOrElse(AlpnPolicy.StrictH2)
+
     val sslEngine  = sslContext.createSSLEngine()
-    val parameters = withH2Alpn(sslEngine.getSSLParameters)
+    val parameters = withH2Alpn(sslEngine.getSSLParameters, alpnProtocols)
 
     sslEngine.setUseClientMode(false)
     sslEngine.setSSLParameters(parameters)
@@ -185,16 +193,18 @@ private object TcpListener {
     socket.startHandshake()
 
     val negotiatedProtocol = socket.getApplicationProtocol
-    if (negotiatedProtocol != "h2") {
-      closeQuietly(socket)
-      throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
+    alpnPolicy match {
+      case AlpnPolicy.StrictH2 if negotiatedProtocol != "h2" =>
+        closeQuietly(socket)
+        throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
+      case _                                                 => ()
     }
 
     socket
   }
 
-  private def withH2Alpn(parameters: SSLParameters): SSLParameters = {
-    parameters.setApplicationProtocols(Array("h2"))
+  private def withH2Alpn(parameters: SSLParameters, alpnProtocols: List[String]): SSLParameters = {
+    parameters.setApplicationProtocols(alpnProtocols.toArray)
     parameters
   }
 

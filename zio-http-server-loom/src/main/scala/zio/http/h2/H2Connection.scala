@@ -11,6 +11,7 @@ import scala.util.control.NonFatal
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.{Mux, MuxError, MuxStream}
 
+import zio.http.Http2Config
 import zio.http.h2.hpack.{HeaderField, HpackCodec}
 
 @experimental
@@ -21,21 +22,30 @@ final class H2Connection(
   flowController: FlowController =
     new FlowController(H2Settings.DefaultInitialWindowSize.toInt, H2Settings.DefaultInitialWindowSize.toInt),
   hpackCodec: HpackCodec = new HpackCodec(),
+  localSettings: Option[List[Setting]] = None,
 ) {
   import H2Connection._
   import H2Frame._
 
-  private val mux                            = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
-  private val closed                         = new AtomicBoolean(false)
-  private val activeStreams                  = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
-  private val decodedRequestHeaders          = new ConcurrentHashMap[Int, List[HeaderField]]()
-  private val writeLock                      = new Object
-  private var readBuffer: Chunk[Byte]        = Chunk.empty
-  private var peerSettings: List[Setting]    = Nil
-  private var pendingHeaders: PendingHeaders = null
-  @volatile private var settingsAcknowledged = false
-  @volatile private var highestStreamId      = 0
-  @volatile private var lastGoAwayStreamId   = Int.MaxValue
+  private val mux                                  = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
+  private val effectiveLocalSettings: List[Setting] = localSettings.getOrElse(
+    H2Connection.settingsFor(
+      maxConcurrentStreams,
+      H2Settings.DefaultInitialWindowSize.toInt,
+      H2Settings.DefaultMaxFrameSize.toInt,
+      None,
+    ),
+  )
+  private val closed                               = new AtomicBoolean(false)
+  private val activeStreams                        = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val decodedRequestHeaders                = new ConcurrentHashMap[Int, List[HeaderField]]()
+  private val writeLock                            = new Object
+  private var readBuffer: Chunk[Byte]              = Chunk.empty
+  private var peerSettings: List[Setting]          = Nil
+  private var pendingHeaders: PendingHeaders       = null
+  @volatile private var settingsAcknowledged       = false
+  @volatile private var highestStreamId            = 0
+  @volatile private var lastGoAwayStreamId         = Int.MaxValue
 
   def getWriteLock: Object = writeLock
 
@@ -87,7 +97,7 @@ final class H2Connection(
 
     try {
       readConnectionPreface()
-      writeFrame(Settings(ack = false, H2Settings.DefaultSettings.filterNot(_.id == Setting.ENABLE_PUSH)), flush = true)
+      writeFrame(Settings(ack = false, effectiveLocalSettings.filterNot(_.id == Setting.ENABLE_PUSH)), flush = true)
 
       readFrame() match {
         case Settings(false, settings) =>
@@ -371,6 +381,38 @@ final class H2Connection(
 @experimental
 private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
+
+  /**
+   * Builds the SETTINGS payload to advertise from a single [[Http2Config]]
+   * source: 0x3 MAX_CONCURRENT_STREAMS, 0x4 INITIAL_WINDOW_SIZE, 0x5
+   * MAX_FRAME_SIZE, 0x6 MAX_HEADER_LIST_SIZE, plus 0x1 HEADER_TABLE_SIZE 4096.
+   * ENABLE_PUSH is never advertised (the send site filters it out as before).
+   */
+  def settingsFor(config: Http2Config): List[Setting] =
+    settingsFor(
+      config.maxConcurrentStreams,
+      config.initialWindowSize,
+      config.maxFrameSize,
+      Some(config.maxHeaderListSize),
+    )
+
+  def settingsFor(
+    maxConcurrentStreams: Int,
+    initialWindowSize: Int,
+    maxFrameSize: Int,
+    maxHeaderListSize: Option[Int],
+  ): List[Setting] = {
+    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
+      throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")
+    if (initialWindowSize < 0 || initialWindowSize.toLong > Int.MaxValue)
+      throw new IllegalArgumentException("initialWindowSize must be in [0, 2147483647]")
+    List(
+      Setting(Setting.HEADER_TABLE_SIZE, H2Settings.DefaultHeaderTableSize),
+      Setting(Setting.MAX_CONCURRENT_STREAMS, maxConcurrentStreams.toLong),
+      Setting(Setting.INITIAL_WINDOW_SIZE, initialWindowSize.toLong),
+      Setting(Setting.MAX_FRAME_SIZE, maxFrameSize.toLong),
+    ) ++ maxHeaderListSize.map(size => Setting(Setting.MAX_HEADER_LIST_SIZE, size.toLong)).toList
+  }
 
   private final case class PendingHeaders(
     streamId: Int,
