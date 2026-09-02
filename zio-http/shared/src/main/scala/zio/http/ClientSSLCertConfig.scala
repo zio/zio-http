@@ -1,7 +1,7 @@
 // Copyright (C) 2019-2020 Eaglescience Software B.V.
 package zio.http
 
-import zio.Config
+import zio.{Chunk, Config}
 
 sealed trait ClientSSLCertConfig
 
@@ -34,5 +34,38 @@ object ClientSSLCertConfig {
       extends ClientSSLCertConfig
   final case class FromClientCertResourceWithPassword(certPath: String, keyPath: String, keyPassword: Config.Secret)
       extends ClientSSLCertConfig
+
+  /**
+   * Client certificate and private key supplied directly as in-memory PEM bytes
+   */
+  final case class FromClientCertBytes(certBytes: Chunk[Byte], keyBytes: Chunk[Byte]) extends ClientSSLCertConfig {
+    override def toString: String = s"FromClientCertBytes(<${certBytes.size} cert bytes>, <redacted key>)"
+  }
+  object FromClientCertBytes {
+    def apply(certBytes: Array[Byte], keyBytes: Array[Byte]): FromClientCertBytes =
+      FromClientCertBytes(Chunk.fromArray(certBytes), Chunk.fromArray(keyBytes))
+  }
+
+  /**
+   * Same as [[FromClientCertBytes]] but for a password-encrypted private key.
+   */
+  final case class FromClientCertBytesWithPassword(
+    certBytes: Chunk[Byte],
+    keyBytes: Chunk[Byte],
+    keyPassword: Config.Secret,
+  ) extends ClientSSLCertConfig {
+
+    /** @see [[FromClientCertBytes.toString]] */
+    override def toString: String =
+      s"FromClientCertBytesWithPassword(<${certBytes.size} cert bytes>, <redacted key>, <redacted password>)"
+  }
+  object FromClientCertBytesWithPassword {
+    def apply(
+      certBytes: Array[Byte],
+      keyBytes: Array[Byte],
+      keyPassword: Config.Secret,
+    ): FromClientCertBytesWithPassword =
+      FromClientCertBytesWithPassword(Chunk.fromArray(certBytes), Chunk.fromArray(keyBytes), keyPassword)
+  }
 
 }

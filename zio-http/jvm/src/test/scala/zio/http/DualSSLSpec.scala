@@ -16,11 +16,12 @@
 
 package zio.http
 
+import java.nio.file.{Files, Paths}
 import java.security.cert.X509Certificate
 
-import zio.ZLayer
+import zio.{Chunk, Config, ZLayer}
 import zio.test.Assertion.equalTo
-import zio.test.{Gen, assertCompletes, assertNever, assertZIO}
+import zio.test.{Gen, assertCompletes, assertNever, assertTrue, assertZIO}
 
 import zio.http.SSLConfig.HttpBehaviour
 import zio.http.netty.NettyConfig
@@ -39,6 +40,14 @@ object DualSSLSpec extends ZIOHttpSpec {
   val clientSSLWithClientCert2 = ClientSSLConfig.FromClientAndServerCert(
     clientSSL1,
     ClientSSLCertConfig.FromClientCertResource("client_other.crt", "client_other.key"),
+  )
+
+  private def resourceBytes(name: String): Chunk[Byte] =
+    Chunk.fromArray(Files.readAllBytes(Paths.get(getClass.getResource("/" + name).toURI)))
+
+  val clientSSLWithClientCertBytes = ClientSSLConfig.FromClientAndServerCert(
+    ClientSSLConfig.FromCertBytes(resourceBytes("server.crt")),
+    ClientSSLCertConfig.FromClientCertBytes(resourceBytes("client.crt"), resourceBytes("client.key")),
   )
 
   val sslConfigWithTrustedClient = SSLConfig.fromResource(
@@ -73,6 +82,19 @@ object DualSSLSpec extends ZIOHttpSpec {
       .installRoutes(routes)
       .as(
         List(
+          test("in-memory client cert configs keep the private key out of their rendered form") {
+            val keyBytes     = resourceBytes("client.key")
+            val nested       = ZClient.Config.default.ssl(clientSSLWithClientCertBytes).toString
+            val withPassword = ClientSSLCertConfig
+              .FromClientCertBytesWithPassword(resourceBytes("client.crt"), keyBytes, Config.Secret("key-password"))
+              .toString
+
+            assertTrue(
+              !nested.contains(keyBytes.toString),
+              !withPassword.contains(keyBytes.toString),
+              !withPassword.contains("key-password"),
+            )
+          },
           test("succeed when client has the server certificate and client certificate is configured") {
             val actual =
               Client.batched(Request.get(httpsUrl)).flatMap(r => r.body.asString.map(body => (r.status, body)))
@@ -80,6 +102,17 @@ object DualSSLSpec extends ZIOHttpSpec {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCert)),
+            NettyClientDriver.live,
+            DnsResolver.default,
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+          ),
+          test("succeed when server trust and client certificate are supplied as in-memory bytes") {
+            val actual =
+              Client.batched(Request.get(httpsUrl)).flatMap(r => r.body.asString.map(body => (r.status, body)))
+            assertZIO(actual)(equalTo((Status.Ok, "O=client1,ST=Some-State,C=AU")))
+          }.provide(
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSLWithClientCertBytes)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),

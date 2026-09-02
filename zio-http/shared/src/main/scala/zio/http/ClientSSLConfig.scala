@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.Config
+import zio.{Chunk, Config}
 import zio.Config.Secret
 
 sealed trait ClientSSLConfig
@@ -97,9 +97,15 @@ object ClientSSLConfig {
     )
   }
 
-  case object Default                                                                         extends ClientSSLConfig
-  final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
-  final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
+  case object Default                                    extends ClientSSLConfig
+  final case class FromCertFile(certPath: String)        extends ClientSSLConfig
+  final case class FromCertResource(certPath: String)    extends ClientSSLConfig
+  // No redacted toString: these are server trust bytes (a public certificate), not secret key material.
+  final case class FromCertBytes(certBytes: Chunk[Byte]) extends ClientSSLConfig
+  object FromCertBytes {
+    def apply(certBytes: Array[Byte]): FromCertBytes = FromCertBytes(Chunk.fromArray(certBytes))
+  }
+
   final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: Secret) extends ClientSSLConfig
   final case class FromClientAndServerCert(
     serverCertConfig: ClientSSLConfig,
