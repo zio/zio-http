@@ -25,14 +25,7 @@ import scala.util.Using
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ClientSSLCertConfig.{
-  FromClientCertBytes,
-  FromClientCertBytesWithPassword,
-  FromClientCertFile,
-  FromClientCertFileWithPassword,
-  FromClientCertResource,
-  FromClientCertResourceWithPassword,
-}
+import zio.http.ClientSSLCertConfig._
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
