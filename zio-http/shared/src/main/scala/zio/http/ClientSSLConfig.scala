@@ -16,8 +16,8 @@
 
 package zio.http
 
-import zio.{Chunk, Config}
 import zio.Config.Secret
+import zio.{Chunk, Config}
 
 sealed trait ClientSSLConfig
 

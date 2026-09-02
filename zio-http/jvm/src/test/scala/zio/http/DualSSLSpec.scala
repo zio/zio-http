@@ -19,9 +19,9 @@ package zio.http
 import java.nio.file.{Files, Paths}
 import java.security.cert.X509Certificate
 
-import zio.{Chunk, Config, ZLayer}
 import zio.test.Assertion.equalTo
 import zio.test.{Gen, assertCompletes, assertNever, assertTrue, assertZIO}
+import zio.{Chunk, Config, ZLayer}
 
 import zio.http.SSLConfig.HttpBehaviour
 import zio.http.netty.NettyConfig
