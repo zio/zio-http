@@ -436,6 +436,8 @@ object zio extends Module {
   * aborts `testEngine` immediately with a non-zero exit code.
   */
 def testEngine(scalaVersion: String) = Task.Command {
+  core.jvm(scalaVersion).test.testForked()()
+  core.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   h2Codec.jvm(scalaVersion).test.testForked()()
   h2Codec.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   serverLoom.jvm(scalaVersion).test.testForked()()

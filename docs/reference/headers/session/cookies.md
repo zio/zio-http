@@ -173,7 +173,7 @@ val app = Routes(
 
 // Run it like any simple app
 def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
-  Server.serve(app @@ signCookies("secret"))
+  Server.serve(app @@ signCookies("a-very-long-secret-key-that-is-at-least-32-characters"))
         .provide(NettyServer.default)
 ```
 

@@ -5,24 +5,24 @@ package example.middleware
 import zio.Config.Secret
 import zio._
 
+import zio.blocks.context.IsNominalType
 import zio.http._
+import zio.http.ResultType._
 import zio.http.codec.PathCodec.string
 import zio.http.netty.server.NettyServer
 
 object CustomAuthProviding extends ZIOAppDefault {
 
   final case class AuthContext(value: String)
+  implicit val authContextIsNominal: IsNominalType[AuthContext] = IsNominalType.derived[AuthContext]
 
   // Provides an AuthContext to the request handler
-  val provideContext: HandlerAspect[Any, AuthContext] = HandlerAspect.customAuthProviding[AuthContext] { r =>
-    {
-      r.headers.get(Header.Authorization).flatMap {
-        case Header.Authorization.Basic(uname, password) if Secret(uname.reverse) == password =>
-          Some(AuthContext(uname))
-        case _                                                                                =>
-          None
-      }
-
+  val provideContext: Middleware[Any, AuthContext] = Middleware.customAuth[AuthContext] { r =>
+    r.headers.get(Header.Authorization) match {
+      case Some(Header.Authorization.Basic(uname, password)) if Secret(uname.reverse) == password =>
+        valueAsOutcome(AuthContext(uname))
+      case _                                                                                      =>
+        haltAsOutcome(Halt(Response.unauthorized))
     }
   }
 

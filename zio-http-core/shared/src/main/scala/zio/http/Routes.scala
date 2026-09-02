@@ -24,6 +24,19 @@ final class Routes[-Ctx] private (private[http] val routes: Chunk[Route[Ctx]]) {
   def @@[LowerCtx <: Ctx, UpperCtx](middleware: Middleware[UpperCtx, LowerCtx]): Routes[UpperCtx] =
     middleware(this)
 
+  /**
+   * Context-neutral composition: applies a middleware that neither consumes nor
+   * alters the context (it only wraps handlers / passes `ctx` through), keeping
+   * this Routes' type parameters unchanged.
+   *
+   * A separate operator from `@@` because JVM erasure forbids overloading `@@`
+   * with `Middleware[Any, Any]` in shared (Scala 2.13 + Scala 3) sources.
+   *
+   * Note: prefer the typed `@@` when the middleware reads or provides context.
+   */
+  def @@@(middleware: Middleware[Any, Any]): Routes[Ctx] =
+    middleware(this.asInstanceOf[Routes[Any]]).asInstanceOf[Routes[Ctx]]
+
   def size: Int = routes.length
 
   override def toString: String = s"Routes(${routes.length} routes)"

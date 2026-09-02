@@ -29,7 +29,13 @@ object CookieBasedAuthentication extends ZIOAppDefault {
             sameSite = Some(Cookie.SameSite.Strict),
           ),
         )
-      } @@ Middleware.basicAuth("admin", "admin"),
+      } @@ Middleware.basicAuth[String] {
+        case Header.Authorization.Basic(u, p)
+            if java.security.MessageDigest.isEqual(u.getBytes("UTF-8"), "admin".getBytes("UTF-8")) &&
+              java.security.MessageDigest.isEqual(p.getBytes("UTF-8"), "admin".getBytes("UTF-8")) =>
+          Right("admin")
+        case _ => Left(Response.unauthorized)
+      },
       Method.GET / "logout"         -> handler {
         Response.ok.addCookie(Cookie.clear("session_id"))
       },
