@@ -8,6 +8,7 @@ import mill.scalajslib.*
 import mill.scalalib.*
 import mill.contrib.jmh.JmhModule
 import mill.scalalib.publish.{Developer, License, PomSettings, VersionControl}
+import mill.util.VcsVersion
 
 object Versions {
   val Scala213              = "2.13.18"
@@ -23,8 +24,25 @@ val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
 val wsRoot        = BuildCtx.workspaceRoot
 
 trait ZioHttpPublishModule extends PublishModule {
-  def publishVersion = Task {
-    sys.env.getOrElse("ZIO_HTTP_SNAPSHOT_VERSION", "4.0.0-SNAPSHOT")
+  def publishVersion = Task.Input {
+    sys.env.get("ZIO_HTTP_SNAPSHOT_VERSION").getOrElse {
+      val state = VcsVersion.calcVcsState(Task.log)
+      val cleanState = if (Task.env.contains("CI")) state.copy(dirtyHash = None) else state
+      cleanState.lastTag match {
+        case Some(tag) if tag.startsWith("v4") || tag.startsWith("4.") =>
+          // On or after v4 tag — use standard dynver format (tag on exact → release, distance → snapshot)
+          cleanState.format(untaggedSuffix = "-SNAPSHOT")
+        case Some(tag) if tag.startsWith("v3") || tag.startsWith("3.") =>
+          // No v4 tag yet — we are on v4 development branch but git describe finds latest v3 tag.
+          // Snapshots must be 4.0.0, not 3.11.x. Use constant snapshot until first v4 tag is cut.
+          "4.0.0-SNAPSHOT"
+        case None =>
+          // No tag found (e.g., shallow clone without tags, or jj workspace without .git)
+          "4.0.0-SNAPSHOT"
+        case _ =>
+          cleanState.format(untaggedSuffix = "-SNAPSHOT")
+      }
+    }
   }
   def pomSettings = Task {
     PomSettings(
