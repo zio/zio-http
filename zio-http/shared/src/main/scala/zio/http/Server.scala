@@ -454,7 +454,7 @@ object Server extends ServerPlatformSpecific {
 
       def config: zio.Config[CompressionOptions] =
         (
-          (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
+          (zio.Config.int("level").optional ++
             zio.Config.int("bits").withDefault(DeflateConfig.DefaultBits) ++
             zio.Config.int("mem").withDefault(DeflateConfig.DefaultMem)) ++
             zio.Config.int("quantity").withDefault(BrotliConfig.DefaultQuality) ++
@@ -465,10 +465,10 @@ object Server extends ServerPlatformSpecific {
             zio.Config.int("maxencode").withDefault(ZstdConfig.DefaultMaxEncodeSize)
         ).map { case (level, bits, mem, quantity, lgwin, mode, typ, block, maxencode) =>
           typ.toLowerCase match {
-            case "gzip"    => gzip(level, bits, mem)
-            case "deflate" => deflate(level, bits, mem)
+            case "gzip"    => gzip(level.getOrElse(DeflateConfig.DefaultLevel), bits, mem)
+            case "deflate" => deflate(level.getOrElse(DeflateConfig.DefaultLevel), bits, mem)
             case "brotli"  => brotli(quantity, lgwin, mode)
-            case "zstd"    => zstd(level, block, maxencode)
+            case "zstd"    => zstd(level.getOrElse(ZstdConfig.DefaultLevel), block, maxencode)
           }
         }
     }
