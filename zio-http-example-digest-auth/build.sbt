@@ -1,10 +1,10 @@
 name         := "zio-http-example-digest-auth"
 version      := "0.1.1"
-scalaVersion := "2.13.18"
+scalaVersion := "3.9.0"
 
 publish / skip  := true
 publishArtifact := false
-run / fork := true
+run / fork      := true
 
 libraryDependencies ++= Seq(
   "dev.zio" %% "zio"      % "2.1.24",
