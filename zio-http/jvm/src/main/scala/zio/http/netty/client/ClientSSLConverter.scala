@@ -16,7 +16,7 @@
 
 package zio.http.netty.client
 
-import java.io.{File, FileInputStream, InputStream}
+import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
 import java.security.KeyStore
 import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
@@ -25,12 +25,7 @@ import scala.util.Using
 import zio.Config.Secret
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ClientSSLCertConfig.{
-  FromClientCertFile,
-  FromClientCertFileWithPassword,
-  FromClientCertResource,
-  FromClientCertResourceWithPassword,
-}
+import zio.http.ClientSSLCertConfig._
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
@@ -95,6 +90,9 @@ private[netty] object ClientSSLConverter {
     case ClientSSLConfig.FromCertResource(certPath)                                                           =>
       val certStream = getClass.getClassLoader.getResourceAsStream(certPath)
       sslContextBuilder.trustManager(certStream)
+    case ClientSSLConfig.FromCertBytes(certBytes)                                                             =>
+      val certStream = new ByteArrayInputStream(certBytes.toArray)
+      sslContextBuilder.trustManager(certStream)
     case ClientSSLConfig.FromTrustStoreResource(trustStorePath, trustStorePassword)                           =>
       val trustStoreStream = getClass.getClassLoader.getResourceAsStream(trustStorePath)
       trustStoreToSslContext(trustStoreStream, trustStorePassword, sslContextBuilder)
@@ -112,6 +110,23 @@ private[netty] object ClientSSLConverter {
         val certInputStream = use(classLoader.getResourceAsStream(certPath))
         val keyInputStream  = use(classLoader.getResourceAsStream(keyPath))
         newBuilder.keyManager(certInputStream, keyInputStream)
+      }.get
+    case ClientSSLConfig.FromClientAndServerCert(serverCertConfig, FromClientCertBytes(certBytes, keyBytes))  =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val certInputStream = use(new ByteArrayInputStream(certBytes.toArray))
+        val keyInputStream  = use(new ByteArrayInputStream(keyBytes.toArray))
+        newBuilder.keyManager(certInputStream, keyInputStream)
+      }.get
+    case ClientSSLConfig.FromClientAndServerCert(
+          serverCertConfig,
+          FromClientCertBytesWithPassword(certBytes, keyBytes, keyPassword),
+        ) =>
+      val newBuilder = buildNettySslContextBuilder(serverCertConfig, sslContextBuilder)
+      Using.Manager { use =>
+        val certInputStream = use(new ByteArrayInputStream(certBytes.toArray))
+        val keyInputStream  = use(new ByteArrayInputStream(keyBytes.toArray))
+        newBuilder.keyManager(certInputStream, keyInputStream, keyPassword.value.mkString)
       }.get
     case ClientSSLConfig.FromClientAndServerCert(
           serverCertConfig,
