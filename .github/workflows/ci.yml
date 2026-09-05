@@ -72,7 +72,7 @@ jobs:
 
       - name: Check formatting
         if: matrix.scala == '3.9.0'
-        run: sbt ++2.13.18 fmtCheck
+        run: sbt ++3.9.0 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt '++ ${{ matrix.scala }}; githubWorkflowCheck'
@@ -86,7 +86,7 @@ jobs:
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.18 doc
+        run: sbt ++3.9.0 doc
 
       - name: zio-http-shaded Tests
         if: matrix.scala == '3.9.0'
@@ -158,12 +158,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.18)
+      - name: Download target directories (3.9.0)
         uses: actions/download-artifact@v8
         with:
-          name: target-${{ matrix.os }}-2.13.18-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.9.0-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.18)
+      - name: Inflate target directories (3.9.0)
         run: |
           tar xf targets.tar
           rm targets.tar
