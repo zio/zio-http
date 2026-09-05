@@ -700,6 +700,8 @@ object OpenAPI {
       case p: Parameter if name == p.name && in == p.in => true
       case _                                            => false
     }
+
+    override def hashCode(): Int = (name, in).hashCode
   }
 
   object Parameter {
