@@ -24,6 +24,9 @@ final class H2Connection(
   hpackCodec: HpackCodec = new HpackCodec(),
   localSettings: Option[List[Setting]] = None,
   maxHeaderListSize: Int = 8192,
+  idleTimeoutMs: Long = 60000,
+  requestTimeoutMs: Long = 30000,
+  drainTimeoutMs: Long = 1000,
 ) {
   import H2Connection._
   import H2Frame._
@@ -48,7 +51,29 @@ final class H2Connection(
   @volatile private var highestStreamId            = 0
   @volatile private var lastGoAwayStreamId         = Int.MaxValue
 
+  /**
+   * Live control plane for this connection (T5): shares this connection's
+   * `writeLock` (one writer lock per OutputStream), the mux, and reports
+   * the real highest stream id on idle GOAWAY. All of its blocking waits
+   * run on Loom virtual threads, never ZIO fibers.
+   */
+  private val control: H2ConnectionControl =
+    new H2ConnectionControl(
+      output,
+      mux,
+      idleTimeoutMs = idleTimeoutMs,
+      requestTimeoutMs = requestTimeoutMs,
+      writeLock = writeLock,
+      lastStreamId = () => highestStreamId,
+      drainTimeoutMs = drainTimeoutMs,
+      onGracefulShutdown = () => initiateGracefulShutdown(),
+    )
+
   def getWriteLock: Object = writeLock
+
+  def connectionControl: H2ConnectionControl = control
+
+  def currentHighestStreamId: Int = highestStreamId
 
   /**
    * Returns the request header fields for `streamId`, HPACK-decoded by the
@@ -95,6 +120,7 @@ final class H2Connection(
 
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
     val writer = Thread.ofVirtual().name("zio-http-h2-writer").start(runnable(writerLoop()))
+    control.startIdleTimer()
 
     try {
       readConnectionPreface()
@@ -115,6 +141,7 @@ final class H2Connection(
         shutdown(connectionCancelled("failure: " + error.getMessage))
         throw error
     } finally {
+      control.stopIdleTimer()
       shutdown(connectionCancelled("closed"))
       writer.interrupt()
       try writer.join()
@@ -125,6 +152,8 @@ final class H2Connection(
   }
 
   private def handleFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
+    // Any inbound frame is connection activity: keep the idle timer honest.
+    control.resetIdleTimer()
     if (pendingHeaders != null) {
       frame match {
         case continuation: Continuation if continuation.streamId == pendingHeaders.streamId =>
@@ -204,6 +233,11 @@ final class H2Connection(
       case rst: RstStream if isKnownStream(rst.streamId)  =>
         mux.get(rst.streamId).foreach(_.close())
         activeStreams.remove(rst.streamId)
+      case headers: Headers if isNewClientStream(headers.streamId) && control.isGoingAway =>
+        // RFC 9113 6.8: after we sent GOAWAY, refuse new streams with
+        // REFUSED_STREAM so the client can retry elsewhere. The id is
+        // consumed so a later reuse still trips the monotonicity check.
+        refuseStream(headers.streamId)
       case _                                              =>
         val stream = frame match {
           case headers: Headers if isNewClientStream(headers.streamId) => openStream(headers.streamId, onStream)
@@ -269,6 +303,29 @@ final class H2Connection(
   private def rejectHeaders(streamId: Int, errorCode: H2Error.Code): Unit = {
     sendReset(streamId, errorCode)
     if (streamId > highestStreamId) highestStreamId = streamId
+  }
+
+  /**
+   * Refuses a new stream opened after our GOAWAY (RFC 9113 6.8): the client
+   * must treat it as never processed and may retry on a new connection.
+   */
+  private def refuseStream(streamId: Int): Unit = {
+    sendReset(streamId, H2Error.Code.REFUSED_STREAM)
+    if (streamId > highestStreamId) highestStreamId = streamId
+  }
+
+  /**
+   * RFC 9113 6.8 graceful shutdown: runs on the control's idle-timer
+   * virtual thread after GOAWAY was sent. In-flight streams keep draining
+   * through the writer loop during the drain period, then the connection
+   * closes.
+   */
+  private def initiateGracefulShutdown(): Unit = {
+    try Thread.sleep(drainTimeoutMs)
+    catch {
+      case _: InterruptedException => Thread.currentThread().interrupt()
+    }
+    shutdown(connectionCancelled("idle timeout"))
   }
 
   private def openStream(
@@ -403,7 +460,8 @@ final class H2Connection(
   private def isNewClientStream(streamId: Int): Boolean =
     mux.get(streamId).isEmpty && streamId > 0
 
-  private def shutdown(reason: MuxError): Unit =
+  private def shutdown(reason: MuxError): Unit = {
+    control.stopIdleTimer()
     if (closed.compareAndSet(false, true)) {
       mux.closeAll(reason)
       closeQuietly(input)
@@ -413,6 +471,7 @@ final class H2Connection(
       closeQuietly(input)
       closeQuietly(output)
     }
+  }
 
   private def parkWriter(): Unit =
     try Thread.sleep(1L)

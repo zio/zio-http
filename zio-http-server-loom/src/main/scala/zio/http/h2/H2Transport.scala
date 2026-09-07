@@ -84,6 +84,7 @@ final class H2Transport[Ctx](
                   hpackCodec,
                   Some(localSettings),
                   http2Config.maxHeaderListSize,
+                  H2ConnectionControl.idleTimeoutMs(connector),
                 )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
             } catch {
@@ -124,6 +125,11 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
+    // Request timeout lives on the connection's control plane: RST_STREAM
+    // (CANCEL) fires from a Loom virtual thread if the handler overruns.
+    // handleStream itself already runs on a per-stream virtual thread, so no
+    // ZIO fiber ever blocks here.
+    val requestTimer = connection.connectionControl.startRequestTimer(stream.id)
     try {
       val requestFrame = awaitHeaders(stream)
       val request      = decodeRequest(requestFrame, stream, connection)
@@ -144,6 +150,7 @@ final class H2Transport[Ctx](
           case _: Throwable => () // Best effort: if error response also fails, give up silently
         }
     } finally {
+      requestTimer.cancel(true)
       flowController.removeStream(stream.id)
     }
   }
