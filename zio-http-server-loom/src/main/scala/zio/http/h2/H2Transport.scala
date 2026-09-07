@@ -1,9 +1,10 @@
 package zio.http.h2
 
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 import scala.annotation.experimental
 import scala.collection.immutable.ListMap
+import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -136,6 +137,11 @@ final class H2Transport[Ctx](
       val response     = instrumentRequest(request)
       sendResponse(stream, request.method, response, flowController, hpackCodec, connection)
     } catch {
+      case ResponseAborted =>
+        () // Response HEADERS already on the wire and RST_STREAM already sent
+      // (see StreamSender): an error response now would emit a second HEADERS
+      // block and corrupt the peer's HPACK dynamic table. Fall through to the
+      // `finally` (request-timer cancel, flow deregistration).
       case e: Throwable =>
         logger.error(
           "H2 stream error",
@@ -257,36 +263,154 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
-    val bodyBytes       = if (requestMethod == Method.HEAD) Chunk.empty[Byte] else response.body.toChunk
-    val bodyIsEmpty     = bodyBytes.isEmpty
-    val responseHeaders = buildResponseHeaders(response, bodyBytes, bodyIsEmpty)
-    // The HEADERS frame is HPACK-encoded and written to the wire atomically on
-    // this thread inside the connection's write lock (see writeHeadersDirect),
-    // so the wire-write order matches the encode order of the shared per-connection
-    // HPACK encoder. Routing it through the per-stream queue/writer thread instead
-    // would let the writer thread's arbitrary drain order reorder header blocks on
-    // the wire and corrupt the peer's HPACK dynamic table (RFC 7541 section 2.3.2).
-    connection.writeHeadersDirect(
-      stream,
-      Headers(
-        stream.id,
-        hpackCodec.encode(responseHeaders),
-        endStream = bodyIsEmpty,
-        endHeaders = true,
-      ),
-    )
+    // HEAD responses never carry a body (RFC 9110 9.3.2): headers close the stream.
+    if (requestMethod == Method.HEAD) {
+      val responseHeaders = buildResponseHeaders(response, None, bodyIsEmpty = true)
+      writeResponseHeaders(stream, hpackCodec, connection, responseHeaders, endStream = true)
+      return
+    }
+    // Fast path: the body is already materialized (knownChunk) — framing it
+    // costs no collection. Slow path: pull the stream chunk-by-chunk so an
+    // unbounded body never lands on the heap at once (Todo 6). Both paths run
+    // on this stream's Loom virtual thread; FlowController parks it on a
+    // Condition under backpressure, so no ZIO fiber ever blocks here.
+    response.body.toStream.knownChunk match {
+      case Some(chunk) => sendKnownBody(stream, response, chunk, flowController, hpackCodec, connection)
+      case None        => sendStreamedBody(stream, response, flowController, hpackCodec, connection)
+    }
+  }
+
+  private def sendKnownBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    response: Response,
+    body: Chunk[Byte],
+    flowController: FlowController,
+    hpackCodec: HpackCodec,
+    connection: H2Connection,
+  ): Unit = {
+    val bodyIsEmpty     = body.isEmpty
+    val responseHeaders = buildResponseHeaders(response, Some(body.length.toLong), bodyIsEmpty)
+    writeResponseHeaders(stream, hpackCodec, connection, responseHeaders, endStream = bodyIsEmpty)
 
     if (!bodyIsEmpty) {
-      val chunks = chunkBody(bodyBytes, http2Config.maxFrameSize)
-      var index  = 0
-      while (index < chunks.length) {
-        val chunk     = chunks(index)
-        val endStream = index == chunks.length - 1
-        flowController.consumeSendWindow(stream.id, chunk.length)
-        sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
-        index += 1
+      val sender = new StreamSender(stream, flowController, connection)
+      try {
+        val chunks = chunkBody(body, http2Config.maxFrameSize)
+        var index  = 0
+        while (index < chunks.length) {
+          sender.send(chunks(index), endStream = index == chunks.length - 1)
+          index += 1
+        }
+      } catch {
+        case _: sender.Aborted => throw ResponseAborted
       }
     }
+  }
+
+  /**
+   * Streams a body whose chunk is not materialized: pulls
+   * `body.toStream.chunked(maxFrameSize)` and writes each chunk as a DATA frame
+   * gated by `FlowController.consumeSendWindow`. Only one maxFrameSize chunk is
+   * ever in flight, so a 10MB (or unbounded) body streams in ~16KB of heap.
+   * Bodies with a known length advertise Content-Length; unknown lengths stream
+   * until the terminal END_STREAM with no Content-Length.
+   *
+   * jvm-perf notes: the per-chunk callback captures only stable references (no
+   * `*Ref` mutable capture, no boxing — lengths stay primitive `Int`), the hot
+   * calls are monomorphic (`final FlowController`, one `MuxStream` impl), and
+   * backpressure parks on a Condition (no spin).
+   */
+  private def sendStreamedBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    response: Response,
+    flowController: FlowController,
+    hpackCodec: HpackCodec,
+    connection: H2Connection,
+  ): Unit = {
+    val frameSize       = Math.max(1, http2Config.maxFrameSize)
+    val knownLength     = response.body.length
+    // A zero known length with no known chunk closes on HEADERS like an empty body.
+    val bodyIsEmpty     = knownLength.contains(0L)
+    val responseHeaders =
+      buildResponseHeaders(response, knownLength.filterNot(_ => bodyIsEmpty), bodyIsEmpty = bodyIsEmpty)
+    writeResponseHeaders(stream, hpackCodec, connection, responseHeaders, endStream = bodyIsEmpty)
+    if (bodyIsEmpty) return
+
+    val sender = new StreamSender(stream, flowController, connection)
+    try {
+      response.body.toStream.chunked(frameSize).runForeach { chunk =>
+        // chunked never emits empties, but a defensive skip keeps the
+        // flow-control accounting (consumeSendWindow is a no-op on 0 anyway)
+        // and the wire trace free of zero-length DATA frames.
+        if (!chunk.isEmpty) sender.send(chunk, endStream = false)
+      } match {
+        case Right(())        => sender.send(Chunk.empty[Byte], endStream = true)
+        case Left(impossible) => throw impossible
+      }
+    } catch {
+      case _: sender.Aborted => throw ResponseAborted
+    }
+  }
+
+  /**
+   * Sends one DATA frame under flow control, converting any post-headers
+   * failure (peer close, interrupt, deregistered stream) into a single
+   * RST_STREAM(CANCEL) plus a [[sender.Aborted]] control exception. The caller
+   * maps that to [[ResponseAborted]] so `handleStream` skips its error-response
+   * attempt: response HEADERS are already on the wire, so a second HEADERS
+   * block would corrupt the peer's HPACK dynamic table. Idempotent: the first
+   * abort wins, later failures are silent.
+   */
+  private final class StreamSender(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    flowController: FlowController,
+    connection: H2Connection,
+  ) {
+    final class Aborted extends RuntimeException("HTTP/2 response stream aborted") {
+      override def fillInStackTrace(): Throwable = this
+    }
+
+    private val aborted = new AtomicBoolean(false)
+
+    def send(chunk: Chunk[Byte], endStream: Boolean): Unit =
+      try {
+        // A remotely-reset (or torn-down) stream must not consume window or
+        // queue doomed DATA: abort promptly instead of waiting for a send
+        // failure. Both checks are single volatile reads (isClosed).
+        if (stream.isClosed) {
+          abort()
+          throw new Aborted
+        }
+        flowController.consumeSendWindow(stream.id, chunk.length)
+        sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
+        if (stream.isClosed) {
+          abort()
+          throw new Aborted
+        }
+      } catch {
+        case error: Aborted => throw error
+        case NonFatal(_)    =>
+          abort()
+          throw new Aborted
+      }
+
+    private def abort(): Unit =
+      if (aborted.compareAndSet(false, true)) {
+        try connection.connectionControl.sendRstStream(stream.id, H2Error.Code.CANCEL)
+        catch {
+          case NonFatal(_) => ()
+        }
+      }
+  }
+
+  /**
+   * Control-flow marker: the response started (HEADERS on the wire) and then
+   * aborted with RST_STREAM already sent. `handleStream` must not attempt an
+   * error response and just runs its `finally` (request-timer cancel, flow
+   * deregistration). Stackless: this is routine control flow, not a defect.
+   */
+  private object ResponseAborted extends RuntimeException("HTTP/2 response aborted after headers") {
+    override def fillInStackTrace(): Throwable = this
   }
 
   private def readRequestBody(stream: MuxStream[Int, H2Frame, H2Frame]): Chunk[Byte] = {
@@ -400,14 +524,50 @@ final class H2Transport[Ctx](
     }
   }
 
-  private def buildResponseHeaders(response: Response, body: Chunk[Byte], bodyIsEmpty: Boolean): List[HeaderField] = {
+  /**
+   * HPACK-encodes and writes the response HEADERS frame to the wire atomically
+   * on this thread inside the connection's write lock (see writeHeadersDirect),
+   * so the wire-write order matches the encode order of the shared
+   * per-connection HPACK encoder. Routing it through the per-stream
+   * queue/writer thread instead would let the writer thread's arbitrary drain
+   * order reorder header blocks on the wire and corrupt the peer's HPACK
+   * dynamic table (RFC 7541 section 2.3.2).
+   */
+  private def writeResponseHeaders(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    hpackCodec: HpackCodec,
+    connection: H2Connection,
+    responseHeaders: List[HeaderField],
+    endStream: Boolean,
+  ): Unit =
+    connection.writeHeadersDirect(
+      stream,
+      Headers(
+        stream.id,
+        hpackCodec.encode(responseHeaders),
+        endStream = endStream,
+        endHeaders = true,
+      ),
+    )
+
+  private def buildResponseHeaders(
+    response: Response,
+    contentLength: Option[Long],
+    bodyIsEmpty: Boolean,
+  ): List[HeaderField] = {
     val builder = List.newBuilder[HeaderField]
     builder += HeaderField(":status", response.status.code.toString)
 
     val normalizedResponse =
       if (bodyIsEmpty) response
       else if (response.headers.has(Header.ContentLength.name)) response
-      else response.addHeader(Header.ContentLength(body.length.toLong))
+      else
+        contentLength match {
+          // Known length (materialized chunk or stream metadata): advertise it.
+          // Unknown length: stream until END_STREAM with no Content-Length.
+          case Some(length) => response.addHeader(Header.ContentLength(length))
+          case None         => response
+        }
 
     val headers = normalizedResponse.headers.toList
     var index   = 0
