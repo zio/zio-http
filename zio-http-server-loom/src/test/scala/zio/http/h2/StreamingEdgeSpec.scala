@@ -86,7 +86,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        val streamed = withRawServer(streaming) { port =>
+        val streamed      = withRawServer(streaming) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -96,7 +96,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             } finally client.close()
           }
         }
-        val knownRun = withRawServer(known) { port =>
+        val knownRun      = withRawServer(known) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -148,18 +148,18 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               while (keepReading)
                 try
                   client.readFrame() match {
-                    case RstStream(1, code)                          =>
+                    case RstStream(1, code)                      =>
                       serverRsts += 1
                       println(s"[StreamingEdgeSpec] double-cancel-proof serverRst=$code count=$serverRsts")
                       assertTrue(code == H2Error.Code.CANCEL)
-                    case Data(1, data, _, _)                         => client.topUp(1, data.length)
-                    case _: Data | _: WindowUpdate | _: Settings     => ()
-                    case _: Ping | _: Headers | _: GoAway            => ()
-                    case _: Continuation | _: Priority               => ()
+                    case Data(1, data, _, _)                     => client.topUp(1, data.length)
+                    case _: Data | _: WindowUpdate | _: Settings => ()
+                    case _: Ping | _: Headers | _: GoAway        => ()
+                    case _: Continuation | _: Priority           => ()
                     case other => throw new AssertionError("Unexpected frame: " + other)
                   }
                 catch { case _: SocketTimeoutException => keepReading = false }
-              val _ = quietAfter
+              val _           = quietAfter
               println(s"[StreamingEdgeSpec] double-cancel-proof serverRsts=$serverRsts")
               assertTrue(serverRsts == 1)
 
@@ -230,11 +230,11 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               val refuseDeadline = java.lang.System.currentTimeMillis() + 10000L
               while (!refused && java.lang.System.currentTimeMillis() < refuseDeadline)
                 client.readFrame() match {
-                  case RstStream(3, code) =>
+                  case RstStream(3, code)                                             =>
                     refused = code == H2Error.Code.REFUSED_STREAM
                     println(s"[StreamingEdgeSpec] goaway-proof refusedRst=$code")
                   case _: Data | _: Headers | _: WindowUpdate | _: Settings | _: Ping => ()
-                  case _: RstStream | _: Continuation | _: Priority | _: GoAway        => ()
+                  case _: RstStream | _: Continuation | _: Priority | _: GoAway       => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               assertTrue(refused)
@@ -245,12 +245,12 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               val drain = java.lang.System.currentTimeMillis() + 20000L
               while (!done && java.lang.System.currentTimeMillis() < drain)
                 client.readFrame() match {
-                  case Data(1, data, end, _)                         =>
+                  case Data(1, data, end, _)                      =>
                     bytes += data.length
                     done = end
-                  case _: Headers | _: WindowUpdate | _: Settings    => ()
-                  case _: Ping | _: RstStream | _: Continuation      => ()
-                  case _: Priority | _: GoAway                       => ()
+                  case _: Headers | _: WindowUpdate | _: Settings => ()
+                  case _: Ping | _: RstStream | _: Continuation   => ()
+                  case _: Priority | _: GoAway                    => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               println(s"[StreamingEdgeSpec] goaway-proof inflightBytes=$bytes")
@@ -311,11 +311,11 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               while (draining && java.lang.System.currentTimeMillis() < cancelDeadline)
                 try
                   client.readFrame() match {
-                    case RstStream(1, code)                          =>
+                    case RstStream(1, code)                           =>
                       cancels += 1
                       println(s"[StreamingEdgeSpec] goaway-cancel-proof echo=$code count=$cancels")
-                    case _: Data | _: Headers | _: WindowUpdate      => ()
-                    case _: Settings | _: Ping | _: GoAway           => ()
+                    case _: Data | _: Headers | _: WindowUpdate       => ()
+                    case _: Settings | _: Ping | _: GoAway            => ()
                     case _: RstStream | _: Continuation | _: Priority => ()
                     case other => throw new AssertionError("Unexpected frame: " + other)
                   }
@@ -323,7 +323,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
                   case _: SocketTimeoutException => draining = false
                   // Drain-close FIN ends the observation: the echo (if any)
                   // precedes it. EOF with cancels == 0 fails below, honestly.
-                  case _: java.io.EOFException  => draining = false
+                  case _: java.io.EOFException   => draining = false
                 }
               println(s"[StreamingEdgeSpec] goaway-cancel-proof cancels=$cancels")
               assertTrue(cancels == 1)
@@ -382,17 +382,17 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               assertTrue(refused == Set(5, 7))
 
               // Under-limit streams still finish (16KB each fits the 64KB windows).
-              var totals   = Map.empty[Int, Long].withDefaultValue(0L)
-              var ended    = Set.empty[Int]
-              val finDone  = java.lang.System.currentTimeMillis() + 20000L
+              var totals  = Map.empty[Int, Long].withDefaultValue(0L)
+              var ended   = Set.empty[Int]
+              val finDone = java.lang.System.currentTimeMillis() + 20000L
               while (ended.size < 2 && java.lang.System.currentTimeMillis() < finDone)
                 client.readFrame() match {
                   case Data(sid, data, end, _) if sid == 1 || sid == 3 =>
                     totals += (sid -> (totals(sid) + data.length))
                     if (end) ended += sid
-                  case _: Headers | _: WindowUpdate | _: Settings    => ()
-                  case _: Ping | _: RstStream | _: Continuation      => ()
-                  case _: Priority | _: GoAway                       => ()
+                  case _: Headers | _: WindowUpdate | _: Settings      => ()
+                  case _: Ping | _: RstStream | _: Continuation        => ()
+                  case _: Priority | _: GoAway                         => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               println(s"[StreamingEdgeSpec] mux-proof totals=$totals ended=$ended")
@@ -428,29 +428,29 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
           sendWindowTimeoutMs = 1500L,
         ) { port =>
           ZIO.attemptBlocking {
-            val client           = new RawH2Client(port, autoWindowUpdate = false)
-            val startedAt        = java.lang.System.currentTimeMillis()
+            val client    = new RawH2Client(port, autoWindowUpdate = false)
+            val startedAt = java.lang.System.currentTimeMillis()
             try {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true))
-              var sawHeaders = false
-              var dataFrames = 0
+              var sawHeaders     = false
+              var dataFrames     = 0
               var rst: RstStream = null
-              val deadline = java.lang.System.currentTimeMillis() + 15000L
+              val deadline       = java.lang.System.currentTimeMillis() + 15000L
               client.socket.setSoTimeout(15000)
               while (rst == null && java.lang.System.currentTimeMillis() < deadline)
                 try
                   client.readFrame() match {
-                    case Headers(1, _, false, _, _, _) => sawHeaders = true
-                    case Data(1, _, _, _)              => dataFrames += 1
-                    case r: RstStream if r.streamId == 1 => rst = r
-                    case _: WindowUpdate | _: Settings => ()
-                    case _: Ping                       => ()
+                    case Headers(1, _, false, _, _, _)                          => sawHeaders = true
+                    case Data(1, _, _, _)                                       => dataFrames += 1
+                    case r: RstStream if r.streamId == 1                        => rst = r
+                    case _: WindowUpdate | _: Settings                          => ()
+                    case _: Ping                                                => ()
                     case _: Headers | _: GoAway | _: Continuation | _: Priority => ()
-                    case _: RstStream | _: Data        => ()
+                    case _: RstStream | _: Data                                 => ()
                     case other => throw new AssertionError("Unexpected frame: " + other)
                   }
                 catch { case _: SocketTimeoutException => () }
-              val elapsed = java.lang.System.currentTimeMillis() - startedAt
+              val elapsed        = java.lang.System.currentTimeMillis() - startedAt
               println(
                 s"[StreamingEdgeSpec] zero-window-proof sawHeaders=$sawHeaders dataFrames=$dataFrames " +
                   s"rst=${if (rst == null) "none" else rst.errorCode} elapsedMs=$elapsed",
@@ -508,14 +508,14 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               val deadline   = java.lang.System.currentTimeMillis() + 20000L
               while (!done && java.lang.System.currentTimeMillis() < deadline)
                 client.readFrame() match {
-                  case Data(1, data, end, _)         =>
+                  case Data(1, data, end, _)                                    =>
                     bytes += data.length
                     done = end
-                  case RstStream(1, code)            =>
+                  case RstStream(1, code)                                       =>
                     sawRst = true
                     println(s"[StreamingEdgeSpec] late-wu-proof spuriousRst=$code")
-                  case _: Headers | _: WindowUpdate | _: Settings => ()
-                  case _: Ping                       => ()
+                  case _: Headers | _: WindowUpdate | _: Settings               => ()
+                  case _: Ping                                                  => ()
                   case _: RstStream | _: GoAway | _: Continuation | _: Priority => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
@@ -524,11 +524,11 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               try
                 while (true)
                   client.readFrame() match {
-                    case RstStream(1, code)                          =>
+                    case RstStream(1, code)                           =>
                       sawRst = true
                       println(s"[StreamingEdgeSpec] late-wu-proof trailingRst=$code")
-                    case _: Data | _: Headers | _: WindowUpdate      => ()
-                    case _: Settings | _: Ping | _: GoAway           => ()
+                    case _: Data | _: Headers | _: WindowUpdate       => ()
+                    case _: Settings | _: Ping | _: GoAway            => ()
                     case _: RstStream | _: Continuation | _: Priority => ()
                     case other => throw new AssertionError("Unexpected frame: " + other)
                   }
@@ -580,10 +580,10 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
               val deadline       = java.lang.System.currentTimeMillis() + 10000L
               while (rst == null && java.lang.System.currentTimeMillis() < deadline)
                 client.readFrame() match {
-                  case r: RstStream if r.streamId == 1 => rst = r
-                  case Data(1, data, _, _)             => client.topUp(1, data.length)
+                  case r: RstStream if r.streamId == 1                                => rst = r
+                  case Data(1, data, _, _)                                            => client.topUp(1, data.length)
                   case _: Data | _: Headers | _: WindowUpdate | _: Settings | _: Ping => ()
-                  case _: RstStream | _: GoAway | _: Continuation | _: Priority        => ()
+                  case _: RstStream | _: GoAway | _: Continuation | _: Priority       => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               println(
@@ -609,7 +609,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             if (i % 1024 == 0) Thread.sleep(70L)
             Some((((i % 251) & 0xff).toByte, i + 1))
           }
-        val routes = Routes(
+        val routes                            = Routes(
           Route(
             RoutePattern.GET,
             handler { (_: Request) =>
@@ -619,8 +619,8 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
         )
         withRawServer(routes) { port =>
           ZIO.attemptBlocking {
-            val before = countStreamThreads()
-            val client = new RawH2Client(port)
+            val before           = countStreamThreads()
+            val client           = new RawH2Client(port)
             try {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true))
               var frames = 0
@@ -657,13 +657,13 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
       },
       test("bounded consumeSendWindow expires as FlowControlTimeout, windows untouched") {
         ZIO.attemptBlocking {
-          val fc      = new FlowController(initialConnectionWindow = 0, initialStreamWindow = 0)
+          val fc       = new FlowController(initialConnectionWindow = 0, initialStreamWindow = 0)
           fc.registerStream(1)
-          val started = java.lang.System.currentTimeMillis()
+          val started  = java.lang.System.currentTimeMillis()
           var timedOut = false
           try fc.consumeSendWindow(1, 100, 300L)
           catch { case _: FlowController.FlowControlTimeout => timedOut = true }
-          val elapsed = java.lang.System.currentTimeMillis() - started
+          val elapsed  = java.lang.System.currentTimeMillis() - started
           println(
             s"[StreamingEdgeSpec] flow-timeout-proof timedOut=$timedOut elapsedMs=$elapsed " +
               s"conn=${fc.connectionWindow} stream=${fc.streamWindow(1)}",
@@ -673,13 +673,13 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
       },
       test("WINDOW_UPDATE before the deadline resumes a parked consume") {
         ZIO.attemptBlocking {
-          val fc = new FlowController(initialConnectionWindow = 0, initialStreamWindow = 1000)
+          val fc     = new FlowController(initialConnectionWindow = 0, initialStreamWindow = 1000)
           fc.registerStream(1)
           val waiter = Thread.ofVirtual().start(() => fc.consumeSendWindow(1, 500, 10000L))
           Thread.sleep(300L)
           fc.applyWindowUpdate(0, 500)
           waiter.join(10000L)
-          val done = !waiter.isAlive
+          val done   = !waiter.isAlive
           println(
             s"[StreamingEdgeSpec] flow-resume-proof done=$done conn=${fc.connectionWindow} " +
               s"stream=${fc.streamWindow(1)}",
@@ -705,8 +705,8 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
     try
       while (true)
         client.readFrame() match {
-          case Data(sid, _, _, _) if sid == streamId => dataFrames += 1
-          case _: WindowUpdate | _: Settings | _: Ping => ()
+          case Data(sid, _, _, _) if sid == streamId                                           => dataFrames += 1
+          case _: WindowUpdate | _: Settings | _: Ping                                         => ()
           case _: Headers | _: GoAway | _: Continuation | _: Priority | _: RstStream | _: Data => ()
           case other => throw new AssertionError("Unexpected frame: " + other)
         }
@@ -720,10 +720,10 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
     var done     = false
     while (!done && java.lang.System.currentTimeMillis() < deadline)
       client.readFrame() match {
-        case Headers(sid, _, end, _, _, _) if sid == streamId =>
+        case Headers(sid, _, end, _, _, _) if sid == streamId                                =>
           result = end
           done = true
-        case _: WindowUpdate | _: Settings | _: Ping          => ()
+        case _: WindowUpdate | _: Settings | _: Ping                                         => ()
         case _: Data | _: GoAway | _: Continuation | _: Priority | _: RstStream | _: Headers => ()
         case other => throw new AssertionError("Unexpected frame: " + other)
       }

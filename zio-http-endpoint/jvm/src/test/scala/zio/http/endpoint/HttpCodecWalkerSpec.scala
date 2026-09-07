@@ -25,8 +25,7 @@ import zio.test._
 
 /**
  * Spec for [[EndpointCodecWalker]]: decomposing an endpoint `Input` value into
- * path / query / header / body slots by walking the `HttpCodec` ADT
- * explicitly.
+ * path / query / header / body slots by walking the `HttpCodec` ADT explicitly.
  *
  * Cross-version note: this file lives in the version-shared test sources and
  * must compile on BOTH Scala 2.13 and Scala 3. It therefore uses only shared
@@ -54,8 +53,8 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
   /**
    * Tuple-append combiners, passed EXPLICITLY to `++`.
    *
-   * The pinned zio-blocks snapshot predates `Tuples.tupleValue`/`tupleTuple`
-   * on Scala 3, so a 3-element `++` chain would infer different shapes per
+   * The pinned zio-blocks snapshot predates `Tuples.tupleValue`/`tupleTuple` on
+   * Scala 3, so a 3-element `++` chain would infer different shapes per
    * toolchain (Scala 3 `fallback` nests, the 2.13 macro appends flat). These
    * hand-rolled instances pin the flat shape on BOTH toolchains; explicit
    * application skips implicit search entirely, so there is no ambiguity with
@@ -65,21 +64,21 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
     new Tuples.Tuples[(Boolean, String), String] {
       type Out = (Boolean, String, String)
       def combine(left: (Boolean, String), right: String): Out = (left._1, left._2, right)
-      def separate(out: Out): ((Boolean, String), String)     = ((out._1, out._2), out._3)
+      def separate(out: Out): ((Boolean, String), String)      = ((out._1, out._2), out._3)
     }
 
   private val appendThirdInt: Tuples.Tuples.WithOut[(Int, Int), Int, (Int, Int, Int)] =
     new Tuples.Tuples[(Int, Int), Int] {
       type Out = (Int, Int, Int)
       def combine(left: (Int, Int), right: Int): Out = (left._1, left._2, right)
-      def separate(out: Out): ((Int, Int), Int)     = ((out._1, out._2), out._3)
+      def separate(out: Out): ((Int, Int), Int)      = ((out._1, out._2), out._3)
     }
 
   private val appendFourthString: Tuples.Tuples.WithOut[(Int, Int, Int), String, (Int, Int, Int, String)] =
     new Tuples.Tuples[(Int, Int, Int), String] {
       type Out = (Int, Int, Int, String)
       def combine(left: (Int, Int, Int), right: String): Out = (left._1, left._2, left._3, right)
-      def separate(out: Out): ((Int, Int, Int), String)     = ((out._1, out._2, out._3), out._4)
+      def separate(out: Out): ((Int, Int, Int), String)      = ((out._1, out._2, out._3), out._4)
     }
 
   private val queryHeaderCodec: HttpCodec[CodecKind.Request, (Boolean, String)] =
@@ -110,7 +109,7 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
     test("Fallback picks the matching alternative on each side") {
       val eithers: Eithers.Eithers.WithOut[Int, String, Either[Int, String]] =
         eitherEithers[Int, String]
-      val codec: HttpCodec[CodecKind.Request, Either[Int, String]] =
+      val codec: HttpCodec[CodecKind.Request, Either[Int, String]]           =
         HttpCodec.Fallback(
           HttpCodec.query[Int]("a", Schema[Int]),
           HttpCodec.query[String]("b", Schema[String]),
@@ -128,16 +127,16 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
       // Left-nested spine Combine(Combine(Combine(n1, n2), n3), body) with
       // the flat tuple shape pinned explicitly via the append combiners above
       // so both toolchains agree.
-      val pair12: HttpCodec[CodecKind.Request, (Int, Int)] =
+      val pair12: HttpCodec[CodecKind.Request, (Int, Int)]             =
         HttpCodec.query[Int]("n1", Schema[Int]) ++ HttpCodec.query[Int]("n2", Schema[Int])
-      val triple123: HttpCodec[CodecKind.Request, (Int, Int, Int)] =
+      val triple123: HttpCodec[CodecKind.Request, (Int, Int, Int)]     =
         pair12.++[Int, (Int, Int, Int)](HttpCodec.query[Int]("n3", Schema[Int]))(appendThirdInt)
       val codec: HttpCodec[CodecKind.Request, (Int, Int, Int, String)] =
         triple123.++[String, (Int, Int, Int, String)](HttpCodec.requestBody(Schema[String]))(
           appendFourthString,
         )
-      val route: RoutePattern[Unit] = RoutePattern(Method.POST, Path.root / "nested")
-      val result                    = EndpointCodecWalker.decompose(route, codec, (), (1, 2, 3, "b"))
+      val route: RoutePattern[Unit]                                    = RoutePattern(Method.POST, Path.root / "nested")
+      val result = EndpointCodecWalker.decompose(route, codec, (), (1, 2, 3, "b"))
       assertTrue(
         result.map(_.queryParams) == Right(Map("n1" -> "1", "n2" -> "2", "n3" -> "3")),
         result.map(_.body.map(b => Schema[String].jsonCodec.decode(b.toArray))) == Right(Some(Right("b"))),
@@ -155,7 +154,7 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
     test("Fallback against Empty omits the absent optional query param") {
       val eithers: Eithers.Eithers.WithOut[Boolean, Unit, Either[Boolean, Unit]] =
         eitherEithers[Boolean, Unit]
-      val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]] =
+      val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]]             =
         HttpCodec.Fallback(
           HttpCodec.query[Boolean]("active", Schema[Boolean]),
           HttpCodec.Empty,
@@ -170,7 +169,7 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
       )
     },
     test("combining two bodies fails with a clear error instead of dropping one") {
-      val codec =
+      val codec                     =
         HttpCodec.requestBody(Schema[String]) ++ HttpCodec.requestBody(Schema[Int])
       val route: RoutePattern[Unit] = RoutePattern(Method.POST, Path.root / "twobody")
       val result                    = EndpointCodecWalker.decompose(route, codec, (), ("a", 1))
@@ -180,7 +179,7 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
       )
     },
     test("a broken alternator fails with a clear dispatch error") {
-      val boom = new Alternator[Int, String] {
+      val boom                                                     = new Alternator[Int, String] {
         type Out = Either[Int, String]
         def combine(either: Either[Int, String]): Either[Int, String] = either
         def separate(out: Either[Int, String]): Either[Int, String]   =
@@ -192,8 +191,8 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
           HttpCodec.query[String]("b", Schema[String]),
           boom,
         )
-      val route: RoutePattern[Unit] = RoutePattern(Method.GET, Path.root / "boom")
-      val result                    = EndpointCodecWalker.decompose(route, codec, (), Left(1))
+      val route: RoutePattern[Unit]                                = RoutePattern(Method.GET, Path.root / "boom")
+      val result = EndpointCodecWalker.decompose(route, codec, (), Left(1))
       assertTrue(
         result.isLeft,
         result.left.getOrElse("").contains("boom-no-dispatch"),

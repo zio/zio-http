@@ -44,7 +44,7 @@ class TcpListener(
     val acceptor = Thread
       .ofVirtual()
       .name(s"zio-http-h2-$host:$port")
-        .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext, tls))
+      .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext, tls))
 
     val localAddress = serverChannel.getLocalAddress.asInstanceOf[InetSocketAddress]
 
@@ -223,11 +223,11 @@ private object TcpListener {
     }
 
   /**
-   * A caller-provided SSLContext carries key material but never the
-   * configured ALPN list or the pinned TLS versions (both are per-socket
-   * SSLParameters, applied downstream in createTlsSocket): return it for the
-   * keystore bypass, but fail fast when the TlsConfig it would silently
-   * ignore is misconfigured or unsupported.
+   * A caller-provided SSLContext carries key material but never the configured
+   * ALPN list or the pinned TLS versions (both are per-socket SSLParameters,
+   * applied downstream in createTlsSocket): return it for the keystore bypass,
+   * but fail fast when the TlsConfig it would silently ignore is misconfigured
+   * or unsupported.
    */
   private def requireProvidedContext(ctx: SSLContext, tls: TlsConfig, field: String): SSLContext = {
     if (tls.alpnProtocols.isEmpty)

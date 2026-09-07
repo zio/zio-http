@@ -49,19 +49,19 @@ import zio.http.{
  *   2. Endpoint-shape round-trip leg: the exact request T12 proves
  *      `EndpointBridge.buildRequest` renders (`GET /users/42?active=true` +
  *      `X-Trace` + JSON body, never `URL.root` — see `EndpointRoundTripSpec`)
- *      is built here, sent through the pool to a [[LoomServer]] echo route,
- *      and decoded back to equality. T12 owns request-rendering proof; this
- *      leg owns transport proof — together they cover
- *      buildRequest → pool → server → decode without re-proving the walker.
+ *      is built here, sent through the pool to a [[LoomServer]] echo route, and
+ *      decoded back to equality. T12 owns request-rendering proof; this leg
+ *      owns transport proof — together they cover buildRequest → pool → server
+ *      → decode without re-proving the walker.
  *   3. Pool/streaming leg: N sequential requests through one pool reuse a
  *      single connection (`stats.idle == 1`), and a 200KB unknown-length body
- *      streams lazily (`knownChunk.isEmpty`) byte-exact under flow control
- *      (T15 stub idioms, here against the real server).
+ *      streams lazily (`knownChunk.isEmpty`) byte-exact under flow control (T15
+ *      stub idioms, here against the real server).
  *
- * Every transfer larger than 64KB relies on the pooled client's own
- * RFC 9113 §6.9 window management (T15); every server/client pair uses
- * ephemeral ports with `acquireRelease` (server) and try/finally `close()`
- * (pool) — no stray threads, servers, ports, or files.
+ * Every transfer larger than 64KB relies on the pooled client's own RFC 9113
+ * §6.9 window management (T15); every server/client pair uses ephemeral ports
+ * with `acquireRelease` (server) and try/finally `close()` (pool) — no stray
+ * threads, servers, ports, or files.
  */
 @experimental
 object SseEndToEndSpec extends ZIOSpecDefault {
@@ -113,8 +113,8 @@ object SseEndToEndSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(zio.http.ClientConfig())
             try {
-              val response = pool.send(Request.get(absUrl("http://127.0.0.1:" + port + "/")))
-              val headOk   = response.status == Status.Ok &&
+              val response   = pool.send(Request.get(absUrl("http://127.0.0.1:" + port + "/")))
+              val headOk     = response.status == Status.Ok &&
                 response.headers.rawGet("Content-Type").exists(_.contains("text/event-stream"))
               val bodyStream = response.body.toStream
               val lazyProof  = bodyStream.knownChunk.isEmpty
@@ -136,10 +136,10 @@ object SseEndToEndSpec extends ZIOSpecDefault {
                 case Right(n) => n
                 case Left(_)  => -1L
               }
-              val expected = (0 until SseEventCount)
+              val expected   = (0 until SseEventCount)
                 .map(i => new String(SseCodec.encode(ServerSentEvent("e" + i)).toArray, Utf8))
                 .mkString
-              val stats = pool.stats
+              val stats      = pool.stats
               proof(
                 "sse-delay gapsMs=" + gaps.toList + " events=" + events +
                   " bytes=" + count + " lazy=" + lazyProof + " stats=" + stats,
@@ -180,9 +180,9 @@ object SseEndToEndSpec extends ZIOSpecDefault {
               // Byte-identical to what T12 proves buildRequest renders
               // (EndpointRoundTripSpec: path /users/42, ?active=true,
               // X-Trace, JSON body, never URL.root).
-              val base    = absUrl("http://127.0.0.1:" + port + "/users/42")
-              val url     = base.addQueryParams(QueryParams("active" -> "true"))
-              val request = Request
+              val base     = absUrl("http://127.0.0.1:" + port + "/users/42")
+              val url      = base.addQueryParams(QueryParams("active" -> "true"))
+              val request  = Request
                 .post(url, Body.fromString("\"payload\""))
                 .copy(method = Method.GET)
                 .addHeader("X-Trace", "abc")
@@ -228,7 +228,7 @@ object SseEndToEndSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(zio.http.ClientConfig())
             try {
-              val bodies = (1 to 5).map { _ =>
+              val bodies     = (1 to 5).map { _ =>
                 val response = pool.send(Request.get(absUrl("http://127.0.0.1:" + port + "/")))
                 if (response.status != Status.Ok) throw new AssertionError("status: " + response.status)
                 new String(response.body.toArray, Utf8)
@@ -245,7 +245,7 @@ object SseEndToEndSpec extends ZIOSpecDefault {
                 case Right(n) => n
                 case Left(_)  => -1L
               }
-              val afterBig = pool.stats
+              val afterBig   = pool.stats
               proof(
                 "pool-stream reuse=" + bodies.distinct + " idleAfterReuse=" + afterReuse +
                   " bigTotal=" + total + " mismatches=" + mismatches.get() +

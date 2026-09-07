@@ -22,9 +22,9 @@ import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, R
 /**
  * T5: Connector.idleTimeout wired into the live H2 path.
  *
- * Idle connections receive GOAWAY(NO_ERROR, lastStreamId = highest open
- * stream) with a drain period per RFC 9113 section 6.8, then close; request
- * timeouts surface as RST_STREAM(CANCEL).
+ * Idle connections receive GOAWAY(NO_ERROR, lastStreamId = highest open stream)
+ * with a drain period per RFC 9113 section 6.8, then close; request timeouts
+ * surface as RST_STREAM(CANCEL).
  */
 @experimental
 object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
@@ -45,10 +45,10 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
                 goAway.lastStreamId != Int.MaxValue &&
                 goAway.lastStreamId >= 0
               // GOAWAY bytes were observed on the wire (frame assertion, not just state).
-              val onWire  = wireBytes.nonEmpty
+              val onWire = wireBytes.nonEmpty
               // After the drain period the server closes the TCP connection.
               client.socket.setSoTimeout(10000)
-              val closed  =
+              val closed =
                 try client.socket.getInputStream.read() == -1
                 catch { case _: java.io.IOException => true }
               assertTrue(valid, onWire, closed)
@@ -66,7 +66,7 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
             var idleClosed = false
             while (attempts < 2 && !keptAlive) {
               attempts += 1
-              val client  = new RawH2Client(port)
+              val client = new RawH2Client(port)
               try {
                 // PING every 50ms for ~600ms: each inbound frame resets the
                 // 200ms idle timer, so no GOAWAY may arrive while busy.
@@ -103,21 +103,21 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
       },
       test("request timeout sends RST_STREAM(CANCEL)") {
         ZIO.attemptBlocking {
-          val out     = new java.io.ByteArrayOutputStream()
-          val mux     = Mux[Int, H2Frame, H2Frame](100)
+          val out              = new java.io.ByteArrayOutputStream()
+          val mux              = Mux[Int, H2Frame, H2Frame](100)
           mux.open(1)
-          val control = new H2ConnectionControl(out, mux, idleTimeoutMs = 0L, requestTimeoutMs = 200L)
-          val future  = control.startRequestTimer(1)
+          val control          = new H2ConnectionControl(out, mux, idleTimeoutMs = 0L, requestTimeoutMs = 200L)
+          val future           = control.startRequestTimer(1)
           // Retry-once rule: allow one extra window for loaded-CI scheduling.
           var decoded: H2Frame = null
-          var waited          = 0
+          var waited           = 0
           while (decoded == null && waited < 10000) {
             Thread.sleep(250)
             waited += 250
             if (out.size() > 0)
               FrameCodec.decode(Chunk.fromArray(out.toByteArray)) match {
                 case Right((frame, _)) => decoded = frame
-                case Left(_)            => ()
+                case Left(_)           => ()
               }
           }
           future.cancel(true)
@@ -137,13 +137,18 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
           assertTrue(connection.connectionControl.getWriteLock eq connection.getWriteLock)
         }
       },
-      test("idle timer thread does not leak after the connection closes") {        ZIO.attemptBlocking {
+      test("idle timer thread does not leak after the connection closes") {
+        ZIO.attemptBlocking {
           def idleTimerThreads: Int =
-            Thread.getAllStackTraces.keySet().toArray.collect {
-              case t: Thread if t.getName.startsWith("zio-http-h2-idle-timeout") && t.isAlive => t
-            }.length
-          val before = idleTimerThreads
-          val client = {
+            Thread.getAllStackTraces
+              .keySet()
+              .toArray
+              .collect {
+                case t: Thread if t.getName.startsWith("zio-http-h2-idle-timeout") && t.isAlive => t
+              }
+              .length
+          val before                = idleTimerThreads
+          val client                = {
             var created: RawH2Client = null
             withIdleServerSync { port =>
               created = new RawH2Client(port)
@@ -156,7 +161,7 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
           try client.close()
           catch { case _: Exception => () }
           Thread.sleep(2000)
-          val after = idleTimerThreads
+          val after                 = idleTimerThreads
           assertTrue(after <= before)
         }
       },
@@ -193,7 +198,9 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
         use(port)
       }
 
-  /** Blocking variant for the thread-leak probe (needs the port outside ZIO). */
+  /**
+   * Blocking variant for the thread-leak probe (needs the port outside ZIO).
+   */
   private def withIdleServerSync[R](use: Int => R): R = {
     val handle = ServerHandle.live(
       List(
@@ -250,9 +257,12 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
       throw new AssertionError("unreachable")
     }
 
-    /** Reads until a GOAWAY arrives or `timeoutMs` elapses; reports raw bytes seen. */
+    /**
+     * Reads until a GOAWAY arrives or `timeoutMs` elapses; reports raw bytes
+     * seen.
+     */
     def awaitGoAway(timeoutMs: Long, onBytes: Chunk[Byte] => Unit): GoAway = {
-      val deadline = java.lang.System.currentTimeMillis() + timeoutMs
+      val deadline       = java.lang.System.currentTimeMillis() + timeoutMs
       var result: GoAway = null
       while (result == null && java.lang.System.currentTimeMillis() < deadline) {
         socket.setSoTimeout(Math.max(1, (deadline - java.lang.System.currentTimeMillis()).toInt))
@@ -314,9 +324,9 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
               case Left(e)  => throw new AssertionError("HPACK decode: " + e)
             }
             done = end
-          case Data(sid, _, end, _) if sid == streamId               =>
+          case Data(sid, _, end, _) if sid == streamId              =>
             done = end
-          case GoAway(_, code, _)                                    =>
+          case GoAway(_, code, _)                                   =>
             throw new AssertionError("Unexpected GOAWAY: " + code)
           case _                                                    => ()
         }

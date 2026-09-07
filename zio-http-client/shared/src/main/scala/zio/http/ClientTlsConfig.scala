@@ -5,12 +5,12 @@ import zio.blocks.schema.Schema
 /**
  * Where an HTTP client obtains TLS trust material.
  *
- * Deliberately JVM/JS-portable: filesystem locations stay `String`
- * (drivers resolve them with `Paths.get` on the JVM), inline PEM stays
- * `String`, and there is intentionally no `SSLContext` case - a
- * caller-provided context is wired programmatically at driver construction
- * time, outside structured config. This mirrors the *shape* of the
- * server-side `TlsSource` without importing server config into the client.
+ * Deliberately JVM/JS-portable: filesystem locations stay `String` (drivers
+ * resolve them with `Paths.get` on the JVM), inline PEM stays `String`, and
+ * there is intentionally no `SSLContext` case - a caller-provided context is
+ * wired programmatically at driver construction time, outside structured
+ * config. This mirrors the *shape* of the server-side `TlsSource` without
+ * importing server config into the client.
  */
 sealed trait ClientTrustSource
 
@@ -33,9 +33,9 @@ object ClientTrustSource {
   ) extends ClientTrustSource
 
   implicit val systemDefaultSchema: Schema[SystemDefault.type] = Schema.derived[SystemDefault.type]
-  implicit val trustStoreSchema: Schema[TrustStore]           = Schema.derived[TrustStore]
-  implicit val pemBundleSchema: Schema[PemBundle]             = Schema.derived[PemBundle]
-  implicit val schema: Schema[ClientTrustSource]              = Schema.derived[ClientTrustSource]
+  implicit val trustStoreSchema: Schema[TrustStore]            = Schema.derived[TrustStore]
+  implicit val pemBundleSchema: Schema[PemBundle]              = Schema.derived[PemBundle]
+  implicit val schema: Schema[ClientTrustSource]               = Schema.derived[ClientTrustSource]
 }
 
 /**
@@ -62,9 +62,9 @@ object ClientKeySource {
     storeType: String = "PKCS12",
   ) extends ClientKeySource
 
-  implicit val pemKeySchema: Schema[PemKey]       = Schema.derived[PemKey]
-  implicit val keyStoreSchema: Schema[KeyStore]   = Schema.derived[KeyStore]
-  implicit val schema: Schema[ClientKeySource]    = Schema.derived[ClientKeySource]
+  implicit val pemKeySchema: Schema[PemKey]     = Schema.derived[PemKey]
+  implicit val keyStoreSchema: Schema[KeyStore] = Schema.derived[KeyStore]
+  implicit val schema: Schema[ClientKeySource]  = Schema.derived[ClientKeySource]
 }
 
 /**
@@ -73,9 +73,9 @@ object ClientKeySource {
  * Driver contract: a driver reads [[trust]] to build its trust managers,
  * [[key]] (when defined) to build its key managers for mTLS, and pins
  * [[tlsVersions]] on every TLS socket it creates (mirroring how `TcpListener`
- * pins versions per-socket downstream of either `SSLContext` source). An
- * empty [[tlsVersions]] fails fast - a client that negotiates no TLS version
- * would fail misleadingly late at handshake time.
+ * pins versions per-socket downstream of either `SSLContext` source). An empty
+ * [[tlsVersions]] fails fast - a client that negotiates no TLS version would
+ * fail misleadingly late at handshake time.
  *
  * `None` (`ClientConfig.tls` default) means plaintext unless the URL scheme
  * says otherwise; drivers must not build TLS state for `None`.

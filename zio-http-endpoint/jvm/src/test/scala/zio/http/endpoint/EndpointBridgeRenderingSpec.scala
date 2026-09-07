@@ -27,9 +27,9 @@ import zio.test._
  * Spec for `EndpointBridge.buildRequest` (Todo 11): the client side of `.call`
  * must render a FULL HTTP request from `EndpointCodecWalker.decompose` output —
  * method from the endpoint, path from `RoutePattern.format` (never `URL.root`;
- * see the `EndpointCallRoundtripSpec` note for the bug this fixes), query string
- * from the decomposed query params, headers (including `Content-Type` from the
- * body media type), and JSON body bytes from the codec walk.
+ * see the `EndpointCallRoundtripSpec` note for the bug this fixes), query
+ * string from the decomposed query params, headers (including `Content-Type`
+ * from the body media type), and JSON body bytes from the codec walk.
  *
  * The fluent `Endpoint.get("/users/{id}").query(...).header(...).in[User]`
  * shape from the plan is expressed here with the real constructor API
@@ -60,7 +60,7 @@ object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
     new Tuples.Tuples[(Boolean, String), String] {
       type Out = (Boolean, String, String)
       def combine(left: (Boolean, String), right: String): Out = (left._1, left._2, right)
-      def separate(out: Out): ((Boolean, String), String)     = ((out._1, out._2), out._3)
+      def separate(out: Out): ((Boolean, String), String)      = ((out._1, out._2), out._3)
     }
 
   private val errorCodec: HttpCodec[CodecKind.Response, String] =
@@ -105,7 +105,7 @@ object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
       )
     },
     test("a missing required param fails with IllegalArgumentException naming the param") {
-      val boom = new Alternator[String, Unit] {
+      val boom                                                      = new Alternator[String, Unit] {
         type Out = Either[String, Unit]
         def combine(either: Either[String, Unit]): Either[String, Unit] = either
         def separate(out: Either[String, Unit]): Either[String, Unit]   =
@@ -117,15 +117,16 @@ object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
           HttpCodec.Empty,
           boom,
         )
-      val route: RoutePattern[Unit] = RoutePattern(Method.GET, Path.root / "guarded")
+      val route: RoutePattern[Unit]                                 = RoutePattern(Method.GET, Path.root / "guarded")
       val guarded: Endpoint[Unit, Either[String, Unit], String, String, AuthType.None.type] =
         Endpoint(route, codec, errorCodec, outputCodec, AuthType.None, Doc.empty)
-      val result = try {
-        EndpointBridge.buildRequestPublic(guarded, (), Left("s-1"))
-        None
-      } catch {
-        case e: IllegalArgumentException => Some(e.getMessage)
-      }
+      val result                                                                            =
+        try {
+          EndpointBridge.buildRequestPublic(guarded, (), Left("s-1"))
+          None
+        } catch {
+          case e: IllegalArgumentException => Some(e.getMessage)
+        }
       assertTrue(
         result.isDefined,
         result.getOrElse("").contains("session"),
@@ -134,7 +135,7 @@ object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
     test("an absent optional query param is omitted, a present one is rendered") {
       val eithers: Eithers.Eithers.WithOut[Boolean, Unit, Either[Boolean, Unit]] =
         eitherEithers[Boolean, Unit]
-      val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]] =
+      val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]]             =
         HttpCodec.Fallback(
           HttpCodec.query[Boolean]("active", Schema[Boolean]),
           HttpCodec.Empty,
@@ -160,7 +161,7 @@ object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
       )
     },
     test("a special-char path param renders through RoutePattern.format, never as root") {
-      val route: RoutePattern[String] = Method.GET / "search" / PathCodec.string("q")
+      val route: RoutePattern[String]                                    = Method.GET / "search" / PathCodec.string("q")
       val ep: Endpoint[String, Unit, String, String, AuthType.None.type] =
         Endpoint(route, HttpCodec.empty[CodecKind.Request], errorCodec, outputCodec, AuthType.None, Doc.empty)
       val request = EndpointBridge.buildRequestPublic(ep, "a b", ())

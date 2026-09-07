@@ -8,17 +8,19 @@ import zio.blocks.schema.Schema
  * This governs the *client* end of the handshake (which protocols the client
  * offers via ALPN and whether it tolerates negotiating anything other than
  * `h2`). It is independent from the server-side [[AlpnPolicy]], which governs
- * TLS rejection vs. acceptance on the server: the two types must stay
- * separate.
+ * TLS rejection vs. acceptance on the server: the two types must stay separate.
  *
  * Driver contract (for T14's LoomH2 driver and [[JavaH2Client]]): read
- * [[ClientAlpnPolicy.alpnProtocols]] to build the client's ALPN offer list.
- * TLS connections that negotiate a protocol outside the policy must fail
- * fast; cleartext (`h2c`) handling per policy is documented on each case.
+ * [[ClientAlpnPolicy.alpnProtocols]] to build the client's ALPN offer list. TLS
+ * connections that negotiate a protocol outside the policy must fail fast;
+ * cleartext (`h2c`) handling per policy is documented on each case.
  */
 sealed trait ClientAlpnPolicy {
 
-  /** ALPN protocol IDs the client offers on TLS connections, in preference order. */
+  /**
+   * ALPN protocol IDs the client offers on TLS connections, in preference
+   * order.
+   */
   def alpnProtocols: List[String]
 }
 
@@ -26,8 +28,8 @@ object ClientAlpnPolicy {
 
   /**
    * Offer `h2` first with `http/1.1` fallback. TLS connections use whichever
-   * protocol the server negotiates; cleartext connections may use `h2c`
-   * upgrade or plain HTTP/1.1. This is the default.
+   * protocol the server negotiates; cleartext connections may use `h2c` upgrade
+   * or plain HTTP/1.1. This is the default.
    */
   case object H2PreferredWithH11Fallback extends ClientAlpnPolicy {
     val alpnProtocols: List[String] = List("h2", "http/1.1")
@@ -69,7 +71,7 @@ object ClientAlpnPolicy {
 
   implicit val h2PreferredWithH11FallbackSchema: Schema[H2PreferredWithH11Fallback.type] =
     Schema.derived[H2PreferredWithH11Fallback.type]
-  implicit val strictH2Schema: Schema[StrictH2.type]     = Schema.derived[StrictH2.type]
-  implicit val h2OnlyH2CSchema: Schema[H2OnlyH2C.type]   = Schema.derived[H2OnlyH2C.type]
-  implicit val schema: Schema[ClientAlpnPolicy]         = Schema.derived[ClientAlpnPolicy]
+  implicit val strictH2Schema: Schema[StrictH2.type]                                     = Schema.derived[StrictH2.type]
+  implicit val h2OnlyH2CSchema: Schema[H2OnlyH2C.type] = Schema.derived[H2OnlyH2C.type]
+  implicit val schema: Schema[ClientAlpnPolicy]        = Schema.derived[ClientAlpnPolicy]
 }

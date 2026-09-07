@@ -12,12 +12,12 @@ import zio.blocks.schema.Schema
  * Reclamation is best-effort - a driver may reclaim earlier under memory
  * pressure but must never hand out a connection idle longer than
  * [[idleTimeout]] without a liveness check. [[queueSize]] bounds how many
- * borrowers may wait for a connection; drivers fail fast (rather than
- * growing unbounded queues) once it is exceeded.
+ * borrowers may wait for a connection; drivers fail fast (rather than growing
+ * unbounded queues) once it is exceeded.
  *
  * All sizes fail fast with [[IllegalArgumentException]] when incoherent, so
- * misconfiguration surfaces at construction time instead of as a hung pool
- * at runtime.
+ * misconfiguration surfaces at construction time instead of as a hung pool at
+ * runtime.
  */
 final case class PoolConfig(
   maxPerHost: Int = PoolConfig.DefaultMaxPerHost,

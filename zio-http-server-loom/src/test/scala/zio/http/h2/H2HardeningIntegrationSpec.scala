@@ -58,13 +58,13 @@ import zio.http.{
  *      pinned version negotiated);
  *   5. idle timeout emits GOAWAY(NO_ERROR) with a valid lastStreamId (never
  *      Int.MaxValue) and drains to TCP close;
- *   6. an unknown-length streaming response arrives chunked-correct across
- *      DATA frames under flow control (byte-exact, no truncation).
+ *   6. an unknown-length streaming response arrives chunked-correct across DATA
+ *      frames under flow control (byte-exact, no truncation).
  *
  * Characterization-with-teeth: T1–T15 already landed this behavior, so each
  * test additionally discriminates — the oversized-header test replays the
- * identical attacker probe against a weakened (large-limit) config and
- * requires 200 there, proving the rejection comes from the bound.
+ * identical attacker probe against a weakened (large-limit) config and requires
+ * 200 there, proving the rejection comes from the bound.
  *
  * Every transfer larger than 64KB tops up connection/stream windows per RFC
  * 9113 section 6.9 (see [[RawH2Client.topUp]]); without it the server's
@@ -87,7 +87,10 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withLoom(routes, Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(Http2Config(maxConcurrentStreams = 2)))) { port =>
+        withLoom(
+          routes,
+          Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(Http2Config(maxConcurrentStreams = 2))),
+        ) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -111,17 +114,17 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
               val burstDeadline = java.lang.System.currentTimeMillis() + 10000L
               while (refused.size < 2 && java.lang.System.currentTimeMillis() < burstDeadline)
                 client.readFrame() match {
-                  case RstStream(sid, code) if sid == 5 || sid == 7 =>
+                  case RstStream(sid, code) if sid == 5 || sid == 7        =>
                     println(s"[H2HardeningIntegrationSpec] mux-proof refused stream=$sid code=$code")
                     assertTrue(code == H2Error.Code.REFUSED_STREAM)
                     refused += sid
                   case Headers(sid, _, _, _, _, _) if sid == 5 || sid == 7 =>
                     throw new AssertionError("Over-limit stream was served instead of refused (mux leak)")
-                  case Data(sid, _, _, _) if sid == 5 || sid == 7         =>
+                  case Data(sid, _, _, _) if sid == 5 || sid == 7          =>
                     throw new AssertionError("Over-limit stream produced DATA (mux leak)")
-                  case _: Data | _: Headers | _: WindowUpdate             => ()
-                  case _: Settings | _: Ping | _: GoAway                  => ()
-                  case _: RstStream | _: Continuation | _: Priority       => ()
+                  case _: Data | _: Headers | _: WindowUpdate              => ()
+                  case _: Settings | _: Ping | _: GoAway                   => ()
+                  case _: RstStream | _: Continuation | _: Priority        => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               assertTrue(refused == Set(5, 7))
@@ -135,9 +138,9 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
                   case Data(sid, data, end, _) if sid == 1 || sid == 3 =>
                     totals += (sid -> (totals(sid) + data.length))
                     if (end) ended += sid
-                  case _: Headers | _: WindowUpdate | _: Settings    => ()
-                  case _: Ping | _: RstStream | _: Continuation      => ()
-                  case _: Priority | _: GoAway                       => ()
+                  case _: Headers | _: WindowUpdate | _: Settings      => ()
+                  case _: Ping | _: RstStream | _: Continuation        => ()
+                  case _: Priority | _: GoAway                         => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               println(s"[H2HardeningIntegrationSpec] mux-proof totals=$totals ended=$ended")
@@ -169,7 +172,7 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
               // Attacker: header list ~11KB against a 1KB bound.
-              val block = Hpack.encode(
+              val block                                    = Hpack.encode(
                 List(
                   HeaderField(":method", "GET"),
                   HeaderField(":path", "/"),
@@ -180,20 +183,20 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
               )
               client.sendFrame(Headers(streamId = 1, headerBlock = block, endStream = true, endHeaders = true))
               var done: Either[H2Error.Code, H2Error.Code] = null
-              val deadline = java.lang.System.currentTimeMillis() + 10000L
+              val deadline                                 = java.lang.System.currentTimeMillis() + 10000L
               client.socket.setSoTimeout(10000)
               while (done == null && java.lang.System.currentTimeMillis() < deadline)
                 client.readFrame() match {
-                  case Settings(false, _)                            => client.sendFrame(Settings(ack = true, Nil))
-                  case Settings(true, _)                             => ()
-                  case _: WindowUpdate                               => ()
-                  case RstStream(sid, code) if sid == 1              => done = Right(code)
-                  case GoAway(_, code, _)                            => done = Left(code)
-                  case Headers(sid, _, _, _, _, _) if sid == 1       =>
+                  case Settings(false, _)                      => client.sendFrame(Settings(ack = true, Nil))
+                  case Settings(true, _)                       => ()
+                  case _: WindowUpdate                         => ()
+                  case RstStream(sid, code) if sid == 1        => done = Right(code)
+                  case GoAway(_, code, _)                      => done = Left(code)
+                  case Headers(sid, _, _, _, _, _) if sid == 1 =>
                     throw new AssertionError("Oversized headers were served instead of rejected (header leak)")
-                  case Data(sid, _, _, _) if sid == 1                =>
+                  case Data(sid, _, _, _) if sid == 1          =>
                     throw new AssertionError("Oversized headers produced a body (header leak)")
-                  case _                                             => ()
+                  case _                                       => ()
                 }
               println(s"[H2HardeningIntegrationSpec] header-proof outcome=$done")
               assertTrue(
@@ -239,41 +242,45 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
           privateKey = TlsSource.PemString(Secret(TestKey)),
         )
         withLoom(routes, Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(strict))) { strictPort =>
-          ZIO.attemptBlocking(handshakeOnly(strictPort, Array("http/1.1"))).exit.map { exit =>
-            // Wire proof: the TLS layer itself rejects the h1.1-only attacker.
-            val rejectedAtTls = exit match {
-              case Exit.Failure(cause) => cause.failures.exists(_.isInstanceOf[javax.net.ssl.SSLException])
-              case _                   => false
-            }
-            println(s"[H2HardeningIntegrationSpec] alpn-proof strict-rejected=$rejectedAtTls")
-            assertTrue(exit.isFailure, rejectedAtTls)
-          }.flatMap { strictResult =>
-            val negotiate = TlsConfig(
-              certChain = TlsSource.PemString(Secret(TestCert)),
-              privateKey = TlsSource.PemString(Secret(TestKey)),
-              alpnProtocols = List("h2", "http/1.1"),
-              alpnPolicy = AlpnPolicy.NegotiateH2Preferred,
-            )
-            withLoom(routes, Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(negotiate))) { port =>
-              ZIO.attemptBlocking {
-                // Wire proof the ALPN list came from config: h2 negotiated…
-                val negotiated = handshakeOnly(port, Array("h2"))
-                // …an h2 GET round-trips over the JDK client with HTTP_2…
-                val (version, status, _) = jdkGet(port, "/")
-                // …and an http/1.1-only client now completes TLS.
-                val fallback = handshakeOnly(port, Array("http/1.1"))
-                println(
-                  s"[H2HardeningIntegrationSpec] alpn-proof negotiated=$negotiated version=$version status=$status fallback=$fallback",
-                )
-                assertTrue(
-                  negotiated == "h2",
-                  version == java.net.http.HttpClient.Version.HTTP_2,
-                  status == 200,
-                  fallback == "http/1.1",
-                )
+          ZIO
+            .attemptBlocking(handshakeOnly(strictPort, Array("http/1.1")))
+            .exit
+            .map { exit =>
+              // Wire proof: the TLS layer itself rejects the h1.1-only attacker.
+              val rejectedAtTls = exit match {
+                case Exit.Failure(cause) => cause.failures.exists(_.isInstanceOf[javax.net.ssl.SSLException])
+                case _                   => false
               }
-            }.map(negotiateResult => strictResult && negotiateResult)
-          }
+              println(s"[H2HardeningIntegrationSpec] alpn-proof strict-rejected=$rejectedAtTls")
+              assertTrue(exit.isFailure, rejectedAtTls)
+            }
+            .flatMap { strictResult =>
+              val negotiate = TlsConfig(
+                certChain = TlsSource.PemString(Secret(TestCert)),
+                privateKey = TlsSource.PemString(Secret(TestKey)),
+                alpnProtocols = List("h2", "http/1.1"),
+                alpnPolicy = AlpnPolicy.NegotiateH2Preferred,
+              )
+              withLoom(routes, Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(negotiate))) { port =>
+                ZIO.attemptBlocking {
+                  // Wire proof the ALPN list came from config: h2 negotiated…
+                  val negotiated           = handshakeOnly(port, Array("h2"))
+                  // …an h2 GET round-trips over the JDK client with HTTP_2…
+                  val (version, status, _) = jdkGet(port, "/")
+                  // …and an http/1.1-only client now completes TLS.
+                  val fallback             = handshakeOnly(port, Array("http/1.1"))
+                  println(
+                    s"[H2HardeningIntegrationSpec] alpn-proof negotiated=$negotiated version=$version status=$status fallback=$fallback",
+                  )
+                  assertTrue(
+                    negotiated == "h2",
+                    version == java.net.http.HttpClient.Version.HTTP_2,
+                    status == 200,
+                    fallback == "http/1.1",
+                  )
+                }
+              }.map(negotiateResult => strictResult && negotiateResult)
+            }
         }
       },
       test("TLS pin enforced on the wire: old-TLS attacker rejected, pinned version negotiated") {
@@ -314,7 +321,7 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
             var wireBytes = Chunk.empty[Byte]
             try {
               // One real stream first, so lastStreamId must be exactly 1.
-              val first = client.roundTrip("GET", "/", Chunk.empty, streamId = 1)
+              val first  = client.roundTrip("GET", "/", Chunk.empty, streamId = 1)
               assertTrue(first.status == 200)
               val goAway = client.awaitGoAway(10000, bytesSeen => wireBytes = wireBytes ++ bytesSeen)
               // Wire proof: GOAWAY bytes observed, valid lastStreamId (never Int.MaxValue).
@@ -331,7 +338,7 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
               assertTrue(valid, onWire)
               // Drain proof: after the drain period the server closes TCP.
               client.socket.setSoTimeout(10000)
-              val closed  =
+              val closed =
                 try client.socket.getInputStream.read() == -1
                 catch { case _: java.io.IOException => true }
               assertTrue(closed)
@@ -356,38 +363,38 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
             val client = new RawH2Client(port, autoWindowUpdate = true)
             try {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true))
-              val body    = mutable.ArrayBuffer.empty[Byte]
-              var frames  = 0
-              var done    = false
-              var sawHead = false
+              val body     = mutable.ArrayBuffer.empty[Byte]
+              var frames   = 0
+              var done     = false
+              var sawHead  = false
               client.socket.setSoTimeout(20000)
               val deadline = java.lang.System.currentTimeMillis() + 30000L
               while (!done && java.lang.System.currentTimeMillis() < deadline)
                 client.readFrame() match {
-                  case Settings(false, _)              => client.sendFrame(Settings(ack = true, Nil))
-                  case Settings(true, _)               => ()
-                  case _: WindowUpdate                 => ()
-                  case _: Ping                         => ()
-                  case Headers(1, _, end, _, _, _)     =>
+                  case Settings(false, _)          => client.sendFrame(Settings(ack = true, Nil))
+                  case Settings(true, _)           => ()
+                  case _: WindowUpdate             => ()
+                  case _: Ping                     => ()
+                  case Headers(1, _, end, _, _, _) =>
                     sawHead = true
                     done = end
-                  case Data(1, data, end, _)           =>
+                  case Data(1, data, end, _)       =>
                     frames += 1
                     body ++= data.toArray[Byte].toSeq
                     // RFC 9113 6.9: replenish windows as DATA is consumed,
                     // or the 200KB transfer stalls the server's FlowController.
                     client.topUp(1, data.length)
                     done = end
-                  case RstStream(1, code)              =>
+                  case RstStream(1, code)          =>
                     throw new AssertionError("Stream reset mid-transfer: " + code)
-                  case GoAway(_, code, _)              =>
+                  case GoAway(_, code, _)          =>
                     throw new AssertionError("GOAWAY mid-transfer: " + code)
                   case _: Data | _: Headers | _: RstStream | _: Continuation | _: Priority | _: GoAway => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               // Expected bytes regenerated deterministically (same (i % 251) source).
-              var exact = body.length == total
-              var i     = 0
+              var exact    = body.length == total
+              var i        = 0
               while (exact && i < total) {
                 if (body(i) != ((i % 251) & 0xff).toByte) exact = false
                 i += 1
@@ -503,7 +510,7 @@ tylLU8iZnM9E7+/GSVghdQ==
     val trustAll = Array[TrustManager](new X509TrustManager {
       override def checkClientTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
       override def checkServerTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
-      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate]                                = Array.empty
+      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new java.security.SecureRandom())
@@ -562,16 +569,34 @@ tylLU8iZnM9E7+/GSVghdQ==
     }
   }
 
-  /** JDK HTTP/2 client GET over TLS: returns (session version, status, body). */
+  /**
+   * JDK HTTP/2 client GET over TLS: returns (session version, status, body).
+   */
   private def jdkGet(port: Int, path: String): (java.net.http.HttpClient.Version, Int, String) = {
     val trustAll = Array[TrustManager](new javax.net.ssl.X509ExtendedTrustManager {
       override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String): Unit = ()
       override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String): Unit = ()
-      override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String, s: java.net.Socket): Unit = ()
-      override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String, s: java.net.Socket): Unit = ()
-      override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String, e: javax.net.ssl.SSLEngine): Unit = ()
-      override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String, e: javax.net.ssl.SSLEngine): Unit = ()
-      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
+      override def checkClientTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        s: java.net.Socket,
+      ): Unit = ()
+      override def checkServerTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        s: java.net.Socket,
+      ): Unit = ()
+      override def checkClientTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        e: javax.net.ssl.SSLEngine,
+      ): Unit = ()
+      override def checkServerTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        e: javax.net.ssl.SSLEngine,
+      ): Unit = ()
+      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate]                     = Array.empty
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new java.security.SecureRandom())
@@ -684,12 +709,12 @@ tylLU8iZnM9E7+/GSVghdQ==
       var status: Option[Int] = None
       while (status.isEmpty) {
         readFrame() match {
-          case Settings(false, _)                             => sendFrame(Settings(ack = true, Nil))
-          case Settings(true, _)                              => ()
-          case _: WindowUpdate                                => ()
-          case RstStream(sid, code) if sid == streamId        =>
+          case Settings(false, _)                                   => sendFrame(Settings(ack = true, Nil))
+          case Settings(true, _)                                    => ()
+          case _: WindowUpdate                                      => ()
+          case RstStream(sid, code) if sid == streamId              =>
             throw new AssertionError("Stream was reset unexpectedly: " + code)
-          case GoAway(_, code, _)                             =>
+          case GoAway(_, code, _)                                   =>
             throw new AssertionError("GOAWAY while awaiting response: " + code)
           case Headers(sid, block, end, _, _, _) if sid == streamId =>
             decoder.decode(block) match {
@@ -698,15 +723,18 @@ tylLU8iZnM9E7+/GSVghdQ==
                 if (end && status.isEmpty) throw new AssertionError("Missing :status")
               case Left(error)   => throw new AssertionError("HPACK decode: " + error)
             }
-          case _                                              => ()
+          case _                                                    => ()
         }
       }
       status.get
     }
 
-    /** Reads until a GOAWAY arrives or `timeoutMs` elapses; reports raw bytes seen. */
+    /**
+     * Reads until a GOAWAY arrives or `timeoutMs` elapses; reports raw bytes
+     * seen.
+     */
     def awaitGoAway(timeoutMs: Long, onBytes: Chunk[Byte] => Unit): GoAway = {
-      val deadline     = java.lang.System.currentTimeMillis() + timeoutMs
+      val deadline       = java.lang.System.currentTimeMillis() + timeoutMs
       var result: GoAway = null
       while (result == null && java.lang.System.currentTimeMillis() < deadline) {
         socket.setSoTimeout(Math.max(1, (deadline - java.lang.System.currentTimeMillis()).toInt))

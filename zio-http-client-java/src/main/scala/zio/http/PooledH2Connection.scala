@@ -38,10 +38,10 @@ private[http] final class StaleConnectionException(message: String, cause: Throw
  *
  * Extends the T14 framing (same prior-knowledge preface, same server-SETTINGS
  * handshake, same header mapping via [[H2WireClient]] - never forked) from
- * one-shot to sequential: the handshake runs once, then each exchange takes
- * the next odd stream id (1, 3, 5, ...) with a connection-scoped
- * [[HpackCodec]] so HPACK dynamic-table state stays consistent across
- * exchanges in both directions.
+ * one-shot to sequential: the handshake runs once, then each exchange takes the
+ * next odd stream id (1, 3, 5, ...) with a connection-scoped [[HpackCodec]] so
+ * HPACK dynamic-table state stays consistent across exchanges in both
+ * directions.
  *
  * The connection is exclusively leased: at most one exchange is in flight, so
  * the read path needs no lock. All writes funnel through `writeLock` so a
@@ -52,8 +52,8 @@ private[http] final class StaleConnectionException(message: String, cause: Throw
  * Response bodies are NOT buffered here: [[H2Exchange.bodyInput]] pulls DATA
  * frames on demand (one frame live at a time) with per-chunk connection- and
  * stream-level window top-ups (RFC 9113 section 6.9, T6/T7 backpressure
- * lessons). Request upload stays fully buffered (`Body.toArray`, T14
- * semantics) - asymmetric by design, documented on the pool.
+ * lessons). Request upload stays fully buffered (`Body.toArray`, T14 semantics) -
+ * asymmetric by design, documented on the pool.
  */
 @experimental
 private[http] final class PooledH2Connection private (
@@ -70,7 +70,10 @@ private[http] final class PooledH2Connection private (
 
   @volatile private var dead: Boolean = false
 
-  /** Next client-initiated odd stream id. Guarded by the pool lease (exclusive use). */
+  /**
+   * Next client-initiated odd stream id. Guarded by the pool lease (exclusive
+   * use).
+   */
   private var nextStreamId: Int = 1
 
   /** Pool-managed recency stamp (nanos); only touched under the pool lock. */
@@ -79,7 +82,10 @@ private[http] final class PooledH2Connection private (
   def isDead: Boolean   = dead
   def isClosed: Boolean = socket.isClosed || !socket.isConnected
 
-  /** Best-effort socket close without touching `dead` (cancel path owns the verdict). */
+  /**
+   * Best-effort socket close without touching `dead` (cancel path owns the
+   * verdict).
+   */
   private[http] def closeSocket(): Unit = closeQuietly(socket)
 
   def markDead(): Unit = {
@@ -87,13 +93,13 @@ private[http] final class PooledH2Connection private (
   }
 
   /**
-   * Runs one request/response exchange. Returns after the response HEADERS;
-   * the body (unless `endStream`) streams lazily through
-   * [[H2Exchange.bodyInput]]. Throws [[StaleConnectionException]] when the
-   * failure happened before the request HEADERS were flushed (pool may retry
-   * on a fresh connection), [[TimeoutException]] on socket-deadline expiry,
-   * [[CancellationException]] when [[H2Exchange.cancel]] won the race, and
-   * [[IOException]] otherwise (GOAWAY failures name GOAWAY explicitly).
+   * Runs one request/response exchange. Returns after the response HEADERS; the
+   * body (unless `endStream`) streams lazily through [[H2Exchange.bodyInput]].
+   * Throws [[StaleConnectionException]] when the failure happened before the
+   * request HEADERS were flushed (pool may retry on a fresh connection),
+   * [[TimeoutException]] on socket-deadline expiry, [[CancellationException]]
+   * when [[H2Exchange.cancel]] won the race, and [[IOException]] otherwise
+   * (GOAWAY failures name GOAWAY explicitly).
    */
   def exchange(
     request: Request,
@@ -115,7 +121,7 @@ private[http] final class PooledH2Connection private (
     // RST idempotence is independent of `cancelled` (the reader-mapping flag
     // is set by the pool before the hook runs - sharing one CAS would skip
     // the RST exactly when cancel wins the race).
-    val rstSent = new AtomicBoolean(false)
+    val rstSent                 = new AtomicBoolean(false)
     def failIfCancelled(): Unit =
       if (cancelled.get()) throw new CancellationException("H2 request (stream " + streamId + ") was cancelled")
 
@@ -135,7 +141,7 @@ private[http] final class PooledH2Connection private (
       }
       sendBody(streamId, body, cancelled)
       val (status, headers, endStream) = readResponseHeaders(streamId, cancelled)
-      val contentType                 =
+      val contentType                  =
         headers.get(Header.ContentType).map(_.value).getOrElse(ContentType.`application/octet-stream`)
       if (endStream) {
         new H2Exchange(
@@ -163,9 +169,9 @@ private[http] final class PooledH2Connection private (
         )
       }
     } catch {
-      case stale: StaleConnectionException => throw stale
-      case cancel: CancellationException   => throw cancel
-      case timeout: TimeoutException       =>
+      case stale: StaleConnectionException                => throw stale
+      case cancel: CancellationException                  => throw cancel
+      case timeout: TimeoutException                      =>
         dead = true
         throw timeout
       case socketTimeout: java.net.SocketTimeoutException =>
@@ -176,16 +182,17 @@ private[http] final class PooledH2Connection private (
             socketTimeout,
           )
         throw new TimeoutException("H2 exchange timed out (stream " + streamId + "): " + socketTimeout.getMessage)
-      case eof: EOFException               =>
+      case eof: EOFException                              =>
         // A half-closed stale socket: never observed live, so a pre-flush EOF
         // is retriable; post-flush it poisons the connection.
         dead = true
-        if (!headersFlushed) throw new StaleConnectionException(
-          "Pooled H2 exchange hit EOF before request HEADERS were flushed (stream " + streamId + ")",
-          eof,
-        )
+        if (!headersFlushed)
+          throw new StaleConnectionException(
+            "Pooled H2 exchange hit EOF before request HEADERS were flushed (stream " + streamId + ")",
+            eof,
+          )
         throw eof
-      case socket: java.net.SocketException =>
+      case socket: java.net.SocketException               =>
         if (cancelled.get()) failCancelled(streamId)
         dead = true
         if (!headersFlushed)
@@ -194,11 +201,12 @@ private[http] final class PooledH2Connection private (
             socket,
           )
         throw socket
-      case failure: Throwable              =>
-        if (!headersFlushed) throw new StaleConnectionException(
-          "Pooled H2 exchange failed before request HEADERS were flushed (stream " + streamId + ")",
-          failure,
-        )
+      case failure: Throwable                             =>
+        if (!headersFlushed)
+          throw new StaleConnectionException(
+            "Pooled H2 exchange failed before request HEADERS were flushed (stream " + streamId + ")",
+            failure,
+          )
         failure match {
           case io: IOException => throw io
           case _               => throw new IOException("Pooled H2 exchange failed (stream " + streamId + ")", failure)
@@ -246,26 +254,26 @@ private[http] final class PooledH2Connection private (
 
   private def awaitSendWindow(streamId: Int, cancelled: AtomicBoolean): Unit =
     reader.readFrame() match {
-      case WindowUpdate(0, increment)        =>
+      case WindowUpdate(0, increment)          =>
         connSendWindow += increment
       case WindowUpdate(`streamId`, increment) =>
         streamSendWindow += increment
-      case Ping(false, data)                 =>
+      case Ping(false, data)                   =>
         writeLock.synchronized {
           writeFrame(Ping(ack = true, data))
           output.flush()
         }
-      case Settings(false, _)                =>
+      case Settings(false, _)                  =>
         writeLock.synchronized {
           writeFrame(Settings(ack = true, Nil))
           output.flush()
         }
-      case RstStream(`streamId`, code)       =>
+      case RstStream(`streamId`, code)         =>
         throw new IOException("HTTP/2 stream reset while sending request body: " + code)
-      case GoAway(_, code, _)                =>
+      case GoAway(_, code, _)                  =>
         dead = true
         throw new IOException("HTTP/2 connection closed (GOAWAY) while sending request body: " + code)
-      case _                                 => ()
+      case _                                   => ()
     }
 
   private def readResponseHeaders(streamId: Int, cancelled: AtomicBoolean): (Status, zio.http.Headers, Boolean) = {
@@ -363,7 +371,9 @@ private[http] final class PooledH2Connection private (
     }
   }
 
-  /** Body pull loop shared by [[H2BodyInput]]; see its contract for windowing. */
+  /**
+   * Body pull loop shared by [[H2BodyInput]]; see its contract for windowing.
+   */
   private[http] def readBodyFrame(body: H2BodyInput): Boolean = {
     val streamId  = body.streamId
     val cancelled = body.cancelled
@@ -373,7 +383,7 @@ private[http] final class PooledH2Connection private (
       if (cancelled.get()) failCancelled(streamId)
       try {
         reader.readFrame() match {
-          case Data(`streamId`, data, streamEnd, _) =>
+          case Data(`streamId`, data, streamEnd, _)                    =>
             val bytes = data.toArray
             body.append(bytes)
             writeLock.synchronized {
@@ -395,23 +405,23 @@ private[http] final class PooledH2Connection private (
               appendBounded(new ByteArrayOutputStream(), block)
             }
             if (streamEnd) done = true
-            // Otherwise the HEADERS carried no payload: loop for the next frame.
-          case Ping(false, data)                           =>
+          // Otherwise the HEADERS carried no payload: loop for the next frame.
+          case Ping(false, data)                                       =>
             writeLock.synchronized {
               writeFrame(Ping(ack = true, data))
               output.flush()
             }
-          case Settings(false, _)                          =>
+          case Settings(false, _)                                      =>
             writeLock.synchronized {
               writeFrame(Settings(ack = true, Nil))
               output.flush()
             }
-          case RstStream(`streamId`, code)                 =>
+          case RstStream(`streamId`, code)                             =>
             throw new IOException("HTTP/2 stream reset while reading response body: " + code)
-          case GoAway(_, code, _)                          =>
+          case GoAway(_, code, _)                                      =>
             dead = true
             throw new IOException("HTTP/2 connection closed (GOAWAY) while reading response body: " + code)
-          case _                                           => ()
+          case _                                                       => ()
         }
       } catch {
         case timeout: java.net.SocketTimeoutException =>
@@ -475,10 +485,10 @@ private[http] final class H2Exchange(
  * heap-bounded no matter the body size) and tops up connection- and
  * stream-level windows per chunk (RFC 9113 section 6.9).
  *
- * `close()` is a deliberate no-op towards the socket: the blocks-stream
- * wrapper closes this stream at EOF, but the pooled connection must survive
- * for reuse. Terminal state is observable via [[completedCleanly]] (pool
- * reuses only clean connections; anything else is evicted, never black-holed).
+ * `close()` is a deliberate no-op towards the socket: the blocks-stream wrapper
+ * closes this stream at EOF, but the pooled connection must survive for reuse.
+ * Terminal state is observable via [[completedCleanly]] (pool reuses only clean
+ * connections; anything else is evicted, never black-holed).
  */
 @experimental
 private[http] final class H2BodyInput(
@@ -486,10 +496,10 @@ private[http] final class H2BodyInput(
   val cancelled: AtomicBoolean,
   private val conn: PooledH2Connection,
 ) extends InputStream {
-  private var carry       = new Array[Byte](16384)
-  private var carryPos    = 0
+  private var carry             = new Array[Byte](16384)
+  private var carryPos          = 0
   private[http] var carryLength = 0
-  private var eof         = false
+  private var eof               = false
   private var failed: Throwable = null
 
   /** True once END_STREAM was seen and every byte was handed out. */
@@ -554,9 +564,9 @@ private[http] final class H2BodyInput(
 
 @experimental
 private[http] object PooledH2Connection {
-  private val Preface: Array[Byte] =
+  private val Preface: Array[Byte]   =
     "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII)
-  private val DefaultMaxFrame: Int = 16384
+  private val DefaultMaxFrame: Int   = 16384
   private val DefaultSendWindow: Int = 65535
   private val ConnectionStream: Int  = 0
   private val MaxHeaderBytes: Int    = 65536
@@ -570,11 +580,11 @@ private[http] object PooledH2Connection {
     output.write(Preface)
     writeFrame(output, Settings(ack = false, Nil))
     output.flush()
-    val reader         = new PooledFrameReader(input)
-    var maxFrame       = DefaultMaxFrame
-    var connWindow     = DefaultSendWindow
-    var streamWindow   = DefaultSendWindow
-    var done           = false
+    val reader       = new PooledFrameReader(input)
+    var maxFrame     = DefaultMaxFrame
+    var connWindow   = DefaultSendWindow
+    var streamWindow = DefaultSendWindow
+    var done         = false
     while (!done) {
       reader.readFrame() match {
         case Settings(false, settings)                 =>
@@ -610,22 +620,22 @@ private[http] object PooledH2Connection {
 private[http] final class PooledFrameReader(input: InputStream) {
   private var buffer = Chunk.empty[Byte]
 
-    def readFrame(): H2Frame = {
-      var result: H2Frame = null
-      while (result == null) {
-        FrameCodec.decode(buffer) match {
-          case Right((decoded, rest))         =>
-            buffer = rest
-            result = decoded
-          case Left(H2Error.InsufficientData) =>
-            val chunk = new Array[Byte](8192)
-            val read  = input.read(chunk)
-            if (read < 0) throw new EOFException("HTTP/2 connection closed mid-frame")
-            buffer = buffer ++ Chunk.fromArray(java.util.Arrays.copyOf(chunk, read))
-          case Left(error)                    =>
-            throw new IOException("Failed to decode HTTP/2 frame: " + error)
-        }
+  def readFrame(): H2Frame = {
+    var result: H2Frame = null
+    while (result == null) {
+      FrameCodec.decode(buffer) match {
+        case Right((decoded, rest))         =>
+          buffer = rest
+          result = decoded
+        case Left(H2Error.InsufficientData) =>
+          val chunk = new Array[Byte](8192)
+          val read  = input.read(chunk)
+          if (read < 0) throw new EOFException("HTTP/2 connection closed mid-frame")
+          buffer = buffer ++ Chunk.fromArray(java.util.Arrays.copyOf(chunk, read))
+        case Left(error)                    =>
+          throw new IOException("Failed to decode HTTP/2 frame: " + error)
       }
-      result
     }
+    result
+  }
 }

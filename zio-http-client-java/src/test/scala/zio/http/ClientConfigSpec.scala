@@ -12,8 +12,7 @@ import zio.test._
  * server/endpoint/loom surface: config defaults, Schema round-trip of a
  * fully-populated `ClientConfig` (via `toDynamicValue`/`fromDynamicValue`),
  * fail-fast validation of every invalid value, and the ALPN policy values
- * (including rejection - never silent defaulting - of unknown policy
- * names).
+ * (including rejection - never silent defaulting - of unknown policy names).
  */
 object ClientConfigSpec extends ZIOSpecDefault {
 
@@ -149,7 +148,9 @@ object ClientConfigSpec extends ZIOSpecDefault {
         assertTrue(rejects(PoolConfig(queueSize = -1)))
       },
       test("PoolConfig rejects zero and negative idleTimeout") {
-        assertTrue(rejects(PoolConfig(idleTimeout = Duration.ZERO)) && rejects(PoolConfig(idleTimeout = Duration.ofSeconds(-1))))
+        assertTrue(
+          rejects(PoolConfig(idleTimeout = Duration.ZERO)) && rejects(PoolConfig(idleTimeout = Duration.ofSeconds(-1))),
+        )
       },
       test("ClientTlsConfig rejects empty tlsVersions") {
         assertTrue(rejects(ClientTlsConfig(tlsVersions = Nil)))

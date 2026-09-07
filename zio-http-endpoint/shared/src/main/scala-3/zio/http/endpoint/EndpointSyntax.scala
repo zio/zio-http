@@ -18,7 +18,21 @@ package zio.http.endpoint
 import scala.quoted.*
 import zio.blocks.combinators.Unions
 import zio.blocks.endpoint.{Alternator, AuthType, CodecKind, Endpoint, HttpCodec}
-import zio.http.{Body, Client, Halt, Handler, Headers, QueryParams, Request, Response, ResultType, Route, Status, URL, Version}
+import zio.http.{
+  Body,
+  Client,
+  Halt,
+  Handler,
+  Headers,
+  QueryParams,
+  Request,
+  Response,
+  ResultType,
+  Route,
+  Status,
+  URL,
+  Version,
+}
 import zio.http.ResultType._
 
 /**
@@ -95,8 +109,7 @@ extension [Input, Err, Output, Auth <: AuthType](
 
   /**
    * Invokes a root-path (no path params) endpoint against `client`, returning
-   * the decoded `Err | Output` union. Shorthand for
-   * `call(client, (), input)`.
+   * the decoded `Err | Output` union. Shorthand for `call(client, (), input)`.
    */
   def call(client: Client, input: Input)(using
     unions: Unions.Unions.WithOut[Err, Output, Err | Output],
@@ -182,16 +195,16 @@ private[endpoint] object EndpointBridge {
   }
 
   /**
-   * Builds an outgoing [[Request]] from `EndpointCodecWalker.decompose`
-   * output: method from the endpoint, path from `RoutePattern.format` (never
+   * Builds an outgoing [[Request]] from `EndpointCodecWalker.decompose` output:
+   * method from the endpoint, path from `RoutePattern.format` (never
    * `URL.root`), query string from the decomposed query params, headers
    * (including `Content-Type` from the body media type), and JSON body bytes
    * from the codec walk.
    *
    * A [[java.lang.IllegalArgumentException]] naming the offending param is
    * thrown when the input cannot be decomposed (for example a required query,
-   * header, body, or path fragment that fails to render) — the request is
-   * never silently sent to the root URL.
+   * header, body, or path fragment that fails to render) — the request is never
+   * silently sent to the root URL.
    */
   def buildRequestPublic[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
@@ -205,15 +218,15 @@ private[endpoint] object EndpointBridge {
     pathInput: PathInput,
     input: Input,
   ): Request = {
-    val decomposed = EndpointCodecWalker.decompose(endpoint, pathInput, input) match {
+    val decomposed  = EndpointCodecWalker.decompose(endpoint, pathInput, input) match {
       case Right(value)  => value
       case Left(message) => throw new IllegalArgumentException(message)
     }
-    val baseUrl = URL.fromPath(decomposed.path)
-    val url = decomposed.queryParams.foldLeft(baseUrl) { case (acc, (name, value)) =>
+    val baseUrl     = URL.fromPath(decomposed.path)
+    val url         = decomposed.queryParams.foldLeft(baseUrl) { case (acc, (name, value)) =>
       acc.addQueryParams(QueryParams(name -> value))
     }
-    val base = Request(
+    val base        = Request(
       method = endpoint.route.method,
       url = url,
       headers = Headers.empty,

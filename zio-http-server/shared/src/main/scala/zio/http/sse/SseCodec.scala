@@ -7,11 +7,11 @@ import zio.blocks.chunk.Chunk
 /**
  * Native Server-Sent Events framing (WHATWG HTML, server-sent events).
  *
- * `encode` frames exactly one [[ServerSentEvent]] per call: optional
- * `event:` line, one `data:` line per data line, optional `id:`/`retry:`
- * lines, then the blank-line terminator. Callers stream events with
- * `Stream#flatMap` over [[encode]] so each event is framed as it flows —
- * never collected into one materialized [[Chunk]].
+ * `encode` frames exactly one [[ServerSentEvent]] per call: optional `event:`
+ * line, one `data:` line per data line, optional `id:`/`retry:` lines, then the
+ * blank-line terminator. Callers stream events with `Stream#flatMap` over
+ * [[encode]] so each event is framed as it flows — never collected into one
+ * materialized [[Chunk]].
  */
 object SseCodec {
 
@@ -29,7 +29,7 @@ object SseCodec {
     Chunk.fromArray(render(event).getBytes(StandardCharsets.UTF_8))
 
   private def render(event: ServerSentEvent): String = {
-    val out = new StringBuilder()
+    val out   = new StringBuilder()
     event.event.foreach { name =>
       out.append("event: ").append(name).append('\n')
     }

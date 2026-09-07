@@ -37,13 +37,13 @@ final class H2ConnectionControl(
   // falls back to a private lock.
   private val effectiveWriteLock: Object =
     if (writeLock != null) writeLock else new Object
-  private val goingAwayState    = new AtomicBoolean(false)
-  private val closedState       = new AtomicBoolean(false)
-  private val lastActivityNanos = new AtomicLong(System.nanoTime())
-  private val lastStreamIdState = new AtomicInteger(Int.MaxValue)
-  private val idleTimerState    = new AtomicBoolean(false)
-  private val idleTimerThread   = new AtomicReference[Thread](null)
-  private val trackedStreams    = new ConcurrentHashMap[Int, java.lang.Boolean]()
+  private val goingAwayState             = new AtomicBoolean(false)
+  private val closedState                = new AtomicBoolean(false)
+  private val lastActivityNanos          = new AtomicLong(System.nanoTime())
+  private val lastStreamIdState          = new AtomicInteger(Int.MaxValue)
+  private val idleTimerState             = new AtomicBoolean(false)
+  private val idleTimerThread            = new AtomicReference[Thread](null)
+  private val trackedStreams             = new ConcurrentHashMap[Int, java.lang.Boolean]()
 
   def trackStream(streamId: Int): Unit   = trackedStreams.put(streamId, java.lang.Boolean.TRUE)
   def untrackStream(streamId: Int): Unit = trackedStreams.remove(streamId)
@@ -80,7 +80,7 @@ final class H2ConnectionControl(
       idleTimerThread.set(thread)
     }
 
-  def resetIdleTimer(): Unit                               = {
+  def resetIdleTimer(): Unit = {
     lastActivityNanos.set(System.nanoTime())
     val thread = idleTimerThread.get()
     if (thread != null) thread.interrupt()
@@ -90,7 +90,7 @@ final class H2ConnectionControl(
    * Stops the idle timer thread. Safe to call from any thread, including the
    * timer thread itself (self-interrupt is skipped).
    */
-  def stopIdleTimer(): Unit = {
+  def stopIdleTimer(): Unit                                = {
     closedState.set(true)
     val thread = idleTimerThread.get()
     if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
@@ -255,8 +255,8 @@ object H2ConnectionControl {
 
   /**
    * The single conversion site from [[Connector.idleTimeout]] (a
-   * [[java.time.Duration]]) to the control's idle timeout in milliseconds.
-   * All live-path wiring must go through here; never convert inline.
+   * [[java.time.Duration]]) to the control's idle timeout in milliseconds. All
+   * live-path wiring must go through here; never convert inline.
    */
   def idleTimeoutMs(connector: Connector): Long =
     connector.idleTimeout.toMillis

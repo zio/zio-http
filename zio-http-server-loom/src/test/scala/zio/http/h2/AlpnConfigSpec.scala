@@ -37,9 +37,8 @@ import zio.http.{
  *     `StrictH2` behavior);
  *   - `TlsConfig(alpnProtocols = List("h2", "http/1.1"), alpnPolicy =
  *     AlpnPolicy.NegotiateH2Preferred)` negotiates h2 with an h2 client (full
- *     GET round-trip, 200) AND completes a TLS handshake advertising
- *     `http/1.1` with an http/1.1-only client - wire proof the ALPN list came
- *     from config.
+ *     GET round-trip, 200) AND completes a TLS handshake advertising `http/1.1`
+ *     with an http/1.1-only client - wire proof the ALPN list came from config.
  *
  * Note: `AlpnPolicy` is the *server-side* acceptance policy only. The server
  * stays H2-only (no HTTP/1.1 fallback handling); the policy controls TLS
@@ -193,7 +192,7 @@ tylLU8iZnM9E7+/GSVghdQ==
     val trustAll = Array[TrustManager](new X509TrustManager {
       override def checkClientTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
       override def checkServerTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
-      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate]                                = Array.empty
+      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new java.security.SecureRandom())
@@ -228,11 +227,27 @@ tylLU8iZnM9E7+/GSVghdQ==
     val trustAll = Array[TrustManager](new javax.net.ssl.X509ExtendedTrustManager {
       override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String): Unit = ()
       override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String): Unit = ()
-      override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String, s: java.net.Socket): Unit = ()
-      override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String, s: java.net.Socket): Unit = ()
-      override def checkClientTrusted(c: Array[java.security.cert.X509Certificate], a: String, e: javax.net.ssl.SSLEngine): Unit = ()
-      override def checkServerTrusted(c: Array[java.security.cert.X509Certificate], a: String, e: javax.net.ssl.SSLEngine): Unit = ()
-      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
+      override def checkClientTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        s: java.net.Socket,
+      ): Unit = ()
+      override def checkServerTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        s: java.net.Socket,
+      ): Unit = ()
+      override def checkClientTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        e: javax.net.ssl.SSLEngine,
+      ): Unit = ()
+      override def checkServerTrusted(
+        c: Array[java.security.cert.X509Certificate],
+        a: String,
+        e: javax.net.ssl.SSLEngine,
+      ): Unit = ()
+      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate]                     = Array.empty
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new java.security.SecureRandom())

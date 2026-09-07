@@ -126,9 +126,9 @@ object TlsSource {
  * Server-side TLS ALPN acceptance policy.
  *
  * This controls whether the Loom H2 server rejects (at the TLS layer) clients
- * that do not negotiate `h2`, or accepts whatever ALPN protocol was
- * negotiated. The server itself stays H2-only: the policy adds no HTTP/1.1
- * fallback handling, it only governs TLS rejection vs. acceptance.
+ * that do not negotiate `h2`, or accepts whatever ALPN protocol was negotiated.
+ * The server itself stays H2-only: the policy adds no HTTP/1.1 fallback
+ * handling, it only governs TLS rejection vs. acceptance.
  *
  * This server policy is independent from any future client-side
  * `ClientAlpnPolicy`: the two govern opposite ends of the handshake and must
@@ -136,23 +136,28 @@ object TlsSource {
  */
 sealed trait AlpnPolicy
 object AlpnPolicy {
+
   /** Reject any connection that does not negotiate `h2` (current behavior). */
   case object StrictH2 extends AlpnPolicy
 
-  /** Accept the negotiated protocol; prefer `h2` via [[TlsConfig.alpnProtocols]] order. */
+  /**
+   * Accept the negotiated protocol; prefer `h2` via [[TlsConfig.alpnProtocols]]
+   * order.
+   */
   case object NegotiateH2Preferred extends AlpnPolicy
 
-  implicit val strictH2Schema: Schema[StrictH2.type]                  = Schema.derived[StrictH2.type]
+  implicit val strictH2Schema: Schema[StrictH2.type]                         = Schema.derived[StrictH2.type]
   implicit val negotiateH2PreferredSchema: Schema[NegotiateH2Preferred.type] =
     Schema.derived[NegotiateH2Preferred.type]
-  implicit val schema: Schema[AlpnPolicy]                             = Schema.derived[AlpnPolicy]
+  implicit val schema: Schema[AlpnPolicy]                                    = Schema.derived[AlpnPolicy]
 }
 
 /**
-  * H2-only server TLS identity: `alpnProtocols` order pins the preferred ALPN protocol,
-  * `alpnPolicy` decides whether non-`h2` clients are rejected or accepted (no HTTP/1.1
-  * fallback either way), and `tlsVersions` pins the negotiable TLS versions.
-  */
+ * H2-only server TLS identity: `alpnProtocols` order pins the preferred ALPN
+ * protocol, `alpnPolicy` decides whether non-`h2` clients are rejected or
+ * accepted (no HTTP/1.1 fallback either way), and `tlsVersions` pins the
+ * negotiable TLS versions.
+ */
 case class TlsConfig(
   certChain: TlsSource,
   privateKey: TlsSource,

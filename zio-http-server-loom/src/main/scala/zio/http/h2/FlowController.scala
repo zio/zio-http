@@ -60,8 +60,8 @@ final class FlowController(initialConnectionWindow: Int, initialStreamWindow: In
   /**
    * Bounded variant of [[consumeSendWindow]]: waits at most `timeoutMs` for
    * connection- and stream-level window, then throws
-   * [[FlowController.FlowControlTimeout]] leaving both windows untouched.
-   * A late WINDOW_UPDATE still resumes the waiter normally as long as the
+   * [[FlowController.FlowControlTimeout]] leaving both windows untouched. A
+   * late WINDOW_UPDATE still resumes the waiter normally as long as the
    * deadline has not passed (no spurious timeout).
    */
   def consumeSendWindow(streamId: Int, bytes: Int, timeoutMs: Long): Unit = {
@@ -173,9 +173,8 @@ object FlowController {
 
   /**
    * A `consumeSendWindow` park outlived its bound with no WINDOW_UPDATE and no
-   * `removeStream`. Local abort signal, not a peer protocol violation: the
-   * send path maps it to RST_STREAM(CANCEL), reusing the single T5 RST send
-   * site.
+   * `removeStream`. Local abort signal, not a peer protocol violation: the send
+   * path maps it to RST_STREAM(CANCEL), reusing the single T5 RST send site.
    */
   final class FlowControlTimeout(streamId: Int, bytes: Int, timeoutMs: Long)
       extends IllegalStateException(

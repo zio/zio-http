@@ -34,10 +34,10 @@ import zio.http.{Body, ContentType, Request, Response, Status}
  * The request side mirrors [[EndpointCodecWalker]]: `Combine` splits through
  * its [[Tuples]] combiner, `Fallback` dispatches through its [[Alternator]]
  * (left first, right on left-failure, so `Fallback(query, Empty)` models an
- * absent optional), `Query` / `Header` parse their wire string back through
- * the node's own schema, and `Body` decodes through its schema's JSON codec.
- * The response side additionally renders `Header` nodes onto the real
- * [[Response]] headers instead of dropping them.
+ * absent optional), `Query` / `Header` parse their wire string back through the
+ * node's own schema, and `Body` decodes through its schema's JSON codec. The
+ * response side additionally renders `Header` nodes onto the real [[Response]]
+ * headers instead of dropping them.
  *
  * Bodies always attempt a JSON decode, whatever the codec's declared media
  * types say: a declared `text/csv` body carrying JSON still decodes, and
@@ -50,8 +50,8 @@ private[endpoint] object EndpointCodec {
   private val jsonContentType: ContentType = ContentType.`application/json`
 
   /**
-   * Decodes a request into the value described by a request-side codec.
-   * Returns `Left(message)` when the bytes do not conform to the schema.
+   * Decodes a request into the value described by a request-side codec. Returns
+   * `Left(message)` when the bytes do not conform to the schema.
    */
   def decodeRequest[A](codec: HttpCodec[CodecKind.Request, A], request: Request): Either[String, A] =
     decodeRequestValue(codec, request)
@@ -60,9 +60,9 @@ private[endpoint] object EndpointCodec {
     parseLeaf("header", header.name, header.schema, request.headers.rawGet(header.name))
 
   /**
-   * Encodes a response-side value into an HTTP [[Response]] with a 200
-   * status. Shared-syntax seam for cross-toolchain tests (Scala 3 takes a
-   * [[Status]], Scala 2.13 takes an `Int`).
+   * Encodes a response-side value into an HTTP [[Response]] with a 200 status.
+   * Shared-syntax seam for cross-toolchain tests (Scala 3 takes a [[Status]],
+   * Scala 2.13 takes an `Int`).
    */
   def encodeResponse[A](codec: HttpCodec[CodecKind.Response, A], value: A): Response =
     encodeResponse(codec, value, Status.Ok)
@@ -77,7 +77,7 @@ private[endpoint] object EndpointCodec {
    */
   def encodeResponse[A](codec: HttpCodec[CodecKind.Response, A], value: A, status: Status): Response =
     encodeResponseValue(codec, value) match {
-      case Right(parts) =>
+      case Right(parts)  =>
         parts.headers.foldLeft(Response(status, body = parts.body.getOrElse(Body.empty))) {
           case (response, (name, rendered)) => response.addHeader(name, rendered)
         }
@@ -123,14 +123,14 @@ private[endpoint] object EndpointCodec {
     if (codec == null) Left("Cannot decode request: codec is null")
     else
       (codec: HttpCodec[CodecKind.Request, A] @unchecked) match {
-        case HttpCodec.Empty                                       => Right(().asInstanceOf[A])
-        case body: HttpCodec.Body[CodecKind.Request, A] @unchecked =>
+        case HttpCodec.Empty                                                     => Right(().asInstanceOf[A])
+        case body: HttpCodec.Body[CodecKind.Request, A] @unchecked               =>
           decodeBody(body.schema, body.mediaTypes, request.body)
-        case header: HttpCodec.Header[CodecKind.Request, A] @unchecked =>
+        case header: HttpCodec.Header[CodecKind.Request, A] @unchecked           =>
           parseLeaf("header", header.name, header.schema, request.headers.rawGet(header.name))
-        case query: HttpCodec.Query[A] @unchecked =>
+        case query: HttpCodec.Query[A] @unchecked                                =>
           parseLeaf("query", query.name, query.schema, request.url.queryParams.getFirst(query.name))
-        case combine: HttpCodec.Combine[CodecKind.Request, a, b, c] @unchecked =>
+        case combine: HttpCodec.Combine[CodecKind.Request, a, b, c] @unchecked   =>
           decodeRequestCombine(combine.left, combine.right, combine.combiner, request)
         case fallback: HttpCodec.Fallback[CodecKind.Request, a, b, c] @unchecked =>
           decodeRequestFallback(fallback.left, fallback.right, fallback.alternator, request)
@@ -154,10 +154,10 @@ private[endpoint] object EndpointCodec {
     request: Request,
   ): Either[String, C] =
     decodeRequestValue(left, request) match {
-      case Right(first) => Right(alternator.combine(Left(first): Either[A, B]))
+      case Right(first)     => Right(alternator.combine(Left(first): Either[A, B]))
       case Left(firstError) =>
         decodeRequestValue(right, request) match {
-          case Right(second) => Right(alternator.combine(Right(second): Either[A, B]))
+          case Right(second)     => Right(alternator.combine(Right(second): Either[A, B]))
           case Left(secondError) =>
             Left(s"Cannot decode request: neither alternative matched ($firstError; $secondError)")
         }
@@ -170,14 +170,14 @@ private[endpoint] object EndpointCodec {
     if (codec == null) Left("Cannot decode response: codec is null")
     else
       (codec: HttpCodec[CodecKind.Response, A] @unchecked) match {
-        case HttpCodec.Empty                                        => Right(().asInstanceOf[A])
-        case body: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
+        case HttpCodec.Empty                                                      => Right(().asInstanceOf[A])
+        case body: HttpCodec.Body[CodecKind.Response, A] @unchecked               =>
           decodeBody(body.schema, body.mediaTypes, response.body)
-        case header: HttpCodec.Header[CodecKind.Response, A] @unchecked =>
+        case header: HttpCodec.Header[CodecKind.Response, A] @unchecked           =>
           parseLeaf("header", header.name, header.schema, response.headers.rawGet(header.name))
-        case _: HttpCodec.StatusCodec =>
+        case _: HttpCodec.StatusCodec                                             =>
           Right(().asInstanceOf[A])
-        case combine: HttpCodec.Combine[CodecKind.Response, a, b, c] @unchecked =>
+        case combine: HttpCodec.Combine[CodecKind.Response, a, b, c] @unchecked   =>
           decodeResponseCombine(combine.left, combine.right, combine.combiner, response)
         case fallback: HttpCodec.Fallback[CodecKind.Response, a, b, c] @unchecked =>
           decodeResponseFallback(fallback.left, fallback.right, fallback.alternator, response)
@@ -201,10 +201,10 @@ private[endpoint] object EndpointCodec {
     response: Response,
   ): Either[String, C] =
     decodeResponseValue(left, response) match {
-      case Right(first) => Right(alternator.combine(Left(first): Either[A, B]))
+      case Right(first)     => Right(alternator.combine(Left(first): Either[A, B]))
       case Left(firstError) =>
         decodeResponseValue(right, response) match {
-          case Right(second) => Right(alternator.combine(Right(second): Either[A, B]))
+          case Right(second)     => Right(alternator.combine(Right(second): Either[A, B]))
           case Left(secondError) =>
             Left(s"Cannot decode response: neither alternative matched ($firstError; $secondError)")
         }
@@ -217,19 +217,17 @@ private[endpoint] object EndpointCodec {
     if (codec == null) Left("Cannot encode response: codec is null")
     else
       (codec: HttpCodec[CodecKind.Response, A] @unchecked) match {
-        case HttpCodec.Empty => Right(emptyParts)
-        case body: HttpCodec.Body[CodecKind.Response, A] @unchecked =>
-          encodeResponseBody(body.schema, body.mediaTypes, value).map(encoded =>
-            emptyParts.copy(body = Some(encoded)),
-          )
-        case header: HttpCodec.Header[CodecKind.Response, A] @unchecked =>
+        case HttpCodec.Empty                                                      => Right(emptyParts)
+        case body: HttpCodec.Body[CodecKind.Response, A] @unchecked               =>
+          encodeResponseBody(body.schema, body.mediaTypes, value).map(encoded => emptyParts.copy(body = Some(encoded)))
+        case header: HttpCodec.Header[CodecKind.Response, A] @unchecked           =>
           renderResponseHeader(header.name, header.schema, value).map {
             case Some(rendered) => emptyParts.copy(headers = Map(header.name -> rendered))
             case None           => emptyParts
           }
-        case _: HttpCodec.StatusCodec =>
+        case _: HttpCodec.StatusCodec                                             =>
           Right(emptyParts)
-        case combine: HttpCodec.Combine[CodecKind.Response, a, b, c] @unchecked =>
+        case combine: HttpCodec.Combine[CodecKind.Response, a, b, c] @unchecked   =>
           encodeResponseCombine(combine.left, combine.right, combine.combiner, value)
         case fallback: HttpCodec.Fallback[CodecKind.Response, a, b, c] @unchecked =>
           encodeResponseFallback(fallback.left, fallback.right, fallback.alternator, value)
@@ -261,22 +259,21 @@ private[endpoint] object EndpointCodec {
     alternator: Alternator.WithOut[A, B, C],
     value: C,
   ): Either[String, ResponseParts] =
-    try alternator.separate(value) match {
-      case Left(first)   => encodeResponseValue(left, first).left.map(message =>
-          s"Fallback (first alternative) failed: $message",
-        )
-      case Right(second) => encodeResponseValue(right, second).left.map(message =>
-          s"Fallback (second alternative) failed: $message",
-        )
-    } catch {
+    try
+      alternator.separate(value) match {
+        case Left(first)   =>
+          encodeResponseValue(left, first).left.map(message => s"Fallback (first alternative) failed: $message")
+        case Right(second) =>
+          encodeResponseValue(right, second).left.map(message => s"Fallback (second alternative) failed: $message")
+      }
+    catch {
       case scala.util.control.NonFatal(e) => Left(s"Fallback dispatch failed: ${e.getMessage}")
     }
 
   /**
-   * Parses one query/header wire string back through the node's own schema.
-   * A missing entry decodes through `Null` first so optional (`Option`)
-   * schemas read as absent; anything else is a missing-param error naming the
-   * entry.
+   * Parses one query/header wire string back through the node's own schema. A
+   * missing entry decodes through `Null` first so optional (`Option`) schemas
+   * read as absent; anything else is a missing-param error naming the entry.
    */
   private def parseLeaf[A](
     kind: String,
@@ -287,10 +284,12 @@ private[endpoint] object EndpointCodec {
     raw match {
       case Some(rendered) => parseRenderedLeaf(kind, name, schema, rendered)
       case None           =>
-        try schema.fromDynamicValue(DynamicValue.Null) match {
-          case Right(absent) => Right(absent)
-          case Left(_)       => Left(s"Missing $kind '$name'")
-        } catch {
+        try
+          schema.fromDynamicValue(DynamicValue.Null) match {
+            case Right(absent) => Right(absent)
+            case Left(_)       => Left(s"Missing $kind '$name'")
+          }
+        catch {
           case scala.util.control.NonFatal(_) => Left(s"Missing $kind '$name'")
         }
     }
@@ -310,10 +309,12 @@ private[endpoint] object EndpointCodec {
     val candidates = renderedCandidates(rendered)
     var index      = 0
     while (index < candidates.length) {
-      try schema.fromDynamicValue(candidates(index)) match {
-        case Right(parsed) => return Right(parsed)
-        case Left(_)       => ()
-      } catch {
+      try
+        schema.fromDynamicValue(candidates(index)) match {
+          case Right(parsed) => return Right(parsed)
+          case Left(_)       => ()
+        }
+      catch {
         case scala.util.control.NonFatal(_) => ()
       }
       index += 1
@@ -337,30 +338,32 @@ private[endpoint] object EndpointCodec {
 
   /**
    * Renders one response header to its wire string through the node's own
-   * schema, mirroring the walker's request-side `renderLeaf`: primitives
-   * render as their plain value, `None`-shaped values (dynamic `Null`) render
-   * as absent so the header is omitted, anything else is a descriptive error.
+   * schema, mirroring the walker's request-side `renderLeaf`: primitives render
+   * as their plain value, `None`-shaped values (dynamic `Null`) render as
+   * absent so the header is omitted, anything else is a descriptive error.
    */
   private def renderResponseHeader[A](
     name: String,
     schema: Schema[A],
     value: A,
   ): Either[String, Option[String]] =
-    try schema.toDynamicValue(value) match {
-      case DynamicValue.Primitive(PrimitiveValue.String(rendered)) =>
-        Right(Some(rendered))
-      case DynamicValue.Primitive(single: Product) if single.productArity == 1 =>
-        Right(Some(String.valueOf(single.productElement(0))))
-      case DynamicValue.Primitive(other) =>
-        Left(s"Cannot render response header '$name': unsupported primitive ${other.getClass.getSimpleName}")
-      case DynamicValue.Null =>
-        Right(None)
-      case other =>
-        Left(
-          s"Cannot render response header '$name': expected a primitive value but found " +
-            s"${other.getClass.getSimpleName}",
-        )
-    } catch {
+    try
+      schema.toDynamicValue(value) match {
+        case DynamicValue.Primitive(PrimitiveValue.String(rendered))             =>
+          Right(Some(rendered))
+        case DynamicValue.Primitive(single: Product) if single.productArity == 1 =>
+          Right(Some(String.valueOf(single.productElement(0))))
+        case DynamicValue.Primitive(other)                                       =>
+          Left(s"Cannot render response header '$name': unsupported primitive ${other.getClass.getSimpleName}")
+        case DynamicValue.Null                                                   =>
+          Right(None)
+        case other                                                               =>
+          Left(
+            s"Cannot render response header '$name': expected a primitive value but found " +
+              s"${other.getClass.getSimpleName}",
+          )
+      }
+    catch {
       case scala.util.control.NonFatal(e) => Left(s"Cannot render response header '$name': ${e.getMessage}")
     }
 
@@ -420,7 +423,7 @@ private[endpoint] object EndpointCodec {
       (self.body, that.body) match {
         case (Some(_), Some(_)) =>
           Left("Cannot encode response: codec tree contains more than one body")
-        case _ =>
+        case _                  =>
           Right(
             ResponseParts(
               self.headers ++ that.headers,

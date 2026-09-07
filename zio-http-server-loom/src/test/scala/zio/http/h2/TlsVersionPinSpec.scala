@@ -29,19 +29,18 @@ import zio.http.{
 /**
  * Todo 4: the server TLS protocol versions are pinned configuration on
  * [[TlsConfig]] instead of the JDK default, and a caller-provided
- * [[TlsSource.SslContext]] can never silently bypass the configured ALPN
- * list.
+ * [[TlsSource.SslContext]] can never silently bypass the configured ALPN list.
  *
  * Real TLS handshake proof over loopback [[zio.http.h2.H2Transport]]:
  *   - default `TlsConfig` pins `List("TLSv1.3", "TLSv1.2")`;
- *   - `TlsConfig(tlsVersions = List("TLSv1.3"))` negotiates TLSv1.3 on the
- *     wire (`SSLSession.getProtocol`) while still negotiating `h2`;
+ *   - `TlsConfig(tlsVersions = List("TLSv1.3"))` negotiates TLSv1.3 on the wire
+ *     (`SSLSession.getProtocol`) while still negotiating `h2`;
  *   - a TLSv1.2-only client is rejected at the TLS layer
  *     (`SSLHandshakeException`) when the server pins TLSv1.3;
- *   - a raw `TlsSource.SslContext` without ALPN is wrapped with the
- *     configured ALPN list (still negotiates `h2`), and an empty
- *     `alpnProtocols` fails fast with a clear `ALPN not configured on
- *     provided SSLContext` error instead of a silent bypass.
+ *   - a raw `TlsSource.SslContext` without ALPN is wrapped with the configured
+ *     ALPN list (still negotiates `h2`), and an empty `alpnProtocols` fails
+ *     fast with a clear `ALPN not configured on provided SSLContext` error
+ *     instead of a silent bypass.
  */
 @experimental
 object TlsVersionPinSpec extends ZIOSpecDefault {
@@ -220,7 +219,7 @@ tylLU8iZnM9E7+/GSVghdQ==
     val trustAll = Array[TrustManager](new X509TrustManager {
       override def checkClientTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
       override def checkServerTrusted(chain: Array[java.security.cert.X509Certificate], authType: String): Unit = ()
-      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate]                                = Array.empty
+      override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new java.security.SecureRandom())
@@ -230,8 +229,7 @@ tylLU8iZnM9E7+/GSVghdQ==
   /**
    * Raw TLS handshake only (no HTTP framing): returns the negotiated TLS
    * session protocol and the negotiated ALPN protocol. Throws
-   * (SSLHandshakeException against a rejecting server) when negotiation
-   * fails.
+   * (SSLHandshakeException against a rejecting server) when negotiation fails.
    */
   private def handshakeWithProtocol(
     port: Int,

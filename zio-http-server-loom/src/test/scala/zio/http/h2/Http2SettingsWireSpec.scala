@@ -155,7 +155,7 @@ object Http2SettingsWireSpec extends ZIOSpecDefault {
             buffer = rest
             return frame
           case Left(H2Error.InsufficientData) =>
-            val tmp = new Array[Byte](8192)
+            val tmp  = new Array[Byte](8192)
             val read = rawIn.read(tmp)
             if (read < 0) throw new EOFException("Connection closed before an HTTP/2 frame was fully received")
             buffer = buffer ++ Chunk.fromArray(java.util.Arrays.copyOf(tmp, read))
@@ -174,7 +174,7 @@ object Http2SettingsWireSpec extends ZIOSpecDefault {
       out.flush()
       val settings = readFrame() match {
         case Settings(false, values) => values
-        case other                   => throw new AssertionError("Expected server SETTINGS frame but received: " + other)
+        case other => throw new AssertionError("Expected server SETTINGS frame but received: " + other)
       }
       out.write(FrameCodec.encode(Settings(ack = true, Nil)).toArray)
       out.flush()

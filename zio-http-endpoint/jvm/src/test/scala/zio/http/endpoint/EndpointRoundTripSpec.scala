@@ -39,9 +39,9 @@ import zio.test._
  * `decodeResponse`: a `Header` node in the output codec must land on the real
  * [[zio.http.Response]] headers, not be dropped.
  *
- * Cross-version note: shared test sources, so shared syntax only (no
- * `derives`, no union types), only primitive schemas, and combiner/alternator
- * instances passed explicitly.
+ * Cross-version note: shared test sources, so shared syntax only (no `derives`,
+ * no union types), only primitive schemas, and combiner/alternator instances
+ * passed explicitly.
  */
 object EndpointRoundTripSpec extends ZIOSpecDefault {
 
@@ -56,21 +56,21 @@ object EndpointRoundTripSpec extends ZIOSpecDefault {
     new Tuples.Tuples[(Boolean, String), String] {
       type Out = (Boolean, String, String)
       def combine(left: (Boolean, String), right: String): Out = (left._1, left._2, right)
-      def separate(out: Out): ((Boolean, String), String)     = ((out._1, out._2), out._3)
+      def separate(out: Out): ((Boolean, String), String)      = ((out._1, out._2), out._3)
     }
 
   private val appendThirdInt: Tuples.Tuples.WithOut[(Int, Int), Int, (Int, Int, Int)] =
     new Tuples.Tuples[(Int, Int), Int] {
       type Out = (Int, Int, Int)
       def combine(left: (Int, Int), right: Int): Out = (left._1, left._2, right)
-      def separate(out: Out): ((Int, Int), Int)     = ((out._1, out._2), out._3)
+      def separate(out: Out): ((Int, Int), Int)      = ((out._1, out._2), out._3)
     }
 
   private val appendFourthString: Tuples.Tuples.WithOut[(Int, Int, Int), String, (Int, Int, Int, String)] =
     new Tuples.Tuples[(Int, Int, Int), String] {
       type Out = (Int, Int, Int, String)
       def combine(left: (Int, Int, Int), right: String): Out = (left._1, left._2, left._3, right)
-      def separate(out: Out): ((Int, Int, Int), String)     = ((out._1, out._2, out._3), out._4)
+      def separate(out: Out): ((Int, Int, Int), String)      = ((out._1, out._2, out._3), out._4)
     }
 
   private val errorCodec: HttpCodec[CodecKind.Response, String] =
@@ -97,7 +97,7 @@ object EndpointRoundTripSpec extends ZIOSpecDefault {
   private def optEndpoint: Endpoint[Unit, Either[Boolean, Unit], String, String, AuthType.None.type] = {
     val eithers: Eithers.Eithers.WithOut[Boolean, Unit, Either[Boolean, Unit]] =
       eitherEithers[Boolean, Unit]
-    val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]] =
+    val codec: HttpCodec[CodecKind.Request, Either[Boolean, Unit]]             =
       HttpCodec.Fallback(
         HttpCodec.query[Boolean]("active", Schema[Boolean]),
         HttpCodec.Empty,
@@ -112,7 +112,7 @@ object EndpointRoundTripSpec extends ZIOSpecDefault {
   private def fbEndpoint: Endpoint[Unit, Either[Int, String], String, String, AuthType.None.type] = {
     val eithers: Eithers.Eithers.WithOut[Int, String, Either[Int, String]] =
       eitherEithers[Int, String]
-    val codec: HttpCodec[CodecKind.Request, Either[Int, String]] =
+    val codec: HttpCodec[CodecKind.Request, Either[Int, String]]           =
       HttpCodec.Fallback(
         HttpCodec.query[Int]("a", Schema[Int]),
         HttpCodec.query[String]("b", Schema[String]),
@@ -125,9 +125,9 @@ object EndpointRoundTripSpec extends ZIOSpecDefault {
     RoutePattern(Method.POST, Path.root / "nested")
 
   private def nestedEndpoint: Endpoint[Unit, (Int, Int, Int, String), String, String, AuthType.None.type] = {
-    val pair12: HttpCodec[CodecKind.Request, (Int, Int)] =
+    val pair12: HttpCodec[CodecKind.Request, (Int, Int)]             =
       HttpCodec.query[Int]("n1", Schema[Int]) ++ HttpCodec.query[Int]("n2", Schema[Int])
-    val triple123: HttpCodec[CodecKind.Request, (Int, Int, Int)] =
+    val triple123: HttpCodec[CodecKind.Request, (Int, Int, Int)]     =
       pair12.++[Int, (Int, Int, Int)](HttpCodec.query[Int]("n3", Schema[Int]))(appendThirdInt)
     val codec: HttpCodec[CodecKind.Request, (Int, Int, Int, String)] =
       triple123.++[String, (Int, Int, Int, String)](HttpCodec.requestBody(Schema[String]))(
@@ -224,9 +224,9 @@ object EndpointRoundTripSpec extends ZIOSpecDefault {
       )
     },
     test("wrong-mediaType body falls back to a JSON attempt with a clear error, not silent empty") {
-      val garbage = Body.fromArray("plain-text-bytes".getBytes("UTF-8"), jsonContentType)
-      val bad     = EndpointBridge.buildRequestPublic(csvEndpoint, (), "ignored").copy(body = garbage)
-      val result  = EndpointCodec.decodeRequest(csvEndpoint.input, bad)
+      val garbage  = Body.fromArray("plain-text-bytes".getBytes("UTF-8"), jsonContentType)
+      val bad      = EndpointBridge.buildRequestPublic(csvEndpoint, (), "ignored").copy(body = garbage)
+      val result   = EndpointCodec.decodeRequest(csvEndpoint.input, bad)
       val goodBody = Body.fromArray(Schema[String].jsonCodec.encode("hi"), jsonContentType)
       val good     = EndpointBridge.buildRequestPublic(csvEndpoint, (), "ignored").copy(body = goodBody)
       assertTrue(

@@ -42,7 +42,7 @@ import zio.http.h2.hpack.HpackCodec
 @experimental
 object ClientPoolStreamingSpec extends ZIOSpecDefault {
 
-  private val BigBodyBytes: Int   = 8 * 1024 * 1024
+  private val BigBodyBytes: Int    = 8 * 1024 * 1024
   private val HeapBoundBytes: Long = 4L * 1024L * 1024L
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -52,7 +52,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 4)))
             try {
-              val bodies = (1 to 5).map { _ =>
+              val bodies   = (1 to 5).map { _ =>
                 val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
                 if (response.status != Status.Ok) throw new AssertionError("status: " + response.status)
                 new String(response.body.toArray, StandardCharsets.UTF_8)
@@ -99,7 +99,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
             )
             try {
               pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
-              val first = stub.accepted.get()
+              val first  = stub.accepted.get()
               Thread.sleep(800L)
               pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
               val second = stub.accepted.get()
@@ -120,15 +120,18 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1, queueSize = 0)),
             )
             try {
-              val gate   = new CountDownLatch(1)
-              val holder = Thread.ofVirtual().name("pool-exhaust-holder").start(() => {
-                gate.countDown()
-                pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
-              })
+              val gate    = new CountDownLatch(1)
+              val holder  = Thread
+                .ofVirtual()
+                .name("pool-exhaust-holder")
+                .start(() => {
+                  gate.countDown()
+                  pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
+                })
               gate.await(5L, TimeUnit.SECONDS)
               Thread.sleep(300L)
-              val start = java.lang.System.currentTimeMillis()
-              var error = Option.empty[Throwable]
+              val start   = java.lang.System.currentTimeMillis()
+              var error   = Option.empty[Throwable]
               try {
                 pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
               } catch {
@@ -160,19 +163,22 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               ),
             )
             try {
-              val gate   = new CountDownLatch(1)
-              val holder = Thread.ofVirtual().name("pool-wait-holder").start(() => {
-                gate.countDown()
-                try {
-                  pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
-                } catch {
-                  case _: Throwable => ()
-                }
-              })
+              val gate    = new CountDownLatch(1)
+              val holder  = Thread
+                .ofVirtual()
+                .name("pool-wait-holder")
+                .start(() => {
+                  gate.countDown()
+                  try {
+                    pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
+                  } catch {
+                    case _: Throwable => ()
+                  }
+                })
               gate.await(5L, TimeUnit.SECONDS)
               Thread.sleep(300L)
-              val start = java.lang.System.currentTimeMillis()
-              var error = Option.empty[Throwable]
+              val start   = java.lang.System.currentTimeMillis()
+              var error   = Option.empty[Throwable]
               try {
                 pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
               } catch {
@@ -181,7 +187,9 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               val elapsed = java.lang.System.currentTimeMillis() - start
               holder.interrupt()
               holder.join(8000L)
-              proof(s"bounded-wait error=${error.map(e => e.getClass.getSimpleName + ": " + e.getMessage)} elapsedMs=$elapsed")
+              proof(
+                s"bounded-wait error=${error.map(e => e.getClass.getSimpleName + ": " + e.getMessage)} elapsedMs=$elapsed",
+              )
               (error, elapsed)
             } finally {
               pool.close()
@@ -199,20 +207,23 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1)))
             try {
-              val exchange = pool.sendCancellable(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
-              val outcome  = new AtomicReference[Either[Throwable, Response]]()
-              val waiter   = Thread.ofVirtual().name("pool-cancel-await").start(() => {
-                try {
-                  outcome.set(Right(exchange.await()))
-                } catch {
-                  case failure: Throwable => outcome.set(Left(failure))
-                }
-              })
+              val exchange     = pool.sendCancellable(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
+              val outcome      = new AtomicReference[Either[Throwable, Response]]()
+              val waiter       = Thread
+                .ofVirtual()
+                .name("pool-cancel-await")
+                .start(() => {
+                  try {
+                    outcome.set(Right(exchange.await()))
+                  } catch {
+                    case failure: Throwable => outcome.set(Left(failure))
+                  }
+                })
               Thread.sleep(400L)
               exchange.cancel()
               waiter.join(8000L)
-              val stats = pool.stats
-              val ended = !waiter.isAlive
+              val stats        = pool.stats
+              val ended        = !waiter.isAlive
               val wasCancelled = outcome.get() match {
                 case Left(_: java.util.concurrent.CancellationException) => true
                 case _                                                   => false
@@ -220,8 +231,8 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               proof(s"cancel-headers outcome=${outcome.get()} cancelled=$wasCancelled threadEnded=$ended stats=$stats")
               // A cancelled (socket-closed) connection is evicted, never repooled:
               // the next request must transparently open a fresh connection.
-              val retry   = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
-              val retry2  = new String(retry.body.toArray, StandardCharsets.UTF_8)
+              val retry        = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
+              val retry2       = new String(retry.body.toArray, StandardCharsets.UTF_8)
               (wasCancelled, ended, stats, retry2, stub.accepted.get())
             } finally {
               pool.close()
@@ -242,33 +253,38 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1)))
             try {
-              val exchange = pool.sendCancellable(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/gated-body")))
-              val response = exchange.await()
+              val exchange     = pool.sendCancellable(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/gated-body")))
+              val response     = exchange.await()
               if (response.status != Status.Ok) throw new AssertionError("headers: " + response.status)
-              val outcome  = new AtomicReference[Either[Throwable, Array[Byte]]]()
-              val consumer = Thread.ofVirtual().name("pool-cancel-consume").start(() => {
-                try {
-                  outcome.set(Right(response.body.toArray))
-                } catch {
-                  case failure: Throwable => outcome.set(Left(failure))
-                }
-              })
+              val outcome      = new AtomicReference[Either[Throwable, Array[Byte]]]()
+              val consumer     = Thread
+                .ofVirtual()
+                .name("pool-cancel-consume")
+                .start(() => {
+                  try {
+                    outcome.set(Right(response.body.toArray))
+                  } catch {
+                    case failure: Throwable => outcome.set(Left(failure))
+                  }
+                })
               Thread.sleep(400L)
               exchange.cancel()
               consumer.join(8000L)
               // The consumer's failure comes from the local close; the server
               // needs its own scheduling quantum to observe the RST - poll it.
               waitUntil("server-rst", 5000L) { stub.cancelled.contains(1) }
-              val stats     = pool.stats
-              val rstSeen   = stub.cancelled.contains(1)
-              val ended     = !consumer.isAlive
+              val stats        = pool.stats
+              val rstSeen      = stub.cancelled.contains(1)
+              val ended        = !consumer.isAlive
               val wasCancelled = outcome.get() match {
                 case Left(_: java.util.concurrent.CancellationException) => true
                 case _                                                   => false
               }
-              proof(s"cancel-body outcome=${outcome.get().map(_.length)} rstSeen=$rstSeen threadEnded=$ended stats=$stats")
-              val retry     = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
-              val retryBody = new String(retry.body.toArray, StandardCharsets.UTF_8)
+              proof(
+                s"cancel-body outcome=${outcome.get().map(_.length)} rstSeen=$rstSeen threadEnded=$ended stats=$stats",
+              )
+              val retry        = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
+              val retryBody    = new String(retry.body.toArray, StandardCharsets.UTF_8)
               (wasCancelled, rstSeen, ended, stats, retryBody, stub.accepted.get())
             } finally {
               pool.close()
@@ -302,12 +318,12 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               }
               java.lang.System.gc()
               Thread.sleep(150L)
-              val heapAfter = java.lang.Runtime.getRuntime.totalMemory() - java.lang.Runtime.getRuntime.freeMemory()
-              val delta     = heapAfter - heapBefore
+              val heapAfter  = java.lang.Runtime.getRuntime.totalMemory() - java.lang.Runtime.getRuntime.freeMemory()
+              val delta      = heapAfter - heapBefore
               proof(s"stream total=$total lazy=$lazyProof heapDelta=$delta bound=$HeapBoundBytes")
               // The lease is released once the lazy body is fully consumed:
               // the next request must reuse the same connection.
-              val reuseBody = new String(
+              val reuseBody  = new String(
                 pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok"))).body.toArray,
                 StandardCharsets.UTF_8,
               )
@@ -357,7 +373,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               ClientConfig(deadline = DeadlineConfig(streamTimeout = Some(Duration.ofMillis(600)))),
             )
             try {
-              val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow-body")))
+              val response  = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow-body")))
               val headersOk = response.status == Status.Ok
               var error     = Option.empty[Throwable]
               try {
@@ -365,7 +381,8 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               } catch {
                 case failure: Throwable => error = Some(failure)
               }
-              proof(s"stream-deadline headersOk=$headersOk error=${error.map(e => e.getClass.getSimpleName + ": " + e.getMessage)}")
+              proof(s"stream-deadline headersOk=$headersOk error=${error
+                  .map(e => e.getClass.getSimpleName + ": " + e.getMessage)}")
               (headersOk, error)
             } finally {
               pool.close()
@@ -382,48 +399,57 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1, queueSize = 4)),
             )
             try {
-              val gate   = new CountDownLatch(1)
-              val holder = Thread.ofVirtual().name("pool-q-holder").start(() => {
-                gate.countDown()
-                try {
-                  val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
-                  response.body.toArray
-                } catch {
-                  case _: Throwable => ()
-                }
-              })
+              val gate        = new CountDownLatch(1)
+              val holder      = Thread
+                .ofVirtual()
+                .name("pool-q-holder")
+                .start(() => {
+                  gate.countDown()
+                  try {
+                    val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/slow")))
+                    response.body.toArray
+                  } catch {
+                    case _: Throwable => ()
+                  }
+                })
               gate.await(5L, TimeUnit.SECONDS)
               Thread.sleep(300L)
-              val first  = new AtomicReference[Either[Throwable, Status]]()
-              val second = new AtomicReference[Either[Throwable, Status]]()
-              val waiter1 = Thread.ofVirtual().name("pool-q-waiter-1").start(() => {
-                try {
-                  first.set(Right(pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok"))).status))
-                } catch {
-                  case failure: Throwable => first.set(Left(failure))
-                }
-              })
-              val waiter2 = Thread.ofVirtual().name("pool-q-waiter-2").start(() => {
-                try {
-                  val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
-                  val body     = new String(response.body.toArray, StandardCharsets.UTF_8)
-                  if (response.status == Status.Ok && body == "pool-ok") second.set(Right(response.status))
-                  else second.set(Left(new AssertionError("bad ok: " + response.status + " " + body)))
-                } catch {
-                  case failure: Throwable => second.set(Left(failure))
-                }
-              })
+              val first       = new AtomicReference[Either[Throwable, Status]]()
+              val second      = new AtomicReference[Either[Throwable, Status]]()
+              val waiter1     = Thread
+                .ofVirtual()
+                .name("pool-q-waiter-1")
+                .start(() => {
+                  try {
+                    first.set(Right(pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok"))).status))
+                  } catch {
+                    case failure: Throwable => first.set(Left(failure))
+                  }
+                })
+              val waiter2     = Thread
+                .ofVirtual()
+                .name("pool-q-waiter-2")
+                .start(() => {
+                  try {
+                    val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
+                    val body     = new String(response.body.toArray, StandardCharsets.UTF_8)
+                    if (response.status == Status.Ok && body == "pool-ok") second.set(Right(response.status))
+                    else second.set(Left(new AssertionError("bad ok: " + response.status + " " + body)))
+                  } catch {
+                    case failure: Throwable => second.set(Left(failure))
+                  }
+                })
               waitUntil("queue-drain", 5000L) { pool.stats.queued >= 2 }
               waiter1.interrupt()
               waiter1.join(8000L)
               holder.join(8000L)
               waiter2.join(8000L)
-              val stats = pool.stats
+              val stats       = pool.stats
               val firstFailed = first.get() match {
                 case Left(_: Throwable) => true
                 case _                  => false
               }
-              val secondOk = second.get() match {
+              val secondOk    = second.get() match {
                 case Right(Status.Ok) => true
                 case _                => false
               }
@@ -444,7 +470,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
       test("double close is idempotent and send-after-close is a clear error") {
         withStubServer(StubBehavior()) { stub =>
           ZIO.attemptBlocking {
-            val pool = PooledLoomH2Client(ClientConfig())
+            val pool  = PooledLoomH2Client(ClientConfig())
             pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
             pool.close()
             pool.close()
@@ -466,14 +492,14 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1)))
             try {
-              val first = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/poison")))
+              val first       = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/poison")))
               val firstStatus = first.status
-              val firstBody = new String(first.body.toArray, StandardCharsets.UTF_8)
+              val firstBody   = new String(first.body.toArray, StandardCharsets.UTF_8)
               // The server closed the pooled connection after responding; at
               // most one subsequent send may observe the dead socket, and the
               // pool must recover onto a fresh connection by itself.
-              var attempts  = 0
-              var recovered = false
+              var attempts    = 0
+              var recovered   = false
               while (!recovered && attempts < 3) {
                 attempts += 1
                 try {
@@ -483,7 +509,9 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
                   case _: IOException => ()
                 }
               }
-              proof(s"evict first=<$firstBody> status=$firstStatus recovered=$recovered attempts=$attempts accepted=${stub.accepted.get()}")
+              proof(
+                s"evict first=<$firstBody> status=$firstStatus recovered=$recovered attempts=$attempts accepted=${stub.accepted.get()}",
+              )
               (firstBody, firstStatus, recovered, stub.accepted.get())
             } finally {
               pool.close()
@@ -498,15 +526,17 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1)))
             try {
-              var error = Option.empty[Throwable]
+              var error     = Option.empty[Throwable]
               try {
                 pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/goaway")))
               } catch {
                 case failure: Throwable => error = Some(failure)
               }
-              val retry = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
+              val retry     = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
               val retryBody = new String(retry.body.toArray, StandardCharsets.UTF_8)
-              proof(s"goaway error=${error.map(e => e.getClass.getSimpleName + ": " + e.getMessage)} retry=$retryBody accepted=${stub.accepted.get()}")
+              proof(
+                s"goaway error=${error.map(e => e.getClass.getSimpleName + ": " + e.getMessage)} retry=$retryBody accepted=${stub.accepted.get()}",
+              )
               (error, retryBody, stub.accepted.get())
             } finally {
               pool.close()
@@ -525,7 +555,8 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 1, maxTotal = 1)))
             try {
-              val request  = Request.post(absUrl(s"http://127.0.0.1:${stub.port}/echo"), Body.fromString("pool-echo-123"))
+              val request  =
+                Request.post(absUrl(s"http://127.0.0.1:${stub.port}/echo"), Body.fromString("pool-echo-123"))
               val response = pool.send(request)
               val body     = new String(response.body.toArray, StandardCharsets.UTF_8)
               proof(s"echo body=$body accepted=${stub.accepted.get()}")
@@ -555,13 +586,16 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
   private def runConcurrent(n: Int)(task: => Boolean): List[Boolean] = {
     val results = new ConcurrentHashMap[Int, Boolean]()
     val threads = (0 until n).map { index =>
-      Thread.ofVirtual().name(s"pool-concurrent-$index").start(() => {
-        try {
-          results.put(index, task)
-        } catch {
-          case _: Throwable => results.put(index, false)
-        }
-      })
+      Thread
+        .ofVirtual()
+        .name(s"pool-concurrent-$index")
+        .start(() => {
+          try {
+            results.put(index, task)
+          } catch {
+            case _: Throwable => results.put(index, false)
+          }
+        })
     }
     threads.foreach(_.join(30000L))
     (0 until n).map(results.getOrDefault(_, false)).toList
@@ -594,28 +628,34 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
     val maxSeen      = new AtomicInteger(0)
     val cancelled    = ConcurrentHashMap.newKeySet[Int]()
     val running      = new java.util.concurrent.atomic.AtomicBoolean(true)
-    val acceptor     = Thread.ofVirtual().name("pool-stub-acceptor").start(() => {
-      while (running.get()) {
-        try {
-          val socket = serverSocket.accept()
-          accepted.incrementAndGet()
-          val now = concurrent.incrementAndGet()
-          var prev = maxSeen.get()
-          while (now > prev && !maxSeen.compareAndSet(prev, now)) prev = maxSeen.get()
-          Thread.ofVirtual().name("pool-stub-conn").start(() => {
-            try {
-              handleStubConn(socket, behavior, cancelled)
-            } finally {
-              concurrent.decrementAndGet()
-              try socket.close()
-              catch { case _: Throwable => () }
-            }
-          })
-        } catch {
-          case _: java.net.SocketException => ()
+    val acceptor     = Thread
+      .ofVirtual()
+      .name("pool-stub-acceptor")
+      .start(() => {
+        while (running.get()) {
+          try {
+            val socket = serverSocket.accept()
+            accepted.incrementAndGet()
+            val now    = concurrent.incrementAndGet()
+            var prev   = maxSeen.get()
+            while (now > prev && !maxSeen.compareAndSet(prev, now)) prev = maxSeen.get()
+            Thread
+              .ofVirtual()
+              .name("pool-stub-conn")
+              .start(() => {
+                try {
+                  handleStubConn(socket, behavior, cancelled)
+                } finally {
+                  concurrent.decrementAndGet()
+                  try socket.close()
+                  catch { case _: Throwable => () }
+                }
+              })
+          } catch {
+            case _: java.net.SocketException => ()
+          }
         }
-      }
-    })
+      })
     new StubServer(
       serverSocket.getLocalPort,
       accepted,
@@ -633,9 +673,9 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
 
   private def handleStubConn(socket: Socket, behavior: StubBehavior, cancelled: java.util.Set[Int]): Unit = {
     socket.setSoTimeout(20000)
-    val input  = socket.getInputStream
-    val output = socket.getOutputStream
-    val reader = new StubFrameReader(input)
+    val input      = socket.getInputStream
+    val output     = socket.getOutputStream
+    val reader     = new StubFrameReader(input)
     readPreface(input)
     // Client preface SETTINGS: read until the client's first SETTINGS, ack it.
     var negotiated = false
@@ -658,8 +698,8 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
             val headerBlock =
               if (endHeaders) block
               else block ++ readContinuations(reader, output, streamId)
-            val fields  = hpack.decode(headerBlock).fold(err => throw new IOException("stub HPACK: " + err), identity)
-            val path    = fields.collectFirst { case HeaderField(":path", value, _) => value }.getOrElse("/")
+            val fields = hpack.decode(headerBlock).fold(err => throw new IOException("stub HPACK: " + err), identity)
+            val path   = fields.collectFirst { case HeaderField(":path", value, _) => value }.getOrElse("/")
             val requestBytes =
               if (endStream) 0L
               else drainRequestBody(reader, output, streamId, cancelled)
@@ -670,21 +710,21 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
             // Reads that arrive while a /big send is gated on the window are
             // consumed inside sendBig; top-level WindowUpdate/Ping housekeeping:
             sendWindow = sendWindow
-          case WindowUpdate(0, increment) =>
+          case WindowUpdate(0, increment)                            =>
             sendWindow += increment
-          case WindowUpdate(_, _)         => ()
-          case Ping(false, data)          =>
+          case WindowUpdate(_, _)                                    => ()
+          case Ping(false, data)                                     =>
             writeFrame(output, Ping(ack = true, data))
             output.flush()
-          case Settings(false, _)         =>
+          case Settings(false, _)                                    =>
             writeFrame(output, Settings(ack = true, Nil))
             output.flush()
-          case RstStream(streamId, _)     =>
+          case RstStream(streamId, _)                                =>
             cancelled.add(streamId)
-          case _                          => ()
+          case _                                                     => ()
         }
       } catch {
-        case _: EOFException => open = false
+        case _: EOFException                    => open = false
         case _: java.net.SocketTimeoutException => open = false
         case _: java.net.SocketException        => open = false
         case _: IOException                     => open = false
@@ -695,7 +735,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
   private sealed trait StubAction
   private object StubAction {
     case object KeepGoing extends StubAction
-    case object Close extends StubAction
+    case object Close     extends StubAction
   }
 
   private def dispatch(
@@ -710,22 +750,22 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
     socket: Socket,
   ): StubAction = {
     path match {
-      case "/goaway" =>
+      case "/goaway"     =>
         writeFrame(output, GoAway(lastStreamId = 0, errorCode = H2Error.Code.NO_ERROR, debugData = Chunk.empty))
         output.flush()
         StubAction.Close
-      case "/poison" =>
+      case "/poison"     =>
         sendText(output, hpack, streamId, "pool-poison-ok")
         output.flush()
         // Graceful linger: let the client's read observe HEADERS+DATA before
         // the FIN, so the test proves pool eviction - not a TCP RST race.
         Thread.sleep(300L)
         StubAction.Close
-      case "/slow"   =>
+      case "/slow"       =>
         Thread.sleep(behavior.slowMs)
         sendText(output, hpack, streamId, "pool-slow-ok")
         StubAction.KeepGoing
-      case "/slow-body" =>
+      case "/slow-body"  =>
         sendHeaders(output, hpack, streamId, endStream = false)
         output.flush()
         Thread.sleep(behavior.bodyDelayMs)
@@ -743,10 +783,10 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
               case RstStream(`streamId`, _) =>
                 cancelled.add(streamId)
                 gated = false
-              case Ping(false, data) =>
+              case Ping(false, data)        =>
                 writeFrame(output, Ping(ack = true, data))
                 output.flush()
-              case _ => ()
+              case _                        => ()
             }
           } catch {
             case _: EOFException => gated = false
@@ -754,15 +794,15 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           }
         }
         StubAction.KeepGoing
-      case "/big" =>
+      case "/big"        =>
         sendHeaders(output, hpack, streamId, endStream = false)
         output.flush()
         sendBig(output, reader, streamId, BigBodyBytes, cancelled)
         StubAction.KeepGoing
-      case "/echo" =>
+      case "/echo"       =>
         sendText(output, hpack, streamId, requestBytes.toString)
         StubAction.KeepGoing
-      case _ =>
+      case _             =>
         sendText(output, hpack, streamId, "pool-ok")
         StubAction.KeepGoing
     }
@@ -784,13 +824,13 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
           writeFrame(output, WindowUpdate(streamId, data.length))
           output.flush()
           if (endStream) done = true
-        case RstStream(`streamId`, _) =>
+        case RstStream(`streamId`, _)             =>
           cancelled.add(streamId)
           throw new IOException("stub: request RST")
-        case Ping(false, ping) =>
+        case Ping(false, ping)                    =>
           writeFrame(output, Ping(ack = true, ping))
           output.flush()
-        case _ => ()
+        case _                                    => ()
       }
     }
     total
@@ -854,7 +894,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
     total: Int,
     cancelled: java.util.Set[Int],
   ): Unit = {
-    val frame = new Array[Byte](16384)
+    val frame  = new Array[Byte](16384)
     java.util.Arrays.fill(frame, 'x'.toByte)
     var sent   = 0
     var window = 65535
@@ -891,10 +931,10 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
         case Continuation(`streamId`, block, endHeaders) =>
           collected = collected ++ block
           if (endHeaders) done = true
-        case Ping(false, data) =>
+        case Ping(false, data)                           =>
           writeFrame(output, Ping(ack = true, data))
           output.flush()
-        case _ => ()
+        case _                                           => ()
       }
     }
     collected
@@ -924,7 +964,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
       var result: H2Frame = null
       while (result == null) {
         FrameCodec.decode(buffer) match {
-          case Right((decoded, rest)) =>
+          case Right((decoded, rest))         =>
             buffer = rest
             result = decoded
           case Left(H2Error.InsufficientData) =>
@@ -932,7 +972,7 @@ object ClientPoolStreamingSpec extends ZIOSpecDefault {
             val read  = input.read(chunk)
             if (read < 0) throw new EOFException("stub: EOF mid-frame")
             buffer = buffer ++ Chunk.fromArray(java.util.Arrays.copyOf(chunk, read))
-          case Left(error) =>
+          case Left(error)                    =>
             throw new IOException("stub: bad frame: " + error)
         }
       }

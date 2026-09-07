@@ -8,9 +8,9 @@ import zio.blocks.schema.Schema
  * Configuration for the HTTP client.
  *
  * Explicit config surfaces for drivers (notably T14's LoomH2 driver, which
- * reuses h2-codec): [[tls]] selects trust/key material and pins TLS
- * versions, [[alpn]] selects the client's ALPN offer policy, [[pool]] sizes
- * the connection pool, and [[deadline]] carries optional per-stage deadline
+ * reuses h2-codec): [[tls]] selects trust/key material and pins TLS versions,
+ * [[alpn]] selects the client's ALPN offer policy, [[pool]] sizes the
+ * connection pool, and [[deadline]] carries optional per-stage deadline
  * overrides. Drivers must read timeouts through [[effectiveConnectTimeout]] /
  * [[effectiveRequestTimeout]] / [[effectiveStreamTimeout]] so override
  * precedence lives in exactly one place.

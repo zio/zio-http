@@ -77,8 +77,8 @@ object EndpointCodecWalker {
     decompose(endpoint.route, endpoint.input, pathInput, input)
 
   /**
-   * Decomposes `input` (with `pathInput` for the route's path params) against
-   * a route and a request-side input codec.
+   * Decomposes `input` (with `pathInput` for the route's path params) against a
+   * route and a request-side input codec.
    */
   def decompose[PathInput, Input](
     route: RoutePattern[PathInput],
@@ -115,23 +115,21 @@ object EndpointCodecWalker {
     if (codec == null) Left("Cannot decompose input: codec is null")
     else
       (codec: HttpCodec[CodecKind.Request, A] @unchecked) match {
-        case HttpCodec.Empty =>
+        case HttpCodec.Empty                                                     =>
           Right(emptyFragments)
-        case query: HttpCodec.Query[a] @unchecked =>
+        case query: HttpCodec.Query[a] @unchecked                                =>
           renderLeaf("query", query.name, query.schema, value).map {
             case Some(rendered) => emptyFragments.copy(queryParams = Map(query.name -> rendered))
             case None           => emptyFragments
           }
-        case header: HttpCodec.Header[CodecKind.Request, a] @unchecked =>
+        case header: HttpCodec.Header[CodecKind.Request, a] @unchecked           =>
           renderLeaf("header", header.name, header.schema, value).map {
             case Some(rendered) => emptyFragments.copy(headers = Map(header.name -> rendered))
             case None           => emptyFragments
           }
-        case body: HttpCodec.Body[CodecKind.Request, a] @unchecked =>
-          encodeBody(body.schema, body.mediaTypes, value).map(encoded =>
-            emptyFragments.copy(body = Some(encoded)),
-          )
-        case combine: HttpCodec.Combine[CodecKind.Request, a, b, c] @unchecked =>
+        case body: HttpCodec.Body[CodecKind.Request, a] @unchecked               =>
+          encodeBody(body.schema, body.mediaTypes, value).map(encoded => emptyFragments.copy(body = Some(encoded)))
+        case combine: HttpCodec.Combine[CodecKind.Request, a, b, c] @unchecked   =>
           walkCombine(combine.left, combine.right, combine.combiner, value)
         case fallback: HttpCodec.Fallback[CodecKind.Request, a, b, c] @unchecked =>
           walkFallback(fallback.left, fallback.right, fallback.alternator, value)
@@ -144,8 +142,8 @@ object EndpointCodecWalker {
     input: C,
   ): Either[String, Fragments] =
     for {
-      pair  <- splitTuple(combiner, input)
-      first <- walk(left, pair._1)
+      pair   <- splitTuple(combiner, input)
+      first  <- walk(left, pair._1)
       second <- walk(right, pair._2)
       merged <- first.merge(second)
     } yield merged
@@ -163,18 +161,20 @@ object EndpointCodecWalker {
     alternator: Alternator.WithOut[A, B, C],
     input: C,
   ): Either[String, Fragments] =
-    try alternator.separate(input) match {
-      case Left(first)  => walk(left, first).left.map(message => s"Fallback (first alternative) failed: $message")
-      case Right(second) => walk(right, second).left.map(message => s"Fallback (second alternative) failed: $message")
-    } catch {
+    try
+      alternator.separate(input) match {
+        case Left(first)   => walk(left, first).left.map(message => s"Fallback (first alternative) failed: $message")
+        case Right(second) => walk(right, second).left.map(message => s"Fallback (second alternative) failed: $message")
+      }
+    catch {
       case scala.util.control.NonFatal(e) => Left(s"Fallback dispatch failed: ${e.getMessage}")
     }
 
   /**
-   * Renders one query/header fragment to its wire string through the node's
-   * own schema: primitives render as their plain value, `None`-shaped values
-   * (dynamic `Null`) render as absent so the entry is omitted, anything else
-   * is a descriptive error.
+   * Renders one query/header fragment to its wire string through the node's own
+   * schema: primitives render as their plain value, `None`-shaped values
+   * (dynamic `Null`) render as absent so the entry is omitted, anything else is
+   * a descriptive error.
    */
   private def renderLeaf[A](
     kind: String,
@@ -182,18 +182,20 @@ object EndpointCodecWalker {
     schema: Schema[A],
     value: A,
   ): Either[String, Option[String]] =
-    try schema.toDynamicValue(value) match {
-      case DynamicValue.Primitive(PrimitiveValue.String(rendered)) =>
-        Right(Some(rendered))
-      case DynamicValue.Primitive(single: Product) if single.productArity == 1 =>
-        Right(Some(String.valueOf(single.productElement(0))))
-      case DynamicValue.Primitive(other) =>
-        Left(s"Cannot render $kind '$name': unsupported primitive ${other.getClass.getSimpleName}")
-      case DynamicValue.Null =>
-        Right(None)
-      case other =>
-        Left(s"Cannot render $kind '$name': expected a primitive value but found ${other.getClass.getSimpleName}")
-    } catch {
+    try
+      schema.toDynamicValue(value) match {
+        case DynamicValue.Primitive(PrimitiveValue.String(rendered))             =>
+          Right(Some(rendered))
+        case DynamicValue.Primitive(single: Product) if single.productArity == 1 =>
+          Right(Some(String.valueOf(single.productElement(0))))
+        case DynamicValue.Primitive(other)                                       =>
+          Left(s"Cannot render $kind '$name': unsupported primitive ${other.getClass.getSimpleName}")
+        case DynamicValue.Null                                                   =>
+          Right(None)
+        case other                                                               =>
+          Left(s"Cannot render $kind '$name': expected a primitive value but found ${other.getClass.getSimpleName}")
+      }
+    catch {
       case scala.util.control.NonFatal(e) => Left(s"Cannot render $kind '$name': ${e.getMessage}")
     }
 
@@ -214,7 +216,7 @@ object EndpointCodecWalker {
       (self.body, that.body) match {
         case (Some(_), Some(_)) =>
           Left("Cannot decompose input: codec tree contains more than one body")
-        case _ =>
+        case _                  =>
           Right(
             Fragments(
               self.queryParams ++ that.queryParams,

@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.experimental
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.streams.Stream
@@ -69,8 +68,8 @@ object SseCodecSpec extends ZIOSpecDefault {
         )
       },
       test("Body.sse emits per-event without materializing") {
-        val total = 100
-        val pulls = new AtomicInteger(0)
+        val total                                    = 100
+        val pulls                                    = new AtomicInteger(0)
         val events: Stream[Nothing, ServerSentEvent] =
           Stream.unfold(0) { i =>
             if (i >= total) None
@@ -79,9 +78,9 @@ object SseCodecSpec extends ZIOSpecDefault {
               Some((ServerSentEvent(s"e$i"), i + 1))
             }
           }
-        val body     = Body.sse(events)
-        val firstLen = text(SseCodec.encode(ServerSentEvent("e0"))).length
-        val head     = body.toStream.take(firstLen).runCollect match {
+        val body                                     = Body.sse(events)
+        val firstLen                                 = text(SseCodec.encode(ServerSentEvent("e0"))).length
+        val head                                     = body.toStream.take(firstLen).runCollect match {
           case Right(chunk) => chunk
           case Left(_)      => Chunk.empty[Byte]
         }
@@ -94,13 +93,13 @@ object SseCodecSpec extends ZIOSpecDefault {
         )
       },
       test("Body.sse concatenates per-event encodings in order") {
-        val events = List(
+        val events   = List(
           ServerSentEvent("a", Some("one"), Some("1")),
           ServerSentEvent("b\nc", None, Some("2")),
           ServerSentEvent("d", retry = Some(Duration(250, MILLISECONDS))),
         )
-        val body   = Body.sse(Stream.fromIterable(events))
-        val actual = body.toStream.runCollect match {
+        val body     = Body.sse(Stream.fromIterable(events))
+        val actual   = body.toStream.runCollect match {
           case Right(chunk) => text(chunk)
           case Left(_)      => ""
         }

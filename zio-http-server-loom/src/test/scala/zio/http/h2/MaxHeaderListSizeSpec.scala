@@ -15,11 +15,23 @@ import zio.test._
 
 import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder}
-import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Http2Config, Protocol, Response, Route, Routes, ServerHandle}
+import zio.http.{
+  BindAddress,
+  BoundAddress,
+  Connector,
+  DefectHandler,
+  Handler,
+  Http2Config,
+  Protocol,
+  Response,
+  Route,
+  Routes,
+  ServerHandle,
+}
 
 /**
- * RFC 7540 section 6.5.2: an endpoint that receives a header list larger
- * than it is willing to accept MUST treat it as a connection error of type
+ * RFC 7540 section 6.5.2: an endpoint that receives a header list larger than
+ * it is willing to accept MUST treat it as a connection error of type
  * PROTOCOL_ERROR or a stream error of type ENHANCE_YOUR_CALM. The list must
  * never be silently truncated and must never reach the handler.
  */
@@ -57,7 +69,7 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val client = new RejectProbeClient(port)
             try {
-              val block = Hpack.encode(
+              val block  = Hpack.encode(
                 List(
                   HeaderField(":method", "GET"),
                   HeaderField(":path", "/"),
@@ -67,7 +79,7 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
                 ),
               )
               client.sendFrame(Headers(streamId = 1, headerBlock = block, endStream = true, endHeaders = true))
-              val status  = client.awaitStatus(streamId = 1)
+              val status = client.awaitStatus(streamId = 1)
               assertTrue(status == 200)
             } finally client.close()
           }
@@ -78,7 +90,7 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val client = new RejectProbeClient(port)
             try {
-              val block = Hpack.encode(
+              val block    = Hpack.encode(
                 List(
                   HeaderField(":method", "POST"),
                   HeaderField(":path", "/"),
@@ -215,16 +227,16 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
       var done: Either[H2Error.Code, H2Error.Code] = null
       while (done == null) {
         readFrame() match {
-          case Settings(false, _)                            => sendFrame(Settings(ack = true, Nil))
-          case Settings(true, _)                             => ()
-          case _: WindowUpdate                               => ()
-          case RstStream(sid, code) if sid == streamId       => done = Right(code)
-          case GoAway(_, code, _)                            => done = Left(code)
+          case Settings(false, _)                             => sendFrame(Settings(ack = true, Nil))
+          case Settings(true, _)                              => ()
+          case _: WindowUpdate                                => ()
+          case RstStream(sid, code) if sid == streamId        => done = Right(code)
+          case GoAway(_, code, _)                             => done = Left(code)
           case Headers(sid, _, _, _, _, _) if sid == streamId =>
             throw new AssertionError("Oversized headers were served instead of rejected (header leak)")
-          case Data(sid, _, _, _) if sid == streamId         =>
+          case Data(sid, _, _, _) if sid == streamId          =>
             throw new AssertionError("Oversized headers produced a response body (header leak)")
-          case _                                             => ()
+          case _                                              => ()
         }
       }
       done
@@ -234,12 +246,12 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
       var status: Option[Int] = None
       while (status.isEmpty) {
         readFrame() match {
-          case Settings(false, _)                             => sendFrame(Settings(ack = true, Nil))
-          case Settings(true, _)                              => ()
-          case _: WindowUpdate                                => ()
-          case RstStream(sid, code) if sid == streamId        =>
+          case Settings(false, _)                                   => sendFrame(Settings(ack = true, Nil))
+          case Settings(true, _)                                    => ()
+          case _: WindowUpdate                                      => ()
+          case RstStream(sid, code) if sid == streamId              =>
             throw new AssertionError("Stream was reset unexpectedly: " + code)
-          case GoAway(_, code, _)                             =>
+          case GoAway(_, code, _)                                   =>
             throw new AssertionError("GOAWAY while awaiting response: " + code)
           case Headers(sid, block, end, _, _, _) if sid == streamId =>
             decoder.decode(block) match {
@@ -248,7 +260,7 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
                 if (end && status.isEmpty) throw new AssertionError("Missing :status")
               case Left(error)   => throw new AssertionError("HPACK decode: " + error)
             }
-          case _                                              => ()
+          case _                                                    => ()
         }
       }
       status.get

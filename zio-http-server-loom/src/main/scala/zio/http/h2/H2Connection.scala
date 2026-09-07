@@ -32,7 +32,7 @@ final class H2Connection(
   import H2Connection._
   import H2Frame._
 
-  private val mux                                  = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
+  private val mux                                   = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
   private val effectiveLocalSettings: List[Setting] = localSettings.getOrElse(
     H2Connection.settingsFor(
       maxConcurrentStreams,
@@ -41,22 +41,22 @@ final class H2Connection(
       None,
     ),
   )
-  private val closed                               = new AtomicBoolean(false)
-  private val activeStreams                        = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
-  private val decodedRequestHeaders                = new ConcurrentHashMap[Int, List[HeaderField]]()
-  private val writeLock                            = new Object
-  private var readBuffer: Chunk[Byte]              = Chunk.empty
-  private var peerSettings: List[Setting]          = Nil
-  private var pendingHeaders: PendingHeaders       = null
-  @volatile private var settingsAcknowledged       = false
-  @volatile private var highestStreamId            = 0
-  @volatile private var lastGoAwayStreamId         = Int.MaxValue
+  private val closed                                = new AtomicBoolean(false)
+  private val activeStreams                         = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
+  private val writeLock                             = new Object
+  private var readBuffer: Chunk[Byte]               = Chunk.empty
+  private var peerSettings: List[Setting]           = Nil
+  private var pendingHeaders: PendingHeaders        = null
+  @volatile private var settingsAcknowledged        = false
+  @volatile private var highestStreamId             = 0
+  @volatile private var lastGoAwayStreamId          = Int.MaxValue
 
   /**
    * Live control plane for this connection (T5): shares this connection's
-   * `writeLock` (one writer lock per OutputStream), the mux, and reports
-   * the real highest stream id on idle GOAWAY. All of its blocking waits
-   * run on Loom virtual threads, never ZIO fibers.
+   * `writeLock` (one writer lock per OutputStream), the mux, and reports the
+   * real highest stream id on idle GOAWAY. All of its blocking waits run on
+   * Loom virtual threads, never ZIO fibers.
    */
   private val control: H2ConnectionControl =
     new H2ConnectionControl(
@@ -239,7 +239,7 @@ final class H2Connection(
         // REFUSED_STREAM so the client can retry elsewhere. The id is
         // consumed so a later reuse still trips the monotonicity check.
         refuseStream(headers.streamId)
-      case _                                              =>
+      case _                                                                              =>
         val stream = frame match {
           case headers: Headers if isNewClientStream(headers.streamId) =>
             // Over-limit opens never queue: the mux bound (maxConcurrentStreams)
@@ -291,14 +291,14 @@ final class H2Connection(
     }
 
   /**
-    * Sends RST_STREAM via the single T5 send site
-    * ([[H2ConnectionControl.sendRstStream]], which shares this connection's
-    * `writeLock` by construction — see the `control` wiring above — so frame
-    * bytes and mux cancellation keep the exact same lock, order, and error
-    * code as a direct write). `sendRstStream` tolerates absent mux entries
-    * (pre-stream refusals/rejections), so the only local work left is
-    * forgetting the stream maps.
-    */
+   * Sends RST_STREAM via the single T5 send site
+   * ([[H2ConnectionControl.sendRstStream]], which shares this connection's
+   * `writeLock` by construction — see the `control` wiring above — so frame
+   * bytes and mux cancellation keep the exact same lock, order, and error code
+   * as a direct write). `sendRstStream` tolerates absent mux entries
+   * (pre-stream refusals/rejections), so the only local work left is forgetting
+   * the stream maps.
+   */
   private def sendReset(streamId: Int, errorCode: H2Error.Code): Unit = {
     try control.sendRstStream(streamId, errorCode)
     catch {
@@ -309,8 +309,8 @@ final class H2Connection(
   }
 
   /**
-   * Rejects an over-limit header block before any stream exists for it: no
-   * mux entry to cancel, but the id is consumed so a later reuse trips the
+   * Rejects an over-limit header block before any stream exists for it: no mux
+   * entry to cancel, but the id is consumed so a later reuse trips the
    * monotonic stream-id check in openStream instead of opening fresh.
    */
   private def rejectHeaders(streamId: Int, errorCode: H2Error.Code): Unit = {
@@ -328,18 +328,17 @@ final class H2Connection(
   }
 
   /**
-   * RFC 9113 6.8 graceful shutdown: runs on the control's idle-timer
-   * virtual thread after GOAWAY was sent. In-flight streams keep draining
-   * through the writer loop during the drain period, then the connection
-   * closes.
+   * RFC 9113 6.8 graceful shutdown: runs on the control's idle-timer virtual
+   * thread after GOAWAY was sent. In-flight streams keep draining through the
+   * writer loop during the drain period, then the connection closes.
    *
    * The sleep is a deadline loop, not a single interruptible sleep:
    * `resetIdleTimer` interrupts this thread on every inbound frame, including
    * frames that arrive during the drain itself (a post-GOAWAY HEADERS refused
    * with REFUSED_STREAM, a late RST). A single sleep would collapse the drain
    * on the first such frame and close TCP under in-flight streams — and under
-   * the very RST the refusal path just wrote. Interrupts are absorbed until
-   * the full drain period elapses.
+   * the very RST the refusal path just wrote. Interrupts are absorbed until the
+   * full drain period elapses.
    */
   private def initiateGracefulShutdown(): Unit = {
     val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs.max(0L))
@@ -373,7 +372,7 @@ final class H2Connection(
         // unboundedly or tearing the connection down.
         refuseStream(streamId)
         None
-      case opened                        =>
+      case opened                                                            =>
         val stream = toStream(opened)
         highestStreamId = streamId
         flowController.registerStream(streamId)
@@ -525,11 +524,11 @@ private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
 
   /**
-    * Mux `open` result across toolchains: the Scala 3 Mux returns a
-    * `MuxStream | MuxError` union while the 2.13 Mux boxes the same result
-    * into an `Either` (see `toStream`, which shims both shapes the same way).
-    * Named so the open site does not widen to a bare `Any`.
-    */
+   * Mux `open` result across toolchains: the Scala 3 Mux returns a
+   * `MuxStream | MuxError` union while the 2.13 Mux boxes the same result into
+   * an `Either` (see `toStream`, which shims both shapes the same way). Named
+   * so the open site does not widen to a bare `Any`.
+   */
   private type MuxOpenResult = Any
 
   /**
@@ -547,8 +546,8 @@ private object H2Connection {
     )
 
   /**
-   * Decoded header-list size per RFC 7540 6.5.2: the sum, over every entry,
-   * of name length plus value length plus 32 octets of framing overhead.
+   * Decoded header-list size per RFC 7540 6.5.2: the sum, over every entry, of
+   * name length plus value length plus 32 octets of framing overhead.
    */
   def headerListSize(fields: List[HeaderField]): Long =
     fields.foldLeft(0L) { (total, field) =>

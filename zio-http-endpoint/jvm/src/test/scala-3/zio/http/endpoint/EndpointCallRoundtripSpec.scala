@@ -41,8 +41,8 @@ import zio.http.Path
  * `.call` only worked for root-mounted endpoints. `buildRequest` now renders
  * the full request via `EndpointCodecWalker.decompose` (see
  * `EndpointBridgeRenderingSpec`); this endpoint's root `RoutePattern` still
- * exercises the real `.call` behavior through the two-argument
- * root-path `.call(client, input)` shorthand.
+ * exercises the real `.call` behavior through the two-argument root-path
+ * `.call(client, input)` shorthand.
  */
 object EndpointCallRoundtripSpec extends ZIOSpecDefault {
 

@@ -317,7 +317,8 @@ final class H2Transport[Ctx](
    * until the terminal END_STREAM with no Content-Length.
    *
    * Latency-sensitive `text/event-stream` bodies take the per-event flush path
-   * instead (see `sendSseFrames`); everything else flows through `chunked` here.
+   * instead (see `sendSseFrames`); everything else flows through `chunked`
+   * here.
    *
    * jvm-perf notes: the per-chunk callback captures only stable references (no
    * `*Ref` mutable capture, no boxing — lengths stay primitive `Int`), the hot
@@ -366,24 +367,24 @@ final class H2Transport[Ctx](
    * Todo 9: latency-sensitive `text/event-stream` send path.
    *
    * SSE carries inter-message delay as its payload contract: each event must
-   * hit the wire promptly. The accumulate-to-`maxFrameSize` `chunked`
-   * traversal used for throughput-oriented bodies would hold small events
-   * until a full frame accumulates (or the stream ends), destroying the
-   * delay — and the stream API offers no non-blocking readiness probe that
-   * would let a consumer flush promptly (`readable()` is optimistic on
-   * compute-backed readers, so `readUpToN` degrades to blocking `readN`).
+   * hit the wire promptly. The accumulate-to-`maxFrameSize` `chunked` traversal
+   * used for throughput-oriented bodies would hold small events until a full
+   * frame accumulates (or the stream ends), destroying the delay — and the
+   * stream API offers no non-blocking readiness probe that would let a consumer
+   * flush promptly (`readable()` is optimistic on compute-backed readers, so
+   * `readUpToN` degrades to blocking `readN`).
    *
-   * Instead frame on the media type's own self-delimiting unit: an SSE
-   * message ends at a blank line, so bytes accumulate only until the
-   * terminator (or `maxFrameSize`, for events larger than a frame) and flush
-   * as one DATA frame per event. Within an event the producer pulls are pure
-   * compute (no sleep — the delay sits strictly *between* events), so each
-   * event's bytes arrive back-to-back and flush immediately, while the next
-   * pull parks in the inter-message delay. No timing assumption, no extra
-   * thread, no timeout tuning: framing follows the bytes, and delay
-   * preservation falls out of the producer's pacing. A body that never emits
-   * a blank line still flushes every full frame, so framing degrades to
-   * `chunked`-like behavior instead of stalling or growing without bound.
+   * Instead frame on the media type's own self-delimiting unit: an SSE message
+   * ends at a blank line, so bytes accumulate only until the terminator (or
+   * `maxFrameSize`, for events larger than a frame) and flush as one DATA frame
+   * per event. Within an event the producer pulls are pure compute (no sleep —
+   * the delay sits strictly *between* events), so each event's bytes arrive
+   * back-to-back and flush immediately, while the next pull parks in the
+   * inter-message delay. No timing assumption, no extra thread, no timeout
+   * tuning: framing follows the bytes, and delay preservation falls out of the
+   * producer's pacing. A body that never emits a blank line still flushes every
+   * full frame, so framing degrades to `chunked`-like behavior instead of
+   * stalling or growing without bound.
    *
    * Flow-gating (`consumeSendWindow` per frame), abort/RST mapping (via
    * `StreamSender`, whose `Aborted` control exception propagates through
@@ -444,8 +445,8 @@ final class H2Transport[Ctx](
   /**
    * Sends one DATA frame under flow control, converting any post-headers
    * failure (peer close, interrupt, deregistered stream, flow-control timeout)
-   * into a single RST_STREAM plus a [[H2Transport.Aborted]] control exception. The
-   * caller maps that to [[ResponseAborted]] so `handleStream` skips its
+   * into a single RST_STREAM plus a [[H2Transport.Aborted]] control exception.
+   * The caller maps that to [[ResponseAborted]] so `handleStream` skips its
    * error-response attempt: response HEADERS are already on the wire, so a
    * second HEADERS block would corrupt the peer's HPACK dynamic table.
    * Idempotent: the first abort wins, later failures are silent.
@@ -481,14 +482,14 @@ final class H2Transport[Ctx](
           throw new H2Transport.Aborted
         }
       } catch {
-        case error: H2Transport.Aborted                   => throw error
-        case _: FlowController.FlowControlException       =>
+        case error: H2Transport.Aborted             => throw error
+        case _: FlowController.FlowControlException =>
           abort(H2Error.Code.FLOW_CONTROL_ERROR)
           throw new H2Transport.Aborted
-        case _: FlowController.FlowControlTimeout         =>
+        case _: FlowController.FlowControlTimeout   =>
           abort()
           throw new H2Transport.Aborted
-        case NonFatal(_)                                  =>
+        case NonFatal(_)                            =>
           abort()
           throw new H2Transport.Aborted
       }
@@ -756,6 +757,7 @@ final class H2Transport[Ctx](
 
 @experimental
 object H2Transport {
+
   /**
    * Per-stream abort marker: lives on the companion (static, stable prefix)
    * rather than on the StreamSender instance so `case _: H2Transport.Aborted`

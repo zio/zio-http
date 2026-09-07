@@ -42,21 +42,20 @@ import zio.http.{
  * Canonical handler shape (LoomServer style — `Routes`/`Route`/`handler` plus
  * `responseAsResult`, exactly as in `StreamingEdgeSpec`): serve
  * `Response.sse(stream)` where the event stream carries its own pacing via a
- * blocking `Thread.sleep` inside `Stream.unfold`. Loom runs each H2 stream on
- * a virtual thread, so a blocking sleep parks cheaply (no ZIO fiber, no
+ * blocking `Thread.sleep` inside `Stream.unfold`. Loom runs each H2 stream on a
+ * virtual thread, so a blocking sleep parks cheaply (no ZIO fiber, no
  * `TestClock`) — the same convention as `unfoldingBytes` throttling in
  * `StreamingEdgeSpec`. The delay must survive the full path: handler Stream →
  * `Sse.body` (per-event `flatMap`, never materialized) → `toStream` →
  * `sendStreamedBody` (`chunked(maxFrameSize)`, flow-gated) → one H2 DATA frame
  * per event → incremental client read.
  *
- * CI-slack reasoning for the 180–300ms bounds on 200ms spacing:
- * `Thread.sleep` on a Loom virtual thread wakes with ~1–5ms lateness and
- * loopback RTT is sub-millisecond, so a genuinely paced stream lands at
- * ~200–205ms per gap; the lower bound sits 20ms below nominal — far above a
- * batched arrival (<5ms on loopback, asserted <50ms by the batching-control
- * test) — while the upper bound allows 100ms of scheduling jitter under
- * loaded CI.
+ * CI-slack reasoning for the 180–300ms bounds on 200ms spacing: `Thread.sleep`
+ * on a Loom virtual thread wakes with ~1–5ms lateness and loopback RTT is
+ * sub-millisecond, so a genuinely paced stream lands at ~200–205ms per gap; the
+ * lower bound sits 20ms below nominal — far above a batched arrival (<5ms on
+ * loopback, asserted <50ms by the batching-control test) — while the upper
+ * bound allows 100ms of scheduling jitter under loaded CI.
  *
  * Every transfer larger than 64KB tops up connection/stream windows per RFC
  * 9113 section 6.9 (see [[RawH2Client.topUp]]); without it the server's
@@ -82,8 +81,8 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
    * the inter-message delay under test. Sleeping first keeps the first frame
    * from sitting in the socket buffer while the client finishes its
    * post-HEADERS transition (which would systematically shrink gap 0); all
-   * timestamps below are then stamped in the hot read loop. O(1) source
-   * memory, unknown length — `Sse.body` frames each event as it flows.
+   * timestamps below are then stamped in the hot read loop. O(1) source memory,
+   * unknown length — `Sse.body` frames each event as it flows.
    */
   private def pacedEvents(total: Int, spacingMs: Long): Stream[Nothing, ServerSentEvent] =
     Stream.unfold(0) { i =>
@@ -92,7 +91,9 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       else Some((ServerSentEvent(s"e$i"), i + 1))
     }
 
-  /** Infinite paced events for disconnect tests (the server never ends these). */
+  /**
+   * Infinite paced events for disconnect tests (the server never ends these).
+   */
   private def endlessEvents(spacingMs: Long): Stream[Nothing, ServerSentEvent] =
     Stream.unfold(0) { i =>
       if (spacingMs > 0L && i > 0) Thread.sleep(spacingMs)
@@ -102,8 +103,8 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
   /**
    * Infinite events with a long lead time before EVERY event (including the
    * first): lets the immediate-disconnect test open the stream (response
-   * HEADERS flow before any body byte) and reset it with zero DATA on the
-   * wire, deterministically.
+   * HEADERS flow before any body byte) and reset it with zero DATA on the wire,
+   * deterministically.
    */
   private def slowStartEvents(spacingMs: Long): Stream[Nothing, ServerSentEvent] =
     Stream.unfold(0) { i =>
@@ -122,7 +123,10 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       ),
     )
 
-  /** Batching control: identical bytes, materialized into one Chunk (arrives all-at-once). */
+  /**
+   * Batching control: identical bytes, materialized into one Chunk (arrives
+   * all-at-once).
+   */
   private def batchingRoutes(events: List[ServerSentEvent]): Routes[Any] = {
     val all = events.foldLeft(Chunk.empty[Byte])(_ ++ SseCodec.encode(_))
     Routes(
@@ -164,8 +168,8 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
                 val expected = events.map(e => new String(SseCodec.encode(e).toArray[Byte], Utf8))
                 // Misleading-success guard: exact event names in order, exact
                 // count (> 0), exact bytes — a vacuous or reordered pass fails.
-                val namesOk = texts.zipWithIndex.forall { case (t, i) => t == s"data: e$i\n\n" }
-                val gapsOk  = gaps.length == EventCount - 1 && gaps.forall(g => g >= LowerMs && g <= UpperMs)
+                val namesOk  = texts.zipWithIndex.forall { case (t, i) => t == s"data: e$i\n\n" }
+                val gapsOk   = gaps.length == EventCount - 1 && gaps.forall(g => g >= LowerMs && g <= UpperMs)
                 assertTrue(
                   frames.length == EventCount,
                   endSeen,
@@ -192,11 +196,11 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true, acceptSse = true))
               client.awaitHeaders(1)
               client.readSseData(1) { (gaps, frames, endSeen) =>
-                val actual  = frames.map(b => new String(b.toArray[Byte], Utf8)).mkString
+                val actual   = frames.map(b => new String(b.toArray[Byte], Utf8)).mkString
                 val expected = events.map(e => new String(SseCodec.encode(e).toArray[Byte], Utf8)).mkString
                 // Coalescing proof: 5 events collapsed into fewer frames with
                 // near-zero total span — the inverse of the paced assertion.
-                val burstOk = frames.length < EventCount && gaps.sum < BatchCeilingMs
+                val burstOk  = frames.length < EventCount && gaps.sum < BatchCeilingMs
                 assertTrue(frames.nonEmpty, endSeen, burstOk, actual == expected)
               }
             } finally client.close()
@@ -212,13 +216,13 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true, acceptSse = true))
               client.awaitHeaders(1)
               // Incremental read of exactly 2 events, then disconnect.
-              var seen = 0
+              var seen      = 0
               while (seen < 2)
                 client.readFrame() match {
-                  case Data(1, data, _, _) if data.nonEmpty =>
+                  case Data(1, data, _, _) if data.nonEmpty                                            =>
                     client.topUp(1, data.length)
                     seen += 1
-                  case _: WindowUpdate | _: Settings | _: Ping => ()
+                  case _: WindowUpdate | _: Settings | _: Ping                                         => ()
                   case _: Headers | _: Continuation | _: Priority | _: GoAway | _: RstStream | _: Data => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
@@ -229,18 +233,16 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
             } finally client.close()
           }
         }.flatMap { result =>
-          ZIO.attemptBlocking(awaitThreadDrain(before)).map(drained =>
-            result && assertTrue(drained),
-          )
+          ZIO.attemptBlocking(awaitThreadDrain(before)).map(drained => result && assertTrue(drained))
         }
       },
       test("slow consumer: server stalls on windows instead of buffering, completes on top-up") {
         // Few large events (not many tiny ones): the ~107KB total exceeds the
         // 64KB connection window so the stall is deterministic, while fast
         // production keeps the whole stream far under the 30s request timer.
-        val totalEvents = 500
-        val payload     = "v" * 200
-        val events      = (0 until totalEvents).map(i => ServerSentEvent(s"slow-$i-$payload")).toList
+        val totalEvents  = 500
+        val payload      = "v" * 200
+        val events       = (0 until totalEvents).map(i => ServerSentEvent(s"slow-$i-$payload")).toList
         val expectedWire = events.map(e => new String(SseCodec.encode(e).toArray[Byte], Utf8)).mkString
         withRawServer(sseRoutes(Stream.fromIterable(events))) { port =>
           ZIO.attemptBlocking {
@@ -248,43 +250,43 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
             try {
               client.sendFrame(client.makeHeaders("GET", "/", streamId = 1, endStream = true, acceptSse = true))
               client.awaitHeaders(1)
-              val body = mutable.ListBuffer.empty[Byte]
+              val body             = mutable.ListBuffer.empty[Byte]
               // Phase 1: read with NO window top-ups until the server stalls.
               // Proves T6/T7 backpressure — no unbounded server-side buffering.
               client.socket.setSoTimeout(1500)
-              var endSeen            = false
-              var stalledByTimeout   = false
+              var endSeen          = false
+              var stalledByTimeout = false
               while (!endSeen && !stalledByTimeout)
                 try
                   client.readFrame() match {
-                    case Data(1, data, end, _) =>
+                    case Data(1, data, end, _)                                                 =>
                       body ++= data.toArray[Byte].toSeq
                       if (end) endSeen = true
-                    case _: WindowUpdate | _: Settings | _: Ping => ()
+                    case _: WindowUpdate | _: Settings | _: Ping                               => ()
                     case _: Headers | _: Continuation | _: Priority | _: GoAway | _: RstStream => ()
                     case other => throw new AssertionError("Unexpected frame: " + other)
                   }
                 catch { case _: SocketTimeoutException => stalledByTimeout = true }
-              val stalledBytes = body.length
+              val stalledBytes     = body.length
               println(s"[SseDelayIntegrationSpec] slow-consumer-proof stalledBytes=$stalledBytes endSeen=$endSeen")
               // 64KB connection window + at most one maxFrameSize frame in flight.
-              val stallOk = !endSeen && stalledBytes <= 65535 + 16384
+              val stallOk          = !endSeen && stalledBytes <= 65535 + 16384
               // Phase 2: consume at our pace — top up, read, repeat to END_STREAM.
               client.socket.setSoTimeout(20000)
               while (!endSeen) {
                 client.topUp(1, 65535)
                 client.readFrame() match {
-                  case Data(1, data, end, _) =>
+                  case Data(1, data, end, _)                                                 =>
                     body ++= data.toArray[Byte].toSeq
                     if (data.nonEmpty) client.topUp(1, data.length)
                     if (end) endSeen = true
-                  case _: WindowUpdate | _: Settings | _: Ping => ()
+                  case _: WindowUpdate | _: Settings | _: Ping                               => ()
                   case _: Headers | _: Continuation | _: Priority | _: GoAway | _: RstStream => ()
                   case other => throw new AssertionError("Unexpected frame: " + other)
                 }
               }
-              val full       = new String(body.toArray, Utf8)
-              val eventCount = full.split("\n\n").count(_.startsWith("data: slow-"))
+              val full             = new String(body.toArray, Utf8)
+              val eventCount       = full.split("\n\n").count(_.startsWith("data: slow-"))
               println(s"[SseDelayIntegrationSpec] slow-consumer-proof events=$eventCount totalBytes=${full.length}")
               assertTrue(
                 stallOk,
@@ -315,18 +317,18 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
               while (serverRst.isEmpty && java.lang.System.currentTimeMillis() < deadline)
                 try
                   client.readFrame() match {
-                    case RstStream(1, code) => serverRst = Some(code)
+                    case RstStream(1, code)                   => serverRst = Some(code)
                     case Data(1, data, _, _) if data.nonEmpty =>
                       dataFrames += 1
                       client.topUp(1, data.length)
-                    case _ => ()
+                    case _                                    => ()
                   }
                 catch { case _: SocketTimeoutException => () }
               println(
                 s"[SseDelayIntegrationSpec] immediate-disconnect-proof serverRst=$serverRst dataFrames=$dataFrames",
               )
               // Writer loop and listener survive: a fresh stream round-trips.
-              val probe = new RawH2Client(port)
+              val probe                           = new RawH2Client(port)
               try {
                 probe.sendFrame(probe.makeHeaders("GET", "/", streamId = 3, endStream = true, acceptSse = true))
                 val probeHeaders = probe.awaitHeaders(3)
@@ -337,9 +339,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
             } finally client.close()
           }
         }.flatMap { result =>
-          ZIO.attemptBlocking(awaitThreadDrain(before)).map(drained =>
-            result && assertTrue(drained),
-          )
+          ZIO.attemptBlocking(awaitThreadDrain(before)).map(drained => result && assertTrue(drained))
         }
       },
       test("event larger than maxFrameSize survives framing across DATA frames") {
@@ -413,7 +413,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       Thread.sleep(200)
       drained = countStreamThreads() <= baseline
     }
-    val after = countStreamThreads()
+    val after    = countStreamThreads()
     println(s"[SseDelayIntegrationSpec] thread-receipt before=$baseline after=$after drained=$drained")
     drained
   }
@@ -501,8 +501,8 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
      * Incremental SSE read: consumes H2 DATA frames one at a time (never a
      * buffered whole-body read), timestamps each non-empty frame arrival with
      * `nanoTime`, tops up windows per RFC 9113 6.9, and collects per-frame
-     * inter-arrival gaps. Hands `(gapsMs, frames, endSeen)` to `check` so
-     * every test asserts on incrementally-observed evidence.
+     * inter-arrival gaps. Hands `(gapsMs, frames, endSeen)` to `check` so every
+     * test asserts on incrementally-observed evidence.
      */
     def readSseData(
       streamId: Int,
@@ -544,7 +544,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
     }
 
     def awaitRst(streamId: Int, timeoutMs: Long): Option[H2Error.Code] = {
-      val deadline                      = java.lang.System.currentTimeMillis() + timeoutMs
+      val deadline                     = java.lang.System.currentTimeMillis() + timeoutMs
       socket.setSoTimeout(2000)
       var result: Option[H2Error.Code] = None
       while (result.isEmpty && java.lang.System.currentTimeMillis() < deadline)
@@ -561,7 +561,10 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
 
     override def close(): Unit = socket.close()
 
-    /** Replenish the sender's connection- and stream-level windows (RFC 9113 6.9). */
+    /**
+     * Replenish the sender's connection- and stream-level windows (RFC 9113
+     * 6.9).
+     */
     def topUp(streamId: Int, bytes: Int): Unit =
       if (bytes > 0) {
         sendFrame(WindowUpdate(streamId = 0, increment = bytes))
