@@ -168,6 +168,7 @@ private object TcpListener {
 
       val sslContext = SSLContext.getInstance("TLS")
       sslContext.init(keyManagerFactory.getKeyManagers, null, new SecureRandom())
+      requireSupportedProtocols(sslContext, tls, "PEM cert/key material")
       sslContext
     }
 
@@ -178,12 +179,15 @@ private object TcpListener {
 
     // ALPN comes from TlsConfig on every path (including the firstSslContext
     // bypass, which only skips keystore loading): per-socket parameters are
-    // applied here, downstream of either SSLContext source.
+    // applied here, downstream of either SSLContext source. Pinned TLS
+    // versions are enforced the same way.
     val alpnProtocols = tls.map(_.alpnProtocols).getOrElse(List("h2"))
     val alpnPolicy    = tls.map(_.alpnPolicy).getOrElse(AlpnPolicy.StrictH2)
+    val tlsVersions   = tls.map(_.tlsVersions).getOrElse(List("TLSv1.3", "TLSv1.2"))
 
     val sslEngine  = sslContext.createSSLEngine()
     val parameters = withH2Alpn(sslEngine.getSSLParameters, alpnProtocols)
+    if (tlsVersions.nonEmpty) parameters.setProtocols(tlsVersions.toArray)
 
     sslEngine.setUseClientMode(false)
     sslEngine.setSSLParameters(parameters)
@@ -210,13 +214,45 @@ private object TcpListener {
 
   private def firstSslContext(tls: TlsConfig): Option[SSLContext] =
     tls.certChain match {
-      case TlsSource.SslContext(ctx) => Some(ctx)
+      case TlsSource.SslContext(ctx) => Some(requireProvidedContext(ctx, tls, "certChain"))
       case _                         =>
         tls.privateKey match {
-          case TlsSource.SslContext(ctx) => Some(ctx)
+          case TlsSource.SslContext(ctx) => Some(requireProvidedContext(ctx, tls, "privateKey"))
           case _                         => None
         }
     }
+
+  /**
+   * A caller-provided SSLContext carries key material but never the
+   * configured ALPN list or the pinned TLS versions (both are per-socket
+   * SSLParameters, applied downstream in createTlsSocket): return it for the
+   * keystore bypass, but fail fast when the TlsConfig it would silently
+   * ignore is misconfigured or unsupported.
+   */
+  private def requireProvidedContext(ctx: SSLContext, tls: TlsConfig, field: String): SSLContext = {
+    if (tls.alpnProtocols.isEmpty)
+      throw new IllegalArgumentException(
+        s"ALPN not configured on provided SSLContext ($field): TlsConfig.alpnProtocols is empty; " +
+          "configure alpnProtocols (e.g. List(\"h2\")) so the server can wrap the provided SSLContext, " +
+          "or provide PEM cert/key material instead",
+      )
+    requireSupportedProtocols(ctx, tls, s"provided SSLContext ($field)")
+    ctx
+  }
+
+  private def requireSupportedProtocols(ctx: SSLContext, tls: TlsConfig, source: String): Unit = {
+    require(
+      tls.tlsVersions.nonEmpty,
+      "TlsConfig.tlsVersions must not be empty; pin e.g. List(\"TLSv1.3\", \"TLSv1.2\")",
+    )
+    val supported = ctx.getSupportedSSLParameters.getProtocols.toSet
+    val missing   = tls.tlsVersions.filterNot(supported.contains)
+    if (missing.nonEmpty)
+      throw new IllegalArgumentException(
+        s"TLS protocol versions ${missing.mkString("[", ",", "]")} not supported by $source; " +
+          s"supported: ${supported.toList.sorted.mkString("[", ",", "]")}",
+      )
+  }
 
   private def loadCertificates(source: TlsSource): Array[X509Certificate] = {
     val bytes        = readSourceBytes(source)

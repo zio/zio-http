@@ -153,6 +153,7 @@ case class TlsConfig(
   privateKey: TlsSource,
   alpnProtocols: List[String] = List("h2"),
   alpnPolicy: AlpnPolicy = AlpnPolicy.StrictH2,
+  tlsVersions: List[String] = List("TLSv1.3", "TLSv1.2"),
 )
 
 object TlsConfig {

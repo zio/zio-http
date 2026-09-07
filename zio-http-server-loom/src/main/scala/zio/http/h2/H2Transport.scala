@@ -83,6 +83,7 @@ final class H2Transport[Ctx](
                   flowController,
                   hpackCodec,
                   Some(localSettings),
+                  http2Config.maxHeaderListSize,
                 )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
             } catch {

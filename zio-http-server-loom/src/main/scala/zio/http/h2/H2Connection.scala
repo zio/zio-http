@@ -23,6 +23,7 @@ final class H2Connection(
     new FlowController(H2Settings.DefaultInitialWindowSize.toInt, H2Settings.DefaultInitialWindowSize.toInt),
   hpackCodec: HpackCodec = new HpackCodec(),
   localSettings: Option[List[Setting]] = None,
+  maxHeaderListSize: Int = 8192,
 ) {
   import H2Connection._
   import H2Frame._
@@ -168,7 +169,17 @@ final class H2Connection(
     // first HEADERS on a stream: a later HEADERS is trailers and must not overwrite the request.
     val isInitialRequestHeaders = isNewClientStream(headers.streamId)
     hpackCodec.decode(headers.headerBlock) match {
-      case Right(fields) => if (isInitialRequestHeaders) decodedRequestHeaders.put(headers.streamId, fields)
+      case Right(fields) =>
+        if (isInitialRequestHeaders) {
+          // RFC 7540 6.5.2: a header list larger than maxHeaderListSize is a
+          // stream error of type ENHANCE_YOUR_CALM. Reject before the headers
+          // reach any handler: never truncate, never leak.
+          if (H2Connection.headerListSize(fields) > maxHeaderListSize.toLong) {
+            rejectHeaders(headers.streamId, H2Error.Code.ENHANCE_YOUR_CALM)
+            return
+          }
+          decodedRequestHeaders.put(headers.streamId, fields)
+        }
       case Left(error)   => throw protocolError("Failed to decode HPACK request header block: " + error)
     }
     deliverStreamFrame(headers, onStream)
@@ -226,7 +237,39 @@ final class H2Connection(
     catch {
       case _: NoSuchElementException =>
         () // Stream already fully closed and deregistered from flow control - RFC 9113 5.1 tolerance.
+      case _: FlowController.FlowControlException if frame.streamId != 0 =>
+        // Stream-level overflow is a stream error of type FLOW_CONTROL_ERROR
+        // (RFC 9113 6.9.1): reset the stream, keep the connection alive.
+        // Connection-level (streamId 0) overflow still propagates as a
+        // connection error and tears the connection down.
+        sendReset(frame.streamId, H2Error.Code.FLOW_CONTROL_ERROR)
     }
+
+  /**
+   * Sends RST_STREAM, mirroring H2ConnectionControl.sendRstStream without
+   * wiring the full control plane (T5 owns that): frame bytes go out under
+   * the write lock, then the mux stream is cancelled and forgotten.
+   */
+  private def sendReset(streamId: Int, errorCode: H2Error.Code): Unit = {
+    writeFrame(RstStream(streamId, errorCode), flush = true)
+    try {
+      if (mux.get(streamId).isDefined) mux.cancel(streamId, MuxError.Cancelled(streamId, errorCode.toString))
+    } catch {
+      case _: NoSuchElementException => ()
+    }
+    activeStreams.remove(streamId)
+    decodedRequestHeaders.remove(streamId)
+  }
+
+  /**
+   * Rejects an over-limit header block before any stream exists for it: no
+   * mux entry to cancel, but the id is consumed so a later reuse trips the
+   * monotonic stream-id check in openStream instead of opening fresh.
+   */
+  private def rejectHeaders(streamId: Int, errorCode: H2Error.Code): Unit = {
+    sendReset(streamId, errorCode)
+    if (streamId > highestStreamId) highestStreamId = streamId
+  }
 
   private def openStream(
     streamId: Int,
@@ -396,13 +439,23 @@ private object H2Connection {
       Some(config.maxHeaderListSize),
     )
 
+  /**
+   * Decoded header-list size per RFC 7540 6.5.2: the sum, over every entry,
+   * of name length plus value length plus 32 octets of framing overhead.
+   */
+  def headerListSize(fields: List[HeaderField]): Long =
+    fields.foldLeft(0L) { (total, field) =>
+      total +
+        field.name.getBytes(StandardCharsets.UTF_8).length +
+        field.value.getBytes(StandardCharsets.UTF_8).length + 32L
+    }
+
   def settingsFor(
     maxConcurrentStreams: Int,
     initialWindowSize: Int,
     maxFrameSize: Int,
     maxHeaderListSize: Option[Int],
-  ): List[Setting] = {
-    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
+  ): List[Setting] = {    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
       throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")
     if (initialWindowSize < 0 || initialWindowSize.toLong > Int.MaxValue)
       throw new IllegalArgumentException("initialWindowSize must be in [0, 2147483647]")
