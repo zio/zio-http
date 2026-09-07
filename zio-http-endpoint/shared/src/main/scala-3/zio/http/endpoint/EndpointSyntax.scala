@@ -18,7 +18,7 @@ package zio.http.endpoint
 import scala.quoted.*
 import zio.blocks.combinators.Unions
 import zio.blocks.endpoint.{Alternator, AuthType, CodecKind, Endpoint, HttpCodec}
-import zio.http.{Client, Halt, Handler, Request, Response, ResultType, Route, Status, URL}
+import zio.http.{Body, Client, Halt, Handler, Headers, QueryParams, Request, Response, ResultType, Route, Status, URL, Version}
 import zio.http.ResultType._
 
 /**
@@ -77,20 +77,31 @@ extension [PathInput, Input, Err, Output, Auth <: AuthType](
    * Invokes this endpoint against `client`, returning the decoded
    * `Err | Output` union.
    *
-   * The request is built from `input` via the endpoint's input codec; the
-   * response is decoded against the error/output codecs and merged into the
-   * union using zio-blocks' [[Unions]] machinery.
-   *
-   * '''Limitation''': `.call` currently sends to `URL.root` only — the
-   * endpoint's route path is not yet incorporated into the outgoing request
-   * (see `buildRequest` TODO). Endpoints not mounted at `/` will return 404.
-   * This is a known architectural gap to be addressed when
-   * `zio.blocks.endpoint.RoutePattern` exposes path rendering.
+   * The request is fully rendered from `pathInput` plus `input` via
+   * [[EndpointBridge.buildRequest]]: method from the endpoint, path from
+   * `RoutePattern.format`, query params, headers (including `Content-Type`),
+   * and JSON body bytes. The response is decoded against the error/output
+   * codecs and merged into the union using zio-blocks' [[Unions]] machinery.
+   */
+  def call(client: Client, pathInput: PathInput, input: Input)(using
+    unions: Unions.Unions.WithOut[Err, Output, Err | Output],
+  ): Err | Output =
+    EndpointBridge.call(endpoint, client, pathInput, input, Alternator.fromUnions(unions))
+}
+
+extension [Input, Err, Output, Auth <: AuthType](
+  endpoint: Endpoint[Unit, Input, Err, Output, Auth]
+) {
+
+  /**
+   * Invokes a root-path (no path params) endpoint against `client`, returning
+   * the decoded `Err | Output` union. Shorthand for
+   * `call(client, (), input)`.
    */
   def call(client: Client, input: Input)(using
     unions: Unions.Unions.WithOut[Err, Output, Err | Output],
   ): Err | Output =
-    EndpointBridge.call(endpoint, client, input, Alternator.fromUnions(unions))
+    EndpointBridge.call(endpoint, client, (), input, Alternator.fromUnions(unions))
 }
 
 /**
@@ -154,40 +165,68 @@ private[endpoint] object EndpointBridge {
   }
 
   /**
-   * Client-side dispatch: builds a [[Request]] from `input`, sends it, and
-   * decodes the response into the `Err | Output` union (error codec first, then
-   * output codec) using the [[Alternator]].
+   * Client-side dispatch: builds a [[Request]] from `pathInput` plus `input`,
+   * sends it, and decodes the response into the `Err | Output` union (error
+   * codec first, then output codec) using the [[Alternator]].
    */
   def call[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
     client: Client,
+    pathInput: PathInput,
     input: Input,
     alternator: Alternator.WithOut[Err, Output, Err | Output],
   ): Err | Output = {
-    val request  = buildRequest(endpoint, input)
+    val request  = buildRequest(endpoint, pathInput, input)
     val response = client.send(request)
     decodeResponse(endpoint, response, alternator)
   }
 
   /**
-   * Builds an outgoing [[Request]] from the endpoint's method/path plus input
-   * body.
+   * Builds an outgoing [[Request]] from `EndpointCodecWalker.decompose`
+   * output: method from the endpoint, path from `RoutePattern.format` (never
+   * `URL.root`), query string from the decomposed query params, headers
+   * (including `Content-Type` from the body media type), and JSON body bytes
+   * from the codec walk.
+   *
+   * A [[java.lang.IllegalArgumentException]] naming the offending param is
+   * thrown when the input cannot be decomposed (for example a required query,
+   * header, body, or path fragment that fails to render) — the request is
+   * never silently sent to the root URL.
    */
+  def buildRequestPublic[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    pathInput: PathInput,
+    input: Input,
+  ): Request =
+    buildRequest(endpoint, pathInput, input)
+
   private def buildRequest[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    pathInput: PathInput,
     input: Input,
   ): Request = {
-    val pattern = endpoint.route
-    val method  = pattern.method
-    val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
-    Request(
-      method = method,
-      url =
-        URL.root, // TODO: extract path from RoutePattern when path-rendering API is available; until then .call only works for root-mounted endpoints
-      headers = zio.http.Headers.empty,
-      body = body,
-      version = zio.http.Version.`HTTP/1.1`,
+    val decomposed = EndpointCodecWalker.decompose(endpoint, pathInput, input) match {
+      case Right(value)  => value
+      case Left(message) => throw new IllegalArgumentException(message)
+    }
+    val baseUrl = URL.fromPath(decomposed.path)
+    val url = decomposed.queryParams.foldLeft(baseUrl) { case (acc, (name, value)) =>
+      acc.addQueryParams(QueryParams(name -> value))
+    }
+    val base = Request(
+      method = endpoint.route.method,
+      url = url,
+      headers = Headers.empty,
+      body = decomposed.body.getOrElse(Body.empty),
+      version = Version.`HTTP/1.1`,
     )
+    val withHeaders = decomposed.headers.foldLeft(base) { case (request, (name, value)) =>
+      request.addHeader(name, value)
+    }
+    decomposed.body match {
+      case Some(body) => withHeaders.addHeader("Content-Type", body.contentType.mediaType.fullType)
+      case None       => withHeaders
+    }
   }
 
   /**
