@@ -49,14 +49,13 @@ import zio.http.endpoint._
  * -- matched by the macro's `handlerParams.length == 1 && htype =:= inputType`
  * branch -- is the only shape that works for the `.call` Err/Output round trip.
  *
- * NOTE (a second, independent real-behavior finding, reported rather than fixed
- * per this task's scope): `EndpointBridge.buildRequest` (client side of
- * `.call`, in `EndpointSyntax.scala`) hardcodes `url = zio.http.URL.root` and
- * never uses `endpoint.route`'s actual path. This means `.call` currently only
- * works correctly for endpoints mounted at the root path "/"; a non-root path
- * (e.g. "/divide") causes a real route-pattern mismatch. This endpoint's
- * `RoutePattern` therefore intentionally uses the root path here so this test
- * exercises the real, currently-working `.call` behavior.
+ * NOTE (historical, fixed by Todo 11): `EndpointBridge.buildRequest` used to
+ * hardcode `url = zio.http.URL.root` and never used `endpoint.route`'s actual
+ * path, so `.call` only worked for root-mounted endpoints. `buildRequest` now
+ * renders the full request via `EndpointCodecWalker.decompose` (see
+ * `EndpointBridgeRenderingSpec`); this endpoint's root `RoutePattern` still
+ * exercises the real `.call` behavior through the two-argument root-path
+ * `.call(client, input)` shorthand.
  */
 object EndpointCallRoundtripSpec extends ZIOSpecDefault {
 

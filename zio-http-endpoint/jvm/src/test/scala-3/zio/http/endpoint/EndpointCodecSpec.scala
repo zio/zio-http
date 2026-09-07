@@ -27,7 +27,7 @@ object EndpointCodecSpec extends ZIOSpecDefault {
   def spec = suite("EndpointCodec")(
     test("EndpointCodec exports codec bridge functions") {
       assertTrue(
-        EndpointCodec.encodeResponse != null,
+        (EndpointCodec.encodeResponse[String](_, _, _)) != null,
         EndpointCodec.decodeRequest != null,
         EndpointCodec.encodeRequestBody != null,
         EndpointCodec.decodeResponse != null,

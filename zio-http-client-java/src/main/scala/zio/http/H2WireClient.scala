@@ -108,7 +108,7 @@ private[http] object H2WireClient {
     negotiated
   }
 
-  private def pseudoHeaders(request: Request, scheme: String, authority: String, target: String): List[HeaderField] =
+  private[http] def pseudoHeaders(request: Request, scheme: String, authority: String, target: String): List[HeaderField] =
     List(
       HeaderField(":method", request.method.name),
       HeaderField(":path", target),
@@ -116,7 +116,7 @@ private[http] object H2WireClient {
       HeaderField(":authority", authority),
     )
 
-  private def requestHeaders(request: Request, body: Array[Byte]): List[HeaderField] = {
+  private[http] def requestHeaders(request: Request, body: Array[Byte]): List[HeaderField] = {
     val builder = List.newBuilder[HeaderField]
     request.headers.toList.foreach { case (name, value) =>
       val lower = name.toLowerCase(java.util.Locale.ROOT)
