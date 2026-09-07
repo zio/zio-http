@@ -148,6 +148,11 @@ object AlpnPolicy {
   implicit val schema: Schema[AlpnPolicy]                             = Schema.derived[AlpnPolicy]
 }
 
+/**
+  * H2-only server TLS identity: `alpnProtocols` order pins the preferred ALPN protocol,
+  * `alpnPolicy` decides whether non-`h2` clients are rejected or accepted (no HTTP/1.1
+  * fallback either way), and `tlsVersions` pins the negotiable TLS versions.
+  */
 case class TlsConfig(
   certChain: TlsSource,
   privateKey: TlsSource,

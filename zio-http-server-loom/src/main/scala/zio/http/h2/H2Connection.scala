@@ -291,15 +291,17 @@ final class H2Connection(
     }
 
   /**
-   * Sends RST_STREAM, mirroring H2ConnectionControl.sendRstStream without
-   * wiring the full control plane (T5 owns that): frame bytes go out under
-   * the write lock, then the mux stream is cancelled and forgotten.
-   */
+    * Sends RST_STREAM via the single T5 send site
+    * ([[H2ConnectionControl.sendRstStream]], which shares this connection's
+    * `writeLock` by construction — see the `control` wiring above — so frame
+    * bytes and mux cancellation keep the exact same lock, order, and error
+    * code as a direct write). `sendRstStream` tolerates absent mux entries
+    * (pre-stream refusals/rejections), so the only local work left is
+    * forgetting the stream maps.
+    */
   private def sendReset(streamId: Int, errorCode: H2Error.Code): Unit = {
-    writeFrame(RstStream(streamId, errorCode), flush = true)
-    try {
-      if (mux.get(streamId).isDefined) mux.cancel(streamId, MuxError.Cancelled(streamId, errorCode.toString))
-    } catch {
+    try control.sendRstStream(streamId, errorCode)
+    catch {
       case _: NoSuchElementException => ()
     }
     activeStreams.remove(streamId)
@@ -360,12 +362,10 @@ final class H2Connection(
     if ((streamId & 1) == 0 || streamId <= highestStreamId)
       throw protocolError("Invalid client-initiated stream id: " + streamId)
 
-    // Widened to Any: the Scala 3 Mux returns a `MuxStream | MuxError` union
-    // while the 2.13 Mux boxes the same result into an Either (see toStream
-    // below, which shims both shapes the same way). Matching Left(_) covers
-    // 2.13, the bare error covers the 3.x union; both keep the exact same
-    // refusal semantics.
-    val openedResult: Any = mux.open(streamId)
+    // Widened to MuxOpenResult (see alias): matching Left(_) covers 2.13,
+    // the bare error covers the 3.x union; both keep the exact same refusal
+    // semantics.
+    val openedResult: MuxOpenResult = mux.open(streamId)
     openedResult match {
       case Left(_: MuxError.CapacityExceeded) | _: MuxError.CapacityExceeded =>
         // Bound proved: the mux never queues past maxConcurrentStreams — the
@@ -525,6 +525,14 @@ private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
 
   /**
+    * Mux `open` result across toolchains: the Scala 3 Mux returns a
+    * `MuxStream | MuxError` union while the 2.13 Mux boxes the same result
+    * into an `Either` (see `toStream`, which shims both shapes the same way).
+    * Named so the open site does not widen to a bare `Any`.
+    */
+  private type MuxOpenResult = Any
+
+  /**
    * Builds the SETTINGS payload to advertise from a single [[Http2Config]]
    * source: 0x3 MAX_CONCURRENT_STREAMS, 0x4 INITIAL_WINDOW_SIZE, 0x5
    * MAX_FRAME_SIZE, 0x6 MAX_HEADER_LIST_SIZE, plus 0x1 HEADER_TABLE_SIZE 4096.
@@ -554,7 +562,8 @@ private object H2Connection {
     initialWindowSize: Int,
     maxFrameSize: Int,
     maxHeaderListSize: Option[Int],
-  ): List[Setting] = {    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
+  ): List[Setting] = {
+    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
       throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")
     if (initialWindowSize < 0 || initialWindowSize.toLong > Int.MaxValue)
       throw new IllegalArgumentException("initialWindowSize must be in [0, 2147483647]")

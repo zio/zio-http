@@ -121,7 +121,9 @@ private[http] final class PooledH2Connection private (
 
     socket.setSoTimeout(headerTimeoutMs)
     val body        = request.body.toArray
-    val headerBlock = hpack.encode(H2WireClient.pseudoHeaders(request, scheme, authority, target) ++ H2WireClient.requestHeaders(request, body))
+    val headerBlock = hpack.encode(
+      H2WireClient.pseudoHeaders(request, scheme, authority, target) ++ H2WireClient.requestHeaders(request, body),
+    )
 
     var headersFlushed = false
     try {
@@ -136,13 +138,29 @@ private[http] final class PooledH2Connection private (
       val contentType                 =
         headers.get(Header.ContentType).map(_.value).getOrElse(ContentType.`application/octet-stream`)
       if (endStream) {
-        new H2Exchange(streamId, status, headers, contentType, endStream = true, null, () => cancelStream(streamId, cancelled, rstSent))
+        new H2Exchange(
+          streamId,
+          status,
+          headers,
+          contentType,
+          endStream = true,
+          None,
+          () => cancelStream(streamId, cancelled, rstSent),
+        )
       } else {
         streamTimeoutMs.foreach { ms =>
           socket.setSoTimeout(math.min(math.max(ms, 1L), Int.MaxValue.toLong).toInt)
         }
         val bodyInput = new H2BodyInput(streamId, cancelled, this)
-        new H2Exchange(streamId, status, headers, contentType, endStream = false, bodyInput, () => cancelStream(streamId, cancelled, rstSent))
+        new H2Exchange(
+          streamId,
+          status,
+          headers,
+          contentType,
+          endStream = false,
+          Some(bodyInput),
+          () => cancelStream(streamId, cancelled, rstSent),
+        )
       }
     } catch {
       case stale: StaleConnectionException => throw stale
@@ -438,7 +456,7 @@ private[http] final class PooledH2Connection private (
 
 /**
  * Response HEADERS for one exchange plus the hooks to stream/cancel the body.
- * `bodyInput` is null when `endStream` was set on the response HEADERS.
+ * `bodyInput` is None when `endStream` was set on the response HEADERS.
  */
 @experimental
 private[http] final class H2Exchange(
@@ -447,7 +465,7 @@ private[http] final class H2Exchange(
   val headers: zio.http.Headers,
   val contentType: ContentType,
   val endStream: Boolean,
-  val bodyInput: H2BodyInput,
+  val bodyInput: Option[H2BodyInput],
   val cancel: () => Unit,
 )
 
@@ -536,7 +554,8 @@ private[http] final class H2BodyInput(
 
 @experimental
 private[http] object PooledH2Connection {
-  private val Preface: Array[Byte] = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII)
+  private val Preface: Array[Byte] =
+    "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII)
   private val DefaultMaxFrame: Int = 16384
   private val DefaultSendWindow: Int = 65535
   private val ConnectionStream: Int  = 0

@@ -492,14 +492,14 @@ final class PooledLoomH2Client private (
         checkout.finish()
         response
       } else {
-        checkout.bodyInput = exchange.bodyInput
+        checkout.bodyInput = exchange.bodyInput.orNull
         val released = new AtomicBoolean(false)
         // fromReader keeps the error channel at Nothing: transport failures
         // surface as thrown defects (uniform with the blocking Client style),
         // and pulls stay chunk-granular (heap-bounded, no per-byte boxing).
         val stream: zio.blocks.streams.Stream[Nothing, Byte] =
           zio.blocks.streams.Stream.fromReader(
-            zio.blocks.streams.io.Reader.fromInputStream(exchange.bodyInput),
+            zio.blocks.streams.io.Reader.fromInputStream(exchange.bodyInput.orNull),
           )
         val lazyBody = stream.ensuring(if (released.compareAndSet(false, true)) checkout.finish())
         Response(
