@@ -108,7 +108,12 @@ private[http] object H2WireClient {
     negotiated
   }
 
-  private[http] def pseudoHeaders(request: Request, scheme: String, authority: String, target: String): List[HeaderField] =
+  private[http] def pseudoHeaders(
+    request: Request,
+    scheme: String,
+    authority: String,
+    target: String,
+  ): List[HeaderField] =
     List(
       HeaderField(":method", request.method.name),
       HeaderField(":path", target),
