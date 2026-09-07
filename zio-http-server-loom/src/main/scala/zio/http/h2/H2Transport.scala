@@ -42,6 +42,7 @@ final class H2Transport[Ctx](
   context: Context[Ctx],
   connector: Connector,
   defectHandler: DefectHandler,
+  sendWindowTimeoutMs: Long = FlowController.DefaultSendWindowTimeoutMs,
 ) {
   private val routeTree: RouteTree[Route[Ctx]] =
     H2Transport.buildRouteTree(routes)
@@ -354,12 +355,20 @@ final class H2Transport[Ctx](
 
   /**
    * Sends one DATA frame under flow control, converting any post-headers
-   * failure (peer close, interrupt, deregistered stream) into a single
-   * RST_STREAM(CANCEL) plus a [[sender.Aborted]] control exception. The caller
-   * maps that to [[ResponseAborted]] so `handleStream` skips its error-response
-   * attempt: response HEADERS are already on the wire, so a second HEADERS
-   * block would corrupt the peer's HPACK dynamic table. Idempotent: the first
-   * abort wins, later failures are silent.
+   * failure (peer close, interrupt, deregistered stream, flow-control timeout)
+   * into a single RST_STREAM plus a [[sender.Aborted]] control exception. The
+   * caller maps that to [[ResponseAborted]] so `handleStream` skips its
+   * error-response attempt: response HEADERS are already on the wire, so a
+   * second HEADERS block would corrupt the peer's HPACK dynamic table.
+   * Idempotent: the first abort wins, later failures are silent.
+   *
+   * RST code choice: a genuine window-overflow violation
+   * ([[FlowController.FlowControlException]], RFC 9113 section 6.9.1) surfaces
+   * as FLOW_CONTROL_ERROR; every other send failure — including a bounded
+   * flow-control wait expiring ([[FlowController.FlowControlTimeout]], a local
+   * abort rather than a peer violation) — surfaces as CANCEL. Both go through
+   * the single T5 `H2ConnectionControl.sendRstStream` send site; no duplicate
+   * RST machinery lives here.
    */
   private final class StreamSender(
     stream: MuxStream[Int, H2Frame, H2Frame],
@@ -381,22 +390,30 @@ final class H2Transport[Ctx](
           abort()
           throw new Aborted
         }
-        flowController.consumeSendWindow(stream.id, chunk.length)
+        flowController.consumeSendWindow(stream.id, chunk.length, sendWindowTimeoutMs)
         sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
         if (stream.isClosed) {
           abort()
           throw new Aborted
         }
       } catch {
-        case error: Aborted => throw error
-        case NonFatal(_)    =>
+        case error: Aborted                               => throw error
+        case _: FlowController.FlowControlException       =>
+          abort(H2Error.Code.FLOW_CONTROL_ERROR)
+          throw new Aborted
+        case _: FlowController.FlowControlTimeout         =>
+          abort()
+          throw new Aborted
+        case NonFatal(_)                                  =>
           abort()
           throw new Aborted
       }
 
-    private def abort(): Unit =
+    private def abort(): Unit = abort(H2Error.Code.CANCEL)
+
+    private def abort(errorCode: H2Error.Code): Unit =
       if (aborted.compareAndSet(false, true)) {
-        try connection.connectionControl.sendRstStream(stream.id, H2Error.Code.CANCEL)
+        try connection.connectionControl.sendRstStream(stream.id, errorCode)
         catch {
           case NonFatal(_) => ()
         }

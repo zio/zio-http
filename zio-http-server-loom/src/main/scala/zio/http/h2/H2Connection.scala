@@ -3,6 +3,7 @@ package zio.http.h2
 import java.io.{EOFException, IOException, InputStream, OutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.annotation.experimental
@@ -240,7 +241,17 @@ final class H2Connection(
         refuseStream(headers.streamId)
       case _                                              =>
         val stream = frame match {
-          case headers: Headers if isNewClientStream(headers.streamId) => openStream(headers.streamId, onStream)
+          case headers: Headers if isNewClientStream(headers.streamId) =>
+            // Over-limit opens never queue: the mux bound (maxConcurrentStreams)
+            // is enforced at open by refusing with REFUSED_STREAM (RFC 9113 6.8
+            // — retryable elsewhere), reusing the GOAWAY refusal path. The id
+            // is consumed, so a later reuse trips the monotonicity check
+            // instead of opening fresh. A refusal carries no stream to deliver
+            // to, so `deliverToStream` is skipped via the Option.
+            openStream(headers.streamId, onStream) match {
+              case Some(opened) => opened
+              case None         => return
+            }
           case _                                                       => existingStream(frame.streamId)
         }
 
@@ -319,11 +330,25 @@ final class H2Connection(
    * virtual thread after GOAWAY was sent. In-flight streams keep draining
    * through the writer loop during the drain period, then the connection
    * closes.
+   *
+   * The sleep is a deadline loop, not a single interruptible sleep:
+   * `resetIdleTimer` interrupts this thread on every inbound frame, including
+   * frames that arrive during the drain itself (a post-GOAWAY HEADERS refused
+   * with REFUSED_STREAM, a late RST). A single sleep would collapse the drain
+   * on the first such frame and close TCP under in-flight streams — and under
+   * the very RST the refusal path just wrote. Interrupts are absorbed until
+   * the full drain period elapses.
    */
   private def initiateGracefulShutdown(): Unit = {
-    try Thread.sleep(drainTimeoutMs)
-    catch {
-      case _: InterruptedException => Thread.currentThread().interrupt()
+    val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs.max(0L))
+    var remaining     = deadlineNanos - System.nanoTime()
+    while (remaining > 0L) {
+      try {
+        TimeUnit.NANOSECONDS.sleep(remaining)
+        remaining = 0L
+      } catch {
+        case _: InterruptedException => remaining = deadlineNanos - System.nanoTime()
+      }
     }
     shutdown(connectionCancelled("idle timeout"))
   }
@@ -331,32 +356,41 @@ final class H2Connection(
   private def openStream(
     streamId: Int,
     onStream: MuxStream[Int, H2Frame, H2Frame] => Unit,
-  ): MuxStream[Int, H2Frame, H2Frame] = {
+  ): Option[MuxStream[Int, H2Frame, H2Frame]] = {
     if ((streamId & 1) == 0 || streamId <= highestStreamId)
       throw protocolError("Invalid client-initiated stream id: " + streamId)
 
-    val stream = toStream(mux.open(streamId))
-    highestStreamId = streamId
-    flowController.registerStream(streamId)
-    activeStreams.put(streamId, stream)
+    mux.open(streamId) match {
+      case _: MuxError.CapacityExceeded =>
+        // Bound proved: the mux never queues past maxConcurrentStreams — the
+        // open is refused on the wire (retryable) instead of buffering
+        // unboundedly or tearing the connection down.
+        refuseStream(streamId)
+        None
+      case opened                        =>
+        val stream = toStream(opened)
+        highestStreamId = streamId
+        flowController.registerStream(streamId)
+        activeStreams.put(streamId, stream)
 
-    Thread
-      .ofVirtual()
-      .name("zio-http-h2-stream-" + streamId)
-      .start(runnable {
-        var completed = false
-        try {
-          onStream(stream)
-          completed = true
-        } finally {
-          if (!completed) {
-            if (!stream.isClosed) stream.close()
-            activeStreams.remove(streamId)
-          }
-        }
-      })
+        Thread
+          .ofVirtual()
+          .name("zio-http-h2-stream-" + streamId)
+          .start(runnable {
+            var completed = false
+            try {
+              onStream(stream)
+              completed = true
+            } finally {
+              if (!completed) {
+                if (!stream.isClosed) stream.close()
+                activeStreams.remove(streamId)
+              }
+            }
+          })
 
-    stream
+        Some(stream)
+    }
   }
 
   private def existingStream(streamId: Int): MuxStream[Int, H2Frame, H2Frame] =

@@ -19,7 +19,24 @@ package zio.http.h2
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.{Condition, ReentrantLock}
+import java.util.concurrent.TimeUnit
 
+/**
+ * Tracks HTTP/2 flow-control windows (RFC 9113 section 6.9): one
+ * connection-level window plus one per-stream window.
+ *
+ * `consumeSendWindow` parks the calling Loom virtual thread on a Condition
+ * under backpressure (no spin, no ZIO fiber involved). The park is always
+ * bounded (see `DefaultSendWindowTimeoutMs`): apart from WINDOW_UPDATE and
+ * `removeStream` there is no other external signaler, so an unbounded wait
+ * would let a dead peer park a virtual thread forever. On expiry the waiter
+ * gets a [[FlowController.FlowControlTimeout]] and the caller is expected to
+ * reset the stream; windows are untouched.
+ *
+ * jvm-perf notes: the wait stays a Condition park (no spinning); lengths and
+ * deadlines are primitive `long`/`int` (no boxing); the hot consume path makes
+ * no megamorphic calls.
+ */
 final class FlowController(initialConnectionWindow: Int, initialStreamWindow: Int) {
   FlowController.requireValidInitialWindow(initialConnectionWindow, "connection")
   FlowController.requireValidInitialWindow(initialStreamWindow, "stream")
@@ -37,16 +54,31 @@ final class FlowController(initialConnectionWindow: Int, initialStreamWindow: In
     state.window.get()
   }
 
-  def consumeSendWindow(streamId: Int, bytes: Int): Unit = {
+  def consumeSendWindow(streamId: Int, bytes: Int): Unit =
+    consumeSendWindow(streamId, bytes, FlowController.DefaultSendWindowTimeoutMs)
+
+  /**
+   * Bounded variant of [[consumeSendWindow]]: waits at most `timeoutMs` for
+   * connection- and stream-level window, then throws
+   * [[FlowController.FlowControlTimeout]] leaving both windows untouched.
+   * A late WINDOW_UPDATE still resumes the waiter normally as long as the
+   * deadline has not passed (no spurious timeout).
+   */
+  def consumeSendWindow(streamId: Int, bytes: Int, timeoutMs: Long): Unit = {
     require(bytes >= 0, "Flow-control bytes must be non-negative")
     if (bytes == 0) return
 
     lock.lock()
     try {
-      val state = requireStreamState(streamId)
+      val state    = requireStreamState(streamId)
+      val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L))
       while (connectionWindowValue.get() < bytes || state.window.get() < bytes) {
-        if (connectionWindowValue.get() < bytes) connectionUpdated.await()
-        else state.updated.await()
+        val remaining = deadline - System.nanoTime()
+        if (remaining <= 0L) throw new FlowController.FlowControlTimeout(streamId, bytes, timeoutMs)
+        // Await on the window that is actually short so a WINDOW_UPDATE for
+        // the other level cannot wake us spuriously; the loop re-checks both.
+        if (connectionWindowValue.get() < bytes) connectionUpdated.awaitNanos(remaining)
+        else state.updated.awaitNanos(remaining)
         ensureStreamRegistered(streamId, state)
       }
       connectionWindowValue.addAndGet(-bytes)
@@ -116,6 +148,17 @@ final class FlowController(initialConnectionWindow: Int, initialStreamWindow: In
 object FlowController {
   private val MaxWindowSize = Int.MaxValue
 
+  /**
+   * Default bound for a `consumeSendWindow` park (30s). Design choice: long
+   * enough that a merely slow receiver topping up windows never trips it
+   * (steady H2 transfers top up every ~16KB, i.e. milliseconds), short enough
+   * that a dead peer cannot park a virtual thread — and its 16KBChunk staging —
+   * forever. Distinct from a protocol violation: expiry is a local abort
+   * (callers reset with CANCEL), never FLOW_CONTROL_ERROR, which is reserved
+   * for actual window-overflow violations (RFC 9113 section 6.9.1).
+   */
+  val DefaultSendWindowTimeoutMs: Long = 30000L
+
   private def checkedIncrement(window: Int, increment: Int): Int = {
     val nextWindow = window.toLong + increment.toLong
     if (nextWindow > MaxWindowSize.toLong) throw new FlowControlException("HTTP/2 flow-control window exceeded 2^31-1")
@@ -127,6 +170,19 @@ object FlowController {
 
   final class FlowControlException(message: String)
       extends IllegalStateException(message + " (" + H2Error.Code.FLOW_CONTROL_ERROR.value + ")")
+
+  /**
+   * A `consumeSendWindow` park outlived its bound with no WINDOW_UPDATE and no
+   * `removeStream`. Local abort signal, not a peer protocol violation: the
+   * send path maps it to RST_STREAM(CANCEL), reusing the single T5 RST send
+   * site.
+   */
+  final class FlowControlTimeout(streamId: Int, bytes: Int, timeoutMs: Long)
+      extends IllegalStateException(
+        s"Timed out after ${timeoutMs}ms waiting for $bytes flow-control window bytes on stream $streamId",
+      ) {
+    override def fillInStackTrace(): Throwable = this
+  }
 
   private final class StreamState(initialWindow: Int, val updated: Condition) {
     val window: AtomicInteger = new AtomicInteger(initialWindow)
