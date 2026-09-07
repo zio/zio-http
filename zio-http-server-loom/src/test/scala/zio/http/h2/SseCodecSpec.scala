@@ -4,7 +4,8 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.annotation.experimental
-import scala.concurrent.duration._
+import scala.concurrent.duration.{Duration, MILLISECONDS}
+
 
 import zio._
 import zio.blocks.chunk.Chunk
@@ -55,7 +56,7 @@ object SseCodecSpec extends ZIOSpecDefault {
         assertTrue(text(SseCodec.encode(event)) == s"data: $data\n\n")
       },
       test("retry renders in milliseconds per spec") {
-        val event = ServerSentEvent("x", retry = Some(1500.millis))
+        val event = ServerSentEvent("x", retry = Some(Duration(1500, MILLISECONDS)))
         assertTrue(text(SseCodec.encode(event)) == "data: x\nretry: 1500\n\n")
       },
       test("huge single event framing survives downstream chunking") {
@@ -96,7 +97,7 @@ object SseCodecSpec extends ZIOSpecDefault {
         val events = List(
           ServerSentEvent("a", Some("one"), Some("1")),
           ServerSentEvent("b\nc", None, Some("2")),
-          ServerSentEvent("d", retry = Some(250.millis)),
+          ServerSentEvent("d", retry = Some(Duration(250, MILLISECONDS))),
         )
         val body   = Body.sse(Stream.fromIterable(events))
         val actual = body.toStream.runCollect match {
