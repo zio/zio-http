@@ -303,7 +303,7 @@ final class H2Transport[Ctx](
           index += 1
         }
       } catch {
-        case _: sender.Aborted => throw ResponseAborted
+        case _: H2Transport.Aborted => throw ResponseAborted
       }
     }
   }
@@ -315,6 +315,9 @@ final class H2Transport[Ctx](
    * ever in flight, so a 10MB (or unbounded) body streams in ~16KB of heap.
    * Bodies with a known length advertise Content-Length; unknown lengths stream
    * until the terminal END_STREAM with no Content-Length.
+   *
+   * Latency-sensitive `text/event-stream` bodies take the per-event flush path
+   * instead (see `sendSseFrames`); everything else flows through `chunked` here.
    *
    * jvm-perf notes: the per-chunk callback captures only stable references (no
    * `*Ref` mutable capture, no boxing — lengths stay primitive `Int`), the hot
@@ -339,24 +342,109 @@ final class H2Transport[Ctx](
 
     val sender = new StreamSender(stream, flowController, connection)
     try {
-      response.body.toStream.chunked(frameSize).runForeach { chunk =>
-        // chunked never emits empties, but a defensive skip keeps the
-        // flow-control accounting (consumeSendWindow is a no-op on 0 anyway)
-        // and the wire trace free of zero-length DATA frames.
-        if (!chunk.isEmpty) sender.send(chunk, endStream = false)
-      } match {
-        case Right(())        => sender.send(Chunk.empty[Byte], endStream = true)
-        case Left(impossible) => throw impossible
+      if (isEventStream(response)) {
+        // Todo 9: latency-sensitive SSE path — per-event flush (see sendSseFrames).
+        sendSseFrames(response, sender, frameSize)
+        sender.send(Chunk.empty[Byte], endStream = true)
+      } else {
+        response.body.toStream.chunked(frameSize).runForeach { chunk =>
+          // chunked never emits empties, but a defensive skip keeps the
+          // flow-control accounting (consumeSendWindow is a no-op on 0 anyway)
+          // and the wire trace free of zero-length DATA frames.
+          if (!chunk.isEmpty) sender.send(chunk, endStream = false)
+        } match {
+          case Right(())        => sender.send(Chunk.empty[Byte], endStream = true)
+          case Left(impossible) => throw impossible
+        }
       }
     } catch {
-      case _: sender.Aborted => throw ResponseAborted
+      case _: H2Transport.Aborted => throw ResponseAborted
     }
+  }
+
+  /**
+   * Todo 9: latency-sensitive `text/event-stream` send path.
+   *
+   * SSE carries inter-message delay as its payload contract: each event must
+   * hit the wire promptly. The accumulate-to-`maxFrameSize` `chunked`
+   * traversal used for throughput-oriented bodies would hold small events
+   * until a full frame accumulates (or the stream ends), destroying the
+   * delay — and the stream API offers no non-blocking readiness probe that
+   * would let a consumer flush promptly (`readable()` is optimistic on
+   * compute-backed readers, so `readUpToN` degrades to blocking `readN`).
+   *
+   * Instead frame on the media type's own self-delimiting unit: an SSE
+   * message ends at a blank line, so bytes accumulate only until the
+   * terminator (or `maxFrameSize`, for events larger than a frame) and flush
+   * as one DATA frame per event. Within an event the producer pulls are pure
+   * compute (no sleep — the delay sits strictly *between* events), so each
+   * event's bytes arrive back-to-back and flush immediately, while the next
+   * pull parks in the inter-message delay. No timing assumption, no extra
+   * thread, no timeout tuning: framing follows the bytes, and delay
+   * preservation falls out of the producer's pacing. A body that never emits
+   * a blank line still flushes every full frame, so framing degrades to
+   * `chunked`-like behavior instead of stalling or growing without bound.
+   *
+   * Flow-gating (`consumeSendWindow` per frame), abort/RST mapping (via
+   * `StreamSender`, whose `Aborted` control exception propagates through
+   * `runForeach` exactly as on the `chunked` path), and the terminal empty
+   * END_STREAM match `sendStreamedBody` exactly; only the grouping strategy
+   * differs. Throughput bodies keep the `chunked` path untouched.
+   *
+   * jvm-perf notes: per-byte `runForeach` boxes on this lane only (SSE is
+   * latency-oriented, not the bulk path); at most one frame is ever buffered,
+   * so unbounded event streams still stream in ~16KB of heap.
+   */
+  private def sendSseFrames(response: Response, sender: StreamSender, frameSize: Int): Unit = {
+    var builder        = Chunk.newBuilder[Byte]
+    var buffered       = 0
+    var lineHasContent = false
+    response.body.toStream.runForeach { byte =>
+      builder += byte
+      buffered += 1
+      if (byte == '\n'.toByte) {
+        if (!lineHasContent) {
+          sender.send(builder.result(), endStream = false)
+          builder = Chunk.newBuilder[Byte]
+          buffered = 0
+        }
+        lineHasContent = false
+      } else if (byte != '\r'.toByte) lineHasContent = true
+      if (buffered >= frameSize) {
+        sender.send(builder.result(), endStream = false)
+        builder = Chunk.newBuilder[Byte]
+        buffered = 0
+      }
+    } match {
+      case Right(())        =>
+        // Well-formed event streams end on a blank line (nothing buffered);
+        // flush any unterminated tail rather than dropping it. The caller
+        // still closes with the terminal empty END_STREAM.
+        if (buffered > 0) sender.send(builder.result(), endStream = false)
+      case Left(impossible) => throw impossible
+    }
+  }
+
+  /** True when the response carries a streamed `text/event-stream` body. */
+  private def isEventStream(response: Response): Boolean = {
+    val headers = response.headers.toList
+    var index   = 0
+    var found   = false
+    while (index < headers.length && !found) {
+      val header = headers(index)
+      if (
+        header._1.equalsIgnoreCase(Header.ContentType.name) &&
+        header._2.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream")
+      ) found = true
+      index += 1
+    }
+    found
   }
 
   /**
    * Sends one DATA frame under flow control, converting any post-headers
    * failure (peer close, interrupt, deregistered stream, flow-control timeout)
-   * into a single RST_STREAM plus a [[sender.Aborted]] control exception. The
+   * into a single RST_STREAM plus a [[H2Transport.Aborted]] control exception. The
    * caller maps that to [[ResponseAborted]] so `handleStream` skips its
    * error-response attempt: response HEADERS are already on the wire, so a
    * second HEADERS block would corrupt the peer's HPACK dynamic table.
@@ -375,10 +463,6 @@ final class H2Transport[Ctx](
     flowController: FlowController,
     connection: H2Connection,
   ) {
-    final class Aborted extends RuntimeException("HTTP/2 response stream aborted") {
-      override def fillInStackTrace(): Throwable = this
-    }
-
     private val aborted = new AtomicBoolean(false)
 
     def send(chunk: Chunk[Byte], endStream: Boolean): Unit =
@@ -388,25 +472,25 @@ final class H2Transport[Ctx](
         // failure. Both checks are single volatile reads (isClosed).
         if (stream.isClosed) {
           abort()
-          throw new Aborted
+          throw new H2Transport.Aborted
         }
         flowController.consumeSendWindow(stream.id, chunk.length, sendWindowTimeoutMs)
         sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
         if (stream.isClosed) {
           abort()
-          throw new Aborted
+          throw new H2Transport.Aborted
         }
       } catch {
-        case error: Aborted                               => throw error
+        case error: H2Transport.Aborted                   => throw error
         case _: FlowController.FlowControlException       =>
           abort(H2Error.Code.FLOW_CONTROL_ERROR)
-          throw new Aborted
+          throw new H2Transport.Aborted
         case _: FlowController.FlowControlTimeout         =>
           abort()
-          throw new Aborted
+          throw new H2Transport.Aborted
         case NonFatal(_)                                  =>
           abort()
-          throw new Aborted
+          throw new H2Transport.Aborted
       }
 
     private def abort(): Unit = abort(H2Error.Code.CANCEL)
@@ -672,6 +756,17 @@ final class H2Transport[Ctx](
 
 @experimental
 object H2Transport {
+  /**
+   * Per-stream abort marker: lives on the companion (static, stable prefix)
+   * rather than on the StreamSender instance so `case _: H2Transport.Aborted`
+   * type tests compile on both Scala 3 and 2.13 (where a path-dependent
+   * `sender.Aborted` test is an "outer reference cannot be checked" error).
+   * Stackless: aborts are routine control flow, not defects.
+   */
+  private final class Aborted extends RuntimeException("HTTP/2 response stream aborted") {
+    override def fillInStackTrace(): Throwable = this
+  }
+
   private def buildRouteTree[Ctx](routes: Routes[Ctx]): RouteTree[Route[Ctx]] =
     routes.routes.foldLeft(RouteTree.empty[Route[Ctx]]) { (tree, route) =>
       val alternatives = route.pattern.alternatives

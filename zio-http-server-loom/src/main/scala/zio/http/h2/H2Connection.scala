@@ -360,8 +360,14 @@ final class H2Connection(
     if ((streamId & 1) == 0 || streamId <= highestStreamId)
       throw protocolError("Invalid client-initiated stream id: " + streamId)
 
-    mux.open(streamId) match {
-      case _: MuxError.CapacityExceeded =>
+    // Widened to Any: the Scala 3 Mux returns a `MuxStream | MuxError` union
+    // while the 2.13 Mux boxes the same result into an Either (see toStream
+    // below, which shims both shapes the same way). Matching Left(_) covers
+    // 2.13, the bare error covers the 3.x union; both keep the exact same
+    // refusal semantics.
+    val openedResult: Any = mux.open(streamId)
+    openedResult match {
+      case Left(_: MuxError.CapacityExceeded) | _: MuxError.CapacityExceeded =>
         // Bound proved: the mux never queues past maxConcurrentStreams — the
         // open is refused on the wire (retryable) instead of buffering
         // unboundedly or tearing the connection down.
