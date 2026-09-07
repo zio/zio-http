@@ -1,4 +1,4 @@
-addSbtPlugin("ch.epfl.scala"       % "sbt-scalafix"              % "0.14.6")
+addSbtPlugin("ch.epfl.scala"       % "sbt-scalafix"              % "0.14.8")
 addSbtPlugin("org.scalameta"       % "sbt-scalafmt"              % "2.6.2")
 addSbtPlugin("pl.project13.scala"  % "sbt-jmh"                   % "0.4.8")
 addSbtPlugin("com.timushev.sbt"    % "sbt-updates"               % "0.6.4")
