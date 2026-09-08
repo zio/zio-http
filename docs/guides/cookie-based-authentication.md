@@ -295,7 +295,7 @@ In production environments, we should set `isHttpOnly = true` and `isSecure = tr
 ### Authentication Middleware
 
 :::warning UNPORTED
-The `HandlerAspect` cookie-auth middleware below is v3-era and unported (`HandlerAspect` absent on v4 main; v4 middleware is `Middleware.identity` / `customAuth` / `basicAuth` / `bearerAuth` / `rotateCookie` only). Preserved as-is.
+The `HandlerAspect` cookie-auth middleware below is v3-era and unported (`HandlerAspect` absent on v4 main; v4 middleware is `Middleware.identity` / `customAuth` / `basicAuth` / `bearerAuth` / `signCookies` / `rotateCookie` (+ `flashScope`) — `signCookies` arrived via #4210 after the original v4-status audit). Preserved as-is.
 :::
 
 After implementing the login route, we can now create middleware that will intercept incoming requests and check for a valid session cookie. If the cookie is present and valid, it will allow access to protected resources; otherwise, it will return an unauthorized response.
@@ -359,7 +359,7 @@ Verified on v4 (`RotateCookieSpec` 4/4 + 13/13 neighbors, fail-closed):
 Middleware.rotateCookie[Session](
   name = "session_id",
   validate = (sessionId: String) => ZIO.succeed(Option.empty[Session]),
-  create = (request: Request) => ZIO.succeed(Option.empty[Session]),
+  create = (_: Session) => ZIO.succeed("new-session-id"),
   maxAge = Some(300L),
 )
 ```

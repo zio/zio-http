@@ -170,8 +170,8 @@ responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
 
 ### Signing a Cookie
 
-:::warning UNPORTED
-Signing as shown below is NOT available on v4: `def signCookies` has 0 hits in v4 main (`shared` + `jvm` main scala), and `Response#sign` / `signCookies` are orphaned v3 APIs. For v4 session rotation use `Middleware.rotateCookie` instead. Snippets preserved as-is, not available.
+:::warning PARTIALLY UNPORTED — updated post-#4210
+`Response#sign` as shown below remains a v3-era unported API. `Middleware.signCookies(secret)` (HMAC-SHA256, ≥32-char secret) **is available on v4** since #4210 merged — prefer it for signing; use `Middleware.rotateCookie` for session rotation. Snippets preserved as-is.
 :::
 
 Signing a cookie involves appending a cryptographic signature to the cookie data before it is transmitted to the client. This signature is generated using a secret key known only to the server. When the client sends the cookie back to the server in subsequent requests, the server can verify the signature to ensure the integrity and authenticity of the cookie data.
