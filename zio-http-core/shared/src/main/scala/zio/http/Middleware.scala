@@ -20,7 +20,6 @@ import zio.blocks.context.{Context, IsNominalType}
 import zio.blocks.endpoint.RoutePattern
 import zio.blocks.scope.Scope
 import zio.http.ResultType._
-import zio.{Exit, Runtime, Trace, Unsafe, ZIO}
 
 trait Middleware[UpperCtx, Ctx] { self =>
   def apply(routes: Routes[Ctx]): Routes[UpperCtx]
@@ -981,8 +980,8 @@ object Middleware {
 
   def rotateCookie[Session](
     name: String,
-    validate: String => ZIO[Any, Nothing, Option[Session]],
-    create: Session => ZIO[Any, Nothing, String],
+    validate: String => Option[Session],
+    create: Session => String,
     maxAge: Option[Long],
   )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
     new Middleware[Any, Session] {
@@ -993,44 +992,31 @@ object Middleware {
         val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
           val cleared = Response.unauthorized.addCookie(ResponseCookie(name, "", maxAge = Some(0L)))
           request.cookies.find(_.name == name) match {
-            case None          => responseAsResult(cleared)
-            case Some(cookie)  =>
-              runSync(validate(cookie.value).catchAllDefect(_ => ZIO.none)) match {
-                case Some(Some(session)) =>
-                  runSync(create(session)) match {
-                    case None           => responseAsResult(cleared)
-                    case Some(newValue) =>
-                      val rotated       = ResponseCookie(name, newValue, maxAge = maxAge)
-                      val result: Any   =
-                        route.handler.handle(request, context.add[Session](session), vars, scope)
-                      result match {
-                        case response: Response       => responseAsResult(response.addCookie(rotated))
-                        case halt: Halt               =>
-                          haltAsResult(halt.copy(response = halt.response.addCookie(rotated)))
-                        case Left(response: Response) => responseAsResult(response.addCookie(rotated))
-                        case Right(halt: Halt)        =>
-                          haltAsResult(halt.copy(response = halt.response.addCookie(rotated)))
-                        case _                        => responseAsResult(Response.internalServerError)
-                      }
+            case None         => responseAsResult(cleared)
+            case Some(cookie) =>
+              // Fail closed: a throwing store maps to cleared 401, never a leak.
+              val sessionOpt: Option[Session] =
+                try validate(cookie.value)
+                catch { case scala.util.control.NonFatal(_) => None }
+              sessionOpt match {
+                case Some(session) =>
+                  val rotated     = ResponseCookie(name, create(session), maxAge = maxAge)
+                  val result: Any =
+                    route.handler.handle(request, context.add[Session](session), vars, scope)
+                  result match {
+                    case response: Response       => responseAsResult(response.addCookie(rotated))
+                    case halt: Halt               =>
+                      haltAsResult(halt.copy(response = halt.response.addCookie(rotated)))
+                    case Left(response: Response) => responseAsResult(response.addCookie(rotated))
+                    case Right(halt: Halt)        =>
+                      haltAsResult(halt.copy(response = halt.response.addCookie(rotated)))
+                    case _                        => responseAsResult(Response.internalServerError)
                   }
-                case _                   => responseAsResult(cleared)
+                case None      => responseAsResult(cleared)
               }
           }
         }
         Route(route.pattern, wrapped)
       }
-    }
-
-  private def runSync[A](effect: ZIO[Any, Nothing, A]): Option[A] =
-    try {
-      val exit = Unsafe.unsafe { implicit unsafe: Unsafe =>
-        Runtime.default.unsafe.run(effect)(Trace.empty, unsafe)
-      }
-      exit match {
-        case Exit.Success(value) => Some(value)
-        case _                   => None
-      }
-    } catch {
-      case scala.util.control.NonFatal(_) => None
     }
 }

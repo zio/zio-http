@@ -358,8 +358,8 @@ Verified on v4 (`RotateCookieSpec` 4/4 + 13/13 neighbors, fail-closed):
 ```scala
 Middleware.rotateCookie[Session](
   name = "session_id",
-  validate = (sessionId: String) => ZIO.succeed(Option.empty[Session]),
-  create = (_: Session) => ZIO.succeed("new-session-id"),
+  validate = (sessionId: String) => Option.empty[Session],
+  create = (_: Session) => "new-session-id",
   maxAge = Some(300L),
 )
 ```

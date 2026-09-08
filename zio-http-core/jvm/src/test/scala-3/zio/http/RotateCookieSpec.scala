@@ -15,7 +15,7 @@
  */
 package zio.http
 
-import zio._
+import scala.collection.mutable
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern.MethodSyntax
 import zio.blocks.scope.Scope
@@ -40,8 +40,8 @@ object RotateCookieSpec extends ZIOSpecDefault {
     Method.GET / "secure" -> handler((session: Session) => Response.text(s"hello ${session.user}"))
 
   private def rotated(
-    validate: String => ZIO[Any, Nothing, Option[Session]],
-    create: Session => ZIO[Any, Nothing, String],
+    validate: String => Option[Session],
+    create: Session => String,
   ): Routes[Any] =
     Routes(securedRoute) @@ Middleware.rotateCookie[Session](CookieName, validate, create, Some(300L))
 
@@ -56,53 +56,53 @@ object RotateCookieSpec extends ZIOSpecDefault {
 
   def spec = suite("Middleware.rotateCookie")(
     test("valid old cookie rotates: new value set, old invalidated via user store") {
-      for {
-        store       <- Ref.make(Map("old-1" -> Session("alice")))
-        invalidated <- Ref.make(List.empty[String])
-        validate     = (token: String) => store.get.map(_.get(token))
-        create       = (_: Session) =>
-          store.update(_ - "old-1") *> invalidated.update("old-1" :: _) *> ZIO.succeed("new-1")
-        request      = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
-        result      <- ZIO.attempt(dispatch(rotated(validate, create), request))
-        response     = asResponse(result)
-        cookie       = response.cookies.find(_.name == CookieName)
-        gone        <- invalidated.get
-        remaining   <- store.get
-      } yield assertTrue(
+      val store       = mutable.Map("old-1" -> Session("alice"))
+      val invalidated = mutable.ListBuffer.empty[String]
+      val validate    = (token: String) => store.get(token)
+      val create      = (_: Session) => {
+        store.remove("old-1")
+        invalidated += "old-1"
+        "new-1"
+      }
+      val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
+      val response = asResponse(dispatch(rotated(validate, create), request))
+      val cookie   = response.cookies.find(_.name == CookieName)
+      assertTrue(
         response == Response.text("hello alice").addCookie(ResponseCookie(CookieName, "new-1", maxAge = Some(300L))),
         cookie.map(_.value).contains("new-1"),
         cookie.flatMap(_.maxAge).contains(300L),
-        gone.contains("old-1"),
-        remaining.get("old-1").isEmpty,
+        invalidated.contains("old-1"),
+        store.get("old-1").isEmpty,
       )
     },
     test("invalid old cookie is cleared and yields 401") {
-      for {
-        store    <- Ref.make(Map("good-9" -> Session("bob")))
-        validate  = (token: String) => store.get.map(_.get(token))
-        create    = (_: Session) => ZIO.succeed("fresh-1")
-        request   = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "bogus"))
-        result   <- ZIO.attempt(dispatch(rotated(validate, create), request))
-      } yield assertTrue(result == cleared)
+      val store    = Map("good-9" -> Session("bob"))
+      val validate = (token: String) => store.get(token)
+      val create   = (_: Session) => "fresh-1"
+      val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "bogus"))
+      assertTrue(dispatch(rotated(validate, create), request) == cleared)
     },
     test("missing cookie yields cleared 401 without touching the store") {
-      for {
-        touched    <- Ref.make(false)
-        validate    = (_: String) => touched.set(true).as(Option.empty[Session])
-        create      = (_: Session) => touched.set(true).as("fresh-1")
-        result     <- ZIO.attempt(dispatch(rotated(validate, create), Request.get(URL.root / "secure")))
-        wasTouched <- touched.get
-      } yield assertTrue(
+      var touched  = false
+      val validate = (_: String) => {
+        touched = true
+        Option.empty[Session]
+      }
+      val create = (_: Session) => {
+        touched = true
+        "fresh-1"
+      }
+      val result = dispatch(rotated(validate, create), Request.get(URL.root / "secure"))
+      assertTrue(
         result == cleared,
-        !wasTouched,
+        !touched,
       )
     },
-    test("validate defect is swallowed: cleared cookie plus 401, no leak") {
-      val validate = (_: String) => ZIO.die(new RuntimeException("boom-secret"))
-      val create   = (_: Session) => ZIO.succeed("fresh-1")
+    test("throwing validate yields cleared cookie plus 401, no leak") {
+      val validate = (_: String) => throw new RuntimeException("boom-secret")
+      val create   = (_: Session) => "fresh-1"
       val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
-      val result   = dispatch(rotated(validate, create), request)
-      assertTrue(result == cleared)
+      assertTrue(dispatch(rotated(validate, create), request) == cleared)
     },
   )
 }
