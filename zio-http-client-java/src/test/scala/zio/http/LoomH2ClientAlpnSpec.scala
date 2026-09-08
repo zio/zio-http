@@ -36,8 +36,9 @@ import zio.http.h2.H2Transport
  *     (H2C without TLS works);
  *   - TLS GET against a StrictH2 LoomServer: 200 over HTTP/2.0;
  *   - TLS GET against a cert with a WRONG hostname (127.0.0.1 vs the
- *     `CN=localhost` test cert, real trust): fast [[javax.net.ssl.SSLException]]
- *     proving hostname verification is active, never a silent 200;
+ *     `CN=localhost` test cert, real trust): fast
+ *     [[javax.net.ssl.SSLException]] proving hostname verification is active,
+ *     never a silent 200;
  *   - H2PreferredWithH11Fallback against an h1.1-only TLS endpoint: falls back
  *     to the JDK h1.1 leg, 200 over HTTP/1.1;
  *   - StrictH2 against an h1.1-only TLS endpoint: fast
@@ -148,7 +149,7 @@ tylLU8iZnM9E7+/GSVghdQ==
             val hostnameRejected = exit match {
               case Exit.Failure(cause) =>
                 cause.failures.exists(_.isInstanceOf[javax.net.ssl.SSLException]) ||
-                  cause.defects.exists(_.isInstanceOf[javax.net.ssl.SSLException])
+                cause.defects.exists(_.isInstanceOf[javax.net.ssl.SSLException])
               case _                   => false
             }
             proof(s"wrong-hostname failed=${exit.isFailure} sslFailure=$hostnameRejected")
@@ -398,9 +399,9 @@ tylLU8iZnM9E7+/GSVghdQ==
       store.setCertificateEntry("test-cert-" + index, it.next())
       index += 1
     }
-    val tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm)
+    val tmf       = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm)
     tmf.init(store)
-    val ctx = SSLContext.getInstance("TLS")
+    val ctx       = SSLContext.getInstance("TLS")
     ctx.init(null, tmf.getTrustManagers, new SecureRandom())
     ctx
   }
