@@ -35,6 +35,9 @@ import zio.http.h2.H2Transport
  *   - H2C prior-knowledge GET against a plaintext LoomServer: 200 over HTTP/2.0
  *     (H2C without TLS works);
  *   - TLS GET against a StrictH2 LoomServer: 200 over HTTP/2.0;
+ *   - TLS GET against a cert with a WRONG hostname (127.0.0.1 vs the
+ *     `CN=localhost` test cert, real trust): fast [[javax.net.ssl.SSLException]]
+ *     proving hostname verification is active, never a silent 200;
  *   - H2PreferredWithH11Fallback against an h1.1-only TLS endpoint: falls back
  *     to the JDK h1.1 leg, 200 over HTTP/1.1;
  *   - StrictH2 against an h1.1-only TLS endpoint: fast
@@ -129,6 +132,27 @@ tylLU8iZnM9E7+/GSVghdQ==
               response.status == Status.Ok,
               body == "loom-h2-ok",
             )
+          }
+        }
+      },
+      test("TLS GET against a cert with a wrong hostname fails fast (hostname verification active)") {
+        withStrictH2Server { port =>
+          ZIO.attemptBlocking {
+            // Real trust for the CN=localhost test cert, but the request targets
+            // 127.0.0.1: with endpoint identification the handshake must reject
+            // the hostname mismatch instead of returning a silent 200.
+            val config = ClientConfig(alpn = ClientAlpnPolicy.StrictH2)
+            val driver = LoomH2ClientDriver(config, certTrustingSslContext())
+            driver.send(Request.get(absUrl(s"https://127.0.0.1:$port/")))
+          }.exit.map { exit =>
+            val hostnameRejected = exit match {
+              case Exit.Failure(cause) =>
+                cause.failures.exists(_.isInstanceOf[javax.net.ssl.SSLException]) ||
+                  cause.defects.exists(_.isInstanceOf[javax.net.ssl.SSLException])
+              case _                   => false
+            }
+            proof(s"wrong-hostname failed=${exit.isFailure} sslFailure=$hostnameRejected")
+            assertTrue(exit.isFailure, hostnameRejected)
           }
         }
       },
@@ -359,6 +383,25 @@ tylLU8iZnM9E7+/GSVghdQ==
     })
     val ctx      = SSLContext.getInstance("TLS")
     ctx.init(null, trustAll, new SecureRandom())
+    ctx
+  }
+
+  private def certTrustingSslContext(): SSLContext = {
+    val certBytes = TestCert.getBytes(StandardCharsets.UTF_8)
+    val certs     =
+      CertificateFactory.getInstance("X.509").generateCertificates(new ByteArrayInputStream(certBytes))
+    val store     = KeyStore.getInstance(KeyStore.getDefaultType)
+    store.load(null, Array.emptyCharArray)
+    var index     = 0
+    val it        = certs.iterator()
+    while (it.hasNext) {
+      store.setCertificateEntry("test-cert-" + index, it.next())
+      index += 1
+    }
+    val tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm)
+    tmf.init(store)
+    val ctx = SSLContext.getInstance("TLS")
+    ctx.init(null, tmf.getTrustManagers, new SecureRandom())
     ctx
   }
 

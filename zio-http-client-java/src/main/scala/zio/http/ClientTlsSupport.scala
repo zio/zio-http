@@ -44,6 +44,10 @@ private[http] object ClientTlsSupport {
   def alpnParameters(offer: List[String], tls: Option[ClientTlsConfig], context: SSLContext): SSLParameters = {
     val params = context.getDefaultSSLParameters
     params.setApplicationProtocols(offer.toArray)
+    // HTTPS endpoint identification: the raw SSLSocket legs verify the server
+    // cert hostname on every handshake (H2C cleartext has no TLS by
+    // construction, so it is unaffected).
+    params.setEndpointIdentificationAlgorithm("HTTPS")
     tls.foreach { cfg =>
       requireSupportedProtocols(context, cfg)
       params.setProtocols(cfg.tlsVersions.toArray)
