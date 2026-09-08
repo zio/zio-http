@@ -1012,7 +1012,7 @@ object Middleware {
                       haltAsResult(halt.copy(response = halt.response.addCookie(rotated)))
                     case _                        => responseAsResult(Response.internalServerError)
                   }
-                case None      => responseAsResult(cleared)
+                case None          => responseAsResult(cleared)
               }
           }
         }

@@ -7,8 +7,8 @@ import zio._
  *
  * Replaces `ZIO.randomWith(_.nextUUID)`: a UUIDv4 string carries only 122 bits
  * of entropy, below the ASVS 128-bit minimum for session identifiers. Tokens
- * here carry 256 bits (32 bytes from `SecureRandom`, Base64-URL encoded
- * without padding to 43 chars), meeting the OWASP 256-bit recommendation.
+ * here carry 256 bits (32 bytes from `SecureRandom`, Base64-URL encoded without
+ * padding to 43 chars), meeting the OWASP 256-bit recommendation.
  *
  * JVM-only: `java.security.SecureRandom` has no Scala.js equivalent, so this
  * helper lives in `jvm/` sources rather than `shared/`.

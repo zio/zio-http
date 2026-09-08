@@ -64,9 +64,9 @@ object RotateCookieSpec extends ZIOSpecDefault {
         invalidated += "old-1"
         "new-1"
       }
-      val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
-      val response = asResponse(dispatch(rotated(validate, create), request))
-      val cookie   = response.cookies.find(_.name == CookieName)
+      val request     = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
+      val response    = asResponse(dispatch(rotated(validate, create), request))
+      val cookie      = response.cookies.find(_.name == CookieName)
       assertTrue(
         response == Response.text("hello alice").addCookie(ResponseCookie(CookieName, "new-1", maxAge = Some(300L))),
         cookie.map(_.value).contains("new-1"),
@@ -88,11 +88,11 @@ object RotateCookieSpec extends ZIOSpecDefault {
         touched = true
         Option.empty[Session]
       }
-      val create = (_: Session) => {
+      val create   = (_: Session) => {
         touched = true
         "fresh-1"
       }
-      val result = dispatch(rotated(validate, create), Request.get(URL.root / "secure"))
+      val result   = dispatch(rotated(validate, create), Request.get(URL.root / "secure"))
       assertTrue(
         result == cleared,
         !touched,
