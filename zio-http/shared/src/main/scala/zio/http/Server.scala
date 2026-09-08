@@ -461,8 +461,8 @@ object Server extends ServerPlatformSpecific {
             zio.Config.int("lgwin").withDefault(BrotliConfig.DefaultLgwin) ++
             zio.Config.string("mode").map(Mode.fromString).withDefault(BrotliConfig.DefaultMode) ++
             zio.Config.string("type") ++
-            zio.Config.int("block").withDefault(ZstdConfig.DefaultBlockSize) ++
-            zio.Config.int("maxencode").withDefault(ZstdConfig.DefaultMaxEncodeSize)
+            zio.Config.int("block-size").withDefault(ZstdConfig.DefaultBlockSize) ++
+            zio.Config.int("max-encode-size").withDefault(ZstdConfig.DefaultMaxEncodeSize)
         ).map { case (level, bits, mem, quantity, lgwin, mode, typ, block, maxencode) =>
           typ.toLowerCase match {
             case "gzip"    => gzip(level.getOrElse(DeflateConfig.DefaultLevel), bits, mem)
