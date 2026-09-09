@@ -43,6 +43,7 @@ final class H2Connection(
   )
   private val closed                                = new AtomicBoolean(false)
   private val activeStreams                         = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val activeHandlers                        = ConcurrentHashMap.newKeySet[Thread]()
   private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
   private val writeLock                             = new Object
   private var readBuffer: Chunk[Byte]               = Chunk.empty
@@ -338,19 +339,30 @@ final class H2Connection(
    * with REFUSED_STREAM, a late RST). A single sleep would collapse the drain
    * on the first such frame and close TCP under in-flight streams — and under
    * the very RST the refusal path just wrote. Interrupts are absorbed until the
-   * full drain period elapses.
+   * full drain period elapses, and the interrupt status is restored on exit so
+   * structured shutdown upstream still observes it.
+   *
+   * The loop exits early once the connection is fully drained — `activeStreams`
+   * empty and no per-stream handler thread still running. Both halves matter:
+   * a client RST removes the stream entry eagerly while its handler thread may
+   * still be mid-response (its abort RST echo is written from that thread), so
+   * exiting on an empty stream map alone would close TCP under the echo.
+   * Sleeps run in 1ms quanta (matching the writer park) so a drain that
+   * completes mid-period is observed promptly.
    */
-  private def initiateGracefulShutdown(): Unit = {
+  private[h2] def initiateGracefulShutdown(): Unit = {
     val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs.max(0L))
     var remaining     = deadlineNanos - System.nanoTime()
-    while (remaining > 0L) {
+    var interrupted   = false
+    while (remaining > 0L && (!activeStreams.isEmpty || !activeHandlers.isEmpty)) {
       try {
-        TimeUnit.NANOSECONDS.sleep(remaining)
-        remaining = 0L
+        TimeUnit.NANOSECONDS.sleep(math.min(remaining, 1000000L))
       } catch {
-        case _: InterruptedException => remaining = deadlineNanos - System.nanoTime()
+        case _: InterruptedException => interrupted = true
       }
+      remaining = deadlineNanos - System.nanoTime()
     }
+    if (interrupted) Thread.currentThread().interrupt()
     shutdown(connectionCancelled("idle timeout"))
   }
 
@@ -378,10 +390,13 @@ final class H2Connection(
         flowController.registerStream(streamId)
         activeStreams.put(streamId, stream)
 
-        Thread
+        // Registered before start so the GOAWAY drain never observes a fully
+        // idle connection while a handler is still spawning: an entry present
+        // without a live thread only ever extends the drain to its deadline.
+        val handler = Thread
           .ofVirtual()
           .name("zio-http-h2-stream-" + streamId)
-          .start(runnable {
+          .unstarted(runnable {
             var completed = false
             try {
               onStream(stream)
@@ -391,8 +406,16 @@ final class H2Connection(
                 if (!stream.isClosed) stream.close()
                 activeStreams.remove(streamId)
               }
+              activeHandlers.remove(Thread.currentThread())
             }
           })
+        activeHandlers.add(handler)
+        try handler.start()
+        catch {
+          case NonFatal(error) =>
+            activeHandlers.remove(handler)
+            throw error
+        }
 
         Some(stream)
     }
