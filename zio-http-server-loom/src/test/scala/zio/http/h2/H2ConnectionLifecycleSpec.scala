@@ -265,10 +265,10 @@ object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
       // ── GOAWAY drain: early-exit when nothing is in flight ──────────────
       test("graceful drain with zero in-flight streams closes fast") {
         ZIO.attemptBlocking {
-          val fakeIn  = new java.io.ByteArrayInputStream(Array.emptyByteArray)
-          val fakeOut = new ByteArrayOutputStream()
-          val conn    = new H2Connection(fakeIn, fakeOut, maxConcurrentStreams = 10, drainTimeoutMs = 5000L)
-          val start   = java.lang.System.nanoTime()
+          val fakeIn    = new java.io.ByteArrayInputStream(Array.emptyByteArray)
+          val fakeOut   = new ByteArrayOutputStream()
+          val conn      = new H2Connection(fakeIn, fakeOut, maxConcurrentStreams = 10, drainTimeoutMs = 5000L)
+          val start     = java.lang.System.nanoTime()
           conn.initiateGracefulShutdown()
           val elapsedMs = (java.lang.System.nanoTime() - start) / 1000000L
           assertTrue(elapsedMs < 1000L)
@@ -277,14 +277,14 @@ object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
       // ── GOAWAY drain: absorbed interrupts restore interrupt status ──────
       test("graceful drain restores interrupt status after absorbing interrupt") {
         ZIO.attemptBlocking {
-          val fakeIn      = new java.io.ByteArrayInputStream(Array.emptyByteArray)
-          val fakeOut     = new ByteArrayOutputStream()
-          val conn        = new H2Connection(fakeIn, fakeOut, maxConcurrentStreams = 10, drainTimeoutMs = 10000L)
-          val mux         = Mux[Int, H2Frame, H2Frame](10)
-          val opened: Any = mux.open(1)
-          val field       = classOf[H2Connection].getDeclaredField("activeStreams")
+          val fakeIn       = new java.io.ByteArrayInputStream(Array.emptyByteArray)
+          val fakeOut      = new ByteArrayOutputStream()
+          val conn         = new H2Connection(fakeIn, fakeOut, maxConcurrentStreams = 10, drainTimeoutMs = 10000L)
+          val mux          = Mux[Int, H2Frame, H2Frame](10)
+          val opened: Any  = mux.open(1)
+          val field        = classOf[H2Connection].getDeclaredField("activeStreams")
           field.setAccessible(true)
-          val streams     = field.get(conn).asInstanceOf[java.util.concurrent.ConcurrentHashMap[Int, Any]]
+          val streams      = field.get(conn).asInstanceOf[java.util.concurrent.ConcurrentHashMap[Int, Any]]
           streams.put(1, opened)
           val sawInterrupt = new java.util.concurrent.atomic.AtomicBoolean(false)
           val drainThread  = new Thread(() => {

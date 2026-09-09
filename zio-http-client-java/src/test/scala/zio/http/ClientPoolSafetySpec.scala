@@ -37,10 +37,10 @@ import zio.http.h2.hpack.HpackCodec
  * RST into systemic failure - these three tests pin the gaps.
  *
  * Harness mirrors T15: real sockets on ephemeral ports (`acquireRelease`
- * everywhere) with an in-spec H2C stub extended for the gaps - a `/reset`
- * route that kills its connection ungracefully (SO_LINGER(0) RST, never
- * GOAWAY), plus per-request authority/authorization recording so leaks are
- * observable. Small bodies only (no WINDOW_UPDATE top-ups needed).
+ * everywhere) with an in-spec H2C stub extended for the gaps - a `/reset` route
+ * that kills its connection ungracefully (SO_LINGER(0) RST, never GOAWAY), plus
+ * per-request authority/authorization recording so leaks are observable. Small
+ * bodies only (no WINDOW_UPDATE top-ups needed).
  */
 @experimental
 object ClientPoolSafetySpec extends ZIOSpecDefault {
@@ -81,10 +81,12 @@ object ClientPoolSafetySpec extends ZIOSpecDefault {
             ZIO.attemptBlocking {
               val pool = PooledLoomH2Client(ClientConfig(pool = PoolConfig(maxPerHost = 4, maxTotal = 8)))
               try {
-                val reqA = Request.get(absUrl(s"http://127.0.0.1:${stubA.port}/ok")).addHeader("Authorization", "Bearer TOKEN-A")
+                val reqA  =
+                  Request.get(absUrl(s"http://127.0.0.1:${stubA.port}/ok")).addHeader("Authorization", "Bearer TOKEN-A")
                 val respA = pool.send(reqA)
                 val bodyA = new String(respA.body.toArray, StandardCharsets.UTF_8)
-                val reqB = Request.get(absUrl(s"http://127.0.0.1:${stubB.port}/ok")).addHeader("Authorization", "Bearer TOKEN-B")
+                val reqB  =
+                  Request.get(absUrl(s"http://127.0.0.1:${stubB.port}/ok")).addHeader("Authorization", "Bearer TOKEN-B")
                 val respB = pool.send(reqB)
                 val bodyB = new String(respB.body.toArray, StandardCharsets.UTF_8)
                 val seenA = stubA.seen.asScala.toList
@@ -132,12 +134,12 @@ object ClientPoolSafetySpec extends ZIOSpecDefault {
                   val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:${stub.port}/ok")))
                   new String(response.body.toArray, StandardCharsets.UTF_8)
                 }.toList
-              val first  = burst()
+              val first                 = burst()
               Thread.sleep(700L)
-              val second = burst()
-              val bodies = first ++ second
-              val accepted = stub.accepted.get()
-              val stats    = pool.stats
+              val second                = burst()
+              val bodies                = first ++ second
+              val accepted              = stub.accepted.get()
+              val stats                 = pool.stats
               proof(s"load-turnover bodies=${bodies.distinct} accepted=$accepted stats=$stats")
               (bodies, accepted, stats)
             } finally {
@@ -233,9 +235,9 @@ object ClientPoolSafetySpec extends ZIOSpecDefault {
     cancelled: java.util.Set[Int],
   ): Unit = {
     socket.setSoTimeout(20000)
-    val input  = socket.getInputStream
-    val output = socket.getOutputStream
-    val reader = new StubFrameReader(input)
+    val input      = socket.getInputStream
+    val output     = socket.getOutputStream
+    val reader     = new StubFrameReader(input)
     readPreface(input)
     var negotiated = false
     while (!negotiated) {
@@ -247,8 +249,8 @@ object ClientPoolSafetySpec extends ZIOSpecDefault {
     writeFrame(output, Settings(ack = false, Nil))
     writeFrame(output, Settings(ack = true, Nil))
     output.flush()
-    val hpack = new HpackCodec()
-    var open  = true
+    val hpack      = new HpackCodec()
+    var open       = true
     while (open) {
       try {
         reader.readFrame() match {
@@ -256,12 +258,12 @@ object ClientPoolSafetySpec extends ZIOSpecDefault {
             val headerBlock =
               if (endHeaders) block
               else block ++ readContinuations(reader, output, streamId)
-            val fields = hpack.decode(headerBlock).fold(err => throw new IOException("stub HPACK: " + err), identity)
-            val path   = fields.collectFirst { case HeaderField(":path", value, _) => value }.getOrElse("/")
+            val fields    = hpack.decode(headerBlock).fold(err => throw new IOException("stub HPACK: " + err), identity)
+            val path      = fields.collectFirst { case HeaderField(":path", value, _) => value }.getOrElse("/")
             // Authority-aware recording: every request pins its :authority
             // pseudo-header plus the wire authorization credential, so a
             // cross-authority leak is observable (never vacuous).
-            val authority     = fields.collectFirst { case HeaderField(":authority", value, _) => value }.getOrElse("")
+            val authority = fields.collectFirst { case HeaderField(":authority", value, _) => value }.getOrElse("")
             val authorization = fields.collectFirst { case HeaderField("authorization", value, _) => value }
             seen.add(SeenRequest(path, authority, authorization))
             if (!endStream) drainRequestBody(reader, output, streamId, cancelled)

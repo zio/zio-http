@@ -143,7 +143,7 @@ tylLU8iZnM9E7+/GSVghdQ==
               .createSocket(rawSocket, "127.0.0.1", port, false)
               .asInstanceOf[SSLSocket]
             try {
-              val params = sslSocket.getSSLParameters
+              val params          = sslSocket.getSSLParameters
               params.setApplicationProtocols(Array("http/1.1"))
               sslSocket.setSSLParameters(params)
               sslSocket.setUseClientMode(true)
@@ -160,7 +160,7 @@ tylLU8iZnM9E7+/GSVghdQ==
               // promptly instead of serving bytes. A silent downgrade would
               // deliver HTTP here; a connection left open would block until
               // the socket timeout and fail the attempt.
-              val received = drainToEof(rawSocket)
+              val received        = drainToEof(rawSocket)
               (handshakeFailed, received)
             } finally {
               try rawSocket.close()
@@ -205,7 +205,7 @@ tylLU8iZnM9E7+/GSVghdQ==
               // open, which turns this drain into a SocketTimeout failure.
               // The neuter-the-mains RED check itself is out of scope - mains
               // are read-only for this lane.)
-              val received = drainToEof(rawSocket)
+              val received   = drainToEof(rawSocket)
               (negotiated, received)
             } finally {
               try rawSocket.close()
@@ -320,9 +320,9 @@ tylLU8iZnM9E7+/GSVghdQ==
    * failure mode that proves a missing close.
    */
   private def drainToEof(rawSocket: Socket): Array[Byte] = {
-    val in  = rawSocket.getInputStream
-    val out = new java.io.ByteArrayOutputStream()
-    val buf = new Array[Byte](1024)
+    val in   = rawSocket.getInputStream
+    val out  = new java.io.ByteArrayOutputStream()
+    val buf  = new Array[Byte](1024)
     var open = true
     while (open) {
       val n = in.read(buf)

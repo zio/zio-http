@@ -16,7 +16,8 @@ import zio.http.sse.{ServerSentEvent, SseCodec}
  *
  * SCOPE NOTE (decoder-absence verdict): there is NO SSE event-stream
  * parser/decoder anywhere in this repo. Evidence:
- *   - `SseCodec` (`zio-http-server/shared/src/main/scala/zio/http/sse/SseCodec.scala`)
+ *   - `SseCodec`
+ *     (`zio-http-server/shared/src/main/scala/zio/http/sse/SseCodec.scala`)
  *     exposes only `encode` and `heartbeat` — no `decode`/`parse` member.
  *   - repo-wide `SseCodec.` usages are encode-only (`Sse.body`, `SseCodecSpec`,
  *     `SseDelayIntegrationSpec`, `SseEndToEndSpec`); no `EventSource`, client
@@ -28,9 +29,9 @@ import zio.http.sse.{ServerSentEvent, SseCodec}
  * listed: byte-exact canonical framing per row, cross-checked against the
  * strict inline reference framer below (which never calls [[SseCodec]]).
  * Decode-side grammar (colon-space optionality, `\r\n` dispatch, blank-line
- * dispatch, `retry:` validation, unknown-field tolerance, BOM/whitespace
- * before field names, unterminated trailing events) is UNPINNED by
- * construction — it belongs to a future decoder lane, not this encoder.
+ * dispatch, `retry:` validation, unknown-field tolerance, BOM/whitespace before
+ * field names, unterminated trailing events) is UNPINNED by construction — it
+ * belongs to a future decoder lane, not this encoder.
  *
  * RED history (scratch probe, since removed): naive hypotheses failed for the
  * right reasons — `"a\n"` framed as `"data: a\ndata: \n\n"` (split `-1`
@@ -54,8 +55,8 @@ object SseGrammarSpec extends ZIOSpecDefault {
    * Strict reference framer: independent reimplementation of the encode
    * contract (explicit char scan splitting on CRLF, lone CR, and LF alike;
    * `split(-1)` trailing-segment semantics; canonical field order
-   * event/data/id/retry plus the blank-line terminator; LF-only output).
-   * Never calls [[SseCodec]].
+   * event/data/id/retry plus the blank-line terminator; LF-only output). Never
+   * calls [[SseCodec]].
    */
   private def referenceFrame(
     data: String,
@@ -81,7 +82,7 @@ object SseGrammarSpec extends ZIOSpecDefault {
       i += 1
     }
     lines += cur.toString()
-    val out = new StringBuilder()
+    val out   = new StringBuilder()
     event.foreach(name => out.append("event: ").append(name).append('\n'))
     lines.result().foreach(line => out.append("data: ").append(line).append('\n'))
     id.foreach(value => out.append("id: ").append(value).append('\n'))
@@ -204,7 +205,7 @@ object SseGrammarSpec extends ZIOSpecDefault {
       ),
       suite("reference cross-check pins the whole table")(
         test("encoder matches the strict reference framer on every grammar row") {
-          val rows = List(
+          val rows      = List(
             ServerSentEvent(""),
             ServerSentEvent("hello"),
             ServerSentEvent("a\nb\nc"),

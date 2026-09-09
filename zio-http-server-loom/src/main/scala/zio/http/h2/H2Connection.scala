@@ -343,12 +343,12 @@ final class H2Connection(
    * structured shutdown upstream still observes it.
    *
    * The loop exits early once the connection is fully drained — `activeStreams`
-   * empty and no per-stream handler thread still running. Both halves matter:
-   * a client RST removes the stream entry eagerly while its handler thread may
+   * empty and no per-stream handler thread still running. Both halves matter: a
+   * client RST removes the stream entry eagerly while its handler thread may
    * still be mid-response (its abort RST echo is written from that thread), so
-   * exiting on an empty stream map alone would close TCP under the echo.
-   * Sleeps run in 1ms quanta (matching the writer park) so a drain that
-   * completes mid-period is observed promptly.
+   * exiting on an empty stream map alone would close TCP under the echo. Sleeps
+   * run in 1ms quanta (matching the writer park) so a drain that completes
+   * mid-period is observed promptly.
    */
   private[h2] def initiateGracefulShutdown(): Unit = {
     val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs.max(0L))
