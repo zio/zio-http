@@ -483,8 +483,8 @@ val whitelistAspect: HandlerAspect[Any, Unit] = {
 Several aspects are useful for adding, signing, and managing cookies:
 
 1. `HandlerAspect.addCookie` and `HandlerAspect.addCookieZIO` to add cookies
-2. `HandlerAspect.signCookies` to sign cookies
-3. `HandlerAspect.flashScopeHandling` to manage the flash scope
+2. `HandlerAspect.signCookies` to sign cookies — :::warning UNPORTED on v4::: the `HandlerAspect` wrapper has 0 hits in v4 main sources. Note: `Middleware.signCookies` itself **is available on v4** since #4210 merged — use it directly (or `Middleware.rotateCookie` for rotation).
+3. `HandlerAspect.flashScopeHandling` to manage the flash scope — :::warning UNPORTED on v4::: the `HandlerAspect` wrapper is absent from v4 main (core `Middleware.flashScope` exists since #4210).
 
 ## Conditional Application of HandlerAspects
 
@@ -566,6 +566,9 @@ We create an aspect that appends an additional header to the response indicating
 ```scala mdoc:passthrough
 import utils._
 
+// :::warning FULLY UNPORTED on v4 (example 4 of 4) — pinned `//> using dep 3.4.0`,
+// `NettyServer.default`, plus `Middleware.patchZIO`/`debug`/`timeout`/`addHeader`,
+// all absent on v4 (v4 Middleware = identity/customAuth/basicAuth/bearerAuth/signCookies/rotateCookie/flashScope).
 printSource("zio-http-example/src/main/scala/example/HelloWorldWithMiddlewares.scala")
 ```
 

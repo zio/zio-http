@@ -977,4 +977,99 @@ object Middleware {
           foldResult(result)(logAndTap, h => { logger(s"── Halt ──"); h })
         }
     }
+
+  /**
+   * Rotates a session cookie: a valid incoming cookie yields the downstream
+   * response with a freshly minted cookie attached, while a missing, invalid,
+   * or throwing lookup yields a cleared (expired) cookie plus 401.
+   *
+   * Both the rotated and the cleared cookies carry `path`, `secure`,
+   * `httpOnly`, and `sameSite` (mirrored so browsers match name+domain+path
+   * when deleting). Rotation is success-only: a Halt or non-2xx downstream
+   * response passes through untouched, without the rotated cookie.
+   *
+   * @param validate
+   *   MUST use constant-time comparison (e.g.
+   *   java.security.MessageDigest.isEqual) to avoid timing side-channels.
+   */
+  def rotateCookie[Session](
+    name: String,
+    validate: String => Option[Session],
+    create: Session => String,
+    maxAge: Option[Long],
+    path: Option[Path] = Some(Path.root),
+    secure: Boolean = true,
+    httpOnly: Boolean = true,
+    sameSite: SameSite = SameSite.Strict,
+  )(implicit ev: IsNominalType[Session]): Middleware[Any, Session] =
+    new Middleware[Any, Session] {
+      def apply(routes: Routes[Session]): Routes[Any] =
+        Routes.fromIterable(routes.routes.map(secureRoute))
+
+      private def secureRoute(route: Route[Session]): Route[Any] = {
+        val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
+          val cleared = Response.unauthorized.addCookie(
+            ResponseCookie(
+              name,
+              "",
+              path = path,
+              maxAge = Some(0L),
+              isSecure = secure,
+              isHttpOnly = httpOnly,
+              sameSite = Some(sameSite),
+            ),
+          )
+          request.cookies.find(_.name == name) match {
+            case None         => responseAsResult(cleared)
+            case Some(cookie) =>
+              // Fail closed: a throwing store maps to cleared 401, never a leak.
+              val sessionOpt: Option[Session] =
+                try validate(cookie.value)
+                catch { case scala.util.control.NonFatal(_) => None }
+              sessionOpt match {
+                case None          => responseAsResult(cleared)
+                case Some(session) =>
+                  // Fail closed: a throwing mint maps to cleared 401, never a leak.
+                  val freshOpt: Option[String] =
+                    try Some(create(session))
+                    catch { case scala.util.control.NonFatal(_) => None }
+                  freshOpt match {
+                    case None        => responseAsResult(cleared)
+                    case Some(fresh) =>
+                      val rotated     = ResponseCookie(
+                        name,
+                        fresh,
+                        path = path,
+                        maxAge = maxAge,
+                        isSecure = secure,
+                        isHttpOnly = httpOnly,
+                        sameSite = Some(sameSite),
+                      )
+                      val result: Any =
+                        route.handler.handle(request, context.add[Session](session), vars, scope)
+                      // Success-only rotation: Halt and non-2xx pass through
+                      // untouched, without the rotated cookie attached.
+                      result match {
+                        case response: Response       =>
+                          if (isSuccess(response.status)) responseAsResult(response.addCookie(rotated))
+                          else responseAsResult(response)
+                        case halt: Halt               => haltAsResult(halt)
+                        case Left(response: Response) =>
+                          if (isSuccess(response.status)) responseAsResult(response.addCookie(rotated))
+                          else responseAsResult(response)
+                        case Right(halt: Halt)        => haltAsResult(halt)
+                        case _                        => responseAsResult(Response.internalServerError)
+                      }
+                  }
+              }
+          }
+        }
+        Route(route.pattern, wrapped)
+      }
+
+      private def isSuccess(status: Status): Boolean = {
+        val code = status.code
+        code >= 200 && code < 300
+      }
+    }
 }

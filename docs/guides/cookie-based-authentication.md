@@ -4,6 +4,12 @@ title: "Securing Your APIs: Cookie-based Authentication"
 sidebar_label: "Cookie-based Authentication"
 ---
 
+:::warning v4-status
+Verified on v4: H2 `Set-Cookie` wire bytes, `SessionToken`, and `Middleware.rotateCookie` (see "Session rotation (verified on v4)" below).
+Unported inline APIs in this guide (preserved as-is): `Cookie.Response` / `Cookie.SameSite` / `request.cookie` / `ZClient.batched` / `HandlerAspect.cookieAuth` / `Response.*("msg")` message-arg forms.
+All 4 fully unported examples: `CookieServerSide.scala`, `SignCookies.scala`, `HelloWorldWithMiddlewares.scala`, and `CookieBasedAuthentication.scala` (3.4.0 + `NettyServer` + old `Middleware.basicAuth("admin","admin")` pair-signature vs v4 `basicAuth[Session]` validate-fn; its flow is the inlined v3 snippets below).
+:::
+
 Session-based authentication using cookies is one of the most common authentication mechanisms for web applications. In this guide, we demonstrate how to implement a robust cookie-based authentication system in ZIO HTTP, covering both server-side implementation and client integration.
 
 In this authentication model, when a user logs in successfully, the server creates a session and sends a session identifier to the client as a cookie. The client automatically includes this cookie in subsequent requests, allowing the server to identify and authenticate the user.
@@ -17,6 +23,10 @@ The foundation of cookie-based authentication lies in two HTTP headers: `Set-Coo
 The `Set-Cookie` header is used by the server to send cookies to the client. When a user successfully authenticates, the server creates a session and sends the session identifier to the client using this header.
 
 In ZIO HTTP, we can create a `Set-Cookie` header using the `Cookie.Response` data type:
+
+:::warning UNPORTED
+The `Cookie.Response` block below is v3-era and unported on v4 (typed path is `ResponseCookie` via `Response.addCookie`; see cookies reference "Verified on v4"). Preserved as-is.
+:::
 
 ```scala mdoc:silent
 import zio._
@@ -81,6 +91,10 @@ In this example, the client sends the `session_id` cookie to the server when acc
 
 In ZIO HTTP, when writing client code, we don't need to manually create a `Cookie` header; instead, we can convert the received `Set-Cookie` header into a `Cookie` object and use it in subsequent requests:
 
+:::warning UNPORTED
+The `ZClient.batched` snippet below is v3-era and unported. Preserved as-is.
+:::
+
 ```scala mdoc:invisible
 val SERVER_URL = "http://localhost:8080"
 val loginUrl   = URL.decode(s"$SERVER_URL/login").toOption.get
@@ -122,13 +136,13 @@ Here is a simple in-memory session service that manages user sessions. It allows
 
 ```scala mdoc:silent
 class SessionService private(private val store: Ref[Map[String, String]]) {
-  private def generateSessionId(): UIO[String] =
-    ZIO.randomWith(_.nextUUID).map(_.toString)
+  private def generateSessionId(): IO[SessionTokenError, String] =
+    SessionToken.generate
 
-  def create(username: String): UIO[String] =
+  def create(username: String): IO[SessionTokenError, String] =
     for {
       sessionId <- generateSessionId()
-      _         <- store.update(_ + (sessionId -> username))
+      _         <- store.update(_ + (sessionId -> username)).orDie
     } yield sessionId
 
   def get(sessionId: String): UIO[Option[String]] =
@@ -138,6 +152,10 @@ class SessionService private(private val store: Ref[Map[String, String]]) {
     store.update(_ - sessionId)
 }
 ```
+
+:::note Verified on v4
+`SessionToken.generate: IO[SessionTokenError, String]` is JVM-only: `SecureRandom` 32 bytes to a 43-char URL-safe token (256-bit, above the ASVS 128-bit minimum; UUID's 122-bit rejected). Typed `SessionTokenError`, no silent fallback (`SessionTokenSpec` 4/4 x2 Scala versions). Callers map the error (e.g. to `Response.internalServerError()`, verified no-arg form).
+:::
 
 Here is how to create a live layer for the `SessionService`:
 
@@ -218,6 +236,10 @@ The next step is to implement the login route that will authenticate users and c
 
 ### Login Route
 
+:::warning UNPORTED
+The Login Route below is v3-era and unported (`Cookie.Response`, `Response.badRequest("...")` / `Response.unauthorized("...")` message-arg forms unported on v4). Preserved as-is.
+:::
+
 The login route is responsible for receiving user credentials (username and password), validating them, and creating a session if the credentials are correct:
 
 1. **Parse and validate** - Extracts username and password from URL-encoded form data, returning bad request errors if fields are missing
@@ -272,6 +294,10 @@ In production environments, we should set `isHttpOnly = true` and `isSecure = tr
 
 ### Authentication Middleware
 
+:::warning UNPORTED
+The `HandlerAspect` cookie-auth middleware below is v3-era and unported (`HandlerAspect` absent on v4 main; v4 middleware is `Middleware.identity` / `customAuth` / `basicAuth` / `bearerAuth` / `signCookies` / `rotateCookie` (+ `flashScope`) — `signCookies` arrived via #4210 after the original v4-status audit). Preserved as-is.
+:::
+
 After implementing the login route, we can now create middleware that will intercept incoming requests and check for a valid session cookie. If the cookie is present and valid, it will allow access to protected resources; otherwise, it will return an unauthorized response.
 
 We can write it as a `HandlerAspect` like this:
@@ -325,7 +351,39 @@ val profile =
   } @@ AuthMiddleware.cookieAuth("session_id")
 ```
 
+### Session rotation (verified on v4)
+
+:::warning Unsigned bearer tokens
+`rotateCookie` tokens are bearer values with no MAC — possession alone grants access. Require TLS in production plus server-side one-time invalidation (delete the old token when minting the new one). Rotation is not a substitute for signing — use `Middleware.signCookies` when you need integrity without a server-side store.
+:::
+
+Verified on v4 (`RotateCookieSpec` 4/4 + 13/13 neighbors, fail-closed):
+
+```scala
+Middleware.rotateCookie[Session](
+  name = "session_id",
+  validate = (sessionId: String) => Option.empty[Session],
+  create = (_: Session) => "new-session-id",
+  maxAge = Some(300L),
+  path = Some(Path.root),
+  secure = true,
+  httpOnly = true,
+  sameSite = SameSite.Strict,
+)
+```
+
+- Store-free callbacks: `validate` / `create` carry session state; no server-side store required.
+- Valid session rotates to a fresh `ResponseCookie`; invalid / missing / defect maps to `401` with a cleared cookie (`maxAge = Some(0L)`).
+- Missing cookie never calls `validate` (fail-closed by construction).
+- Success-only attach: a `Halt` or non-2xx downstream response passes through untouched, without the rotated cookie.
+- `create` is guarded: a throwing mint maps to cleared `401`, never a leak — invalidate the old token server-side when minting the new one (one-time use).
+- `validate` / `create` are synchronous callbacks — keep them in-memory lookups only; do not block on DB I/O inside them (preload to memory or move I/O outside the callback).
+
 ## Writing a ZIO HTTP Client
+
+:::warning UNPORTED
+The ZIO HTTP client section below is v3-era and unported (`ZClient.batched`, `toRequest`, `addCookie` forms shown are unported). Preserved as-is.
+:::
 
 While web browsers handle cookies automatically, when building a programmatic client using ZIO HTTP, we need to explicitly manage cookies in our requests. This section demonstrates how to build a ZIO HTTP client that can authenticate with our cookie-based server and access protected resources.
 
@@ -404,6 +462,10 @@ Here's a complete example that demonstrates the full authentication lifecycle:
 ```scala mdoc:passthrough
 utils.printSource("zio-http-example-cookie-auth/src/main/scala/example/auth/session/cookie/AuthenticationClient.scala")
 ```
+
+:::warning FULLY UNPORTED
+`AuthenticationClient.scala` passthrough above is fully unported (v3 client shape). Preserved as-is.
+:::
 
 ## Writing a Web Client
 

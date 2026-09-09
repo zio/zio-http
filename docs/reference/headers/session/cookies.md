@@ -3,6 +3,11 @@ id: cookies
 title: Cookies
 ---
 
+:::warning v4-status
+Only the "Verified on v4: Set-Cookie over H2" subsection below is verified on v4.
+The remaining `Cookie.*` / `Response#sign` / `signCookies` / `NettyServer` snippets on this page are v3-era and unported — preserved as-is, do not treat as v4 API.
+:::
+
 Cookies are small pieces of data that websites store on a user's browser. They are sent between the client (browser) and server in HTTP requests and responses. Cookies serve various purposes, including session management, user authentication, personalization, and tracking.
 
 When a user visits a website, the server can send one or more cookies to the browser, which stores them locally. The browser then includes these cookies in subsequent requests to the same website, allowing the server to retrieve and utilize the stored information.
@@ -38,6 +43,47 @@ object Cookie {
 
 Request cookies (`Cookie.Request`) are sent by the client to the server, while response cookies (`Cookie.Response`) are sent by the server to the client.
 
+## Verified on v4: Set-Cookie over H2
+
+:::warning Unsigned bearer tokens
+Cookie session values (including `Middleware.rotateCookie` tokens) are bearer values with no MAC — possession alone grants access. Require TLS in production plus server-side one-time invalidation (delete the old token when minting the new one). Rotation is not a substitute for signing — use `Middleware.signCookies` when you need integrity without a server-side store.
+:::
+
+The following is verified on v4 (CookieWireSpec 2/2 GREEN, non-empty HPACK header block).
+This proves HPACK-encoding survival of the `Set-Cookie` bytes on the H2 wire, NOT browser enforcement of `Secure` / `HttpOnly` / `SameSite`:
+
+```scala
+// Raw wire bytes survive H2 (Secure + HttpOnly + SameSite=Strict):
+Header.Custom("set-cookie", "session=abc123; Path=/; Secure; HttpOnly; SameSite=Strict")
+// Clearing a cookie arrives intact:
+Header.Custom("set-cookie", "session=; Path=/; Max-Age=0")
+```
+
+Typed cookie path (confirmed against published `zio-blocks-http-model` jar via `javap`):
+
+- `ResponseCookie(name, value, expires?, domain?, path?, maxAge?, isSecure, isHttpOnly, sameSite?, isPartitioned?, priority?)` via `Response.addCookie` / `response.cookies`
+- `RequestCookie(name, value)` via `Request.addCookie` / `request.cookies`
+- Top-level `SameSite`: `Strict` / `Lax` / `None_`
+- Render / parse: `Cookie.renderResponse` / `Cookie.parseResponse`
+- No message-arg `Response.unauthorized()` / `badRequest()` on v4 (no-arg form only).
+
+Session rotation (verified on v4, `RotateCookieSpec` fail-closed) uses the hardened signature — success-only attach, guarded `create`:
+
+```scala
+Middleware.rotateCookie[Session](
+  name = "session_id",
+  validate = (sessionId: String) => Option.empty[Session],
+  create = (_: Session) => "new-session-id",
+  maxAge = Some(300L),
+  path = Some(Path.root),
+  secure = true,
+  httpOnly = true,
+  sameSite = SameSite.Strict,
+)
+```
+
+`validate` / `create` are synchronous callbacks — keep them in-memory lookups only; do not block on DB I/O inside them.
+
 ## Response Cookie
 
 ### Creating a Response Cookie
@@ -64,6 +110,10 @@ It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<coo
 By adding the above cookie to a `Response`, it will add a `Set-Cookie` header with the respective cookie name and value and other optional attributes.
 
 Let's write a simple example to see how it works:
+
+:::warning UNPORTED
+The `NettyServer` example below is v3-era and unported: no `NettyServer` in v4 sources. V4 serve is `Server.serve(routes, context)` with `LoomServer` in `Context`. Snippet preserved as-is.
+:::
 
 ```scala mdoc:compile-only
 import zio.http._
@@ -141,6 +191,10 @@ responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
 ```
 
 ### Signing a Cookie
+
+:::warning PARTIALLY UNPORTED — updated post-#4210
+`Response#sign` as shown below remains a v3-era unported API. `Middleware.signCookies(secret)` (HMAC-SHA256, ≥32-char secret) **is available on v4** since #4210 merged — prefer it for signing; use `Middleware.rotateCookie` for session rotation. Snippets preserved as-is.
+:::
 
 Signing a cookie involves appending a cryptographic signature to the cookie data before it is transmitted to the client. This signature is generated using a secret key known only to the server. When the client sends the cookie back to the server in subsequent requests, the server can verify the signature to ensure the integrity and authenticity of the cookie data.
 
@@ -239,6 +293,10 @@ Here are some simple examples of using cookies in a ZIO HTTP application.
 
 ### Server Side Example
 
+:::warning FULLY UNPORTED
+Example 1 of 4: `CookieServerSide.scala` is fully unported (3.4.0 + `NettyServer` + `Cookie.Response` / `Cookie.clear`). Preserved as-is.
+:::
+
 ```scala mdoc:passthrough
 import utils._
 
@@ -246,6 +304,10 @@ printSource("zio-http-example/src/main/scala/example/CookieServerSide.scala")
 ```
 
 ### Signed Cookies
+
+:::warning FULLY UNPORTED
+Example 2 of 4: `SignCookies.scala` is fully unported (3.4.0 + `NettyServer` + `Cookie.Response` / `Cookie.clear`, plus absent signing). Preserved as-is.
+:::
 
 ```scala mdoc:passthrough
 import utils._
