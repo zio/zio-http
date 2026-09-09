@@ -160,10 +160,20 @@ arrives paced (not batched) at the client. `SseCodecSpec` covers framing,
 over H2 DATA frames with per-event incremental reads, and the SSE leg of
 `SseEndToEndSpec` proves the same through the pooled client.
 
-## End-to-end proof
+## End-to-end coverage (what each leg actually proves)
 
-`SseEndToEndSpec` composes the three legs over a real `LoomServer` plus
-`PooledLoomH2Client` on ephemeral ports: paced SSE with client-observed
-timing and byte equality, an endpoint-shaped round trip (`GET
-/users/42?active=true` with header and JSON body, echo-equality), and pool
-reuse with large-body lazy streaming.
+`SseEndToEndSpec` composes three legs over a real `LoomServer` plus
+`PooledLoomH2Client` on ephemeral ports. Each leg's proof is bounded:
+
+- SSE leg: paced events with client-observed timing and byte equality
+  (`SseCodec` wire encoding, per-event incremental reads).
+- Endpoint-shaped leg: byte-identical TRANSPORT proof only. The request is
+  hand-built to match what T12 proves `EndpointBridge.buildRequest` renders
+  (`GET /users/42?active=true` with header and JSON body, never `URL.root`);
+  the leg proves those bytes survive pool plus server to echo-equality. It
+  does NOT exercise the walker (`EndpointCodecWalker.decompose`) or
+  query/header rendering — that breadth lives in `EndpointRoundTripSpec`
+  (fixed shapes) and `EndpointCodecFuzzSpec` (64 generated shapes proving
+  auth-header no-drop/no-duplication and query render→parse stability),
+  together with the T12 render proof in `EndpointBridgeRenderingSpec`.
+- Pool/streaming leg: connection reuse with large-body lazy streaming.
