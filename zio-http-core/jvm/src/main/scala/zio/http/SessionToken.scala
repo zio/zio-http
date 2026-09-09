@@ -11,8 +11,8 @@ import zio._
  * padding to 43 chars), meeting the OWASP 256-bit recommendation.
  *
  * JVM-only: `java.security.SecureRandom` has no Scala.js equivalent, so this
- * helper lives in `jvm/` sources rather than `shared/`. JS/Native callers get
- * a clear compile-time absence, not a runtime NoSuchMethod.
+ * helper lives in `jvm/` sources rather than `shared/`. JS/Native callers get a
+ * clear compile-time absence, not a runtime NoSuchMethod.
  */
 object SessionToken {
 
