@@ -39,11 +39,31 @@ object RotateCookieSpec extends ZIOSpecDefault {
   private val securedRoute: Route[Session] =
     Method.GET / "secure" -> handler((session: Session) => Response.text(s"hello ${session.user}"))
 
+  private val failingRoute: Route[Session] =
+    Method.GET / "fail" -> handler((_: Session) => Response.internalServerError)
+
   private def rotated(
     validate: String => Option[Session],
     create: Session => String,
   ): Routes[Any] =
     Routes(securedRoute) @@ Middleware.rotateCookie[Session](CookieName, validate, create, Some(300L))
+
+  private def rotatedFailing(
+    validate: String => Option[Session],
+    create: Session => String,
+  ): Routes[Any] =
+    Routes(failingRoute) @@ Middleware.rotateCookie[Session](CookieName, validate, create, Some(300L))
+
+  private def secureAttrs(name: String, value: String, maxAge: Option[Long]): ResponseCookie =
+    ResponseCookie(
+      name,
+      value,
+      path = Some(Path.root),
+      maxAge = maxAge,
+      isSecure = true,
+      isHttpOnly = true,
+      sameSite = Some(SameSite.Strict),
+    )
 
   private def asResponse(result: Response | Halt): Response =
     result match {
@@ -52,7 +72,7 @@ object RotateCookieSpec extends ZIOSpecDefault {
     }
 
   private def cleared: Response =
-    Response.unauthorized.addCookie(ResponseCookie(CookieName, "", maxAge = Some(0L)))
+    Response.unauthorized.addCookie(secureAttrs(CookieName, "", Some(0L)))
 
   def spec = suite("Middleware.rotateCookie")(
     test("valid old cookie rotates: new value set, old invalidated via user store") {
@@ -68,9 +88,13 @@ object RotateCookieSpec extends ZIOSpecDefault {
       val response    = asResponse(dispatch(rotated(validate, create), request))
       val cookie      = response.cookies.find(_.name == CookieName)
       assertTrue(
-        response == Response.text("hello alice").addCookie(ResponseCookie(CookieName, "new-1", maxAge = Some(300L))),
+        response == Response.text("hello alice").addCookie(secureAttrs(CookieName, "new-1", Some(300L))),
         cookie.map(_.value).contains("new-1"),
         cookie.flatMap(_.maxAge).contains(300L),
+        cookie.flatMap(_.path).contains(Path.root),
+        cookie.exists(_.isSecure),
+        cookie.exists(_.isHttpOnly),
+        cookie.flatMap(_.sameSite).contains(SameSite.Strict),
         invalidated.contains("old-1"),
         store.get("old-1").isEmpty,
       )
@@ -101,6 +125,22 @@ object RotateCookieSpec extends ZIOSpecDefault {
     test("throwing validate yields cleared cookie plus 401, no leak") {
       val validate = (_: String) => throw new RuntimeException("boom-secret")
       val create   = (_: Session) => "fresh-1"
+      val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
+      assertTrue(dispatch(rotated(validate, create), request) == cleared)
+    },
+    test("downstream 500 passes through unchanged without rotation") {
+      val validate = (_: String) => Some(Session("alice"))
+      val create   = (_: Session) => "fresh-1"
+      val request  = Request.get(URL.root / "fail").addCookie(RequestCookie(CookieName, "old-1"))
+      val result   = dispatch(rotatedFailing(validate, create), request)
+      assertTrue(
+        result == Response.internalServerError,
+        asResponse(result).cookies.isEmpty,
+      )
+    },
+    test("throwing create yields cleared cookie plus 401, no leak") {
+      val validate = (_: String) => Some(Session("alice"))
+      val create   = (_: Session) => throw new RuntimeException("mint-boom")
       val request  = Request.get(URL.root / "secure").addCookie(RequestCookie(CookieName, "old-1"))
       assertTrue(dispatch(rotated(validate, create), request) == cleared)
     },
