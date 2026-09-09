@@ -15,6 +15,14 @@ import zio.blocks.schema.Schema
  * borrowers may wait for a connection; drivers fail fast (rather than growing
  * unbounded queues) once it is exceeded.
  *
+ * Parked-thread bound (MINOR-3): [[maxTotal]] (global) and [[maxPerHost]] (per
+ * authority) cap concurrently leased connections, and each leased connection
+ * carries at most one in-flight exchange - so at most [[maxTotal]] sender
+ * threads can park in a send-window wait at once (100 by default), each staging
+ * at most one 16 KiB frame chunk. The "thousands of parked threads" scenario
+ * cannot arise: it is bounded-by-config here, with the socket deadline
+ * ([[DeadlineConfig]]) as the time cap.
+ *
  * All sizes fail fast with [[IllegalArgumentException]] when incoherent, so
  * misconfiguration surfaces at construction time instead of as a hung pool at
  * runtime.

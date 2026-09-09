@@ -30,9 +30,10 @@ class JavaH2Client(
 ) extends Client {
 
   /**
-   * The JDK client (and its TLS material) is built on first `send`, not at
-   * construction: wiring a config must never touch the network or the keystore.
-   * Invalid TLS material still fails fast - on first use.
+   * The JDK client is built on first `send`, not at construction: wiring a
+   * config must never touch the network. Structured TLS material is still
+   * validated at construction (see the `apply`/`h11` factories): a bad path,
+   * key, or password fails fast here, not on first use.
    */
   private lazy val httpClient: HttpClient = httpClient0
 
@@ -122,8 +123,10 @@ object JavaH2Client {
 
   def default: JavaH2Client = apply(ClientConfig())
 
-  def apply(config: ClientConfig): JavaH2Client =
+  def apply(config: ClientConfig): JavaH2Client = {
+    ClientTlsSupport.validateTlsMaterial(config.tls)
     new JavaH2Client(configuredHttpClient(config, None, selectedVersion(config)), config)
+  }
 
   def apply(config: ClientConfig, sslContext: SSLContext): JavaH2Client =
     new JavaH2Client(configuredHttpClient(config, Some(sslContext), selectedVersion(config)), config)
@@ -133,8 +136,10 @@ object JavaH2Client {
    * mapping, same timeouts, ALPN pinned to `http/1.1`.
    */
   @experimental
-  def h11(config: ClientConfig): JavaH2Client =
+  def h11(config: ClientConfig): JavaH2Client = {
+    ClientTlsSupport.validateTlsMaterial(config.tls)
     new JavaH2Client(configuredHttpClient(config, None, HttpClient.Version.HTTP_1_1), config, enforceAlpn = false)
+  }
 
   @experimental
   def h11(config: ClientConfig, sslContext: SSLContext): JavaH2Client =

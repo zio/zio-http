@@ -70,6 +70,11 @@ final class PooledLoomH2Client private (
   sslContextOverride: Option[SSLContext],
 ) extends Client {
 
+  // Fail fast (MINOR-4): structured TLS material is loaded and parsed here so
+  // a bad path/key/password throws at construction. Skipped when a
+  // programmatic SSLContext bypasses structured config entirely.
+  if (sslContextOverride.isEmpty) ClientTlsSupport.validateTlsMaterial(config.tls)
+
   private val poolConfig = config.pool
 
   private val lock   = new Object

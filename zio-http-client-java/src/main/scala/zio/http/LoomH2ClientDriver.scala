@@ -48,6 +48,11 @@ class LoomH2ClientDriver(
   sslContextOverride: Option[SSLContext],
 ) extends Client {
 
+  // Fail fast (MINOR-4): structured TLS material is loaded and parsed here so
+  // a bad path/key/password throws at construction. Skipped when a
+  // programmatic SSLContext bypasses structured config entirely.
+  if (sslContextOverride.isEmpty) ClientTlsSupport.validateTlsMaterial(config.tls)
+
   def send(request: Request): Response = {
     val url  = request.url
     if (!url.isAbsolute) throw new IllegalArgumentException("LoomH2ClientDriver requires absolute request URLs")

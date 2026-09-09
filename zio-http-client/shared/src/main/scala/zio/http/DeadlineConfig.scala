@@ -19,6 +19,11 @@ import zio.blocks.schema.Schema
  *     Drivers must read timeouts through `ClientConfig.effective*` so the
  *     precedence (override, else top-level, else disabled) lives in exactly one
  *     place.
+ *
+ * Time-cap role (MINOR-3): drivers enforce these deadlines via socket
+ * `SoTimeout`, so every blocking read inside a send-window wait expires into a
+ * timeout (never a silent hang) - the request/stream deadlines are the time cap
+ * complementing [[PoolConfig]]'s parked-thread count cap.
  */
 final case class DeadlineConfig(
   connectTimeout: Option[Duration] = None,

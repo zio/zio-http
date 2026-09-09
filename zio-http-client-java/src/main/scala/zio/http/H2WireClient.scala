@@ -145,6 +145,10 @@ private[http] object H2WireClient {
     }
   }
 
+  // Send-window park: bounded like [[PooledH2Connection]] (one-shot leg, so at
+  // most the calling thread parks; each read runs under socket SoTimeout and
+  // stages at most one maxFrameSize chunk) - see that wait for the full bound
+  // math (MINOR-3).
   private def awaitSendWindow(reader: FrameReader, output: OutputStream, negotiated: Negotiated): Unit =
     reader.readFrame() match {
       case WindowUpdate(ConnectionStream, increment) =>

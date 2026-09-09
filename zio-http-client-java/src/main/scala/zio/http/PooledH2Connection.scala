@@ -252,6 +252,26 @@ private[http] final class PooledH2Connection private (
     }
   }
 
+  /**
+   * Parks the sending (virtual) thread until the peer tops up the connection-
+   * and stream-level send windows (RFC 9113 section 6.9). Bounded on every axis
+   * (MINOR-3), so a slow receiver never parks an unbounded number of threads:
+   *   - thread count: the connection is exclusively leased (one exchange in
+   *     flight), and connections are capped by the pool semaphores
+   *     (`PoolConfig.maxTotal` globally, `maxPerHost` per authority) - at most
+   *     `maxTotal` senders can park here at once (100 by default);
+   *   - memory: a parked sender stages at most one `maxFrameSize` chunk (16 KiB
+   *     by default) plus the T14-buffered request body documented on the pool -
+   *     never an open-ended buffer per thread;
+   *   - time: every `readFrame` runs under socket `SoTimeout` (request/stream
+   *     deadline via `DeadlineConfig`), so expiry throws [[TimeoutException]]
+   *     and evicts the connection - never a silent hang.
+   *
+   * Peer-side contract: the server parks at most `maxConcurrentStreams` streams
+   * (the `Mux` bound, `H2Connection` default 100) with 16 KiB staging each and
+   * a 30s cap (`FlowController.DefaultSendWindowTimeoutMs`) - the "thousands of
+   * threads x 16 KiB" scenario is bounded-by-config on both ends of the wire.
+   */
   private def awaitSendWindow(streamId: Int, cancelled: AtomicBoolean): Unit =
     reader.readFrame() match {
       case WindowUpdate(0, increment)          =>

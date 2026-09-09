@@ -214,10 +214,16 @@ object ClientConfigSpec extends ZIOSpecDefault {
       },
     ),
     suite("driver wiring")(
-      test("JavaH2Client builds from default and fully-populated configs") {
+      test("JavaH2Client builds from default and TLS-free configs") {
         val fromDefault = JavaH2Client.default
-        val fromFull    = JavaH2Client(full)
-        assertTrue(fromDefault != null, fromFull != null)
+        val fromPlain   = JavaH2Client(full.copy(tls = None))
+        assertTrue(fromDefault != null, fromPlain != null)
+      },
+      test("JavaH2Client with unloadable TLS material fails fast at construction, not first use") {
+        // MINOR-4 timing shift: the `full` fixture points at a bogus trust
+        // path and bogus PEM, so construction itself throws naming the file -
+        // pinned in detail by ClientTlsFailFastSpec.
+        assertTrue(rejects(JavaH2Client(full)))
       },
     ),
   )
