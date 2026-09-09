@@ -130,6 +130,96 @@ tylLU8iZnM9E7+/GSVghdQ==
           }
         }
       },
+      test("default config closes an http/1.1-only connection: TLS failure plus server FIN, never HTTP") {
+        val tlsCfg = TlsConfig(
+          certChain = TlsSource.PemString(Secret(TestCert)),
+          privateKey = TlsSource.PemString(Secret(TestKey)),
+        )
+        withTlsServer(tlsCfg) { port =>
+          ZIO.attemptBlocking {
+            val rawSocket = new Socket("127.0.0.1", port)
+            rawSocket.setSoTimeout(5000)
+            val sslSocket = trustAllContext().getSocketFactory
+              .createSocket(rawSocket, "127.0.0.1", port, false)
+              .asInstanceOf[SSLSocket]
+            try {
+              val params = sslSocket.getSSLParameters
+              params.setApplicationProtocols(Array("http/1.1"))
+              sslSocket.setSSLParameters(params)
+              sslSocket.setUseClientMode(true)
+              val handshakeFailed =
+                try {
+                  sslSocket.startHandshake()
+                  false
+                } catch {
+                  case _: javax.net.ssl.SSLException => true
+                }
+              try sslSocket.close()
+              catch { case _: Throwable => () }
+              // Server-close evidence: the rejected connection reaches EOF
+              // promptly instead of serving bytes. A silent downgrade would
+              // deliver HTTP here; a connection left open would block until
+              // the socket timeout and fail the attempt.
+              val received = drainToEof(rawSocket)
+              (handshakeFailed, received)
+            } finally {
+              try rawSocket.close()
+              catch { case _: Throwable => () }
+            }
+          }.map { case (handshakeFailed, received) =>
+            val text = new String(received, java.nio.charset.StandardCharsets.UTF_8)
+            assertTrue(
+              handshakeFailed,
+              !text.startsWith("HTTP/"),
+            )
+          }
+        }
+      },
+      test("default config rejects a client offering no ALPN: empty negotiation, server closes, never downgrades") {
+        val tlsCfg = TlsConfig(
+          certChain = TlsSource.PemString(Secret(TestCert)),
+          privateKey = TlsSource.PemString(Secret(TestKey)),
+        )
+        withTlsServer(tlsCfg) { port =>
+          ZIO.attemptBlocking {
+            // No ALPN extension offered: the TLS handshake itself completes,
+            // but the server negotiates no protocol ("") and hits the StrictH2
+            // reject path (TcpListener.createTlsSocket closes the socket and
+            // throws) instead of serving anything on the connection.
+            val rawSocket = new Socket("127.0.0.1", port)
+            rawSocket.setSoTimeout(5000)
+            val sslSocket = trustAllContext().getSocketFactory
+              .createSocket(rawSocket, "127.0.0.1", port, false)
+              .asInstanceOf[SSLSocket]
+            try {
+              sslSocket.setUseClientMode(true)
+              sslSocket.startHandshake()
+              val negotiated = sslSocket.getApplicationProtocol
+              try sslSocket.close()
+              catch { case _: Throwable => () }
+              // Server-close evidence: the server closed its end, so draining
+              // the raw socket reaches EOF promptly. A silent downgrade would
+              // deliver HTTP bytes; a missing close would block until the
+              // socket timeout and fail the attempt. (Discrimination is by
+              // construction: neutering the reject path leaves the socket
+              // open, which turns this drain into a SocketTimeout failure.
+              // The neuter-the-mains RED check itself is out of scope - mains
+              // are read-only for this lane.)
+              val received = drainToEof(rawSocket)
+              (negotiated, received)
+            } finally {
+              try rawSocket.close()
+              catch { case _: Throwable => () }
+            }
+          }.map { case (negotiated, received) =>
+            val text = new String(received, java.nio.charset.StandardCharsets.UTF_8)
+            assertTrue(
+              negotiated == "",
+              !text.startsWith("HTTP/"),
+            )
+          }
+        }
+      },
       test("NegotiateH2Preferred with h2+http/1.1 list negotiates h2 with an h2 client and serves 200") {
         val tlsCfg = TlsConfig(
           certChain = TlsSource.PemString(Secret(TestCert)),
@@ -221,6 +311,24 @@ tylLU8iZnM9E7+/GSVghdQ==
       try sslSocket.close()
       catch { case _: Throwable => () }
     }
+  }
+
+  /**
+   * Drains a raw socket to EOF. Returns the bytes received (typically just a
+   * TLS close_notify/alert record when the server closed). Throws
+   * [[java.net.SocketTimeoutException]] when the server never closes - the
+   * failure mode that proves a missing close.
+   */
+  private def drainToEof(rawSocket: Socket): Array[Byte] = {
+    val in  = rawSocket.getInputStream
+    val out = new java.io.ByteArrayOutputStream()
+    val buf = new Array[Byte](1024)
+    var open = true
+    while (open) {
+      val n = in.read(buf)
+      if (n < 0) open = false else out.write(buf, 0, n)
+    }
+    out.toByteArray
   }
 
   private def jdkGet(port: Int, path: String): (java.net.http.HttpClient.Version, Int, String) = {
