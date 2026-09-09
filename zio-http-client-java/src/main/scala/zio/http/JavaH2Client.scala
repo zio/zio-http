@@ -5,24 +5,66 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLHandshakeException
+
+import scala.annotation.experimental
 import scala.jdk.CollectionConverters._
 
+/**
+ * JDK `HttpClient`-backed [[Client]].
+ *
+ * Protocol version and TLS behavior are policy-driven (T14): the ALPN offer
+ * follows [[ClientConfig.alpn]] (`H2PreferredWithH11Fallback` offers
+ * `h2`+`http/1.1`; `StrictH2`/`H2OnlyH2C` offer `h2` only), trust/key material
+ * plus pinned versions come from [[ClientTlsConfig]] via [[ClientTlsSupport]],
+ * and a post-response gate turns any server-driven downgrade under a strict
+ * policy into an [[SSLHandshakeException]] instead of a silent 200.
+ * [[JavaH2Client.h11]] forces the HTTP/1.1 leg - it is the composable fallback
+ * [[LoomH2ClientDriver]] delegates to, not a second client implementation.
+ */
 class JavaH2Client(
-  httpClient: HttpClient,
+  httpClient0: => HttpClient,
   config: ClientConfig,
+  enforceAlpn: Boolean = true,
 ) extends Client {
+
+  /**
+   * The JDK client is built on first `send`, not at construction: wiring a
+   * config must never touch the network. Structured TLS material is still
+   * validated at construction (see the `apply`/`h11` factories): a bad path,
+   * key, or password fails fast here, not on first use.
+   */
+  private lazy val httpClient: HttpClient = httpClient0
 
   def send(request: Request): Response = {
     val javaRequest  = toJavaRequest(request)
     val javaResponse = httpClient.send(javaRequest, HttpResponse.BodyHandlers.ofByteArray())
 
-    toResponse(javaResponse)
+    val response = toResponse(javaResponse)
+    enforcePolicy(response.version)
+    response
   }
+
+  /**
+   * Post-response policy gate: the JDK negotiates on our behalf, so a strict
+   * policy downgraded to HTTP/1.1 by the server must fail here - loudly -
+   * instead of returning a silent 200. Forced-h1.1 legs (`h11`,
+   * `enforceAlpn = false`) skip this by construction.
+   */
+  private def enforcePolicy(version: Version): Unit =
+    if (enforceAlpn) {
+      val strict = config.alpn == ClientAlpnPolicy.StrictH2 || config.alpn == ClientAlpnPolicy.H2OnlyH2C
+      if (strict && version != Version.`HTTP/2.0`)
+        throw new SSLHandshakeException(
+          s"ClientAlpnPolicy ${config.alpn} forbids the negotiated protocol '$version'",
+        )
+    }
 
   private def toJavaRequest(request: Request): HttpRequest = {
     val builder = HttpRequest
       .newBuilder(toUri(request.url))
-      .timeout(config.requestTimeout)
+      .timeout(config.effectiveRequestTimeout)
       .method(request.method.name, toBodyPublisher(request.body))
 
     val headerPairs = request.headers.toList
@@ -61,6 +103,10 @@ class JavaH2Client(
 
     for {
       entry <- httpHeaders.map().entrySet().asScala
+      // HTTP/2 responses surface pseudo-headers (`:status`, ...) in the JDK
+      // header map; they are framing, not headers, and `Headers` rejects
+      // `:` names - drop them instead of crashing the exchange.
+      if !entry.getKey.startsWith(":")
       value <- entry.getValue.asScala
     } builder.add(entry.getKey, value)
 
@@ -77,14 +123,63 @@ object JavaH2Client {
 
   def default: JavaH2Client = apply(ClientConfig())
 
-  def apply(config: ClientConfig): JavaH2Client =
-    new JavaH2Client(configuredHttpClient(config), config)
+  def apply(config: ClientConfig): JavaH2Client = {
+    ClientTlsSupport.validateTlsMaterial(config.tls)
+    new JavaH2Client(configuredHttpClient(config, None, selectedVersion(config)), config)
+  }
 
-  private def configuredHttpClient(config: ClientConfig): HttpClient =
-    HttpClient
+  def apply(config: ClientConfig, sslContext: SSLContext): JavaH2Client =
+    new JavaH2Client(configuredHttpClient(config, Some(sslContext), selectedVersion(config)), config)
+
+  /**
+   * Forced HTTP/1.1 leg for [[LoomH2ClientDriver]]'s composable fallback: same
+   * mapping, same timeouts, ALPN pinned to `http/1.1`.
+   */
+  @experimental
+  def h11(config: ClientConfig): JavaH2Client = {
+    ClientTlsSupport.validateTlsMaterial(config.tls)
+    new JavaH2Client(configuredHttpClient(config, None, HttpClient.Version.HTTP_1_1), config, enforceAlpn = false)
+  }
+
+  @experimental
+  def h11(config: ClientConfig, sslContext: SSLContext): JavaH2Client =
+    new JavaH2Client(
+      configuredHttpClient(config, Some(sslContext), HttpClient.Version.HTTP_1_1),
+      config,
+      enforceAlpn = false,
+    )
+
+  /**
+   * Policy-driven version selection replacing the old hardcoded HTTP_2: every
+   * policy negotiates through HTTP_2 (the JDK itself drops to HTTP/1.1 when the
+   * server only offers `http/1.1`); the ALPN offer and the post-response
+   * [[enforcePolicy]] gate carry the policy semantics, so a strict-policy
+   * downgrade surfaces as [[SSLHandshakeException]], never a silent 200.
+   */
+  private def selectedVersion(config: ClientConfig): HttpClient.Version =
+    HttpClient.Version.HTTP_2
+
+  private def configuredHttpClient(
+    config: ClientConfig,
+    sslContextOverride: Option[SSLContext],
+    version: HttpClient.Version,
+  ): HttpClient = {
+    val context = ClientTlsSupport.resolveContext(config.tls, sslContextOverride)
+    val builder = HttpClient
       .newBuilder()
-      .version(HttpClient.Version.HTTP_2)
-      .connectTimeout(config.connectTimeout)
+      .version(version)
+      .connectTimeout(config.effectiveConnectTimeout)
       .followRedirects(if (config.followRedirects) HttpClient.Redirect.NORMAL else HttpClient.Redirect.NEVER)
-      .build()
+      .sslContext(context)
+    val params  = ClientTlsSupport.alpnParameters(offerProtocols(config, version), config.tls, context)
+    builder.sslParameters(params).build()
+  }
+
+  /**
+   * The ALPN offer actually placed on the wire: forced-h1.1 legs offer only
+   * `http/1.1`; everything else follows the configured policy.
+   */
+  private def offerProtocols(config: ClientConfig, version: HttpClient.Version): List[String] =
+    if (version == HttpClient.Version.HTTP_1_1) List("http/1.1")
+    else config.alpn.alpnProtocols
 }

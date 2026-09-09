@@ -18,21 +18,32 @@ import scala.util.control.NonFatal
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.{Mux, MuxError}
 
+import zio.http.Connector
+
 @experimental
 final class H2ConnectionControl(
   output: OutputStream,
   mux: Mux[Int, H2Frame, H2Frame],
   idleTimeoutMs: Long = 60000,
   requestTimeoutMs: Long = 30000,
+  writeLock: Object = null,
+  lastStreamId: () => Int = () => 0,
+  drainTimeoutMs: Long = 1000,
+  onGracefulShutdown: () => Unit = () => (),
 ) {
-  private val writeLock         = new Object
-  private val goingAwayState    = new AtomicBoolean(false)
-  private val closedState       = new AtomicBoolean(false)
-  private val lastActivityNanos = new AtomicLong(System.nanoTime())
-  private val lastStreamIdState = new AtomicInteger(Int.MaxValue)
-  private val idleTimerState    = new AtomicBoolean(false)
-  private val idleTimerThread   = new AtomicReference[Thread](null)
-  private val trackedStreams    = new ConcurrentHashMap[Int, java.lang.Boolean]()
+  // Single shared writer lock: the live H2Connection passes its own
+  // writeLock here so GOAWAY/RST_STREAM bytes and the connection's response
+  // bytes never interleave on the OutputStream. A null lock (unit tests)
+  // falls back to a private lock.
+  private val effectiveWriteLock: Object =
+    if (writeLock != null) writeLock else new Object
+  private val goingAwayState             = new AtomicBoolean(false)
+  private val closedState                = new AtomicBoolean(false)
+  private val lastActivityNanos          = new AtomicLong(System.nanoTime())
+  private val lastStreamIdState          = new AtomicInteger(Int.MaxValue)
+  private val idleTimerState             = new AtomicBoolean(false)
+  private val idleTimerThread            = new AtomicReference[Thread](null)
+  private val trackedStreams             = new ConcurrentHashMap[Int, java.lang.Boolean]()
 
   def trackStream(streamId: Int): Unit   = trackedStreams.put(streamId, java.lang.Boolean.TRUE)
   def untrackStream(streamId: Int): Unit = trackedStreams.remove(streamId)
@@ -58,6 +69,7 @@ final class H2ConnectionControl(
     mux.cancel(frame.streamId, MuxError.Cancelled(frame.streamId, frame.errorCode.toString))
   def isGoingAway: Boolean                            = goingAwayState.get()
   def lastPeerStreamId: Int                           = lastStreamIdState.get()
+  def getWriteLock: Object                            = effectiveWriteLock
   def startIdleTimer(): Unit                          =
     if (idleTimeoutMs > 0L && idleTimerState.compareAndSet(false, true)) {
       lastActivityNanos.set(System.nanoTime())
@@ -68,10 +80,20 @@ final class H2ConnectionControl(
       idleTimerThread.set(thread)
     }
 
-  def resetIdleTimer(): Unit                               = {
+  def resetIdleTimer(): Unit = {
     lastActivityNanos.set(System.nanoTime())
     val thread = idleTimerThread.get()
     if (thread != null) thread.interrupt()
+  }
+
+  /**
+   * Stops the idle timer thread. Safe to call from any thread, including the
+   * timer thread itself (self-interrupt is skipped).
+   */
+  def stopIdleTimer(): Unit                                = {
+    closedState.set(true)
+    val thread = idleTimerThread.get()
+    if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
   }
   def startRequestTimer(streamId: Int): ScheduledFuture[?] = {
     val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
@@ -108,9 +130,21 @@ final class H2ConnectionControl(
       val remaining = timeoutNanos - elapsed
       if (remaining <= 0L) {
         if (System.nanoTime() - lastActivityNanos.get() >= timeoutNanos) {
-          sendGoAway(Int.MaxValue, H2Error.Code.NO_ERROR)
-          closeConnection(MuxError.Cancelled("connection", "idle timeout"))
-          return
+          // RFC 9113 6.8: GOAWAY carries the real highest processed stream
+          // id (never Int.MaxValue), then the connection drains in-flight
+          // streams before closing. Guarded so a second firing is a no-op.
+          if (goingAwayState.compareAndSet(false, true)) {
+            try sendGoAway(lastStreamId(), H2Error.Code.NO_ERROR)
+            catch {
+              case NonFatal(_) => ()
+            }
+          }
+          try onGracefulShutdown()
+          catch {
+            case NonFatal(_) => ()
+          }
+          try closeConnection(MuxError.Cancelled("connection", "idle timeout"))
+          finally return
         }
       } else {
         try TimeUnit.NANOSECONDS.sleep(remaining)
@@ -130,7 +164,7 @@ final class H2ConnectionControl(
 
   private def writeFrame(frame: H2Frame, flush: Boolean): Unit              = {
     val bytes = FrameCodec.encode(frame).toArray
-    writeLock.synchronized {
+    effectiveWriteLock.synchronized {
       output.write(bytes)
       if (flush) output.flush()
     }
@@ -214,4 +248,16 @@ final class H2ConnectionControl(
       if (failure != null) throw new ExecutionException(failure)
     }
   }
+}
+
+@experimental
+object H2ConnectionControl {
+
+  /**
+   * The single conversion site from [[Connector.idleTimeout]] (a
+   * [[java.time.Duration]]) to the control's idle timeout in milliseconds. All
+   * live-path wiring must go through here; never convert inline.
+   */
+  def idleTimeoutMs(connector: Connector): Long =
+    connector.idleTimeout.toMillis
 }

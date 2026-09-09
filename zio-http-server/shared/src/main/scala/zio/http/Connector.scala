@@ -55,7 +55,12 @@ case class Http2Config(
   initialWindowSize: Int = 65535,
   maxFrameSize: Int = 16384,
   maxHeaderListSize: Int = 8192,
-)
+) {
+  if (maxFrameSize < 16384 || maxFrameSize > 16777215)
+    throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")
+  if (initialWindowSize < 0 || initialWindowSize.toLong > 2147483647L)
+    throw new IllegalArgumentException("initialWindowSize must be in [0, 2147483647]")
+}
 
 object Http2Config {
   implicit val schema: Schema[Http2Config] = Schema.derived[Http2Config]
@@ -117,9 +122,48 @@ object TlsSource {
     )
 }
 
+/**
+ * Server-side TLS ALPN acceptance policy.
+ *
+ * This controls whether the Loom H2 server rejects (at the TLS layer) clients
+ * that do not negotiate `h2`, or accepts whatever ALPN protocol was negotiated.
+ * The server itself stays H2-only: the policy adds no HTTP/1.1 fallback
+ * handling, it only governs TLS rejection vs. acceptance.
+ *
+ * This server policy is independent from any future client-side
+ * `ClientAlpnPolicy`: the two govern opposite ends of the handshake and must
+ * stay separate types.
+ */
+sealed trait AlpnPolicy
+object AlpnPolicy {
+
+  /** Reject any connection that does not negotiate `h2` (current behavior). */
+  case object StrictH2 extends AlpnPolicy
+
+  /**
+   * Accept the negotiated protocol; prefer `h2` via [[TlsConfig.alpnProtocols]]
+   * order.
+   */
+  case object NegotiateH2Preferred extends AlpnPolicy
+
+  implicit val strictH2Schema: Schema[StrictH2.type]                         = Schema.derived[StrictH2.type]
+  implicit val negotiateH2PreferredSchema: Schema[NegotiateH2Preferred.type] =
+    Schema.derived[NegotiateH2Preferred.type]
+  implicit val schema: Schema[AlpnPolicy]                                    = Schema.derived[AlpnPolicy]
+}
+
+/**
+ * H2-only server TLS identity: `alpnProtocols` order pins the preferred ALPN
+ * protocol, `alpnPolicy` decides whether non-`h2` clients are rejected or
+ * accepted (no HTTP/1.1 fallback either way), and `tlsVersions` pins the
+ * negotiable TLS versions.
+ */
 case class TlsConfig(
   certChain: TlsSource,
   privateKey: TlsSource,
+  alpnProtocols: List[String] = List("h2"),
+  alpnPolicy: AlpnPolicy = AlpnPolicy.StrictH2,
+  tlsVersions: List[String] = List("TLSv1.3", "TLSv1.2"),
 )
 
 object TlsConfig {

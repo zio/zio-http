@@ -1,36 +1,31 @@
-//> using dep "dev.zio::zio-http:3.4.0"
+//> using scala "2.13.18"
+//> using dep "dev.zio::zio-http-client-java:4.0.0-SNAPSHOT"
+//> using repo "https://central.sonatype.com/repository/maven-snapshots/"
 
 package example
 
-import zio._
+import java.nio.charset.StandardCharsets
 
 import zio.http._
-import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
 
-object HttpsClient extends ZIOAppDefault {
-  val url     = URL.decode("https://jsonplaceholder.typicode.com/todos/1").toOption.get
-  val headers = Headers(Header.Host("jsonplaceholder.typicode.com"))
+object HttpsClient {
 
-  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
-    trustStorePath = "truststore.jks",
-    trustStorePassword = "changeit",
+  // NOTE: v3 loaded the truststore as a classpath *resource*
+  // (ClientSSLConfig.FromTrustStoreResource); v4 ClientTrustSource.TrustStore
+  // resolves a filesystem path (Paths.get), so this now points at a file.
+  val tls = ClientTlsConfig(
+    trust = ClientTrustSource.TrustStore("truststore.jks", Some("changeit"), "JKS"),
   )
 
-  val clientConfig = ZClient.Config.default.ssl(sslConfig)
-
-  val program = for {
-    data <- ZClient.batched(Request.get(url).addHeaders(headers))
-    _    <- Console.printLine(data)
-  } yield ()
-
-  val run =
-    program.provide(
-      ZLayer.succeed(clientConfig),
-      ZClient.customized,
-      NettyClientDriver.live,
-      DnsResolver.default,
-      ZLayer.succeed(NettyConfig.default),
+  def main(args: Array[String]): Unit = {
+    val url = URL.parse("https://jsonplaceholder.typicode.com/todos/1").fold(
+      err => throw new IllegalArgumentException("Invalid URL: " + err),
+      identity,
     )
+    val client   = LoomH2ClientDriver(ClientConfig(tls = Some(tls)))
+    val request  = Request.get(url).addHeader("Host", "jsonplaceholder.typicode.com")
+    val response = client.send(request)
+    println(new String(response.body.toArray, StandardCharsets.UTF_8))
+  }
 
 }

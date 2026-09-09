@@ -57,4 +57,17 @@ package object endpoint {
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
   ): EndpointSyntax[PathInput, Input, Err, Output, Auth] =
     new EndpointSyntax(endpoint)
+
+  /**
+   * Enriches a root-path (`PathInput =:= Unit`)
+   * [[zio.blocks.endpoint.Endpoint]] value with the two-argument
+   * `.call(client, input)` shorthand. More specific than [[toEndpointSyntax]],
+   * so it wins implicit resolution for root-path endpoints; path-bearing
+   * endpoints keep the three-argument `.call(client, pathInput, input)` from
+   * [[EndpointSyntax]].
+   */
+  implicit def toUnitPathEndpointSyntax[Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[Unit, Input, Err, Output, Auth],
+  ): UnitPathEndpointSyntax[Input, Err, Output, Auth] =
+    new UnitPathEndpointSyntax(endpoint)
 }

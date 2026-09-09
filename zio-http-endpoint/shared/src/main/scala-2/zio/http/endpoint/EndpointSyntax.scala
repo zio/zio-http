@@ -21,12 +21,14 @@ import scala.reflect.macros.whitebox
 
 import zio.blocks.combinators.Eithers
 import zio.blocks.endpoint.{Alternator, Endpoint, AuthType}
-import zio.http.{Client, Request, Response, Route, Status}
+import zio.http.{Body, Client, Headers, QueryParams, Request, Response, Route, Status, URL, Version}
 
 /**
  * Scala 2 extension methods for `zio.blocks.endpoint.Endpoint`:
  *   - `.implement(f: Input => Err | Output)` — server-side
- *   - `.call(client, input)` — client-side
+ *   - `.call(client, pathInput, input)` — client-side (plus the
+ *     `.call(client, input)` shorthand for root-path endpoints via
+ *     [[UnitPathEndpointSyntax]])
  *
  * Brought into scope by a plain `import zio.http.endpoint._` (the implicit
  * conversion lives on the package object, mirroring Scala 3's public top-level
@@ -38,6 +40,10 @@ import zio.http.{Client, Request, Response, Route, Status}
  *     `Scope` parameter is injected from the runtime, and any other
  *     nominal-typed parameter is a context requirement resolved from the
  *     `Context` and tracked in the resulting `Route[Ctx]`.
+ *   - `.call(client, pathInput, input)` renders the full request (method, path,
+ *     query, headers, body) via `EndpointBridge.buildRequest`; the two-argument
+ *     `.call(client, input)` shorthand is available only for root-path
+ *     endpoints (`PathInput =:= Unit`, see [[UnitPathEndpointSyntax]]).
  *   - The handler returns the bare `Err` value or bare `Output` value directly
  *     (e.g. `if (cond) "error" else 42`); the `Err | Output` union is
  *     represented internally as `Either[Err, Output]` (see the package object's
@@ -78,9 +84,33 @@ class EndpointSyntax[PathInput, Input, Err, Output, Auth <: AuthType](
    */
   def call(
     client: Client,
+    pathInput: PathInput,
     input: Input,
   )(implicit eithers: Eithers.Eithers.WithOut[Err, Output, Err | Output]): Err | Output =
-    EndpointBridge.call(endpoint, client, input, Alternator.fromEithers(eithers))
+    EndpointBridge.call(endpoint, client, pathInput, input, Alternator.fromEithers(eithers))
+}
+
+/**
+ * Syntax for root-path endpoints (`PathInput =:= Unit`): adds the two-argument
+ * `.call(client, input)` shorthand, which renders the request with an empty
+ * path input. Brought into scope by the same plain `import zio.http.endpoint._`
+ * as [[EndpointSyntax]].
+ */
+class UnitPathEndpointSyntax[Input, Err, Output, Auth <: AuthType](
+  endpoint: Endpoint[Unit, Input, Err, Output, Auth],
+) extends EndpointSyntax[Unit, Input, Err, Output, Auth](endpoint) {
+
+  /**
+   * Calls this root-path endpoint via the given HTTP client, returning the
+   * decoded `Err | Output` union. Shorthand for `call(client, (), input)`.
+   *
+   * Requires Eithers TC instance for combining error and output responses.
+   */
+  def call(
+    client: Client,
+    input: Input,
+  )(implicit eithers: Eithers.Eithers.WithOut[Err, Output, Err | Output]): Err | Output =
+    EndpointBridge.call(endpoint, client, (), input, Alternator.fromEithers(eithers))
 }
 
 /**
@@ -92,28 +122,61 @@ private[endpoint] object EndpointBridge {
   def call[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
     client: Client,
+    pathInput: PathInput,
     input: Input,
     alternator: Alternator.WithOut[Err, Output, Err | Output],
   ): Err | Output = {
-    val request  = buildRequest(endpoint, input)
+    val request  = buildRequest(endpoint, pathInput, input)
     val response = client.send(request)
     decodeResponse(endpoint, response, alternator)
   }
 
+  /**
+   * Builds an outgoing [[Request]] from `EndpointCodecWalker.decompose` output:
+   * method from the endpoint, path from `RoutePattern.format` (never
+   * `URL.root`), query string from the decomposed query params, headers
+   * (including `Content-Type` from the body media type), and JSON body bytes
+   * from the codec walk.
+   *
+   * A [[java.lang.IllegalArgumentException]] naming the offending param is
+   * thrown when the input cannot be decomposed (for example a required query,
+   * header, body, or path fragment that fails to render) — the request is never
+   * silently sent to the root URL.
+   */
+  def buildRequestPublic[PathInput, Input, Err, Output, Auth <: AuthType](
+    endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    pathInput: PathInput,
+    input: Input,
+  ): Request =
+    buildRequest(endpoint, pathInput, input)
+
   private def buildRequest[PathInput, Input, Err, Output, Auth <: AuthType](
     endpoint: Endpoint[PathInput, Input, Err, Output, Auth],
+    pathInput: PathInput,
     input: Input,
   ): Request = {
-    val pattern = endpoint.route
-    val method  = pattern.method
-    val body    = EndpointCodec.encodeRequestBody(endpoint.input, input)
-    Request(
-      method = method,
-      url = zio.http.URL.root, // TODO: extract path from zio.blocks.endpoint.RoutePattern when API is available
-      headers = zio.http.Headers.empty,
-      body = body,
-      version = zio.http.Version.`HTTP/1.1`,
+    val decomposed  = EndpointCodecWalker.decompose(endpoint, pathInput, input) match {
+      case Right(value)  => value
+      case Left(message) => throw new IllegalArgumentException(message)
+    }
+    val baseUrl     = URL.fromPath(decomposed.path)
+    val url         = decomposed.queryParams.foldLeft(baseUrl) { case (acc, (name, value)) =>
+      acc.addQueryParams(QueryParams(name -> value))
+    }
+    val base        = Request(
+      method = endpoint.route.method,
+      url = url,
+      headers = Headers.empty,
+      body = decomposed.body.getOrElse(Body.empty),
+      version = Version.`HTTP/1.1`,
     )
+    val withHeaders = decomposed.headers.foldLeft(base) { case (request, (name, value)) =>
+      request.addHeader(name, value)
+    }
+    decomposed.body match {
+      case Some(body) => withHeaders.addHeader("Content-Type", body.contentType.mediaType.fullType)
+      case None       => withHeaders
+    }
   }
 
   private def decodeResponse[PathInput, Input, Err, Output, Auth <: AuthType](

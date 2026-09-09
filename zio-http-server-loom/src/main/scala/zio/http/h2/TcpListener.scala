@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 
 import zio.blocks.config.Secret
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider}
-import zio.http.{TlsConfig, TlsSource}
+import zio.http.{AlpnPolicy, TlsConfig, TlsSource}
 
 class TcpListener(
   host: String,
@@ -44,7 +44,7 @@ class TcpListener(
     val acceptor = Thread
       .ofVirtual()
       .name(s"zio-http-h2-$host:$port")
-      .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext))
+      .start(() => acceptLoop(serverChannel, running, activeConnections, connectionCounter, sslContext, tls))
 
     val localAddress = serverChannel.getLocalAddress.asInstanceOf[InetSocketAddress]
 
@@ -69,6 +69,7 @@ class TcpListener(
     activeConnections: java.util.Set[AutoCloseable],
     connectionCounter: AtomicLong,
     sslContext: Option[SSLContext],
+    tls: Option[TlsConfig],
   ): Unit = {
     while (running.get() && serverChannel.isOpen) {
       try {
@@ -77,7 +78,7 @@ class TcpListener(
         Thread
           .ofVirtual()
           .name(s"zio-http-conn-$connectionId")
-          .start(() => handleConnection(channel, activeConnections, sslContext))
+          .start(() => handleConnection(channel, activeConnections, sslContext, tls))
       } catch {
         case _: java.nio.channels.AsynchronousCloseException if !running.get() || !serverChannel.isOpen => ()
         case _: java.net.SocketException if !running.get() || !serverChannel.isOpen                     => ()
@@ -104,10 +105,11 @@ class TcpListener(
     channel: SocketChannel,
     activeConnections: java.util.Set[AutoCloseable],
     sslContext: Option[SSLContext],
+    tls: Option[TlsConfig],
   ): Unit = {
     sslContext match {
       case Some(context) =>
-        val sslSocket = TcpListener.createTlsSocket(context, channel)
+        val sslSocket = TcpListener.createTlsSocket(context, channel, tls)
         activeConnections.add(sslSocket)
         try {
           connectionHandler(sslSocket.getInputStream, sslSocket.getOutputStream)
@@ -166,47 +168,101 @@ private object TcpListener {
 
       val sslContext = SSLContext.getInstance("TLS")
       sslContext.init(keyManagerFactory.getKeyManagers, null, new SecureRandom())
+      requireSupportedProtocols(sslContext, tls, "PEM cert/key material")
       sslContext
     }
 
-  def createTlsSocket(sslContext: SSLContext, channel: SocketChannel): SSLSocket = {
+  def createTlsSocket(sslContext: SSLContext, channel: SocketChannel, tls: Option[TlsConfig]): SSLSocket = {
     val socket = sslContext.getSocketFactory
       .createSocket(channel.socket(), channel.socket().getInetAddress.getHostAddress, channel.socket().getPort, true)
       .asInstanceOf[SSLSocket]
 
+    // ALPN comes from TlsConfig on every path (including the firstSslContext
+    // bypass, which only skips keystore loading): per-socket parameters are
+    // applied here, downstream of either SSLContext source. Pinned TLS
+    // versions are enforced the same way.
+    val alpnProtocols = tls.map(_.alpnProtocols).getOrElse(List("h2"))
+    val alpnPolicy    = tls.map(_.alpnPolicy).getOrElse(AlpnPolicy.StrictH2)
+    val tlsVersions   = tls.map(_.tlsVersions).getOrElse(List("TLSv1.3", "TLSv1.2"))
+
     val sslEngine  = sslContext.createSSLEngine()
-    val parameters = withH2Alpn(sslEngine.getSSLParameters)
+    val parameters = withH2Alpn(sslEngine.getSSLParameters, alpnProtocols)
+    if (tlsVersions.nonEmpty) parameters.setProtocols(tlsVersions.toArray)
 
     sslEngine.setUseClientMode(false)
     sslEngine.setSSLParameters(parameters)
 
     socket.setUseClientMode(false)
     socket.setSSLParameters(parameters)
-    socket.startHandshake()
+    // Every reject path below closes explicitly: on the http/1.1-only path
+    // the JDK fails inside startHandshake BEFORE any post-handshake close
+    // could run, which left FIN to socket GC (CLOSE_WAIT window + noisy
+    // trace). Handshake semantics are unchanged — the same exception instance
+    // propagates after the explicit close.
+    try {
+      socket.startHandshake()
 
-    val negotiatedProtocol = socket.getApplicationProtocol
-    if (negotiatedProtocol != "h2") {
-      closeQuietly(socket)
-      throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
+      val negotiatedProtocol = socket.getApplicationProtocol
+      alpnPolicy match {
+        case AlpnPolicy.StrictH2 if negotiatedProtocol != "h2" =>
+          throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
+        case _                                                 => ()
+      }
+    } catch {
+      case NonFatal(e) =>
+        closeQuietly(socket)
+        throw e
     }
 
     socket
   }
 
-  private def withH2Alpn(parameters: SSLParameters): SSLParameters = {
-    parameters.setApplicationProtocols(Array("h2"))
+  private def withH2Alpn(parameters: SSLParameters, alpnProtocols: List[String]): SSLParameters = {
+    parameters.setApplicationProtocols(alpnProtocols.toArray)
     parameters
   }
 
   private def firstSslContext(tls: TlsConfig): Option[SSLContext] =
     tls.certChain match {
-      case TlsSource.SslContext(ctx) => Some(ctx)
+      case TlsSource.SslContext(ctx) => Some(requireProvidedContext(ctx, tls, "certChain"))
       case _                         =>
         tls.privateKey match {
-          case TlsSource.SslContext(ctx) => Some(ctx)
+          case TlsSource.SslContext(ctx) => Some(requireProvidedContext(ctx, tls, "privateKey"))
           case _                         => None
         }
     }
+
+  /**
+   * A caller-provided SSLContext carries key material but never the configured
+   * ALPN list or the pinned TLS versions (both are per-socket SSLParameters,
+   * applied downstream in createTlsSocket): return it for the keystore bypass,
+   * but fail fast when the TlsConfig it would silently ignore is misconfigured
+   * or unsupported.
+   */
+  private def requireProvidedContext(ctx: SSLContext, tls: TlsConfig, field: String): SSLContext = {
+    if (tls.alpnProtocols.isEmpty)
+      throw new IllegalArgumentException(
+        s"ALPN not configured on provided SSLContext ($field): TlsConfig.alpnProtocols is empty; " +
+          "configure alpnProtocols (e.g. List(\"h2\")) so the server can wrap the provided SSLContext, " +
+          "or provide PEM cert/key material instead",
+      )
+    requireSupportedProtocols(ctx, tls, s"provided SSLContext ($field)")
+    ctx
+  }
+
+  private def requireSupportedProtocols(ctx: SSLContext, tls: TlsConfig, source: String): Unit = {
+    require(
+      tls.tlsVersions.nonEmpty,
+      "TlsConfig.tlsVersions must not be empty; pin e.g. List(\"TLSv1.3\", \"TLSv1.2\")",
+    )
+    val supported = ctx.getSupportedSSLParameters.getProtocols.toSet
+    val missing   = tls.tlsVersions.filterNot(supported.contains)
+    if (missing.nonEmpty)
+      throw new IllegalArgumentException(
+        s"TLS protocol versions ${missing.mkString("[", ",", "]")} not supported by $source; " +
+          s"supported: ${supported.toList.sorted.mkString("[", ",", "]")}",
+      )
+  }
 
   private def loadCertificates(source: TlsSource): Array[X509Certificate] = {
     val bytes        = readSourceBytes(source)

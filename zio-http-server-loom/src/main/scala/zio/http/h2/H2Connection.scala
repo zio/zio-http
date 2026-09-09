@@ -3,6 +3,7 @@ package zio.http.h2
 import java.io.{EOFException, IOException, InputStream, OutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.annotation.experimental
@@ -11,6 +12,7 @@ import scala.util.control.NonFatal
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.{Mux, MuxError, MuxStream}
 
+import zio.http.Http2Config
 import zio.http.h2.hpack.{HeaderField, HpackCodec}
 
 @experimental
@@ -21,23 +23,59 @@ final class H2Connection(
   flowController: FlowController =
     new FlowController(H2Settings.DefaultInitialWindowSize.toInt, H2Settings.DefaultInitialWindowSize.toInt),
   hpackCodec: HpackCodec = new HpackCodec(),
+  localSettings: Option[List[Setting]] = None,
+  maxHeaderListSize: Int = 8192,
+  idleTimeoutMs: Long = 60000,
+  requestTimeoutMs: Long = 30000,
+  drainTimeoutMs: Long = 1000,
 ) {
   import H2Connection._
   import H2Frame._
 
-  private val mux                            = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
-  private val closed                         = new AtomicBoolean(false)
-  private val activeStreams                  = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
-  private val decodedRequestHeaders          = new ConcurrentHashMap[Int, List[HeaderField]]()
-  private val writeLock                      = new Object
-  private var readBuffer: Chunk[Byte]        = Chunk.empty
-  private var peerSettings: List[Setting]    = Nil
-  private var pendingHeaders: PendingHeaders = null
-  @volatile private var settingsAcknowledged = false
-  @volatile private var highestStreamId      = 0
-  @volatile private var lastGoAwayStreamId   = Int.MaxValue
+  private val mux                                   = Mux[Int, H2Frame, H2Frame](maxConcurrentStreams)
+  private val effectiveLocalSettings: List[Setting] = localSettings.getOrElse(
+    H2Connection.settingsFor(
+      maxConcurrentStreams,
+      H2Settings.DefaultInitialWindowSize.toInt,
+      H2Settings.DefaultMaxFrameSize.toInt,
+      None,
+    ),
+  )
+  private val closed                                = new AtomicBoolean(false)
+  private val activeStreams                         = new ConcurrentHashMap[Int, MuxStream[Int, H2Frame, H2Frame]]()
+  private val activeHandlers                        = ConcurrentHashMap.newKeySet[Thread]()
+  private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
+  private val writeLock                             = new Object
+  private var readBuffer: Chunk[Byte]               = Chunk.empty
+  private var peerSettings: List[Setting]           = Nil
+  private var pendingHeaders: PendingHeaders        = null
+  @volatile private var settingsAcknowledged        = false
+  @volatile private var highestStreamId             = 0
+  @volatile private var lastGoAwayStreamId          = Int.MaxValue
+
+  /**
+   * Live control plane for this connection (T5): shares this connection's
+   * `writeLock` (one writer lock per OutputStream), the mux, and reports the
+   * real highest stream id on idle GOAWAY. All of its blocking waits run on
+   * Loom virtual threads, never ZIO fibers.
+   */
+  private val control: H2ConnectionControl =
+    new H2ConnectionControl(
+      output,
+      mux,
+      idleTimeoutMs = idleTimeoutMs,
+      requestTimeoutMs = requestTimeoutMs,
+      writeLock = writeLock,
+      lastStreamId = () => highestStreamId,
+      drainTimeoutMs = drainTimeoutMs,
+      onGracefulShutdown = () => initiateGracefulShutdown(),
+    )
 
   def getWriteLock: Object = writeLock
+
+  def connectionControl: H2ConnectionControl = control
+
+  def currentHighestStreamId: Int = highestStreamId
 
   /**
    * Returns the request header fields for `streamId`, HPACK-decoded by the
@@ -84,10 +122,11 @@ final class H2Connection(
 
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
     val writer = Thread.ofVirtual().name("zio-http-h2-writer").start(runnable(writerLoop()))
+    control.startIdleTimer()
 
     try {
       readConnectionPreface()
-      writeFrame(Settings(ack = false, H2Settings.DefaultSettings.filterNot(_.id == Setting.ENABLE_PUSH)), flush = true)
+      writeFrame(Settings(ack = false, effectiveLocalSettings.filterNot(_.id == Setting.ENABLE_PUSH)), flush = true)
 
       readFrame() match {
         case Settings(false, settings) =>
@@ -104,6 +143,7 @@ final class H2Connection(
         shutdown(connectionCancelled("failure: " + error.getMessage))
         throw error
     } finally {
+      control.stopIdleTimer()
       shutdown(connectionCancelled("closed"))
       writer.interrupt()
       try writer.join()
@@ -114,6 +154,8 @@ final class H2Connection(
   }
 
   private def handleFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
+    // Any inbound frame is connection activity: keep the idle timer honest.
+    control.resetIdleTimer()
     if (pendingHeaders != null) {
       frame match {
         case continuation: Continuation if continuation.streamId == pendingHeaders.streamId =>
@@ -158,7 +200,17 @@ final class H2Connection(
     // first HEADERS on a stream: a later HEADERS is trailers and must not overwrite the request.
     val isInitialRequestHeaders = isNewClientStream(headers.streamId)
     hpackCodec.decode(headers.headerBlock) match {
-      case Right(fields) => if (isInitialRequestHeaders) decodedRequestHeaders.put(headers.streamId, fields)
+      case Right(fields) =>
+        if (isInitialRequestHeaders) {
+          // RFC 7540 6.5.2: a header list larger than maxHeaderListSize is a
+          // stream error of type ENHANCE_YOUR_CALM. Reject before the headers
+          // reach any handler: never truncate, never leak.
+          if (H2Connection.headerListSize(fields) > maxHeaderListSize.toLong) {
+            rejectHeaders(headers.streamId, H2Error.Code.ENHANCE_YOUR_CALM)
+            return
+          }
+          decodedRequestHeaders.put(headers.streamId, fields)
+        }
       case Left(error)   => throw protocolError("Failed to decode HPACK request header block: " + error)
     }
     deliverStreamFrame(headers, onStream)
@@ -183,9 +235,24 @@ final class H2Connection(
       case rst: RstStream if isKnownStream(rst.streamId)  =>
         mux.get(rst.streamId).foreach(_.close())
         activeStreams.remove(rst.streamId)
-      case _                                              =>
+      case headers: Headers if isNewClientStream(headers.streamId) && control.isGoingAway =>
+        // RFC 9113 6.8: after we sent GOAWAY, refuse new streams with
+        // REFUSED_STREAM so the client can retry elsewhere. The id is
+        // consumed so a later reuse still trips the monotonicity check.
+        refuseStream(headers.streamId)
+      case _                                                                              =>
         val stream = frame match {
-          case headers: Headers if isNewClientStream(headers.streamId) => openStream(headers.streamId, onStream)
+          case headers: Headers if isNewClientStream(headers.streamId) =>
+            // Over-limit opens never queue: the mux bound (maxConcurrentStreams)
+            // is enforced at open by refusing with REFUSED_STREAM (RFC 9113 6.8
+            // — retryable elsewhere), reusing the GOAWAY refusal path. The id
+            // is consumed, so a later reuse trips the monotonicity check
+            // instead of opening fresh. A refusal carries no stream to deliver
+            // to, so `deliverToStream` is skipped via the Option.
+            openStream(headers.streamId, onStream) match {
+              case Some(opened) => opened
+              case None         => return
+            }
           case _                                                       => existingStream(frame.streamId)
         }
 
@@ -216,37 +283,142 @@ final class H2Connection(
     catch {
       case _: NoSuchElementException =>
         () // Stream already fully closed and deregistered from flow control - RFC 9113 5.1 tolerance.
+      case _: FlowController.FlowControlException if frame.streamId != 0 =>
+        // Stream-level overflow is a stream error of type FLOW_CONTROL_ERROR
+        // (RFC 9113 6.9.1): reset the stream, keep the connection alive.
+        // Connection-level (streamId 0) overflow still propagates as a
+        // connection error and tears the connection down.
+        sendReset(frame.streamId, H2Error.Code.FLOW_CONTROL_ERROR)
     }
+
+  /**
+   * Sends RST_STREAM via the single T5 send site
+   * ([[H2ConnectionControl.sendRstStream]], which shares this connection's
+   * `writeLock` by construction — see the `control` wiring above — so frame
+   * bytes and mux cancellation keep the exact same lock, order, and error code
+   * as a direct write). `sendRstStream` tolerates absent mux entries
+   * (pre-stream refusals/rejections), so the only local work left is forgetting
+   * the stream maps.
+   */
+  private def sendReset(streamId: Int, errorCode: H2Error.Code): Unit = {
+    try control.sendRstStream(streamId, errorCode)
+    catch {
+      case _: NoSuchElementException => ()
+    }
+    activeStreams.remove(streamId)
+    decodedRequestHeaders.remove(streamId)
+  }
+
+  /**
+   * Rejects an over-limit header block before any stream exists for it: no mux
+   * entry to cancel, but the id is consumed so a later reuse trips the
+   * monotonic stream-id check in openStream instead of opening fresh.
+   */
+  private def rejectHeaders(streamId: Int, errorCode: H2Error.Code): Unit = {
+    sendReset(streamId, errorCode)
+    if (streamId > highestStreamId) highestStreamId = streamId
+  }
+
+  /**
+   * Refuses a new stream opened after our GOAWAY (RFC 9113 6.8): the client
+   * must treat it as never processed and may retry on a new connection.
+   */
+  private def refuseStream(streamId: Int): Unit = {
+    sendReset(streamId, H2Error.Code.REFUSED_STREAM)
+    if (streamId > highestStreamId) highestStreamId = streamId
+  }
+
+  /**
+   * RFC 9113 6.8 graceful shutdown: runs on the control's idle-timer virtual
+   * thread after GOAWAY was sent. In-flight streams keep draining through the
+   * writer loop during the drain period, then the connection closes.
+   *
+   * The sleep is a deadline loop, not a single interruptible sleep:
+   * `resetIdleTimer` interrupts this thread on every inbound frame, including
+   * frames that arrive during the drain itself (a post-GOAWAY HEADERS refused
+   * with REFUSED_STREAM, a late RST). A single sleep would collapse the drain
+   * on the first such frame and close TCP under in-flight streams — and under
+   * the very RST the refusal path just wrote. Interrupts are absorbed until the
+   * full drain period elapses, and the interrupt status is restored on exit so
+   * structured shutdown upstream still observes it.
+   *
+   * The loop exits early once the connection is fully drained — `activeStreams`
+   * empty and no per-stream handler thread still running. Both halves matter: a
+   * client RST removes the stream entry eagerly while its handler thread may
+   * still be mid-response (its abort RST echo is written from that thread), so
+   * exiting on an empty stream map alone would close TCP under the echo. Sleeps
+   * run in 1ms quanta (matching the writer park) so a drain that completes
+   * mid-period is observed promptly.
+   */
+  private[h2] def initiateGracefulShutdown(): Unit = {
+    val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs.max(0L))
+    var remaining     = deadlineNanos - System.nanoTime()
+    var interrupted   = false
+    while (remaining > 0L && (!activeStreams.isEmpty || !activeHandlers.isEmpty)) {
+      try {
+        TimeUnit.NANOSECONDS.sleep(math.min(remaining, 1000000L))
+      } catch {
+        case _: InterruptedException => interrupted = true
+      }
+      remaining = deadlineNanos - System.nanoTime()
+    }
+    if (interrupted) Thread.currentThread().interrupt()
+    shutdown(connectionCancelled("idle timeout"))
+  }
 
   private def openStream(
     streamId: Int,
     onStream: MuxStream[Int, H2Frame, H2Frame] => Unit,
-  ): MuxStream[Int, H2Frame, H2Frame] = {
+  ): Option[MuxStream[Int, H2Frame, H2Frame]] = {
     if ((streamId & 1) == 0 || streamId <= highestStreamId)
       throw protocolError("Invalid client-initiated stream id: " + streamId)
 
-    val stream = toStream(mux.open(streamId))
-    highestStreamId = streamId
-    flowController.registerStream(streamId)
-    activeStreams.put(streamId, stream)
+    // Widened to MuxOpenResult (see alias): matching Left(_) covers 2.13,
+    // the bare error covers the 3.x union; both keep the exact same refusal
+    // semantics.
+    val openedResult: MuxOpenResult = mux.open(streamId)
+    openedResult match {
+      case Left(_: MuxError.CapacityExceeded) | _: MuxError.CapacityExceeded =>
+        // Bound proved: the mux never queues past maxConcurrentStreams — the
+        // open is refused on the wire (retryable) instead of buffering
+        // unboundedly or tearing the connection down.
+        refuseStream(streamId)
+        None
+      case opened                                                            =>
+        val stream = toStream(opened)
+        highestStreamId = streamId
+        flowController.registerStream(streamId)
+        activeStreams.put(streamId, stream)
 
-    Thread
-      .ofVirtual()
-      .name("zio-http-h2-stream-" + streamId)
-      .start(runnable {
-        var completed = false
-        try {
-          onStream(stream)
-          completed = true
-        } finally {
-          if (!completed) {
-            if (!stream.isClosed) stream.close()
-            activeStreams.remove(streamId)
-          }
+        // Registered before start so the GOAWAY drain never observes a fully
+        // idle connection while a handler is still spawning: an entry present
+        // without a live thread only ever extends the drain to its deadline.
+        val handler = Thread
+          .ofVirtual()
+          .name("zio-http-h2-stream-" + streamId)
+          .unstarted(runnable {
+            var completed = false
+            try {
+              onStream(stream)
+              completed = true
+            } finally {
+              if (!completed) {
+                if (!stream.isClosed) stream.close()
+                activeStreams.remove(streamId)
+              }
+              activeHandlers.remove(Thread.currentThread())
+            }
+          })
+        activeHandlers.add(handler)
+        try handler.start()
+        catch {
+          case NonFatal(error) =>
+            activeHandlers.remove(handler)
+            throw error
         }
-      })
 
-    stream
+        Some(stream)
+    }
   }
 
   private def existingStream(streamId: Int): MuxStream[Int, H2Frame, H2Frame] =
@@ -350,7 +522,8 @@ final class H2Connection(
   private def isNewClientStream(streamId: Int): Boolean =
     mux.get(streamId).isEmpty && streamId > 0
 
-  private def shutdown(reason: MuxError): Unit =
+  private def shutdown(reason: MuxError): Unit = {
+    control.stopIdleTimer()
     if (closed.compareAndSet(false, true)) {
       mux.closeAll(reason)
       closeQuietly(input)
@@ -360,6 +533,7 @@ final class H2Connection(
       closeQuietly(input)
       closeQuietly(output)
     }
+  }
 
   private def parkWriter(): Unit =
     try Thread.sleep(1L)
@@ -371,6 +545,57 @@ final class H2Connection(
 @experimental
 private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
+
+  /**
+   * Mux `open` result across toolchains: the Scala 3 Mux returns a
+   * `MuxStream | MuxError` union while the 2.13 Mux boxes the same result into
+   * an `Either` (see `toStream`, which shims both shapes the same way). Named
+   * so the open site does not widen to a bare `Any`.
+   */
+  private type MuxOpenResult = Any
+
+  /**
+   * Builds the SETTINGS payload to advertise from a single [[Http2Config]]
+   * source: 0x3 MAX_CONCURRENT_STREAMS, 0x4 INITIAL_WINDOW_SIZE, 0x5
+   * MAX_FRAME_SIZE, 0x6 MAX_HEADER_LIST_SIZE, plus 0x1 HEADER_TABLE_SIZE 4096.
+   * ENABLE_PUSH is never advertised (the send site filters it out as before).
+   */
+  def settingsFor(config: Http2Config): List[Setting] =
+    settingsFor(
+      config.maxConcurrentStreams,
+      config.initialWindowSize,
+      config.maxFrameSize,
+      Some(config.maxHeaderListSize),
+    )
+
+  /**
+   * Decoded header-list size per RFC 7540 6.5.2: the sum, over every entry, of
+   * name length plus value length plus 32 octets of framing overhead.
+   */
+  def headerListSize(fields: List[HeaderField]): Long =
+    fields.foldLeft(0L) { (total, field) =>
+      total +
+        field.name.getBytes(StandardCharsets.UTF_8).length +
+        field.value.getBytes(StandardCharsets.UTF_8).length + 32L
+    }
+
+  def settingsFor(
+    maxConcurrentStreams: Int,
+    initialWindowSize: Int,
+    maxFrameSize: Int,
+    maxHeaderListSize: Option[Int],
+  ): List[Setting] = {
+    if (maxFrameSize < H2Settings.MinimumMaxFrameSize || maxFrameSize > H2Settings.MaximumMaxFrameSize)
+      throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")
+    if (initialWindowSize < 0 || initialWindowSize.toLong > Int.MaxValue)
+      throw new IllegalArgumentException("initialWindowSize must be in [0, 2147483647]")
+    List(
+      Setting(Setting.HEADER_TABLE_SIZE, H2Settings.DefaultHeaderTableSize),
+      Setting(Setting.MAX_CONCURRENT_STREAMS, maxConcurrentStreams.toLong),
+      Setting(Setting.INITIAL_WINDOW_SIZE, initialWindowSize.toLong),
+      Setting(Setting.MAX_FRAME_SIZE, maxFrameSize.toLong),
+    ) ++ maxHeaderListSize.map(size => Setting(Setting.MAX_HEADER_LIST_SIZE, size.toLong)).toList
+  }
 
   private final case class PendingHeaders(
     streamId: Int,

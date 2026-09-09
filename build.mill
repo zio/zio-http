@@ -395,13 +395,16 @@ object clientJava extends Module {
   object jvm extends Cross[JvmModule](scalaVersions)
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName     = "zio-http-client-java"
-    def moduleDeps       = Seq(client.jvm())
+    // T14: the Loom H2 client driver reuses the h2-codec frame layer (no fork).
+    def moduleDeps       = Seq(client.jvm(), h2Codec.jvm())
     override def sources = Task.Sources(r / "src" / "main" / "scala")
     override def mvnDeps = super.mvnDeps() ++ Seq(
       blocksDep("streams"),
     )
     object test extends ScoverageTests with ZioHttpTestModule {
-      override def moduleDeps = Seq(clientJava.jvm())
+      // T14: LoomH2ClientAlpnSpec exercises the driver against a real
+      // StrictH2 LoomServer (ephemeral ports); serverLoom is test-scope only.
+      override def moduleDeps = Seq(clientJava.jvm(), serverLoom.jvm())
       override def sources    = Task.Sources(r / "src" / "test" / "scala")
     }
   }
