@@ -11,17 +11,21 @@ import zio._
  * padding to 43 chars), meeting the OWASP 256-bit recommendation.
  *
  * JVM-only: `java.security.SecureRandom` has no Scala.js equivalent, so this
- * helper lives in `jvm/` sources rather than `shared/`.
+ * helper lives in `jvm/` sources rather than `shared/`. JS/Native callers get
+ * a clear compile-time absence, not a runtime NoSuchMethod.
  */
 object SessionToken {
 
   val EntropyBytes: Int = 32
 
+  // Single shared instance: SecureRandom is thread-safe; behavior identical
+  // (32B -> 43-char URL-safe).
+  private val secureRandom = new java.security.SecureRandom
+
   def generate: IO[SessionTokenError, String] =
     ZIO.attempt {
-      val r = new java.security.SecureRandom
       val b = new Array[Byte](EntropyBytes)
-      r.nextBytes(b)
+      secureRandom.nextBytes(b)
       java.util.Base64.getUrlEncoder.withoutPadding.encodeToString(b)
     }.refineOrDie { case e => SessionTokenError(e) }
 

@@ -45,7 +45,12 @@ Request cookies (`Cookie.Request`) are sent by the client to the server, while r
 
 ## Verified on v4: Set-Cookie over H2
 
-The following is verified on v4 (CookieWireSpec 2/2 GREEN, non-empty HPACK header block):
+:::warning Unsigned bearer tokens
+Cookie session values (including `Middleware.rotateCookie` tokens) are bearer values with no MAC — possession alone grants access. Require TLS in production plus server-side one-time invalidation (delete the old token when minting the new one). Rotation is not a substitute for signing — use `Middleware.signCookies` when you need integrity without a server-side store.
+:::
+
+The following is verified on v4 (CookieWireSpec 2/2 GREEN, non-empty HPACK header block).
+This proves HPACK-encoding survival of the `Set-Cookie` bytes on the H2 wire, NOT browser enforcement of `Secure` / `HttpOnly` / `SameSite`:
 
 ```scala
 // Raw wire bytes survive H2 (Secure + HttpOnly + SameSite=Strict):
@@ -61,6 +66,23 @@ Typed cookie path (confirmed against published `zio-blocks-http-model` jar via `
 - Top-level `SameSite`: `Strict` / `Lax` / `None_`
 - Render / parse: `Cookie.renderResponse` / `Cookie.parseResponse`
 - No message-arg `Response.unauthorized()` / `badRequest()` on v4 (no-arg form only).
+
+Session rotation (verified on v4, `RotateCookieSpec` fail-closed) uses the hardened signature — success-only attach, guarded `create`:
+
+```scala
+Middleware.rotateCookie[Session](
+  name = "session_id",
+  validate = (sessionId: String) => Option.empty[Session],
+  create = (_: Session) => "new-session-id",
+  maxAge = Some(300L),
+  path = Some(Path.root),
+  secure = true,
+  httpOnly = true,
+  sameSite = SameSite.Strict,
+)
+```
+
+`validate` / `create` are synchronous callbacks — keep them in-memory lookups only; do not block on DB I/O inside them.
 
 ## Response Cookie
 

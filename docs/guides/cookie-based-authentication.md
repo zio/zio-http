@@ -353,6 +353,10 @@ val profile =
 
 ### Session rotation (verified on v4)
 
+:::warning Unsigned bearer tokens
+`rotateCookie` tokens are bearer values with no MAC — possession alone grants access. Require TLS in production plus server-side one-time invalidation (delete the old token when minting the new one). Rotation is not a substitute for signing — use `Middleware.signCookies` when you need integrity without a server-side store.
+:::
+
 Verified on v4 (`RotateCookieSpec` 4/4 + 13/13 neighbors, fail-closed):
 
 ```scala
@@ -361,12 +365,19 @@ Middleware.rotateCookie[Session](
   validate = (sessionId: String) => Option.empty[Session],
   create = (_: Session) => "new-session-id",
   maxAge = Some(300L),
+  path = Some(Path.root),
+  secure = true,
+  httpOnly = true,
+  sameSite = SameSite.Strict,
 )
 ```
 
 - Store-free callbacks: `validate` / `create` carry session state; no server-side store required.
 - Valid session rotates to a fresh `ResponseCookie`; invalid / missing / defect maps to `401` with a cleared cookie (`maxAge = Some(0L)`).
 - Missing cookie never calls `validate` (fail-closed by construction).
+- Success-only attach: a `Halt` or non-2xx downstream response passes through untouched, without the rotated cookie.
+- `create` is guarded: a throwing mint maps to cleared `401`, never a leak — invalidate the old token server-side when minting the new one (one-time use).
+- `validate` / `create` are synchronous callbacks — keep them in-memory lookups only; do not block on DB I/O inside them (preload to memory or move I/O outside the callback).
 
 ## Writing a ZIO HTTP Client
 
