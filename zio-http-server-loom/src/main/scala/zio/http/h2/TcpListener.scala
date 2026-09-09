@@ -194,14 +194,24 @@ private object TcpListener {
 
     socket.setUseClientMode(false)
     socket.setSSLParameters(parameters)
-    socket.startHandshake()
+    // Every reject path below closes explicitly: on the http/1.1-only path
+    // the JDK fails inside startHandshake BEFORE any post-handshake close
+    // could run, which left FIN to socket GC (CLOSE_WAIT window + noisy
+    // trace). Handshake semantics are unchanged — the same exception instance
+    // propagates after the explicit close.
+    try {
+      socket.startHandshake()
 
-    val negotiatedProtocol = socket.getApplicationProtocol
-    alpnPolicy match {
-      case AlpnPolicy.StrictH2 if negotiatedProtocol != "h2" =>
+      val negotiatedProtocol = socket.getApplicationProtocol
+      alpnPolicy match {
+        case AlpnPolicy.StrictH2 if negotiatedProtocol != "h2" =>
+          throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
+        case _                                                 => ()
+      }
+    } catch {
+      case NonFatal(e) =>
         closeQuietly(socket)
-        throw new SSLHandshakeException(s"Expected ALPN protocol 'h2' but negotiated '$negotiatedProtocol'")
-      case _                                                 => ()
+        throw e
     }
 
     socket

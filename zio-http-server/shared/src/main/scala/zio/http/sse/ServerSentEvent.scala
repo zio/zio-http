@@ -24,4 +24,21 @@ final case class ServerSentEvent(
   event: Option[String] = None,
   id: Option[String] = None,
   retry: Option[Duration] = None,
-)
+) {
+  // `event:`/`id:` are single-line SSE fields: a CR/LF in the value would
+  // inject framing (SseCodec renders them verbatim). Fail fast at
+  // construction — the encode hot path stays validation-free. Multiline
+  // `data` is legitimate framing and is split per data line instead.
+  event.foreach { name =>
+    require(
+      !name.exists(c => c == '\r' || c == '\n'),
+      "event must not contain CR or LF (single-line SSE field)",
+    )
+  }
+  id.foreach { value =>
+    require(
+      !value.exists(c => c == '\r' || c == '\n'),
+      "id must not contain CR or LF (single-line SSE field)",
+    )
+  }
+}

@@ -37,10 +37,10 @@ import zio.http.sse.{ServerSentEvent, SseCodec}
  * contract), `Some("")` event/id still emit their line, CRLF canonicalizes to
  * LF. GREEN below pins those actuals.
  *
- * NEEDS-FIX (grammar lane pins only, follow-up fixes): `SseCodec.scala:33-35`
- * and `:43-45` render `event:`/`id:` values verbatim, so a value containing
- * LF injects framing — pinned byte-exact in "field injection" with no
- * behavior change here.
+ * FIXED (construction-time validation in `ServerSentEvent`): `event:`/`id:`
+ * values containing CR/LF are rejected with `IllegalArgumentException` naming
+ * the field — the "construction rejects ..." and "fixed limits ..." suites pin
+ * the IAE, and multiline `data` remains legitimate framing.
  */
 @experimental
 object SseGrammarSpec extends ZIOSpecDefault {
@@ -95,6 +95,14 @@ object SseGrammarSpec extends ZIOSpecDefault {
 
   private def encodesTo(event: ServerSentEvent, expected: String): TestResult =
     assertTrue(text(SseCodec.encode(event)) == expected)
+
+  private def constructionMessage(build: => ServerSentEvent): String =
+    try {
+      build
+      "<no failure>"
+    } catch {
+      case error: IllegalArgumentException => error.getMessage
+    }
 
   private def matchesReference(event: ServerSentEvent, retryMs: Option[Long]): TestResult = {
     val actual   = text(SseCodec.encode(event))
@@ -228,12 +236,29 @@ object SseGrammarSpec extends ZIOSpecDefault {
           )
         },
       ),
-      suite("known limits pinned without behavior change")(
-        test("NEEDS-FIX SseCodec.scala:33-35 event value with LF injects framing, pinned verbatim") {
-          encodesTo(ServerSentEvent("x", event = Some("a\nb")), "event: a\nb\ndata: x\n\n")
+      suite("construction rejects event/id framing injection (RED-first)")(
+        test("event value with LF fails construction with IAE naming event") {
+          assertTrue(constructionMessage(ServerSentEvent("x", event = Some("a\nb"))).contains("event"))
         },
-        test("NEEDS-FIX SseCodec.scala:43-45 id value with LF injects framing, pinned verbatim") {
-          encodesTo(ServerSentEvent("x", id = Some("1\n2")), "data: x\nid: 1\n2\n\n")
+        test("event value with CR fails construction with IAE naming event") {
+          assertTrue(constructionMessage(ServerSentEvent("x", event = Some("a\rb"))).contains("event"))
+        },
+        test("id value with LF fails construction with IAE naming id") {
+          assertTrue(constructionMessage(ServerSentEvent("x", id = Some("1\n2"))).contains("id"))
+        },
+        test("id value with CR fails construction with IAE naming id") {
+          assertTrue(constructionMessage(ServerSentEvent("x", id = Some("1\r2"))).contains("id"))
+        },
+        test("multiline data still frames as legitimate multi-line data") {
+          encodesTo(ServerSentEvent("a\nb"), "data: a\ndata: b\n\n")
+        },
+      ),
+      suite("fixed limits: event/id injection rejected at construction")(
+        test("FIXED SseCodec.scala:33-35 event value with LF is rejected, no split framing") {
+          assertTrue(constructionMessage(ServerSentEvent("x", event = Some("a\nb"))).contains("event"))
+        },
+        test("FIXED SseCodec.scala:43-45 id value with LF is rejected, no split framing") {
+          assertTrue(constructionMessage(ServerSentEvent("x", id = Some("1\n2"))).contains("id"))
         },
       ),
     )
