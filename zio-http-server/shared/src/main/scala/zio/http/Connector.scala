@@ -15,10 +15,28 @@ case class Connector(
   bind: BindAddress = BindAddress.Tcp(),
   protocol: Protocol = Protocol.H2C(),
   idleTimeout: java.time.Duration = java.time.Duration.ofSeconds(60),
-)
+  /**
+   * Maximum size in bytes of a single request body accepted by the server.
+   *
+   * This is a general binding-level knob shared by the H2 and H3 transports:
+   * wire-only settings stay on `Http2Config`/`Http3Config`. The H2 transport
+   * accounts DATA-frame payloads incrementally against this cap while reading
+   * the request body and resets the stream with
+   * `RST_STREAM(FLOW_CONTROL_ERROR)` the moment the cap is exceeded, so an
+   * over-cap body is never buffered in full. A declared `content-length` larger
+   * than this cap is rejected before any body bytes are read.
+   */
+  maxRequestBodySize: Long = Connector.DefaultMaxRequestBodySize,
+) {
+  if (maxRequestBodySize < 0L)
+    throw new IllegalArgumentException("maxRequestBodySize must be non-negative")
+}
 
 object Connector {
   val default: Connector = Connector()
+
+  /** Default request-body cap: 1 MiB per stream. */
+  val DefaultMaxRequestBodySize: Long = 1024L * 1024L
 
   implicit val schema: Schema[Connector] = Schema.derived[Connector]
 }

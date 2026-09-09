@@ -151,10 +151,18 @@ final class H2Transport[Ctx](
           "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
           "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
         )
-        try {
-          sendResponse(stream, Method.GET, Response.internalServerError, flowController, hpackCodec, connection)
-        } catch {
-          case _: Throwable => () // Best effort: if error response also fails, give up silently
+        // The failure above may already have reset the stream (over-cap
+        // RST_STREAM, length-mismatch PROTOCOL_ERROR): a HEADERS frame on a
+        // reset stream is a connection error (STREAM_CLOSED) for the peer, so
+        // the best-effort 500 goes out only while the stream is still open.
+        // Genuine handler errors never reset, so the 500 path for live
+        // streams is unchanged.
+        if (!stream.isClosed) {
+          try {
+            sendResponse(stream, Method.GET, Response.internalServerError, flowController, hpackCodec, connection)
+          } catch {
+            case _: Throwable => () // Best effort: if error response also fails, give up silently
+          }
         }
     } finally {
       requestTimer.cancel(true)
@@ -212,9 +220,12 @@ final class H2Transport[Ctx](
     val decodedHeaders = connection.takeDecodedRequestHeaders(stream.id)
     val pseudoHeaders  = collectPseudoHeaders(decodedHeaders)
     val httpHeaders    = buildRequestHeaders(decodedHeaders, pseudoHeaders.authority)
+    val declaredLength = declaredContentLength(httpHeaders)
     val body           =
-      if (initialHeaders.endStream) Body.empty
-      else Body.fromChunk(readRequestBody(stream))
+      if (initialHeaders.endStream) {
+        checkEmptyBodyLength(stream, connection, declaredLength)
+        Body.empty
+      } else Body.fromChunk(readRequestBody(stream, connection, declaredLength))
 
     Request(
       method = parseMethod(pseudoHeaders.method),
@@ -515,17 +526,61 @@ final class H2Transport[Ctx](
     override def fillInStackTrace(): Throwable = this
   }
 
-  private def readRequestBody(stream: MuxStream[Int, H2Frame, H2Frame]): Chunk[Byte] = {
-    val builder = Chunk.newBuilder[Byte]
-    var done    = false
+  /**
+   * Reads the request body DATA stream incrementally against the
+   * `Connector.maxRequestBodySize` cap: each DATA payload is accounted BEFORE
+   * it is buffered, so the byte that crosses the cap is never retained and an
+   * over-cap body never lands on the heap in full. On exceed the stream is
+   * reset with `RST_STREAM(FLOW_CONTROL_ERROR)` — the same code the response
+   * abort path uses for window-overflow violations — and the connection
+   * survives for sibling streams. A `content-length` that disagrees with the
+   * bytes actually received resets with `PROTOCOL_ERROR` instead.
+   *
+   * The reset reuses the single upstream send site
+   * (`H2ConnectionControl.sendRstStream`, shared with the response abort and
+   * timer paths): no parallel RST machinery lives here.
+   */
+  private def readRequestBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+  ): Chunk[Byte] = {
+    val maxBytes = connector.maxRequestBodySize
+    declaredLength.foreach { declared =>
+      if (declared > maxBytes) {
+        // Declared over the cap: drain the wire (retaining nothing) so the
+        // reset below cannot race trailing DATA delivery, then reset.
+        discardRequestBody(stream)
+        resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+        throw H2Transport.RequestBodyTooLarge(stream.id, maxBytes)
+      } else if (declared < 0L) {
+        resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+        throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, 0L)
+      }
+    }
+
+    val builder  = Chunk.newBuilder[Byte]
+    var received = 0L
+    var done     = false
 
     while (!done) {
       awaitFrame(stream) match {
         case data: Data       =>
+          val size = data.data.length.toLong
+          // Account BEFORE buffering: the byte that crosses the cap is never retained.
+          if (received + size > maxBytes) {
+            resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+            throw H2Transport.RequestBodyTooLarge(stream.id, maxBytes)
+          }
           builder ++= data.data
-          done = data.endStream
+          received += size
+          if (data.endStream) {
+            done = true
+            checkReceivedLength(stream, connection, declaredLength, received)
+          }
         case headers: Headers =>
           done = headers.endStream
+          if (headers.endStream) checkReceivedLength(stream, connection, declaredLength, received)
         case _: WindowUpdate  => ()
         case other => throw new IllegalStateException("Unexpected HTTP/2 frame while reading request body: " + other)
       }
@@ -533,6 +588,101 @@ final class H2Transport[Ctx](
 
     builder.result()
   }
+
+  /**
+   * Reads until end-of-stream, retaining no bytes. Used when the declared
+   * `content-length` already exceeds the cap: draining keeps connection-level
+   * framing intact so the subsequent reset cannot race trailing DATA delivery.
+   * Retention stays at zero throughout; the peer's flow-control window bounds
+   * how much can arrive.
+   */
+  private def discardRequestBody(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
+    var done = false
+    while (!done) {
+      awaitFrame(stream) match {
+        case data: Data       => done = data.endStream
+        case headers: Headers => done = headers.endStream
+        case _: WindowUpdate  => ()
+        case other => throw new IllegalStateException("Unexpected HTTP/2 frame while discarding request body: " + other)
+      }
+    }
+  }
+
+  /**
+   * Parses the declared request `content-length`, if any. Returns `Some(-1)`
+   * when the value is missing, malformed, or conflicts across duplicates, so
+   * every downstream comparison rejects it with `PROTOCOL_ERROR`.
+   */
+  private def declaredContentLength(headers: zio.http.Headers): Option[Long] = {
+    var result: Option[Long] = None
+    var conflict             = false
+    val pairs                = headers.toList
+    var index                = 0
+    while (index < pairs.length) {
+      val (name, value) = pairs(index)
+      if (name.equalsIgnoreCase(Header.ContentLength.name)) {
+        value.toLongOption match {
+          case Some(length) =>
+            if (result.exists(_ != length)) conflict = true
+            result = Some(length)
+          case None         => conflict = true
+        }
+      }
+      index += 1
+    }
+    if (conflict) Some(-1L)
+    else result
+  }
+
+  private def checkEmptyBodyLength(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+  ): Unit =
+    declaredLength.foreach { declared =>
+      if (declared != 0L) {
+        if (declared > connector.maxRequestBodySize) {
+          resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+          throw H2Transport.RequestBodyTooLarge(stream.id, connector.maxRequestBodySize)
+        } else {
+          resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+          throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, 0L)
+        }
+      }
+    }
+
+  private def checkReceivedLength(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+    received: Long,
+  ): Unit =
+    declaredLength.foreach { declared =>
+      if (declared != received) {
+        resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+        throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, received)
+      }
+    }
+
+  /**
+   * Resets `stream` with `errorCode` through the single upstream send site
+   * (`H2ConnectionControl.sendRstStream`, shared with the response abort and
+   * timer paths), which writes the RST_STREAM frame directly under the
+   * connection write lock and cancels the mux entry — so the failure stays
+   * per-stream and the connection survives for sibling streams. Best-effort: if
+   * the peer already reset the stream there is nobody left to notify, so a send
+   * failure is swallowed and the caller still throws the underlying bound
+   * violation.
+   */
+  private def resetStream(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    errorCode: H2Error.Code,
+  ): Unit =
+    try connection.connectionControl.sendRstStream(stream.id, errorCode)
+    catch {
+      case NonFatal(_) => ()
+    }
 
   private def awaitFrame(stream: MuxStream[Int, H2Frame, H2Frame]): H2Frame = {
     var frame: H2Frame = null
@@ -757,6 +907,24 @@ final class H2Transport[Ctx](
 
 @experimental
 object H2Transport {
+
+  /**
+   * Thrown after resetting the stream when a request body crosses
+   * `Connector.maxRequestBodySize`.
+   */
+  final case class RequestBodyTooLarge(streamId: Int, maxBytes: Long)
+      extends java.io.IOException(
+        s"HTTP/2 request body on stream $streamId exceeded maxRequestBodySize of $maxBytes bytes",
+      )
+
+  /**
+   * Thrown after resetting the stream when `content-length` disagrees with the
+   * bytes actually received.
+   */
+  final case class RequestBodyLengthMismatch(streamId: Int, declared: Long, received: Long)
+      extends java.io.IOException(
+        s"HTTP/2 request body on stream $streamId declared content-length $declared but received $received bytes",
+      )
 
   /**
    * Per-stream abort marker: lives on the companion (static, stable prefix)
