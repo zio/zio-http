@@ -27,6 +27,38 @@ case class Connector(
    * than this cap is rejected before any body bytes are read.
    */
   maxRequestBodySize: Long = Connector.DefaultMaxRequestBodySize,
+  /**
+   * Whole-request deadline in milliseconds, measured from stream start until
+   * the response completes.
+   *
+   * This is a general binding-level knob shared by the H2 and H3 transports:
+   * wire-only settings stay on `Http2Config`/`Http3Config`. The H2 transport
+   * forwards it to the per-stream request timer, which resets the stream with
+   * `RST_STREAM(CANCEL)` on expiry. Non-positive disables. Default 30 seconds.
+   */
+  requestTimeoutMs: Long = Connector.DefaultRequestTimeoutMs,
+  /**
+   * Header-completion deadline in milliseconds, measured from stream start.
+   *
+   * This is a general binding-level knob shared by the H2 and H3 transports:
+   * wire-only settings stay on `Http2Config`/`Http3Config`. It bounds the time
+   * to receive a complete header block, including trailing CONTINUATION frames
+   * (`H2Connection` pending headers). Expiry resets the stream with
+   * `RST_STREAM(CANCEL)`. Non-positive disables. Default 5 seconds.
+   */
+  headerTimeoutMs: Long = Connector.DefaultHeaderTimeoutMs,
+  /**
+   * Body-completion (time-to-complete) deadline in milliseconds, measured from
+   * stream start until the full request body is received.
+   *
+   * This is a general binding-level knob shared by the H2 and H3 transports:
+   * wire-only settings stay on `Http2Config`/`Http3Config`. Total elapsed time
+   * is enforced, not just the gap between frames, so a drip that keeps moving
+   * but too slowly still times out (`H2Transport` body read). Expiry resets the
+   * stream with `RST_STREAM(CANCEL)`. Non-positive disables. Default 10
+   * seconds.
+   */
+  bodyTimeoutMs: Long = Connector.DefaultBodyTimeoutMs,
 ) {
   if (maxRequestBodySize < 0L)
     throw new IllegalArgumentException("maxRequestBodySize must be non-negative")
@@ -37,6 +69,15 @@ object Connector {
 
   /** Default request-body cap: 1 MiB per stream. */
   val DefaultMaxRequestBodySize: Long = 1024L * 1024L
+
+  /** Default whole-request deadline: 30 seconds. */
+  val DefaultRequestTimeoutMs: Long = 30000L
+
+  /** Default header-completion deadline: 5 seconds. */
+  val DefaultHeaderTimeoutMs: Long = 5000L
+
+  /** Default body-completion (time-to-complete) deadline: 10 seconds. */
+  val DefaultBodyTimeoutMs: Long = 10000L
 
   implicit val schema: Schema[Connector] = Schema.derived[Connector]
 }

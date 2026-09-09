@@ -90,11 +90,69 @@ final class H2ConnectionControl(
    * Stops the idle timer thread. Safe to call from any thread, including the
    * timer thread itself (self-interrupt is skipped).
    */
-  def stopIdleTimer(): Unit                                = {
+  def stopIdleTimer(): Unit = {
     closedState.set(true)
     val thread = idleTimerThread.get()
     if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
   }
+
+  /**
+   * Generic stream completion deadline on a virtual thread (same
+   * `VirtualTimerFuture` pattern as `startRequestTimer`).
+   *
+   * Sleeps `timeoutMs` then resets `streamId` with `errorCode` iff
+   * `stillPending()` holds. `stillPending()` and (when `requireOpenStream`)
+   * `isStreamOpen()` are re-checked immediately before the wire write: the
+   * stream may have completed in the gap between wake-up and the send, and an
+   * RST after completion would kill a healthy stream. Pre-open deadlines (an
+   * incomplete header block has no mux entry yet) pass
+   * `requireOpenStream = false` and predicate purely on `stillPending()`. The
+   * caller cancels the returned future when the stream completes, so healthy
+   * streams pay no lingering thread. Never uses ZIO fibers for the blocking
+   * sleep.
+   */
+  def scheduleTimeoutRst(
+    streamId: Int,
+    timeoutMs: Long,
+    errorCode: H2Error.Code,
+    stillPending: () => Boolean,
+    requireOpenStream: Boolean = true,
+  ): ScheduledFuture[?] = {
+    val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L)))
+    if (timeoutMs <= 0L) {
+      future.complete()
+      return future
+    }
+    val thread = Thread
+      .ofVirtual()
+      .name("zio-http-h2-stream-timeout-" + streamId)
+      .start(runnable {
+        try {
+          TimeUnit.MILLISECONDS.sleep(timeoutMs)
+          // Re-check at send time (mirrors startRequestTimer's isStreamOpen
+          // guard): the stream may have completed between the wake-up check
+          // and the wire write below — never RST a completed stream.
+          if (!future.isCancelled && stillPending() && (!requireOpenStream || isStreamOpen(streamId))) {
+            try sendRstStream(streamId, errorCode)
+            catch {
+              case NonFatal(_) => ()
+            }
+          }
+          future.complete()
+        } catch {
+          case _: InterruptedException =>
+            if (future.isCancelled) future.complete()
+            else {
+              Thread.currentThread().interrupt()
+              future.complete()
+            }
+          case NonFatal(error)         => future.fail(error)
+        }
+      })
+    future.attach(thread)
+    future
+  }
+
   def startRequestTimer(streamId: Int): ScheduledFuture[?] = {
     val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
     if (requestTimeoutMs <= 0L) {

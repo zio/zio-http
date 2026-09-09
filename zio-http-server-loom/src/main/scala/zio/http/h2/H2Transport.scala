@@ -87,6 +87,8 @@ final class H2Transport[Ctx](
                   Some(localSettings),
                   http2Config.maxHeaderListSize,
                   H2ConnectionControl.idleTimeoutMs(connector),
+                  connector.requestTimeoutMs,
+                  connector.headerTimeoutMs,
                 )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
             } catch {
@@ -131,10 +133,30 @@ final class H2Transport[Ctx](
     // (CANCEL) fires from a Loom virtual thread if the handler overruns.
     // handleStream itself already runs on a per-stream virtual thread, so no
     // ZIO fiber ever blocks here.
-    val requestTimer = connection.connectionControl.startRequestTimer(stream.id)
+    val requestTimer     = connection.connectionControl.startRequestTimer(stream.id)
+    // Body-completion (time-to-complete) deadline, measured from stream start:
+    // total elapsed time is enforced, not just the gap between frames, so a
+    // drip that keeps moving but too slowly still times out. Enforced both by
+    // a virtual-thread timer (shared H2ConnectionControl path, never ZIO
+    // fibers) and by polling checks in awaitFrame: the timer covers a fully
+    // stalled peer, the polls cover a slow-but-moving drip. Expiry resets the
+    // stream with RST_STREAM(CANCEL).
+    val streamStartNanos = System.nanoTime()
+    val bodyDone         = new AtomicBoolean(false)
+    val bodyTimer        =
+      if (connector.bodyTimeoutMs > 0L)
+        connection.connectionControl.scheduleTimeoutRst(
+          stream.id,
+          connector.bodyTimeoutMs,
+          H2Error.Code.CANCEL,
+          () => !bodyDone.get(),
+        )
+      else null
     try {
-      val requestFrame = awaitHeaders(stream)
-      val request      = decodeRequest(requestFrame, stream, connection)
+      val requestFrame = awaitHeaders(stream, connection)
+      val request      = decodeRequest(requestFrame, stream, connection, bodyDeadlineNanos(streamStartNanos))
+      bodyDone.set(true)
+      if (bodyTimer != null) bodyTimer.cancel(true)
       val response     = instrumentRequest(request)
       sendResponse(stream, request.method, response, flowController, hpackCodec, connection)
     } catch {
@@ -165,6 +187,8 @@ final class H2Transport[Ctx](
           }
         }
     } finally {
+      bodyDone.set(true)
+      if (bodyTimer != null) bodyTimer.cancel(true)
       requestTimer.cancel(true)
       flowController.removeStream(stream.id)
     }
@@ -204,8 +228,8 @@ final class H2Transport[Ctx](
     }
   }
 
-  private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame]): Headers =
-    awaitFrame(stream) match {
+  private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame], connection: H2Connection): Headers =
+    awaitFrame(stream, connection, Long.MaxValue) match {
       case headers: Headers => headers
       case other            => throw new IllegalStateException("Expected HTTP/2 HEADERS frame but received: " + other)
     }
@@ -214,6 +238,7 @@ final class H2Transport[Ctx](
     initialHeaders: Headers,
     stream: MuxStream[Int, H2Frame, H2Frame],
     connection: H2Connection,
+    bodyDeadlineNanos: Long,
   ): Request = {
     // Decoded on the reader thread in wire order (see H2Connection.takeDecodedRequestHeaders);
     // decoding here would desync the shared decoder across concurrent streams (RFC 7541 2.3.2).
@@ -225,7 +250,7 @@ final class H2Transport[Ctx](
       if (initialHeaders.endStream) {
         checkEmptyBodyLength(stream, connection, declaredLength)
         Body.empty
-      } else Body.fromChunk(readRequestBody(stream, connection, declaredLength))
+      } else Body.fromChunk(readRequestBody(stream, connection, declaredLength, bodyDeadlineNanos))
 
     Request(
       method = parseMethod(pseudoHeaders.method),
@@ -300,6 +325,7 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
+    probeStreamOpen(stream)
     val bodyIsEmpty     = body.isEmpty
     val responseHeaders = buildResponseHeaders(response, Some(body.length.toLong), bodyIsEmpty)
     writeResponseHeaders(stream, hpackCodec, connection, responseHeaders, endStream = bodyIsEmpty)
@@ -343,6 +369,7 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
+    probeStreamOpen(stream)
     val frameSize       = Math.max(1, http2Config.maxFrameSize)
     val knownLength     = response.body.length
     // A zero known length with no known chunk closes on HEADERS like an empty body.
@@ -544,13 +571,14 @@ final class H2Transport[Ctx](
     stream: MuxStream[Int, H2Frame, H2Frame],
     connection: H2Connection,
     declaredLength: Option[Long],
+    deadlineNanos: Long,
   ): Chunk[Byte] = {
     val maxBytes = connector.maxRequestBodySize
     declaredLength.foreach { declared =>
       if (declared > maxBytes) {
         // Declared over the cap: drain the wire (retaining nothing) so the
         // reset below cannot race trailing DATA delivery, then reset.
-        discardRequestBody(stream)
+        discardRequestBody(stream, connection, deadlineNanos)
         resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
         throw H2Transport.RequestBodyTooLarge(stream.id, maxBytes)
       } else if (declared < 0L) {
@@ -564,7 +592,7 @@ final class H2Transport[Ctx](
     var done     = false
 
     while (!done) {
-      awaitFrame(stream) match {
+      awaitFrame(stream, connection, deadlineNanos) match {
         case data: Data       =>
           val size = data.data.length.toLong
           // Account BEFORE buffering: the byte that crosses the cap is never retained.
@@ -596,10 +624,14 @@ final class H2Transport[Ctx](
    * Retention stays at zero throughout; the peer's flow-control window bounds
    * how much can arrive.
    */
-  private def discardRequestBody(stream: MuxStream[Int, H2Frame, H2Frame]): Unit = {
+  private def discardRequestBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    deadlineNanos: Long,
+  ): Unit = {
     var done = false
     while (!done) {
-      awaitFrame(stream) match {
+      awaitFrame(stream, connection, deadlineNanos) match {
         case data: Data       => done = data.endStream
         case headers: Headers => done = headers.endStream
         case _: WindowUpdate  => ()
@@ -674,6 +706,19 @@ final class H2Transport[Ctx](
    * failure is swallowed and the caller still throws the underlying bound
    * violation.
    */
+  /**
+   * Re-check-at-send probe before the first wire write of a response: the
+   * body/request timer may have fired (RST already on the wire) between
+   * body-read completion and this send. Never emit HEADERS/DATA on a reset
+   * stream — a HEADERS on a reset stream is a connection error (STREAM_CLOSED)
+   * for the peer. Complements `StreamSender`'s per-send `isClosed` guard, which
+   * covers every DATA frame including the first. The RST is already sent, so
+   * aborting maps to `ResponseAborted` and skips the error response in
+   * `handleStream`.
+   */
+  private def probeStreamOpen(stream: MuxStream[Int, H2Frame, H2Frame]): Unit =
+    if (stream.isClosed) throw ResponseAborted
+
   private def resetStream(
     stream: MuxStream[Int, H2Frame, H2Frame],
     connection: H2Connection,
@@ -684,9 +729,22 @@ final class H2Transport[Ctx](
       case NonFatal(_) => ()
     }
 
-  private def awaitFrame(stream: MuxStream[Int, H2Frame, H2Frame]): H2Frame = {
+  private def awaitFrame(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    deadlineNanos: Long,
+  ): H2Frame = {
     var frame: H2Frame = null
     while (frame == null) {
+      if (System.nanoTime() > deadlineNanos) {
+        // Time-to-complete exceeded: reset with CANCEL on the single shared
+        // control path, then surface the timeout (the 500 guard below skips
+        // reset streams, so no HEADERS follows the RST). Skipped when the
+        // stream is already closed (the virtual-thread timer won the race and
+        // its RST is on the wire): never RST a closed stream twice.
+        if (!stream.isClosed) resetStream(stream, connection, H2Error.Code.CANCEL)
+        throw H2Transport.StreamTimeout(stream.id, deadlineNanos)
+      }
       toReceivedFrame(stream.receive()) match {
         case Left(error) => throw new IllegalStateException("HTTP/2 stream receive failed: " + error)
         case Right(next) => frame = next
@@ -695,6 +753,14 @@ final class H2Transport[Ctx](
     }
     frame
   }
+
+  /**
+   * Body-completion deadline as absolute nanos, measured from stream start.
+   * Non-positive timeouts disable (far-future deadline, never hit).
+   */
+  private def bodyDeadlineNanos(streamStartNanos: Long): Long =
+    if (connector.bodyTimeoutMs <= 0L) Long.MaxValue
+    else streamStartNanos + connector.bodyTimeoutMs * 1000000L
 
   private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
     val result = stream.send(frame)
@@ -924,6 +990,15 @@ object H2Transport {
   final case class RequestBodyLengthMismatch(streamId: Int, declared: Long, received: Long)
       extends java.io.IOException(
         s"HTTP/2 request body on stream $streamId declared content-length $declared but received $received bytes",
+      )
+
+  /**
+   * Thrown after resetting the stream with `RST_STREAM(CANCEL)` when body
+   * completion exceeds its time-to-complete deadline.
+   */
+  final case class StreamTimeout(streamId: Int, deadlineNanos: Long)
+      extends java.util.concurrent.TimeoutException(
+        s"HTTP/2 stream $streamId exceeded body time-to-complete deadline",
       )
 
   /**
