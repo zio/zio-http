@@ -1,4 +1,4 @@
-addSbtPlugin("ch.epfl.scala"       % "sbt-scalafix"              % "0.14.6")
+addSbtPlugin("ch.epfl.scala"       % "sbt-scalafix"              % "0.14.8")
 addSbtPlugin("org.scalameta"       % "sbt-scalafmt"              % "2.6.2")
 addSbtPlugin("pl.project13.scala"  % "sbt-jmh"                   % "0.4.8")
 addSbtPlugin("com.timushev.sbt"    % "sbt-updates"               % "0.6.4")
@@ -14,7 +14,7 @@ addSbtPlugin("org.scala-js"        % "sbt-scalajs"               % "1.22.0")
 addSbtPlugin("org.portable-scala"  % "sbt-scalajs-crossproject"  % "1.4.0")
 addSbtPlugin("com.thesamet"        % "sbt-protoc"                % "1.0.8")
 addSbtPlugin("com.thesamet"        % "sbt-protoc-gen-project"    % "0.1.8")
-addSbtPlugin("com.typesafe"        % "sbt-mima-plugin"           % "1.1.6")
+addSbtPlugin("com.typesafe"        % "sbt-mima-plugin"           % "1.2.0")
 addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings"          % "1.1.4")
 
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.20"
