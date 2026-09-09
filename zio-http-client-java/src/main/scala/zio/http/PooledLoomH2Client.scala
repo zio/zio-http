@@ -510,9 +510,16 @@ final class PooledLoomH2Client private (
         // fromReader keeps the error channel at Nothing: transport failures
         // surface as thrown defects (uniform with the blocking Client style),
         // and pulls stay chunk-granular (heap-bounded, no per-byte boxing).
+        // The cap counts response bytes incrementally and fails fast past
+        // `config.maxResponseBodySize`, so a malicious server cannot force
+        // unbounded lazy accumulation on the client; the uncapped raw input
+        // stays on the checkout, so a capped body never reports clean
+        // completion and its connection is evicted, never repooled.
         val stream: zio.blocks.streams.Stream[Nothing, Byte] =
           zio.blocks.streams.Stream.fromReader(
-            zio.blocks.streams.io.Reader.fromInputStream(exchange.bodyInput.orNull),
+            zio.blocks.streams.io.Reader.fromInputStream(
+              new PooledLoomH2Client.CappedResponseStream(exchange.bodyInput.orNull, config.maxResponseBodySize),
+            ),
           )
         val lazyBody = stream.ensuring(if (released.compareAndSet(false, true)) checkout.finish())
         Response(
@@ -539,7 +546,6 @@ final class PooledLoomH2Client private (
 
 @experimental
 object PooledLoomH2Client {
-
   final case class Stats(checkedOut: Int, idle: Int, queued: Int)
 
   def apply(config: ClientConfig): PooledLoomH2Client =
@@ -552,6 +558,35 @@ object PooledLoomH2Client {
    */
   def apply(config: ClientConfig, sslContext: SSLContext): PooledLoomH2Client =
     new PooledLoomH2Client(config, Some(sslContext))
+
+  /**
+   * Response-body cap for the pooled (lazy-streaming) leg: counts bytes
+   * incrementally across `read` calls and throws [[IOException]] the moment the
+   * total crosses `maxBytes`, so a malicious server cannot force unbounded
+   * accumulation. Same fail-fast idiom as the one-shot [[H2WireClient]] cap,
+   * applied at the `InputStream` seam so no connection machinery changes.
+   */
+  private[http] final class CappedResponseStream(underlying: java.io.InputStream, maxBytes: Long)
+      extends java.io.FilterInputStream(underlying) {
+    private var total: Long = 0L
+
+    private def check(count: Int): Int = {
+      if (count > 0) {
+        total += count.toLong
+        if (total > maxBytes) throw ResponseBodyTooLarge(maxBytes)
+      }
+      count
+    }
+
+    override def read(): Int = {
+      val byte = super.read()
+      check(if (byte < 0) 0 else 1)
+      byte
+    }
+
+    override def read(buffer: Array[Byte], offset: Int, length: Int): Int =
+      check(super.read(buffer, offset, length))
+  }
 }
 
 /**

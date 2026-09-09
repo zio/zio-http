@@ -31,9 +31,19 @@ final case class ClientConfig(
   alpn: ClientAlpnPolicy = ClientAlpnPolicy.H2PreferredWithH11Fallback,
   pool: PoolConfig = PoolConfig(),
   deadline: DeadlineConfig = DeadlineConfig(),
+  /**
+   * Maximum response body size in bytes buffered per request. Bodies are
+   * accounted incrementally as chunks arrive and the request fails fast past
+   * the cap, so a malicious server cannot force unbounded buffering.
+   */
+  maxResponseBodySize: Long = ClientConfig.DefaultMaxResponseBodySize,
 ) {
   if (maxRedirects < 0)
     throw new IllegalArgumentException(s"ClientConfig.maxRedirects must be >= 0, got $maxRedirects")
+  if (maxResponseBodySize <= 0L)
+    throw new IllegalArgumentException(
+      s"ClientConfig.maxResponseBodySize must be positive, got $maxResponseBodySize",
+    )
 
   /** Deadline override wins, else the legacy top-level [[connectTimeout]]. */
   def effectiveConnectTimeout: Duration =
@@ -49,5 +59,12 @@ final case class ClientConfig(
 }
 
 object ClientConfig {
+
+  /**
+   * Default response-body cap: 16 MiB per request. Matches the one-shot H2
+   * wire-client cap, so every client leg enforces the same bound by default.
+   */
+  val DefaultMaxResponseBodySize: Long = 16L * 1024L * 1024L
+
   implicit val schema: Schema[ClientConfig] = Schema.derived[ClientConfig]
 }
