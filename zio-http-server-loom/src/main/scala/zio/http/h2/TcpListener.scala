@@ -12,7 +12,16 @@ import java.security.{KeyFactory, PrivateKey, SecureRandom}
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
-import javax.net.ssl.{KeyManagerFactory, SSLContext, SSLHandshakeException, SSLParameters, SSLSocket}
+import javax.net.ssl.{
+  KeyManagerFactory,
+  SSLContext,
+  SSLHandshakeException,
+  SSLParameters,
+  SSLPeerUnverifiedException,
+  SSLSocket,
+  TrustManager,
+  TrustManagerFactory,
+}
 
 import scala.jdk.CollectionConverters._
 import scala.util.Success
@@ -23,11 +32,28 @@ import zio.blocks.config.Secret
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider}
 import zio.http.{AlpnPolicy, TlsConfig, TlsSource}
 
+/**
+ * Identity of the TCP peer accepted by [[TcpListener]], forwarded to the
+ * connection handler so request decoding can gate forwarding headers on it.
+ *
+ * @param address
+ *   Socket peer IP address (for example `"127.0.0.1"`).
+ * @param peerCert
+ *   Verified client certificate, present only on mTLS connections whose peer
+ *   completed client authentication.
+ */
+final case class PeerInfo(
+  address: String,
+  peerCert: Option[X509Certificate],
+) {
+  def hasPeerCert: Boolean = peerCert.isDefined
+}
+
 class TcpListener(
   host: String,
   port: Int,
   tls: Option[TlsConfig],
-  connectionHandler: (InputStream, OutputStream) => Unit,
+  connectionHandler: (InputStream, OutputStream, PeerInfo) => Unit,
 ) {
   private val logger =
     LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.TcpListener")
@@ -109,18 +135,37 @@ class TcpListener(
   ): Unit = {
     sslContext match {
       case Some(context) =>
-        val sslSocket = TcpListener.createTlsSocket(context, channel, tls)
-        activeConnections.add(sslSocket)
+        // A peer that fails the handshake (including mTLS client authentication) never reaches the
+        // handler: the socket and channel are closed here so the peer observes the rejection
+        // promptly.
+        var sslSocket: SSLSocket = null
         try {
-          connectionHandler(sslSocket.getInputStream, sslSocket.getOutputStream)
-        } finally {
-          activeConnections.remove(sslSocket)
-          closeQuietly(sslSocket)
+          sslSocket = TcpListener.createTlsSocket(context, channel, tls)
+          activeConnections.add(sslSocket)
+          try {
+            val peer = PeerInfo(TcpListener.peerIp(sslSocket.getRemoteSocketAddress), TcpListener.peerCert(sslSocket))
+            connectionHandler(sslSocket.getInputStream, sslSocket.getOutputStream, peer)
+          } finally {
+            activeConnections.remove(sslSocket)
+            closeQuietly(sslSocket)
+          }
+        } catch {
+          case NonFatal(e) =>
+            logger.error(
+              "H2 TLS handshake failed",
+              "host"          -> AttributeValue.StringValue(host),
+              "port"          -> AttributeValue.LongValue(port.toLong),
+              "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+              "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+            )
+            closeQuietly(sslSocket)
+            closeQuietly(channel)
         }
       case None          =>
         activeConnections.add(channel)
         try {
-          connectionHandler(Channels.newInputStream(channel), Channels.newOutputStream(channel))
+          val peer = PeerInfo(TcpListener.peerIp(channel.getRemoteAddress), None)
+          connectionHandler(Channels.newInputStream(channel), Channels.newOutputStream(channel), peer)
         } finally {
           activeConnections.remove(channel)
           closeQuietly(channel)
@@ -167,9 +212,32 @@ private object TcpListener {
       keyManagerFactory.init(keyStore, password)
 
       val sslContext = SSLContext.getInstance("TLS")
-      sslContext.init(keyManagerFactory.getKeyManagers, null, new SecureRandom())
+      sslContext.init(keyManagerFactory.getKeyManagers, trustManagers(tls), new SecureRandom())
       requireSupportedProtocols(sslContext, tls, "PEM cert/key material")
       sslContext
+    }
+
+  /**
+   * Builds the trust managers for server-side client-certificate verification.
+   * Always real managers, never `null`: an explicit `trustCertChain` builds a
+   * CA store from it, otherwise the platform default trust store is used.
+   */
+  private def trustManagers(tls: TlsConfig): Array[TrustManager] =
+    tls.trustCertChain match {
+      case Some(source) =>
+        val certificates        = loadCertificates(source)
+        val trustStore          = KeyStore.getInstance(KeyStore.getDefaultType)
+        trustStore.load(null, null)
+        certificates.zipWithIndex.foreach { case (certificate, index) =>
+          trustStore.setCertificateEntry("zio-http-trust-ca-" + index, certificate)
+        }
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        trustManagerFactory.init(trustStore)
+        trustManagerFactory.getTrustManagers
+      case None         =>
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        trustManagerFactory.init(null: KeyStore)
+        trustManagerFactory.getTrustManagers
     }
 
   def createTlsSocket(sslContext: SSLContext, channel: SocketChannel, tls: Option[TlsConfig]): SSLSocket = {
@@ -194,6 +262,7 @@ private object TcpListener {
 
     socket.setUseClientMode(false)
     socket.setSSLParameters(parameters)
+    if (tls.exists(_.requireClientAuth)) socket.setNeedClientAuth(true)
     // Every reject path below closes explicitly: on the http/1.1-only path
     // the JDK fails inside startHandshake BEFORE any post-handshake close
     // could run, which left FIN to socket GC (CLOSE_WAIT window + noisy
@@ -221,6 +290,26 @@ private object TcpListener {
     parameters.setApplicationProtocols(alpnProtocols.toArray)
     parameters
   }
+
+  /**
+   * Socket peer IP for proxy-trust gating; falls back to the raw address
+   * string.
+   */
+  private def peerIp(remote: java.net.SocketAddress): String =
+    remote match {
+      case inet: InetSocketAddress if inet.getAddress != null => inet.getAddress.getHostAddress
+      case other                                              => String.valueOf(other)
+    }
+
+  /**
+   * Verified client certificate of an mTLS peer, if the handshake authenticated
+   * one.
+   */
+  private def peerCert(socket: SSLSocket): Option[X509Certificate] =
+    try socket.getSession.getPeerCertificates.collectFirst { case certificate: X509Certificate => certificate }
+    catch {
+      case _: SSLPeerUnverifiedException => None
+    }
 
   private def firstSslContext(tls: TlsConfig): Option[SSLContext] =
     tls.certChain match {

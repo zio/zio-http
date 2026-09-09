@@ -59,6 +59,17 @@ case class Connector(
    * seconds.
    */
   bodyTimeoutMs: Long = Connector.DefaultBodyTimeoutMs,
+  /**
+   * Which TCP peers are trusted to supply forwarding headers
+   * (`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, RFC 7239
+   * `Forwarded`) to the loom HTTP/2 transport.
+   *
+   * This is a general binding-level knob shared by the H2 and H3 transports.
+   * Default-deny: `TrustedProxyConfig.default` trusts nothing, so forwarding
+   * headers from any peer are stripped with zero effect and the resolved client
+   * IP falls back to the socket peer address.
+   */
+  trustedProxy: TrustedProxyConfig = TrustedProxyConfig.default,
 ) {
   if (maxRequestBodySize < 0L)
     throw new IllegalArgumentException("maxRequestBodySize must be non-negative")
@@ -223,8 +234,180 @@ case class TlsConfig(
   alpnProtocols: List[String] = List("h2"),
   alpnPolicy: AlpnPolicy = AlpnPolicy.StrictH2,
   tlsVersions: List[String] = List("TLSv1.3", "TLSv1.2"),
+  /**
+   * Require the TLS peer to present a certificate (mutual TLS).
+   *
+   * The handshake aborts when the peer sends no (or an untrusted) certificate,
+   * so an HAProxy-style sidecar identity can gate proxy trust (see
+   * `TrustedProxyConfig.trustPeerCert`). Default `false`.
+   */
+  requireClientAuth: Boolean = false,
+  /**
+   * Extra CA certificates used to verify the peer's certificate when
+   * `requireClientAuth` is set. When absent, the platform default trust store
+   * is used. Never `null` trust managers: the loom listener always installs
+   * real trust managers.
+   */
+  trustCertChain: Option[TlsSource] = None,
 )
 
 object TlsConfig {
   implicit val schema: Schema[TlsConfig] = Schema.derived[TlsConfig]
+}
+
+/**
+ * Which TCP peers are trusted to supply forwarding headers (`X-Forwarded-For`,
+ * `X-Forwarded-Proto`, `X-Forwarded-Host`, RFC 7239 `Forwarded`) to the loom
+ * HTTP/2 transport.
+ *
+ * Default-deny: `TrustedProxyConfig.default` trusts nothing, so forwarding
+ * headers from any peer are stripped with zero effect and the resolved client
+ * IP falls back to the socket peer address.
+ *
+ * Allowlist format: each entry of `trustedCidrs` is either a literal IP address
+ * (`"10.0.0.1"`, `"::1"`) for an exact match, or a CIDR range (`"10.0.0.0/8"`,
+ * `"2001:db8::/32"`, `"127.0.0.1/32"`). The set is pre-parsed once into numeric
+ * networks: entries that are not a literal IP or a strict CIDR — notably
+ * hostnames — never match (fail closed) and are never resolved via DNS at
+ * request time. IPv4 entries never match IPv6 peers and vice versa.
+ *
+ * @param trustedCidrs
+ *   IP literals or CIDR ranges whose forwarding headers are honored.
+ * @param trustPeerCert
+ *   When `true`, any peer that authenticated with a client certificate (mTLS)
+ *   is trusted regardless of the CIDR allowlist. Requires
+ *   `TlsConfig.requireClientAuth` on the connector. Default `false`.
+ */
+case class TrustedProxyConfig(
+  trustedCidrs: Set[String] = Set.empty,
+  trustPeerCert: Boolean = false,
+) {
+
+  /**
+   * The allowlist pre-parsed ONCE into numeric (address bytes, prefix bits)
+   * networks. Entries that are not a literal IP or a strict CIDR (hostnames,
+   * malformed ranges) are dropped here, so request-time matching never resolves
+   * DNS and can never trust via spoofed name resolution.
+   */
+  private lazy val parsedNetworks: Set[(Array[Byte], Int)] =
+    TrustedProxyConfig.parseNetworks(trustedCidrs)
+
+  /**
+   * Returns `true` iff forwarding headers from the peer at `peerIp` may be
+   * applied. `hasPeerCert` reports whether the peer presented a verified client
+   * certificate on this connection. `peerIp` comes from the socket address, so
+   * it is parsed as a numeric literal only: unparseable values fail closed with
+   * zero DNS resolution.
+   */
+  def isTrusted(peerIp: String, hasPeerCert: Boolean): Boolean =
+    (trustPeerCert && hasPeerCert) || TrustedProxyConfig.matchesParsed(peerIp, parsedNetworks)
+}
+
+object TrustedProxyConfig {
+
+  /** Default-deny: no peer is trusted. */
+  val default: TrustedProxyConfig = TrustedProxyConfig()
+
+  /** Normalized client-IP header set on every request for route handlers. */
+  val ClientIpHeader: String = "x-client-ip"
+
+  /** Socket peer-address header set on every request for route handlers. */
+  val PeerAddressHeader: String = "x-peer-address"
+
+  implicit val schema: Schema[TrustedProxyConfig] = Schema.derived[TrustedProxyConfig]
+
+  private def matchesParsed(peerIp: String, networks: Set[(Array[Byte], Int)]): Boolean =
+    parseLiteralIp(peerIp) match {
+      case None       => false
+      case Some(peer) =>
+        val iterator = networks.iterator
+        var matched  = false
+        while (iterator.hasNext && !matched) {
+          val (network, bits) = iterator.next()
+          matched = matchesNetwork(network, peer, bits)
+        }
+        matched
+    }
+
+  private def parseNetworks(entries: Set[String]): Set[(Array[Byte], Int)] =
+    entries.flatMap(parseEntry)
+
+  /**
+   * Parses one allowlist entry into (network bytes, prefix bits). Returns
+   * `None` — never matching — for anything that is not a literal IP or a strict
+   * `address/bits` CIDR. Never consults DNS (see `parseLiteralIp`).
+   */
+  private def parseEntry(entry: String): Option[(Array[Byte], Int)] = {
+    val slash = entry.indexOf('/')
+    if (slash < 0) parseLiteralIp(entry).map(bytes => (bytes, bytes.length * 8))
+    else {
+      val bitText = entry.substring(slash + 1)
+      if (bitText.isEmpty || !bitText.forall(_.isDigit)) None
+      else {
+        val bits = bitText.toInt
+        parseLiteralIp(entry.substring(0, slash)) match {
+          case Some(network) if bits <= network.length * 8 => Some((network, bits))
+          case _                                           => None
+        }
+      }
+    }
+  }
+
+  /**
+   * Parses a numeric IP literal into address bytes without DNS resolution.
+   *
+   * `InetAddress.getByName` is only reached for strings that are already proven
+   * to be numeric: anything containing `:` cannot be a DNS name (hostnames
+   * never contain colons), so it is parsed as an IPv6 literal with no lookup;
+   * anything without a colon must be a strict dotted quad, otherwise it is
+   * rejected before `getByName` could treat it as a hostname and consult DNS.
+   * Unparseable input yields `None` (fail closed).
+   */
+  private def parseLiteralIp(text: String): Option[Array[Byte]] =
+    try {
+      if (text.isEmpty) None
+      else if (text.contains(":")) {
+        if (!text.forall(c => c.isDigit || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == ':' || c == '.'))
+          None
+        else Some(java.net.InetAddress.getByName(text).getAddress)
+      } else {
+        val parts = text.split("\\.", -1)
+        if (parts.length != 4) None
+        else {
+          var index   = 0
+          var numeric = true
+          while (index < 4 && numeric) {
+            val part = parts(index)
+            if (part.isEmpty || part.length > 3 || !part.forall(_.isDigit)) numeric = false
+            else {
+              val value = part.toInt
+              if (value < 0 || value > 255) numeric = false
+            }
+            index += 1
+          }
+          if (!numeric) None else Some(java.net.InetAddress.getByName(text).getAddress)
+        }
+      }
+    } catch {
+      case _: Exception => None
+    }
+
+  private def matchesNetwork(network: Array[Byte], peer: Array[Byte], bits: Int): Boolean = {
+    if (network.length != peer.length || bits < 0 || bits > network.length * 8) false
+    else {
+      var index     = 0
+      var matching  = true
+      val fullBytes = bits / 8
+      val restBits  = bits % 8
+      while (index < fullBytes && matching) {
+        if (network(index) != peer(index)) matching = false
+        index += 1
+      }
+      if (matching && restBits > 0) {
+        val mask = (0xff << (8 - restBits)) & 0xff
+        matching = (network(index) & mask) == (peer(index) & mask)
+      }
+      matching
+    }
+  }
 }
