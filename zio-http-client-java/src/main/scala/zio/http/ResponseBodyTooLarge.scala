@@ -19,7 +19,14 @@ package zio.http
  * would only re-download the same over-cap body under another protocol and mask
  * the cause.
  */
-final case class ResponseBodyTooLarge(maxBytes: Long)
+final class ResponseBodyTooLarge(val maxBytes: Long)
     extends RuntimeException(
       s"HTTP response body exceeded client cap of $maxBytes bytes",
     )
+
+object ResponseBodyTooLarge {
+  def apply(maxBytes: Long): ResponseBodyTooLarge = new ResponseBodyTooLarge(maxBytes)
+
+  def unapply(error: ResponseBodyTooLarge): Option[Long] =
+    if (error == null) None else Some(error.maxBytes)
+}

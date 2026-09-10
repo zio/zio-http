@@ -264,15 +264,21 @@ object TlsConfig {
  * headers from any peer are stripped with zero effect and the resolved client
  * IP falls back to the socket peer address.
  *
- * Allowlist format: each entry of `trustedCidrs` is either a literal IP address
- * (`"10.0.0.1"`, `"::1"`) for an exact match, or a CIDR range (`"10.0.0.0/8"`,
- * `"2001:db8::/32"`, `"127.0.0.1/32"`). The set is pre-parsed once into numeric
- * networks: entries that are not a literal IP or a strict CIDR — notably
- * hostnames — never match (fail closed) and are never resolved via DNS at
- * request time. IPv4 entries never match IPv6 peers and vice versa.
+ * Allowlist format: each entry of `trustedCidrs` is either a numeric IP literal
+ * (`"10.0.0.1"`, `"::1"`) for an exact match, or a numeric CIDR range
+ * (`"10.0.0.0/8"`, `"2001:db8::/32"`, `"127.0.0.1/32"`). Numeric-only and
+ * fail-closed: entries that are not a literal IPv4 dotted quad or a literal
+ * IPv6 address (full or `::`-compressed, with IPv4-mapped normalization) —
+ * notably hostnames and malformed ranges — never match and never trigger name
+ * resolution. No DNS lookup ever happens, on any platform. IPv4 entries never
+ * match IPv6 peers and vice versa.
+ *
+ * Platform-portable: matching uses a hand-rolled numeric parser with
+ * indexOf-scan loops only, so shared sources cross-build where name-resolution
+ * APIs are absent.
  *
  * @param trustedCidrs
- *   IP literals or CIDR ranges whose forwarding headers are honored.
+ *   Numeric IP literals or CIDR ranges whose forwarding headers are honored.
  * @param trustPeerCert
  *   When `true`, any peer that authenticated with a client certificate (mTLS)
  *   is trusted regardless of the CIDR allowlist. Requires
@@ -285,11 +291,11 @@ case class TrustedProxyConfig(
 
   /**
    * The allowlist pre-parsed ONCE into numeric (address bytes, prefix bits)
-   * networks. Entries that are not a literal IP or a strict CIDR (hostnames,
-   * malformed ranges) are dropped here, so request-time matching never resolves
-   * DNS and can never trust via spoofed name resolution.
+   * networks. Non-numeric entries (hostnames, malformed ranges) are dropped
+   * here, so request-time matching performs zero name resolution and can never
+   * trust via spoofed name resolution.
    */
-  private lazy val parsedNetworks: Set[(Array[Byte], Int)] =
+  private lazy val parsedNetworks: Array[(Array[Byte], Int)] =
     TrustedProxyConfig.parseNetworks(trustedCidrs)
 
   /**
@@ -297,7 +303,7 @@ case class TrustedProxyConfig(
    * applied. `hasPeerCert` reports whether the peer presented a verified client
    * certificate on this connection. `peerIp` comes from the socket address, so
    * it is parsed as a numeric literal only: unparseable values fail closed with
-   * zero DNS resolution.
+   * zero name resolution.
    */
   def isTrusted(peerIp: String, hasPeerCert: Boolean): Boolean =
     (trustPeerCert && hasPeerCert) || TrustedProxyConfig.matchesParsed(peerIp, parsedNetworks)
@@ -316,81 +322,251 @@ object TrustedProxyConfig {
 
   implicit val schema: Schema[TrustedProxyConfig] = Schema.derived[TrustedProxyConfig]
 
-  private def matchesParsed(peerIp: String, networks: Set[(Array[Byte], Int)]): Boolean =
+  private def matchesParsed(peerIp: String, networks: Array[(Array[Byte], Int)]): Boolean =
     parseLiteralIp(peerIp) match {
       case None       => false
       case Some(peer) =>
-        val iterator = networks.iterator
-        var matched  = false
-        while (iterator.hasNext && !matched) {
-          val (network, bits) = iterator.next()
-          matched = matchesNetwork(network, peer, bits)
+        var index   = 0
+        var matched = false
+        while (index < networks.length && !matched) {
+          val network = networks(index)._1
+          val bits    = networks(index)._2
+          if (matchesNetwork(network, peer, bits)) matched = true
+          index += 1
         }
         matched
     }
 
-  private def parseNetworks(entries: Set[String]): Set[(Array[Byte], Int)] =
-    entries.flatMap(parseEntry)
+  private def parseNetworks(entries: Set[String]): Array[(Array[Byte], Int)] =
+    entries.flatMap(parseEntry).toArray
 
   /**
    * Parses one allowlist entry into (network bytes, prefix bits). Returns
-   * `None` — never matching — for anything that is not a literal IP or a strict
-   * `address/bits` CIDR. Never consults DNS (see `parseLiteralIp`).
+   * `None` — never matching — for anything that is not a numeric IP literal or
+   * a strict `address/bits` CIDR. Never performs name resolution (see
+   * `parseLiteralIp`).
    */
   private def parseEntry(entry: String): Option[(Array[Byte], Int)] = {
     val slash = entry.indexOf('/')
     if (slash < 0) parseLiteralIp(entry).map(bytes => (bytes, bytes.length * 8))
     else {
-      val bitText = entry.substring(slash + 1)
-      if (bitText.isEmpty || !bitText.forall(_.isDigit)) None
-      else {
-        val bits = bitText.toInt
-        parseLiteralIp(entry.substring(0, slash)) match {
-          case Some(network) if bits <= network.length * 8 => Some((network, bits))
-          case _                                           => None
-        }
+      var i    = slash + 1
+      val end  = entry.length
+      if (i >= end) return None
+      var bits = 0
+      while (i < end) {
+        val c = entry.charAt(i)
+        if (c < '0' || c > '9') return None
+        bits = bits * 10 + (c - '0')
+        if (bits > 128) return None
+        i += 1
+      }
+      parseLiteralIp(entry.substring(0, slash)) match {
+        case Some(network) if bits <= network.length * 8 => Some((network, bits))
+        case _                                           => None
       }
     }
   }
 
   /**
-   * Parses a numeric IP literal into address bytes without DNS resolution.
+   * Parses a numeric IP literal into address bytes with zero name resolution.
    *
-   * `InetAddress.getByName` is only reached for strings that are already proven
-   * to be numeric: anything containing `:` cannot be a DNS name (hostnames
-   * never contain colons), so it is parsed as an IPv6 literal with no lookup;
-   * anything without a colon must be a strict dotted quad, otherwise it is
-   * rejected before `getByName` could treat it as a hostname and consult DNS.
-   * Unparseable input yields `None` (fail closed).
+   * Only strict dotted-decimal IPv4 quads and IPv6 literals (full or
+   * `::`-compressed, with dotted-quad tails for mapped addresses) are accepted;
+   * IPv4-mapped IPv6 (`::ffff:a.b.c.d`) normalizes to 4-byte IPv4, matching
+   * prior address-bytes behavior. Anything else — hostnames, malformed input —
+   * yields `None` (fail closed). Implemented with indexOf scan loops only, so
+   * it cross-builds to platforms without resolver APIs.
    */
-  private def parseLiteralIp(text: String): Option[Array[Byte]] =
-    try {
-      if (text.isEmpty) None
-      else if (text.contains(":")) {
-        if (!text.forall(c => c.isDigit || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == ':' || c == '.'))
-          None
-        else Some(java.net.InetAddress.getByName(text).getAddress)
-      } else {
-        val parts = text.split("\\.", -1)
-        if (parts.length != 4) None
-        else {
-          var index   = 0
-          var numeric = true
-          while (index < 4 && numeric) {
-            val part = parts(index)
-            if (part.isEmpty || part.length > 3 || !part.forall(_.isDigit)) numeric = false
-            else {
-              val value = part.toInt
-              if (value < 0 || value > 255) numeric = false
-            }
-            index += 1
-          }
-          if (!numeric) None else Some(java.net.InetAddress.getByName(text).getAddress)
-        }
+  private def parseLiteralIp(text: String): Option[Array[Byte]] = {
+    if (text.isEmpty) None
+    else if (text.indexOf(':') >= 0) parseIPv6(text)
+    else parseIPv4(text)
+  }
+
+  private def parseIPv4(text: String): Option[Array[Byte]] = {
+    val len       = text.length
+    if (len == 0 || len > 15) return None
+    val out       = new Array[Byte](4)
+    var start     = 0
+    var partIndex = 0
+    while (partIndex < 4) {
+      var end     = start
+      while (end < len && text.charAt(end) != '.') end += 1
+      val partLen = end - start
+      if (partLen == 0 || partLen > 3) return None
+      var value   = 0
+      var k       = start
+      while (k < end) {
+        val c = text.charAt(k)
+        if (c < '0' || c > '9') return None
+        value = value * 10 + (c - '0')
+        k += 1
       }
-    } catch {
-      case _: Exception => None
+      if (value > 255) return None
+      out(partIndex) = value.toByte
+      partIndex += 1
+      if (partIndex < 4) {
+        if (end >= len || text.charAt(end) != '.') return None
+        start = end + 1
+      } else if (end != len) return None
     }
+    Some(out)
+  }
+
+  private def parseIPv6(text: String): Option[Array[Byte]] =
+    if (text.indexOf('.') >= 0) parseIPv6WithEmbeddedIPv4(text)
+    else parsePureIPv6(text)
+
+  private def parsePureIPv6(text: String): Option[Array[Byte]] = {
+    val comp = text.indexOf("::")
+    if (comp >= 0) {
+      if (text.lastIndexOf("::") != comp) return None
+      val leftGroups  = new Array[Int](8)
+      val rightGroups = new Array[Int](8)
+      val leftCount   = parseV6Side(text, 0, comp, leftGroups, 0)
+      if (leftCount < 0) return None
+      val rightCount  = parseV6Side(text, comp + 2, text.length, rightGroups, 0)
+      if (rightCount < 0) return None
+      if (leftCount + rightCount > 7) return None
+      val groups      = new Array[Int](8)
+      var i           = 0
+      while (i < leftCount) {
+        groups(i) = leftGroups(i)
+        i += 1
+      }
+      var z           = leftCount
+      while (z < 8 - rightCount) {
+        groups(z) = 0
+        z += 1
+      }
+      var j           = 0
+      while (j < rightCount) {
+        groups(8 - rightCount + j) = rightGroups(j)
+        j += 1
+      }
+      Some(groupsToBytes(groups))
+    } else {
+      val groups = new Array[Int](8)
+      val count  = parseV6Side(text, 0, text.length, groups, 0)
+      if (count != 8) None
+      else Some(groupsToBytes(groups))
+    }
+  }
+
+  private def parseIPv6WithEmbeddedIPv4(text: String): Option[Array[Byte]] = {
+    val lastColon  = text.lastIndexOf(':')
+    if (lastColon < 0) return None
+    val tailStart  = lastColon + 1
+    val tail       = text.substring(tailStart)
+    if (tail.indexOf('.') < 0) return None
+    val v4opt      = parseIPv4(tail)
+    if (v4opt.isEmpty) return None
+    val v4bytes    = v4opt.get
+    val rawHeadLen = text.length - tail.length
+    if (rawHeadLen <= 0 || text.charAt(rawHeadLen - 1) != ':') return None
+    val head       =
+      if (rawHeadLen >= 2 && text.charAt(rawHeadLen - 2) == ':') text.substring(0, rawHeadLen)
+      else text.substring(0, rawHeadLen - 1)
+    if (head.isEmpty || head.indexOf('.') >= 0) return None
+    val v4High     = ((v4bytes(0) & 0xff) << 8) | (v4bytes(1) & 0xff)
+    val v4Low      = ((v4bytes(2) & 0xff) << 8) | (v4bytes(3) & 0xff)
+    val groups     = new Array[Int](8)
+    val comp       = head.indexOf("::")
+    if (comp >= 0) {
+      if (head.lastIndexOf("::") != comp) return None
+      val leftGroups  = new Array[Int](8)
+      val rightGroups = new Array[Int](8)
+      val leftCount   = parseV6Side(head, 0, comp, leftGroups, 0)
+      if (leftCount < 0) return None
+      val rightCount  = parseV6Side(head, comp + 2, head.length, rightGroups, 0)
+      if (rightCount < 0) return None
+      if (leftCount + rightCount > 5) return None
+      var i           = 0
+      while (i < leftCount) {
+        groups(i) = leftGroups(i)
+        i += 1
+      }
+      var z           = leftCount
+      while (z < 6 - rightCount) {
+        groups(z) = 0
+        z += 1
+      }
+      var j           = 0
+      while (j < rightCount) {
+        groups(6 - rightCount + j) = rightGroups(j)
+        j += 1
+      }
+      groups(6) = v4High
+      groups(7) = v4Low
+    } else {
+      val headCount = parseV6Side(head, 0, head.length, groups, 0)
+      if (headCount != 6) return None
+      groups(6) = v4High
+      groups(7) = v4Low
+    }
+    val bytes      = groupsToBytes(groups)
+    var i          = 0
+    var isMapped   = true
+    while (i < 10 && isMapped) {
+      if (bytes(i) != 0) isMapped = false
+      i += 1
+    }
+    if (isMapped && ((bytes(10) & 0xff) != 0xff || (bytes(11) & 0xff) != 0xff)) isMapped = false
+    if (isMapped) {
+      val out = new Array[Byte](4)
+      out(0) = bytes(12)
+      out(1) = bytes(13)
+      out(2) = bytes(14)
+      out(3) = bytes(15)
+      Some(out)
+    } else Some(bytes)
+  }
+
+  private def parseV6Side(text: String, start: Int, end: Int, out: Array[Int], offset: Int): Int = {
+    if (start == end) return 0
+    if (start > end) return -1
+    var pos   = start
+    var count = 0
+    while (pos < end) {
+      var colon = pos
+      while (colon < end && text.charAt(colon) != ':') colon += 1
+      val glen  = colon - pos
+      if (glen == 0 || glen > 4) return -1
+      var value = 0
+      var k     = pos
+      while (k < colon) {
+        val c = text.charAt(k)
+        val d =
+          if (c >= '0' && c <= '9') c - '0'
+          else if (c >= 'a' && c <= 'f') c - 'a' + 10
+          else if (c >= 'A' && c <= 'F') c - 'A' + 10
+          else return -1
+        value = (value << 4) | d
+        k += 1
+      }
+      if (count >= 8) return -1
+      out(offset + count) = value
+      count += 1
+      if (colon == end) pos = end
+      else {
+        pos = colon + 1
+        if (pos == end) return -1
+      }
+    }
+    count
+  }
+
+  private def groupsToBytes(groups: Array[Int]): Array[Byte] = {
+    val out = new Array[Byte](16)
+    var i   = 0
+    while (i < 8) {
+      out(i * 2) = ((groups(i) >> 8) & 0xff).toByte
+      out(i * 2 + 1) = (groups(i) & 0xff).toByte
+      i += 1
+    }
+    out
+  }
 
   private def matchesNetwork(network: Array[Byte], peer: Array[Byte], bits: Int): Boolean = {
     if (network.length != peer.length || bits < 0 || bits > network.length * 8) false

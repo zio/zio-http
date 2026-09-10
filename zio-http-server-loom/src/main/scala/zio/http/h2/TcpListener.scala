@@ -42,14 +42,14 @@ import zio.http.{AlpnPolicy, TlsConfig, TlsSource}
  *   Verified client certificate, present only on mTLS connections whose peer
  *   completed client authentication.
  */
-final case class PeerInfo(
+private[http] final case class PeerInfo(
   address: String,
   peerCert: Option[X509Certificate],
 ) {
   def hasPeerCert: Boolean = peerCert.isDefined
 }
 
-class TcpListener(
+private[http] class TcpListener(
   host: String,
   port: Int,
   tls: Option[TlsConfig],

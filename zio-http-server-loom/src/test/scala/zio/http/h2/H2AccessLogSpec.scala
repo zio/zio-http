@@ -73,7 +73,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
               records.head.status == 200,
               records.head.durationMs >= 0L,
               records.head.requestId == "req-1",
-              records.head.deadlineOutcome.contains(AccessLog.DeadlineOk),
+              records.head.deadlineOutcome.contains(AccessLog.DeadlineOutcome.Ok),
             )
           }
         }
@@ -97,7 +97,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
               records.length == 1,
               records.head.peerAddress.contains("127.0.0.1"),
               records.head.clientIp.contains("203.0.113.7"),
-              records.head.trustDecision.contains(AccessLog.TrustTrusted),
+              records.head.trustDecision.contains(AccessLog.TrustDecision.Trusted),
             )
           }
         }
@@ -120,7 +120,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
               records.length == 1,
               records.head.peerAddress.contains("127.0.0.1"),
               records.head.clientIp.contains("127.0.0.1"),
-              records.head.trustDecision.contains(AccessLog.TrustUntrusted),
+              records.head.trustDecision.contains(AccessLog.TrustDecision.Untrusted),
             )
           }
         }
@@ -136,12 +136,21 @@ object H2AccessLogSpec extends ZIOSpecDefault {
                 client.post("/", Chunk.fromArray(secret.getBytes(StandardCharsets.UTF_8)), streamId = 1, extra = Nil)
               finally client.close()
             val records  = capture.records
+            val record   = records.head
             assertTrue(
               response.status == 200,
               new String(response.body.toArray, StandardCharsets.UTF_8) == secret,
               records.length == 1,
-              records.head.method == "POST",
-              !records.exists(_.toString.contains(secret)),
+              record.method == "POST",
+              // Field-level secrecy: no record field and no rendered log line
+              // may carry body bytes (not just "toString has no secret").
+              !record.path.contains(secret),
+              !record.route.exists(_.contains(secret)),
+              !record.requestId.contains(secret),
+              !record.peerAddress.exists(_.contains(secret)),
+              !record.clientIp.exists(_.contains(secret)),
+              !record.protocol.contains(secret),
+              !AccessLog.formatLine(record).contains(secret),
             )
           }
         }
@@ -214,8 +223,11 @@ object H2AccessLogSpec extends ZIOSpecDefault {
             deadlineOutcome = None,
             protocol = "h2c",
           )
+          // Both entry points must complete without throwing ...
           AccessLog.emit(AccessLogSink.disabled, record)
-          assertTrue(AccessLogSink.disabled != null)
+          AccessLogSink.disabled.log(record)
+          // ... and a fresh capture sink observes zero records from these emits.
+          assertTrue(CaptureSink().records.isEmpty)
         },
         test("emit swallows sink failures") {
           val boom   = AccessLogSink(_ => throw new RuntimeException("sink boom"))
@@ -229,7 +241,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
             peerAddress = None,
             clientIp = None,
             trustDecision = None,
-            deadlineOutcome = Some(AccessLog.DeadlineOk),
+            deadlineOutcome = Some(AccessLog.DeadlineOutcome.Ok),
             protocol = "h2c",
           )
           AccessLog.emit(boom, record)
@@ -246,9 +258,15 @@ object H2AccessLogSpec extends ZIOSpecDefault {
         },
         test("trust derivation honors forwarding only when it was applied") {
           assertTrue(
-            AccessLog.trustDecision(Some("127.0.0.1"), Some("203.0.113.7")).contains(AccessLog.TrustTrusted),
-            AccessLog.trustDecision(Some("127.0.0.1"), Some("127.0.0.1")).contains(AccessLog.TrustUntrusted),
+            AccessLog.trustDecision(Some("127.0.0.1"), Some("203.0.113.7")).contains(AccessLog.TrustDecision.Trusted),
+            AccessLog.trustDecision(Some("127.0.0.1"), Some("127.0.0.1")).contains(AccessLog.TrustDecision.Untrusted),
             AccessLog.trustDecision(None, None).isEmpty,
+          )
+        },
+        test("header literals stay in sync with TrustedProxyConfig") {
+          assertTrue(
+            AccessLog.PeerAddressHeader == TrustedProxyConfig.PeerAddressHeader,
+            AccessLog.ClientIpHeader == TrustedProxyConfig.ClientIpHeader,
           )
         },
         test("accessLog middleware preserves Response and Halt results") {

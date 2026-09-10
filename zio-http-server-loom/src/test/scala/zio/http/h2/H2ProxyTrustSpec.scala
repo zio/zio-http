@@ -54,19 +54,80 @@ import zio.http.{
  */
 @experimental
 object H2ProxyTrustSpec extends ZIOSpecDefault {
-  override def spec: Spec[TestEnvironment & Scope, Any]                         =
+  private final case class ProxyCase(
+    name: String,
+    trusted: TrustedProxyConfig,
+    sentHeaders: List[HeaderField],
+    expectedClientIp: String,
+    expectedHost: String,
+    expectedScheme: String,
+  )
+
+  /** Trusted loopback peer: X-Forwarded-* headers take effect. */
+  private val TrustedLoopbackXff: ProxyCase =
+    ProxyCase(
+      name = "trusted loopback peer's X-Forwarded-For yields correct client IP",
+      trusted = TrustedProxyConfig(trustedCidrs = Set("127.0.0.1/32")),
+      sentHeaders = List(
+        HeaderField("x-forwarded-for", "203.0.113.7"),
+        HeaderField("x-forwarded-proto", "https"),
+        HeaderField("x-forwarded-host", "example.com"),
+      ),
+      expectedClientIp = "203.0.113.7",
+      expectedHost = "example.com",
+      expectedScheme = "https",
+    )
+
+  /** Same headers from an untrusted peer: stripped with zero effect. */
+  private val UntrustedXffIgnored: ProxyCase =
+    ProxyCase(
+      name = "identical header from untrusted peer is ignored (zero effect)",
+      trusted = TrustedProxyConfig(),
+      sentHeaders = List(
+        HeaderField("x-forwarded-for", "203.0.113.7"),
+        HeaderField("x-forwarded-proto", "https"),
+        HeaderField("x-forwarded-host", "example.com"),
+      ),
+      expectedClientIp = "127.0.0.1",
+      expectedHost = "127.0.0.1",
+      expectedScheme = "http",
+    )
+
+  /** Trusted peer: RFC 7239 Forwarded takes effect. */
+  private val TrustedRfc7239: ProxyCase =
+    ProxyCase(
+      name = "RFC 7239 Forwarded from trusted peer yields client IP and host",
+      trusted = TrustedProxyConfig(trustedCidrs = Set("127.0.0.0/8")),
+      sentHeaders = List(HeaderField("forwarded", "for=198.51.100.9;proto=https;host=example.org")),
+      expectedClientIp = "198.51.100.9",
+      expectedHost = "example.org",
+      expectedScheme = "https",
+    )
+
+  /** Same Forwarded header from an untrusted peer: ignored. */
+  private val UntrustedRfc7239Ignored: ProxyCase =
+    ProxyCase(
+      name = "RFC 7239 Forwarded from untrusted peer is ignored",
+      trusted = TrustedProxyConfig(),
+      sentHeaders = List(HeaderField("forwarded", "for=198.51.100.9;proto=https;host=example.org")),
+      expectedClientIp = "127.0.0.1",
+      expectedHost = "127.0.0.1",
+      expectedScheme = "http",
+    )
+
+  override def spec: Spec[TestEnvironment & Scope, Any]                                   =
     suite("H2ProxyTrustSpec")(
-      test("trusted loopback peer's X-Forwarded-For yields correct client IP") {
-        withServer(TrustedProxyConfig(trustedCidrs = Set("127.0.0.1/32")), useWithPort(1))
+      test(TrustedLoopbackXff.name) {
+        withServer(TrustedLoopbackXff.trusted, runProxyCase(TrustedLoopbackXff))
       },
-      test("identical header from untrusted peer is ignored (zero effect)") {
-        withServer(TrustedProxyConfig(), useWithPort(2))
+      test(UntrustedXffIgnored.name) {
+        withServer(UntrustedXffIgnored.trusted, runProxyCase(UntrustedXffIgnored))
       },
-      test("RFC 7239 Forwarded from trusted peer yields client IP and host") {
-        withServer(TrustedProxyConfig(trustedCidrs = Set("127.0.0.0/8")), useWithPort(3))
+      test(TrustedRfc7239.name) {
+        withServer(TrustedRfc7239.trusted, runProxyCase(TrustedRfc7239))
       },
-      test("RFC 7239 Forwarded from untrusted peer is ignored") {
-        withServer(TrustedProxyConfig(), useWithPort(4))
+      test(UntrustedRfc7239Ignored.name) {
+        withServer(UntrustedRfc7239Ignored.trusted, runProxyCase(UntrustedRfc7239Ignored))
       },
       test("default config trusts nothing (default-deny)") {
         ZIO.attempt {
@@ -118,23 +179,32 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 // Stage 1 (server-observed accept): TCP connects, so the
                 // server took the peer — a refusal here would mean
                 // "server down", not "peer rejected".
-                val tcpAccepted    = client.tcpConnected
+                val tcpAcceptedByServer      = client.tcpConnected
                 // Stage 2 (server-aborted handshake): the no-cert handshake
                 // must never yield a speaking server. The abort can race
                 // past the client's Finished (fatal alert vs close), so the
                 // proof is that no H2 bytes ever come back — never a refusal
                 // to reach the server at all.
-                val handshakeError = client.handshakeAttempt()
-                val refused        = handshakeError.exists(_.isInstanceOf[ConnectException])
-                val proceeds       = if (refused) true else client.serverProceeds()
+                val handshakeError           = client.handshakeAttempt()
+                handshakeError.foreach(err => println(s"mTLS no-cert handshake error (expected): $err"))
+                val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
+                val serverSpokeH2AfterReject =
+                  if (refusedBeforeHandshake) true else client.serverProceeds()
                 // Stage 3 (per-connection abort): the server is still bound
                 // afterwards and never dispatched the request past the
                 // failed handshake.
-                val stillBound     = handle.binding.address match {
+                val serverStillBound         = handle.binding.address match {
                   case BoundAddress.Tcp(_, thePort) => thePort == tcpPort
                   case _                            => false
                 }
-                assertTrue(tcpAccepted, !refused, !proceeds, stillBound, !handlerHit.get())
+                val requestDispatched        = handlerHit.get()
+                assertTrue(
+                  tcpAcceptedByServer,
+                  !refusedBeforeHandshake,
+                  !serverSpokeH2AfterReject,
+                  serverStillBound,
+                  !requestDispatched,
+                )
               } finally client.close()
             }
           }
@@ -183,21 +253,30 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 clientKeyPem = Some(ServerKeyPem),
               )
               try {
-                val tcpAccepted    = client.tcpConnected
-                val handshakeError = client.handshakeAttempt()
-                val refused        = handshakeError.exists(_.isInstanceOf[ConnectException])
-                val proceeds       = if (refused) true else client.serverProceeds()
-                val stillBound     = handle.binding.address match {
+                val tcpAcceptedByServer      = client.tcpConnected
+                val handshakeError           = client.handshakeAttempt()
+                handshakeError.foreach(err => println(s"mTLS wrong-CA handshake error (expected): $err"))
+                val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
+                val serverSpokeH2AfterReject =
+                  if (refusedBeforeHandshake) true else client.serverProceeds()
+                val serverStillBound         = handle.binding.address match {
                   case BoundAddress.Tcp(_, thePort) => thePort == tcpPort
                   case _                            => false
                 }
-                assertTrue(tcpAccepted, !refused, !proceeds, stillBound, !handlerHit.get())
+                val requestDispatched        = handlerHit.get()
+                assertTrue(
+                  tcpAcceptedByServer,
+                  !refusedBeforeHandshake,
+                  !serverSpokeH2AfterReject,
+                  serverStillBound,
+                  !requestDispatched,
+                )
               } finally client.close()
             }
           }
       },
     ) @@ sequential
-  private val EchoRoutes: Routes[Any]                                           =
+  private val EchoRoutes: Routes[Any]                                                     =
     Routes(
       Route(
         RoutePattern.GET,
@@ -239,42 +318,22 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
         }
         use(port)
       }
-  private def useWithPort[R](caseId: Int): Int => ZIO[R, Throwable, TestResult] =
+  private def runProxyCase[R](proxyCase: ProxyCase): Int => ZIO[R, Throwable, TestResult] =
     (port: Int) =>
       ZIO.attemptBlocking {
         val client = new ProxyTestClient(port)
         try {
-          val seen   = client.getWithHeaders(streamId = 1, extra = headersFor(caseId))
-          val expect = expectedFor(caseId)
+          val seen = client.getWithHeaders(streamId = 1, extra = proxyCase.sentHeaders)
           assertTrue(
-            seen.clientIp == expect.clientIp,
+            seen.clientIp == proxyCase.expectedClientIp,
             seen.forwardedFor == "none",
             seen.forwardedHeader == "none",
             seen.peer == "127.0.0.1",
-            seen.host == expect.host,
-            seen.scheme == expect.scheme,
+            seen.host == proxyCase.expectedHost,
+            seen.scheme == proxyCase.expectedScheme,
           )
         } finally client.close()
       }
-  private def headersFor(caseId: Int): List[HeaderField]                        =
-    caseId match {
-      case 1 | 2 =>
-        List(
-          HeaderField("x-forwarded-for", "203.0.113.7"),
-          HeaderField("x-forwarded-proto", "https"),
-          HeaderField("x-forwarded-host", "example.com"),
-        )
-      case 3 | 4 =>
-        List(HeaderField("forwarded", "for=198.51.100.9;proto=https;host=example.org"))
-      case _     => Nil
-    }
-  private def expectedFor(caseId: Int): SeenHeaders                             =
-    caseId match {
-      case 1 => SeenHeaders("203.0.113.7", "127.0.0.1", "none", "none", "example.com", "https")
-      case 2 => SeenHeaders("127.0.0.1", "127.0.0.1", "none", "none", "127.0.0.1", "http")
-      case 3 => SeenHeaders("198.51.100.9", "127.0.0.1", "none", "none", "example.org", "https")
-      case _ => SeenHeaders("127.0.0.1", "127.0.0.1", "none", "none", "127.0.0.1", "http")
-    }
   private final case class SeenHeaders(
     clientIp: String,
     peer: String,
@@ -376,7 +435,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
   // Unrelated EC CA (same material as H2TlsSpec): the trust anchor for the
   // wrong-CA rejection test. The peer presents the self-signed RSA server
   // cert, which chains to nothing here, so the handshake must abort.
-  private val WrongCaPem                                                        =
+  private val WrongCaPem                                                                  =
     """-----BEGIN CERTIFICATE-----
 MIIBfTCCASOgAwIBAgIUDZi2vTwLeJsU87eAXPcmVuht9ZcwCgYIKoZIzj0EAwIw
 FDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI2MDYzMDIyMzUwMFoXDTI3MDYzMDIy
@@ -389,7 +448,7 @@ Kgl8yIWcrTsLIrsXHA6cAiAPFrDVHrjyjv9zdl8DhXcH/Sx8o2to2EIAMDlio31w
 Lg==
 -----END CERTIFICATE-----"""
   // Self-signed localhost cert/key for the mTLS rejection test (same material as H2TlsSpec).
-  private val ServerCertPem                                                     =
+  private val ServerCertPem                                                               =
     """-----BEGIN CERTIFICATE-----
 MIIDXTCCAkWgAwIBAgIIFmlxlymbftowDQYJKoZIhvcNAQEMBQAwXTELMAkGA1UE
 BhMCVVMxDTALBgNVBAgTBFRlc3QxDTALBgNVBAcTBFRlc3QxDTALBgNVBAoTBFRl
@@ -411,7 +470,7 @@ dpBrxWvWGRl2+Nle0zAQNznhfn8ydP/7K3Lv/f3qQ48EgXmSDdhvSUfX24CLVLXk
 mETcQb+xmaWObOxkaK0iWGoQWPs2UFKVHPDmUlsYSt0ePGsiu1uEbgWrfr+6vBdx
 Wg==
 -----END CERTIFICATE-----"""
-  private val ServerKeyPem                                                      =
+  private val ServerKeyPem                                                                =
     """-----BEGIN PRIVATE KEY-----
 MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDihzLu4ln5ta1R
 gac4J3GsWMLWVjMoud5NiZczB7RLHQx+yt1uYhDqc8HTgzkEBU8lel1IdEMP+m4Y

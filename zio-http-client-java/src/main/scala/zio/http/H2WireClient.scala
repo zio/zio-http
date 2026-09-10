@@ -264,10 +264,11 @@ private[http] object H2WireClient {
     while (!done) {
       reader.readFrame() match {
         case Data(StreamId, data, streamEnd, _)       =>
+          val len   = data.length
+          if (total + len > maxBodyBytes) throw ResponseBodyTooLarge(maxBodyBytes)
           val bytes = data.toArray
-          total += bytes.length
-          if (total > maxBodyBytes) throw ResponseBodyTooLarge(maxBodyBytes)
           collected.write(bytes, 0, bytes.length)
+          total += bytes.length
           // Replenish connection- and stream-level flow-control windows as we
           // consume, so multi-DATA-frame responses never stall.
           writeFrame(output, WindowUpdate(ConnectionStream, bytes.length))

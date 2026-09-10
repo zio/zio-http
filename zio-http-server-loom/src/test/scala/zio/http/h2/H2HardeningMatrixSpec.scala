@@ -22,6 +22,7 @@ import zio.http.ResultType._
 import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, HpackDecoder, HpackEncoder}
 import zio.http.{
+  AccessLog,
   AccessLogRecord,
   AccessLogSink,
   BindAddress,
@@ -245,19 +246,45 @@ object H2HardeningMatrixSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val client = new MatrixClient(port)
             try {
-              val get           = client.getWithId(path = "/", streamId = 1, requestId = "matrix-req-1")
-              val post          =
+              val get        = client.getWithId(path = "/", streamId = 1, requestId = "matrix-req-1")
+              val post       =
                 client.post("/echo", Chunk.fromArray(secret.getBytes(StandardCharsets.UTF_8)), streamId = 3)
-              val records       = sink.records
-              val recordStrings = records.map(_.toString)
+              val records    = sink.records
+              val getRecord  = records
+                .find(_.method == "GET")
+                .getOrElse(throw new AssertionError("missing GET record: " + records))
+              val postRecord = records
+                .find(_.method == "POST")
+                .getOrElse(throw new AssertionError("missing POST record: " + records))
               assertTrue(
                 get.status == 200,
                 post.status == 200,
                 records.length == 2,
-                records.exists(r => r.method == "GET" && r.requestId == "matrix-req-1" && r.status == 200),
-                records.exists(r => r.method == "POST" && r.status == 200),
-                records.forall(r => r.requestId.nonEmpty && r.trustDecision.nonEmpty && r.deadlineOutcome.nonEmpty),
-                !recordStrings.exists(_.contains(secret)),
+                getRecord.requestId == "matrix-req-1",
+                getRecord.status == 200,
+                postRecord.status == 200,
+                getRecord.requestId.nonEmpty,
+                postRecord.requestId.nonEmpty,
+                getRecord.trustDecision.contains(AccessLog.TrustDecision.Untrusted),
+                postRecord.trustDecision.contains(AccessLog.TrustDecision.Untrusted),
+                getRecord.deadlineOutcome.contains(AccessLog.DeadlineOutcome.Ok),
+                postRecord.deadlineOutcome.contains(AccessLog.DeadlineOutcome.Ok),
+                // Field-level secrecy: no record field and no rendered log
+                // line may carry body bytes.
+                !getRecord.path.contains(secret),
+                !getRecord.route.exists(_.contains(secret)),
+                !getRecord.requestId.contains(secret),
+                !getRecord.peerAddress.exists(_.contains(secret)),
+                !getRecord.clientIp.exists(_.contains(secret)),
+                !getRecord.protocol.contains(secret),
+                !postRecord.path.contains(secret),
+                !postRecord.route.exists(_.contains(secret)),
+                !postRecord.requestId.contains(secret),
+                !postRecord.peerAddress.exists(_.contains(secret)),
+                !postRecord.clientIp.exists(_.contains(secret)),
+                !postRecord.protocol.contains(secret),
+                !AccessLog.formatLine(getRecord).contains(secret),
+                !AccessLog.formatLine(postRecord).contains(secret),
               )
             } finally client.close()
           }

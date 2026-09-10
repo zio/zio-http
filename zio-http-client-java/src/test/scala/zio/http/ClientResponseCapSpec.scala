@@ -59,8 +59,9 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
                 driver.send(Request.get(absUrl(s"http://127.0.0.1:$port/")))
                 None
               } catch {
-                case failure: ResponseBodyTooLarge => Some(failure)
-                case failure: Throwable            => None
+                case cap: ResponseBodyTooLarge => Some(cap)
+                case unexpected: Throwable     =>
+                  throw new AssertionError("one-shot leg failed without ResponseBodyTooLarge", unexpected)
               }
             assertTrue(failure.exists(_.maxBytes == TinyCap))
           }
@@ -89,8 +90,9 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
                   response.body.toArray
                   None
                 } catch {
-                  case failure: ResponseBodyTooLarge => Some(failure)
-                  case failure: Throwable            => None
+                  case cap: ResponseBodyTooLarge => Some(cap)
+                  case unexpected: Throwable     =>
+                    throw new AssertionError("pooled leg failed without ResponseBodyTooLarge", unexpected)
                 }
               assertTrue(response.status == Status.Ok, failure.exists(_.maxBytes == TinyCap))
             } finally pool.close()
@@ -120,9 +122,18 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
                 client.send(Request.get(absUrl(s"http://127.0.0.1:$port/")))
                 None
               } catch {
-                case failure: Throwable => Some(failureToString(failure))
+                case failure: Throwable => Some(failure)
               }
-            assertTrue(failure.exists(_.contains("client cap")))
+            // The JDK leg surfaces the cap through a completion chain: unwind
+            // to the ResponseBodyTooLarge itself and pin its cap value. Any
+            // other outcome rethrows the real cause instead of failing silent.
+            val cap     = failure.flatMap(unwindCap)
+            if (failure.isDefined && cap.isEmpty)
+              throw new AssertionError(
+                "JDK leg failed without ResponseBodyTooLarge: " + failureToString(failure.get),
+                failure.get,
+              )
+            assertTrue(cap.exists(_.maxBytes == TinyCap))
           }
         }
       },
@@ -140,14 +151,12 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
       },
       test("default cap is 16 MiB and non-positive caps fail fast") {
         ZIO.attempt {
-          val rejectsZero     = rejects(ClientConfig(maxResponseBodySize = 0L))
-          val rejectsNegative = rejects(ClientConfig(maxResponseBodySize = -1L))
           assertTrue(
             ClientConfig.DefaultMaxResponseBodySize == 16L * 1024L * 1024L,
             ClientConfig().maxResponseBodySize == ClientConfig.DefaultMaxResponseBodySize,
             JavaH2Client.DefaultMaxResponseBodySize == ClientConfig.DefaultMaxResponseBodySize,
-            rejectsZero,
-            rejectsNegative,
+            rejects(ClientConfig(maxResponseBodySize = 0L)),
+            rejects(ClientConfig(maxResponseBodySize = -1L)),
           )
         }
       },
@@ -194,6 +203,19 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
       current = current.getCause
     }
     builder.toString
+  }
+
+  /** Walks the cause chain for the cap failure itself (JDK leg wraps it). */
+  private def unwindCap(failure: Throwable): Option[ResponseBodyTooLarge] = {
+    var current: Throwable                  = failure
+    var found: Option[ResponseBodyTooLarge] = None
+    while (current != null && found.isEmpty) {
+      current match {
+        case cap: ResponseBodyTooLarge => found = Some(cap)
+        case _                         => current = current.getCause
+      }
+    }
+    found
   }
 
   private def absUrl(raw: String): URL =

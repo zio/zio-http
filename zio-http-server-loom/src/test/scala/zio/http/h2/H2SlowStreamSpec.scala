@@ -143,9 +143,9 @@ object H2SlowStreamSpec extends ZIOSpecDefault {
               // CANCEL and never answer with a (bogus 500) HEADERS.
               client.sendFrame(client.makeHeaders("POST", "/", streamId = 1, endStream = false, Some("8")))
               client.sendFrame(Data(1, Chunk.single(0x41.toByte), endStream = false))
-              client.awaitRstStrict(streamId = 1, expected = H2Error.Code.CANCEL, timeoutMs = 15000)
+              val resetCode = client.awaitRstStrict(streamId = 1, expected = H2Error.Code.CANCEL, timeoutMs = 15000)
               client.assertStreamQuiet(streamId = 1, graceMs = QuietWindowMs)
-              assertTrue(true)
+              assertTrue(resetCode == H2Error.Code.CANCEL)
             } finally client.close()
           }
         }
@@ -368,10 +368,11 @@ object H2SlowStreamSpec extends ZIOSpecDefault {
     }
 
     /**
-     * Waits for the expected RST_STREAM. Any HEADERS (e.g. a best-effort 500
-     * sent after the reset) or DATA on the stream fails immediately.
+     * Waits for the expected RST_STREAM and returns its code. Any HEADERS (e.g.
+     * a best-effort 500 sent after the reset) or DATA on the stream fails
+     * immediately.
      */
-    def awaitRstStrict(streamId: Int, expected: H2Error.Code, timeoutMs: Int): Unit = {
+    def awaitRstStrict(streamId: Int, expected: H2Error.Code, timeoutMs: Int): H2Error.Code = {
       socket.setSoTimeout(1000)
       try {
         val deadline = java.lang.System.currentTimeMillis() + timeoutMs
@@ -399,6 +400,7 @@ object H2SlowStreamSpec extends ZIOSpecDefault {
             case _: SocketTimeoutException => ()
           }
         }
+        expected
       } finally socket.setSoTimeout(SoTimeoutMs)
     }
 

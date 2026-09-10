@@ -189,14 +189,14 @@ object JavaH2Client {
     }
 
   private final class BoundedByteArraySubscriber(maxBytes: Long) extends HttpResponse.BodySubscriber[Array[Byte]] {
-    private val buffer       = new ByteArrayOutputStream()
-    private val result       = new CompletableFuture[Array[Byte]]()
-    private var subscription = Option.empty[Flow.Subscription]
-    private var total: Long  = 0L
+    private val buffer                          = new ByteArrayOutputStream()
+    private val result                          = new CompletableFuture[Array[Byte]]()
+    private var subscription: Flow.Subscription = null
+    private var total: Long                     = 0L
 
-    override def onSubscribe(subscription: Flow.Subscription): Unit = {
-      this.subscription = Some(subscription)
-      subscription.request(Long.MaxValue)
+    override def onSubscribe(s: Flow.Subscription): Unit = {
+      subscription = s
+      s.request(Long.MaxValue)
     }
 
     override def onNext(items: java.util.List[ByteBuffer]): Unit =
@@ -206,7 +206,8 @@ object JavaH2Client {
           val chunk = iterator.next()
           val size  = chunk.remaining().toLong
           if (total + size > maxBytes) {
-            subscription.foreach(_.cancel())
+            val s = subscription
+            if (s != null) s.cancel()
             result.completeExceptionally(ResponseBodyTooLarge(maxBytes))
             return
           }
@@ -217,7 +218,8 @@ object JavaH2Client {
         }
       } catch {
         case NonFatal(error) =>
-          subscription.foreach(_.cancel())
+          val s = subscription
+          if (s != null) s.cancel()
           result.completeExceptionally(error)
       }
 

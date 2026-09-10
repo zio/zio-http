@@ -58,9 +58,14 @@ object H2BodyBoundSpec extends ZIOSpecDefault {
           ZIO.attemptBlocking {
             val client = new BoundTestClient(port)
             try {
-              val body     = Chunk.fromArray(Array.fill(BodyCap.toInt)(0x41.toByte))
-              val response = client.post(streamId = 1, body = body, declaredLength = Some(body.length.toString))
-              assertTrue(response.status == 200, response.body == body)
+              val body   = Chunk.fromArray(Array.fill(BodyCap.toInt)(0x41.toByte))
+              val result = client.post(streamId = 1, body = body, declaredLength = Some(body.length.toString))
+              val echoed = result match {
+                case PostResult.ResponseReceived(response) => response
+                case PostResult.StreamReset(code)          =>
+                  throw new AssertionError("at-cap body must be echoed, but the stream was reset: " + code)
+              }
+              assertTrue(echoed.status == 200, echoed.body == body)
             } finally client.close()
           }
         }

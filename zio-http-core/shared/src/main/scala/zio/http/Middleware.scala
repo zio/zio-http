@@ -1093,25 +1093,34 @@ object Middleware {
         Routes.fromIterable(routes.routes.toList.map(logged))
 
       private def logged(route: Route[Any]): Route[Any] = {
-        val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
-          val startedAtNanos = System.nanoTime()
-          try {
-            val result: Response | Halt = route.handler.handle(request, context, vars, scope)
-            emitFor(request, statusOf(result), startedAtNanos, route)
-            result
-          } catch {
-            case throwable: Throwable =>
-              emitFor(request, 500, startedAtNanos, route)
-              throw throwable
+        // Hoisted per-route invariant: pattern rendering happens once at
+        // build time, not per request on the serving path.
+        val routePattern = route.pattern.toString
+        // Disabled sink: pass the handler through untouched — no timer read,
+        // no record build, no UUID generation per request.
+        if (sink eq AccessLogSink.disabled) route
+        else {
+          val wrapped = Handler.extracted[Any, Any] { (request, context, vars, scope) =>
+            val startedAtNanos = System.nanoTime()
+            try {
+              val result: Response | Halt = route.handler.handle(request, context, vars, scope)
+              emitFor(request, statusOf(result), startedAtNanos, routePattern)
+              result
+            } catch {
+              case throwable: Throwable =>
+                emitFor(request, 500, startedAtNanos, routePattern)
+                throw throwable
+            }
           }
+          Route(route.pattern, wrapped)
         }
-        Route(route.pattern, wrapped)
       }
 
       private def statusOf(result: Response | Halt): Int =
         foldResult(result)(_.status.code, _.response.status.code)
 
-      private def emitFor(request: Request, status: Int, startedAtNanos: Long, route: Route[Any]): Unit = {
+      private def emitFor(request: Request, status: Int, startedAtNanos: Long, routePattern: String): Unit = {
+        if (sink eq AccessLogSink.disabled) return
         val peerAddress = request.headers.rawGet(AccessLog.PeerAddressHeader)
         val clientIp    = request.headers.rawGet(AccessLog.ClientIpHeader)
         AccessLog.emit(
@@ -1119,14 +1128,14 @@ object Middleware {
           AccessLogRecord(
             method = request.method.toString,
             path = request.url.path.encode,
-            route = Some(route.pattern.toString),
+            route = Some(routePattern),
             status = status,
             durationMs = (System.nanoTime() - startedAtNanos) / 1000000L,
             requestId = AccessLog.requestId(request.headers),
             peerAddress = peerAddress,
             clientIp = clientIp,
             trustDecision = AccessLog.trustDecision(peerAddress, clientIp),
-            deadlineOutcome = Some(AccessLog.DeadlineOk),
+            deadlineOutcome = Some(AccessLog.DeadlineOutcome.Ok),
             protocol = request.version.toString,
           ),
         )

@@ -28,11 +28,13 @@ final class H2Connection(
   maxHeaderListSize: Int = 8192,
   idleTimeoutMs: Long = 60000,
   requestTimeoutMs: Long = 30000,
+  drainTimeoutMs: Long = 1000,
   // Header-fragment (CONTINUATION) completion deadline for an incomplete
   // header block. Expiry resets the stream with RST_STREAM(CANCEL).
   // Non-positive disables. Forwarded from Connector.headerTimeoutMs.
+  // Appended last (never inserted mid-list) so existing positional call
+  // sites cannot silently rebind.
   headerTimeoutMs: Long = 5000,
-  drainTimeoutMs: Long = 1000,
 ) {
   import H2Connection._
   import H2Frame._
@@ -448,7 +450,7 @@ final class H2Connection(
    * decoded size, so the wire cap is a multiple rather than the decoded limit
    * itself; past it the peer is flooding and the stream is reset with CANCEL.
    */
-  private def pendingHeaderCapBytes: Long = maxHeaderListSize.toLong * 4L
+  @inline private def pendingHeaderCapBytes: Long = maxHeaderListSize.toLong * 4L
 
   /**
    * Refuses a new stream opened after our GOAWAY (RFC 9113 6.8): the client
@@ -728,26 +730,49 @@ private object H2Connection {
     ) ++ maxHeaderListSize.map(size => Setting(Setting.MAX_HEADER_LIST_SIZE, size.toLong)).toList
   }
 
+  /**
+   * One incomplete (CONTINUATION-fragmented) header block. Fragments are
+   * buffered as a chunk list (newest first) and concatenated exactly once in
+   * `toHeaders`, so N CONTINUATIONs cost O(total bytes) instead of the O(N *
+   * total) quadratic copy a per-append `++` would pay within the cap. Empty
+   * fragments contribute no bytes and are skipped, so a flood of empty
+   * CONTINUATIONs cannot grow the list without tripping the byte cap either.
+   * `totalLength` tracks the encoded bytes for the cap check without walking
+   * the list. Byte content delivered to `toHeaders` is identical to eager
+   * concatenation in arrival order.
+   */
   private final case class PendingHeaders(
     streamId: Int,
-    headerBlock: Chunk[Byte],
+    fragments: List[Chunk[Byte]],
+    totalLength: Long,
     endStream: Boolean,
     priority: Option[Priority],
     padLength: Int,
   ) {
-    def append(frame: H2Frame.Continuation, capBytes: Long): Option[PendingHeaders] = {
-      val combined = headerBlock ++ frame.headerBlock
-      if (combined.length.toLong > capBytes) None
-      else Some(copy(headerBlock = combined))
-    }
+    def append(frame: H2Frame.Continuation, capBytes: Long): Option[PendingHeaders] =
+      if (frame.headerBlock.isEmpty) Some(this)
+      else {
+        val next = totalLength + frame.headerBlock.length.toLong
+        if (next > capBytes) None
+        else Some(copy(fragments = frame.headerBlock :: fragments, totalLength = next))
+      }
 
-    def toHeaders: H2Frame.Headers =
-      H2Frame.Headers(streamId, headerBlock, endStream, endHeaders = true, priority, padLength)
+    def toHeaders: H2Frame.Headers = {
+      val combined = fragments.reverse.foldLeft(Chunk.empty[Byte])(_ ++ _)
+      H2Frame.Headers(streamId, combined, endStream, endHeaders = true, priority, padLength)
+    }
   }
 
   private object PendingHeaders {
     def apply(frame: H2Frame.Headers): PendingHeaders =
-      PendingHeaders(frame.streamId, frame.headerBlock, frame.endStream, frame.priority, frame.padLength)
+      PendingHeaders(
+        frame.streamId,
+        List(frame.headerBlock),
+        frame.headerBlock.length.toLong,
+        frame.endStream,
+        frame.priority,
+        frame.padLength,
+      )
   }
 
   private def runnable(body: => Unit): Runnable =

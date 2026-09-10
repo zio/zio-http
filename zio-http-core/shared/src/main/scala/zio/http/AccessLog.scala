@@ -63,20 +63,22 @@ final case class AccessLogRecord(
   clientIp: Option[String],
   /**
    * Whether proxy forwarding headers were honored for this request:
-   * [[AccessLog.TrustTrusted]] when the resolved client IP differs from the
-   * peer address (forwarding applied), [[AccessLog.TrustUntrusted]] when it
-   * falls back to the peer (ignored or absent). `None` when neither address is
-   * known (non-H2 transports).
+   * [[AccessLog.TrustDecision.Trusted]] when the resolved client IP differs
+   * from the peer address (forwarding applied),
+   * [[AccessLog.TrustDecision.Untrusted]] when it falls back to the peer
+   * (ignored or absent). `None` when neither address is known (non-H2
+   * transports).
    */
-  trustDecision: Option[String],
+  trustDecision: Option[AccessLog.TrustDecision],
   /**
-   * Slow-stream deadline outcome (G2): [[AccessLog.DeadlineOk]] — the only
-   * outcome any built-in emitter reports. [[AccessLog.DeadlineHeaderTimeout]] /
-   * [[AccessLog.DeadlineBodyTimeout]] are reserved for future transport-side
-   * timeout reporting and are never emitted today; streams reset by a deadline
-   * yield no record at all.
+   * Slow-stream deadline outcome (G2): [[AccessLog.DeadlineOutcome.Ok]] — the
+   * only outcome any built-in emitter reports.
+   * [[AccessLog.DeadlineOutcome.HeaderTimeout]] /
+   * [[AccessLog.DeadlineOutcome.BodyTimeout]] are reserved for future
+   * transport-side timeout reporting and are never emitted today; streams reset
+   * by a deadline yield no record at all.
    */
-  deadlineOutcome: Option[String],
+  deadlineOutcome: Option[AccessLog.DeadlineOutcome],
   /**
    * Request version string (same vocab as the transport and the middleware).
    */
@@ -106,7 +108,14 @@ object AccessLogSink {
       def log(record: AccessLogRecord): Unit = ()
     }
 
-  /** Writes one [[AccessLog.formatLine]] per record to standard out. */
+  /**
+   * Writes one [[AccessLog.formatLine]] per record to standard out.
+   *
+   * Each request performs one synchronized console write on the serving path;
+   * fine for development, but for production prefer an async batching sink
+   * (e.g. a queue drained by a background writer) to avoid serializing handlers
+   * on I/O.
+   */
   val console: AccessLogSink =
     new AccessLogSink {
       def log(record: AccessLogRecord): Unit = Console.out.println(AccessLog.formatLine(record))
@@ -120,6 +129,42 @@ object AccessLogSink {
 }
 
 object AccessLog {
+
+  /**
+   * Proxy-trust decision for [[AccessLogRecord.trustDecision]].
+   *
+   * `Trusted` renders as `"trusted"`, `Untrusted` as `"untrusted"` (stable log
+   * vocabulary, unchanged from the former string constants).
+   */
+  sealed abstract class TrustDecision(val value: String) {
+    override def toString: String = value
+  }
+
+  object TrustDecision {
+    case object Trusted extends TrustDecision("trusted")
+
+    case object Untrusted extends TrustDecision("untrusted")
+  }
+
+  /**
+   * Slow-stream deadline outcome for [[AccessLogRecord.deadlineOutcome]].
+   *
+   * `Ok` renders as `"ok"` — the only outcome any built-in emitter reports.
+   * `HeaderTimeout` (`"header-timeout"`) and `BodyTimeout` (`"body-timeout"`)
+   * are reserved for future transport-side timeout reporting and are never
+   * emitted today.
+   */
+  sealed abstract class DeadlineOutcome(val value: String) {
+    override def toString: String = value
+  }
+
+  object DeadlineOutcome {
+    case object Ok extends DeadlineOutcome("ok")
+
+    case object HeaderTimeout extends DeadlineOutcome("header-timeout")
+
+    case object BodyTimeout extends DeadlineOutcome("body-timeout")
+  }
 
   /** Request-id header honored (and echoed into the record) per request. */
   val RequestIdHeader: String = "x-request-id"
@@ -143,21 +188,6 @@ object AccessLog {
    */
   val ClientIpHeader: String = "x-client-ip"
 
-  /** [[AccessLogRecord.trustDecision]] when forwarding was honored. */
-  val TrustTrusted: String = "trusted"
-
-  /** [[AccessLogRecord.trustDecision]] when the peer address was kept. */
-  val TrustUntrusted: String = "untrusted"
-
-  /** [[AccessLogRecord.deadlineOutcome]] when the request completed in time. */
-  val DeadlineOk: String = "ok"
-
-  /** [[AccessLogRecord.deadlineOutcome]] when header completion timed out. */
-  val DeadlineHeaderTimeout: String = "header-timeout"
-
-  /** [[AccessLogRecord.deadlineOutcome]] when body completion timed out. */
-  val DeadlineBodyTimeout: String = "body-timeout"
-
   /**
    * Resolves the request id: the client-supplied `x-request-id` header when
    * present and non-empty, otherwise a freshly generated UUID.
@@ -167,6 +197,11 @@ object AccessLog {
    * is truncated to [[MaxRequestIdLength]] chars, and a value that is empty
    * after sanitizing yields a generated UUID — so newline/ANSI log injection
    * and cardinality bombs cannot pass through.
+   *
+   * Note: id-less traffic pays one `UUID.randomUUID()` per request on the
+   * serving path; high-throughput services that do not need request ids should
+   * supply their own cheaper id (or reuse the peer/client tuple) in a custom
+   * emitter rather than calling this per request.
    */
   def requestId(headers: Headers): String =
     headers
@@ -199,9 +234,10 @@ object AccessLog {
    * forwarding was honored exactly when the resolved client IP differs from the
    * socket peer. `None` when either address is unknown.
    */
-  def trustDecision(peerAddress: Option[String], clientIp: Option[String]): Option[String] =
+  def trustDecision(peerAddress: Option[String], clientIp: Option[String]): Option[TrustDecision] =
     (peerAddress, clientIp) match {
-      case (Some(peer), Some(client)) => Some(if (client != peer) TrustTrusted else TrustUntrusted)
+      case (Some(peer), Some(client)) =>
+        Some(if (client != peer) TrustDecision.Trusted else TrustDecision.Untrusted)
       case _                          => None
     }
 
@@ -217,14 +253,28 @@ object AccessLog {
 
   /** Renders one stable, greppable log line for [[AccessLogSink.console]]. */
   def formatLine(record: AccessLogRecord): String = {
-    def show(value: Option[String]): String = value.getOrElse("-")
-    record.method + " " + record.path + " " + record.status + " " + record.durationMs + "ms" +
-      " id=" + record.requestId +
-      " peer=" + show(record.peerAddress) +
-      " client=" + show(record.clientIp) +
-      " trust=" + show(record.trustDecision) +
-      " deadline=" + show(record.deadlineOutcome) +
-      " route=" + show(record.route) +
-      " proto=" + record.protocol
+    val sb = new StringBuilder(192)
+    sb.append(record.method)
+      .append(' ')
+      .append(record.path)
+      .append(' ')
+      .append(record.status)
+      .append(' ')
+      .append(record.durationMs)
+      .append("ms id=")
+      .append(record.requestId)
+      .append(" peer=")
+      .append(record.peerAddress.getOrElse("-"))
+      .append(" client=")
+      .append(record.clientIp.getOrElse("-"))
+      .append(" trust=")
+      .append(record.trustDecision.map(_.value).getOrElse("-"))
+      .append(" deadline=")
+      .append(record.deadlineOutcome.map(_.value).getOrElse("-"))
+      .append(" route=")
+      .append(record.route.getOrElse("-"))
+      .append(" proto=")
+      .append(record.protocol)
+    sb.toString
   }
 }
