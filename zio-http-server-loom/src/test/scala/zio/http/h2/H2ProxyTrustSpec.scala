@@ -191,11 +191,11 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 // must be a TLS-layer abort or a transport close racing it.
                 // Anything else (a test bug, a refusal miscategorized) fails
                 // loudly instead of passing silently.
-                val handshakeErrorExpected = handshakeError.forall {
+                val handshakeErrorExpected   = handshakeError.forall {
                   case _: javax.net.ssl.SSLException => true
-                  case _: java.io.EOFException        => true
-                  case _: java.net.SocketException    => true
-                  case _                              => false
+                  case _: java.io.EOFException       => true
+                  case _: java.net.SocketException   => true
+                  case _                             => false
                 }
                 val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
                 val serverSpokeH2AfterReject =
@@ -269,11 +269,11 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 handshakeError.foreach(err => println(s"mTLS wrong-CA handshake error (expected): $err"))
                 // Same pinning as the no-cert twin: TLS abort or racing
                 // transport close only.
-                val handshakeErrorExpected = handshakeError.forall {
+                val handshakeErrorExpected   = handshakeError.forall {
                   case _: javax.net.ssl.SSLException => true
-                  case _: java.io.EOFException        => true
-                  case _: java.net.SocketException    => true
-                  case _                              => false
+                  case _: java.io.EOFException       => true
+                  case _: java.net.SocketException   => true
+                  case _                             => false
                 }
                 val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
                 val serverSpokeH2AfterReject =
