@@ -794,7 +794,7 @@ final class H2Transport[Ctx](
    * aborting maps to `ResponseAborted` and skips the error response in
    * `handleStream`.
    */
-  @inline private def probeStreamOpen(stream: MuxStream[Int, H2Frame, H2Frame]): Unit =
+  private def probeStreamOpen(stream: MuxStream[Int, H2Frame, H2Frame]): Unit =
     if (stream.isClosed) throw ResponseAborted
 
   private def resetStream(
@@ -838,7 +838,7 @@ final class H2Transport[Ctx](
    * Body-completion deadline as absolute nanos, measured from stream start.
    * Non-positive timeouts disable (far-future deadline, never hit).
    */
-  @inline private def bodyDeadlineNanos(streamStartNanos: Long): Long =
+  private def bodyDeadlineNanos(streamStartNanos: Long): Long =
     if (connector.bodyTimeoutMs <= 0L) Long.MaxValue
     else streamStartNanos + connector.bodyTimeoutMs * 1000000L
 
@@ -1143,7 +1143,7 @@ object H2Transport {
     else headers.rawGet("forwarded").map(parseRfc7239Forwarded)
   }
 
-  @inline private def firstListValue(value: String): String = {
+  private def firstListValue(value: String): String = {
     val comma = value.indexOf(',')
     (if (comma < 0) value else value.substring(0, comma)).trim
   }

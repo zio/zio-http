@@ -450,7 +450,7 @@ final class H2Connection(
    * decoded size, so the wire cap is a multiple rather than the decoded limit
    * itself; past it the peer is flooding and the stream is reset with CANCEL.
    */
-  @inline private def pendingHeaderCapBytes: Long = maxHeaderListSize.toLong * 4L
+  private def pendingHeaderCapBytes: Long = maxHeaderListSize.toLong * 4L
 
   /**
    * Refuses a new stream opened after our GOAWAY (RFC 9113 6.8): the client
