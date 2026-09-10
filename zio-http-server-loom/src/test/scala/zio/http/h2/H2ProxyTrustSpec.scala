@@ -187,6 +187,16 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 // to reach the server at all.
                 val handshakeError           = client.handshakeAttempt()
                 handshakeError.foreach(err => println(s"mTLS no-cert handshake error (expected): $err"))
+                // Pin the attacker-visible failure mode: any handshake error
+                // must be a TLS-layer abort or a transport close racing it.
+                // Anything else (a test bug, a refusal miscategorized) fails
+                // loudly instead of passing silently.
+                val handshakeErrorExpected = handshakeError.forall {
+                  case _: javax.net.ssl.SSLException => true
+                  case _: java.io.EOFException        => true
+                  case _: java.net.SocketException    => true
+                  case _                              => false
+                }
                 val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
                 val serverSpokeH2AfterReject =
                   if (refusedBeforeHandshake) true else client.serverProceeds()
@@ -200,6 +210,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 val requestDispatched        = handlerHit.get()
                 assertTrue(
                   tcpAcceptedByServer,
+                  handshakeErrorExpected,
                   !refusedBeforeHandshake,
                   !serverSpokeH2AfterReject,
                   serverStillBound,
@@ -256,6 +267,14 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 val tcpAcceptedByServer      = client.tcpConnected
                 val handshakeError           = client.handshakeAttempt()
                 handshakeError.foreach(err => println(s"mTLS wrong-CA handshake error (expected): $err"))
+                // Same pinning as the no-cert twin: TLS abort or racing
+                // transport close only.
+                val handshakeErrorExpected = handshakeError.forall {
+                  case _: javax.net.ssl.SSLException => true
+                  case _: java.io.EOFException        => true
+                  case _: java.net.SocketException    => true
+                  case _                              => false
+                }
                 val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
                 val serverSpokeH2AfterReject =
                   if (refusedBeforeHandshake) true else client.serverProceeds()
@@ -266,6 +285,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 val requestDispatched        = handlerHit.get()
                 assertTrue(
                   tcpAcceptedByServer,
+                  handshakeErrorExpected,
                   !refusedBeforeHandshake,
                   !serverSpokeH2AfterReject,
                   serverStillBound,
