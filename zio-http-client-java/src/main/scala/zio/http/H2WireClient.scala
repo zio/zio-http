@@ -37,13 +37,19 @@ import zio.http.h2.hpack.Hpack
 @experimental
 private[http] object H2WireClient {
 
-  private val Preface: Array[Byte]           = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
-  private val StreamId: Int                  = 1
-  private val DefaultMaxFrame: Int           = 16384
-  private val DefaultSendWindow: Int         = 65535
-  private val ConnectionStream: Int          = 0
-  private val MaxHeaderBytes: Int            = 65536
-  private val MaxBodyBytes: Long             = 16L * 1024L * 1024L
+  private val Preface: Array[Byte]   = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
+  private val StreamId: Int          = 1
+  private val DefaultMaxFrame: Int   = 16384
+  private val DefaultSendWindow: Int = 65535
+  private val ConnectionStream: Int  = 0
+  private val MaxHeaderBytes: Int    = 65536
+
+  /**
+   * Default response-body cap, sourced from [[ClientConfig]] so every client
+   * leg enforces the same bound. Callers with a config pass
+   * `config.maxResponseBodySize` explicitly via [[execute]].
+   */
+  private val MaxBodyBytes: Long             = ClientConfig.DefaultMaxResponseBodySize
   private val ConnectionHeaders: Set[String] =
     Set("connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade")
 
@@ -61,6 +67,7 @@ private[http] object H2WireClient {
     scheme: String,
     authority: String,
     target: String,
+    maxBodyBytes: Long = MaxBodyBytes,
   ): Response = {
     val reader = new FrameReader(input)
     output.write(Preface)
@@ -75,7 +82,7 @@ private[http] object H2WireClient {
     output.flush()
     sendBody(output, reader, body, negotiated)
 
-    readResponse(reader, output)
+    readResponse(reader, output, maxBodyBytes)
   }
 
   private final class Negotiated(var maxFrameSize: Int, var sendWindow: Int)
@@ -168,7 +175,7 @@ private[http] object H2WireClient {
       case _                                         => ()
     }
 
-  private def readResponse(reader: FrameReader, output: OutputStream): Response = {
+  private def readResponse(reader: FrameReader, output: OutputStream, maxBodyBytes: Long): Response = {
     val headerBytes = new ByteArrayOutputStream()
     var endStream   = false
     var headersDone = false
@@ -215,7 +222,7 @@ private[http] object H2WireClient {
 
     val bodyBytes   =
       if (endStream) Array.emptyByteArray
-      else readBody(reader, output)
+      else readBody(reader, output, maxBodyBytes)
     val contentType =
       headers.get(Header.ContentType).map(_.value).getOrElse(ContentType.`application/octet-stream`)
 
@@ -250,17 +257,18 @@ private[http] object H2WireClient {
     }
   }
 
-  private def readBody(reader: FrameReader, output: OutputStream): Array[Byte] = {
+  private def readBody(reader: FrameReader, output: OutputStream, maxBodyBytes: Long): Array[Byte] = {
     val collected = new ByteArrayOutputStream()
     var total     = 0L
     var done      = false
     while (!done) {
       reader.readFrame() match {
         case Data(StreamId, data, streamEnd, _)       =>
+          val len   = data.length
+          if (total + len > maxBodyBytes) throw ResponseBodyTooLarge(maxBodyBytes)
           val bytes = data.toArray
-          total += bytes.length
-          if (total > MaxBodyBytes) throw new IOException("HTTP/2 response body exceeds 16 MiB cap (T15: streaming)")
           collected.write(bytes, 0, bytes.length)
+          total += bytes.length
           // Replenish connection- and stream-level flow-control windows as we
           // consume, so multi-DATA-frame responses never stall.
           writeFrame(output, WindowUpdate(ConnectionStream, bytes.length))

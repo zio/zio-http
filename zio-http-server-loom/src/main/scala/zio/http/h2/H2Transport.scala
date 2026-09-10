@@ -32,6 +32,7 @@ import zio.http.{
   Route,
   Routes,
   Scheme,
+  TrustedProxyConfig,
   URL,
   Version,
 }
@@ -70,25 +71,31 @@ final class H2Transport[Ctx](
           host,
           port,
           tlsConfig,
-          (input, output) => {
+          (input, output, peer) => {
             activeConnectionCount.incrementAndGet()
             activeConnections.add(1L, "protocol" -> protocolName)
             try {
               val flowController =
                 new FlowController(H2Settings.DefaultInitialWindowSize.toInt, http2Config.initialWindowSize)
               val hpackCodec     = new HpackCodec()
+              // Trust inputs (peer IP literal, mTLS cert presence) are
+              // connection-stable: decide once per connection so the
+              // per-request path never re-parses the peer IP.
+              val peerTrusted    = connector.trustedProxy.isTrusted(peer.address, peer.hasPeerCert)
               val connection     =
                 new H2Connection(
-                  input,
-                  output,
-                  http2Config.maxConcurrentStreams,
-                  flowController,
-                  hpackCodec,
-                  Some(localSettings),
-                  http2Config.maxHeaderListSize,
-                  H2ConnectionControl.idleTimeoutMs(connector),
+                  input = input,
+                  output = output,
+                  maxConcurrentStreams = http2Config.maxConcurrentStreams,
+                  flowController = flowController,
+                  hpackCodec = hpackCodec,
+                  localSettings = Some(localSettings),
+                  maxHeaderListSize = http2Config.maxHeaderListSize,
+                  idleTimeoutMs = H2ConnectionControl.idleTimeoutMs(connector),
+                  requestTimeoutMs = connector.requestTimeoutMs,
+                  headerTimeoutMs = connector.headerTimeoutMs,
                 )
-              connection.run(stream => handleStream(stream, flowController, hpackCodec, connection))
+              connection.run(stream => handleStream(stream, flowController, hpackCodec, connection, peer, peerTrusted))
             } catch {
               case e: Throwable =>
                 logger.error(
@@ -126,15 +133,46 @@ final class H2Transport[Ctx](
     flowController: FlowController,
     hpackCodec: HpackCodec,
     connection: H2Connection,
+    peer: PeerInfo,
+    peerTrusted: Boolean,
   ): Unit = {
     // Request timeout lives on the connection's control plane: RST_STREAM
     // (CANCEL) fires from a Loom virtual thread if the handler overruns.
     // handleStream itself already runs on a per-stream virtual thread, so no
     // ZIO fiber ever blocks here.
-    val requestTimer = connection.connectionControl.startRequestTimer(stream.id)
+    val requestTimer            = connection.connectionControl.startRequestTimer(stream.id)
+    // Body-completion (time-to-complete) deadline, measured from stream start:
+    // total elapsed time is enforced, not just the gap between frames, so a
+    // drip that keeps moving but too slowly still times out. Enforced both by
+    // a virtual-thread timer (shared H2ConnectionControl path, never ZIO
+    // fibers) and by polling checks in awaitFrame: the timer covers a fully
+    // stalled peer, the polls cover a slow-but-moving drip. Expiry resets the
+    // stream with RST_STREAM(CANCEL).
+    //
+    // Fused off path: when the body timeout is disabled there is no clock
+    // read, no AtomicBoolean, and no timer thread — the deadline stays the
+    // far-future sentinel (see bodyDeadlineNanos) and awaitFrame skips its
+    // per-iteration nanoTime check for it. The VirtualTimerFuture path below
+    // is unchanged when enabled.
+    val bodyTimeoutEnabled      = connector.bodyTimeoutMs > 0L
+    val streamStartNanos        = if (bodyTimeoutEnabled) System.nanoTime() else 0L
+    val bodyDone: AtomicBoolean =
+      if (bodyTimeoutEnabled) new AtomicBoolean(false) else null
+    val bodyTimer               =
+      if (bodyTimeoutEnabled)
+        connection.connectionControl.scheduleTimeoutRst(
+          stream.id,
+          connector.bodyTimeoutMs,
+          H2Error.Code.CANCEL,
+          () => !bodyDone.get(),
+        )
+      else null
     try {
-      val requestFrame = awaitHeaders(stream)
-      val request      = decodeRequest(requestFrame, stream, connection)
+      val requestFrame = awaitHeaders(stream, connection)
+      val request      =
+        decodeRequest(requestFrame, stream, connection, bodyDeadlineNanos(streamStartNanos), peer, peerTrusted)
+      if (bodyDone != null) bodyDone.set(true)
+      if (bodyTimer != null) bodyTimer.cancel(true)
       val response     = instrumentRequest(request)
       sendResponse(stream, request.method, response, flowController, hpackCodec, connection)
     } catch {
@@ -151,12 +189,22 @@ final class H2Transport[Ctx](
           "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
           "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
         )
-        try {
-          sendResponse(stream, Method.GET, Response.internalServerError, flowController, hpackCodec, connection)
-        } catch {
-          case _: Throwable => () // Best effort: if error response also fails, give up silently
+        // The failure above may already have reset the stream (over-cap
+        // RST_STREAM, length-mismatch PROTOCOL_ERROR): a HEADERS frame on a
+        // reset stream is a connection error (STREAM_CLOSED) for the peer, so
+        // the best-effort 500 goes out only while the stream is still open.
+        // Genuine handler errors never reset, so the 500 path for live
+        // streams is unchanged.
+        if (!stream.isClosed) {
+          try {
+            sendResponse(stream, Method.GET, Response.internalServerError, flowController, hpackCodec, connection)
+          } catch {
+            case _: Throwable => () // Best effort: if error response also fails, give up silently
+          }
         }
     } finally {
+      if (bodyDone != null) bodyDone.set(true)
+      if (bodyTimer != null) bodyTimer.cancel(true)
       requestTimer.cancel(true)
       flowController.removeStream(stream.id)
     }
@@ -196,8 +244,8 @@ final class H2Transport[Ctx](
     }
   }
 
-  private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame]): Headers =
-    awaitFrame(stream) match {
+  private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame], connection: H2Connection): Headers =
+    awaitFrame(stream, connection, Long.MaxValue) match {
       case headers: Headers => headers
       case other            => throw new IllegalStateException("Expected HTTP/2 HEADERS frame but received: " + other)
     }
@@ -206,27 +254,93 @@ final class H2Transport[Ctx](
     initialHeaders: Headers,
     stream: MuxStream[Int, H2Frame, H2Frame],
     connection: H2Connection,
+    bodyDeadlineNanos: Long,
+    peer: PeerInfo,
+    peerTrusted: Boolean,
   ): Request = {
     // Decoded on the reader thread in wire order (see H2Connection.takeDecodedRequestHeaders);
     // decoding here would desync the shared decoder across concurrent streams (RFC 7541 2.3.2).
     val decodedHeaders = connection.takeDecodedRequestHeaders(stream.id)
     val pseudoHeaders  = collectPseudoHeaders(decodedHeaders)
     val httpHeaders    = buildRequestHeaders(decodedHeaders, pseudoHeaders.authority)
+    val declaredLength = declaredContentLength(httpHeaders)
     val body           =
-      if (initialHeaders.endStream) Body.empty
-      else Body.fromChunk(readRequestBody(stream))
+      if (initialHeaders.endStream) {
+        checkEmptyBodyLength(stream, connection, declaredLength)
+        Body.empty
+      } else Body.fromChunk(readRequestBody(stream, connection, declaredLength, bodyDeadlineNanos))
+    val proxy          = resolveProxyTrust(httpHeaders, peer, peerTrusted)
 
     Request(
       method = parseMethod(pseudoHeaders.method),
-      url = parseUrl(
-        pseudoHeaders.path,
-        pseudoHeaders.scheme,
-        pseudoHeaders.authority,
+      url = applyProxyUrl(
+        parseUrl(
+          pseudoHeaders.path,
+          pseudoHeaders.scheme,
+          pseudoHeaders.authority,
+        ),
+        proxy,
       ),
-      headers = httpHeaders,
+      headers = proxy.headers,
       body = body,
       version = Version.`HTTP/2.0`,
     )
+  }
+
+  /**
+   * Gates forwarding headers on proxy trust (default-deny).
+   *
+   * When `peer` is trusted, `X-Forwarded-For/Proto/Host` (or RFC 7239
+   * `Forwarded`) resolve the client IP, scheme, and host; otherwise the headers
+   * are ignored entirely and the socket peer address is the client IP. Either
+   * way the raw forwarding headers are stripped before route handlers run (an
+   * attacker must not smuggle them through, nor spoof the normalized
+   * `x-client-ip` / `x-peer-address` headers, which are removed from the wire
+   * set and re-added here), and the peer address plus the resolved client IP
+   * are attached as `x-peer-address` / `x-client-ip`.
+   */
+  private def resolveProxyTrust(
+    headers: zio.http.Headers,
+    peer: PeerInfo,
+    peerTrusted: Boolean,
+  ): H2Transport.ResolvedProxy = {
+    val trusted   = peerTrusted
+    val forwarded = if (trusted) H2Transport.parseForwarded(headers) else None
+    val clientIp  = forwarded.flatMap(_.clientIp).getOrElse(peer.address)
+    // Pre-check before stripping: the common default-deny case (no
+    // forwarding headers on the wire) keeps `headers` untouched and allocates
+    // nothing; otherwise one single-pass rebuild, not one copy per name.
+    val stripped  =
+      if (H2Transport.hasProxyHeader(headers)) H2Transport.stripProxyHeaders(headers)
+      else headers
+    val enriched  = stripped
+      .add(TrustedProxyConfig.PeerAddressHeader, peer.address)
+      .add(TrustedProxyConfig.ClientIpHeader, clientIp)
+    val withHost  = forwarded.flatMap(_.host) match {
+      case Some(host) => enriched.set(Header.Host.name, host)
+      case None       => enriched
+    }
+    H2Transport.ResolvedProxy(withHost, forwarded.flatMap(_.proto), forwarded.flatMap(_.host))
+  }
+
+  private def applyProxyUrl(url: URL, proxy: H2Transport.ResolvedProxy): URL = {
+    val withScheme = proxy.proto match {
+      case Some(proto) => url.scheme(Scheme.fromString(proto))
+      case None        => url
+    }
+    proxy.host match {
+      case Some(host) =>
+        Header.Host.parse(host) match {
+          case Right(parsed) =>
+            val withHost = withScheme.host(parsed.host)
+            parsed.port match {
+              case Some(port) => withHost.port(port)
+              case None       => withHost
+            }
+          case Left(_)       => withScheme.host(host)
+        }
+      case None       => withScheme
+    }
   }
 
   private def handleRequest(request: Request): Response = {
@@ -289,6 +403,7 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
+    probeStreamOpen(stream)
     val bodyIsEmpty     = body.isEmpty
     val responseHeaders = buildResponseHeaders(response, Some(body.length.toLong), bodyIsEmpty)
     writeResponseHeaders(stream, hpackCodec, connection, responseHeaders, endStream = bodyIsEmpty)
@@ -332,6 +447,7 @@ final class H2Transport[Ctx](
     hpackCodec: HpackCodec,
     connection: H2Connection,
   ): Unit = {
+    probeStreamOpen(stream)
     val frameSize       = Math.max(1, http2Config.maxFrameSize)
     val knownLength     = response.body.length
     // A zero known length with no known chunk closes on HEADERS like an empty body.
@@ -515,17 +631,62 @@ final class H2Transport[Ctx](
     override def fillInStackTrace(): Throwable = this
   }
 
-  private def readRequestBody(stream: MuxStream[Int, H2Frame, H2Frame]): Chunk[Byte] = {
-    val builder = Chunk.newBuilder[Byte]
-    var done    = false
+  /**
+   * Reads the request body DATA stream incrementally against the
+   * `Connector.maxRequestBodySize` cap: each DATA payload is accounted BEFORE
+   * it is buffered, so the byte that crosses the cap is never retained and an
+   * over-cap body never lands on the heap in full. On exceed the stream is
+   * reset with `RST_STREAM(FLOW_CONTROL_ERROR)` — the same code the response
+   * abort path uses for window-overflow violations — and the connection
+   * survives for sibling streams. A `content-length` that disagrees with the
+   * bytes actually received resets with `PROTOCOL_ERROR` instead.
+   *
+   * The reset reuses the single upstream send site
+   * (`H2ConnectionControl.sendRstStream`, shared with the response abort and
+   * timer paths): no parallel RST machinery lives here.
+   */
+  private def readRequestBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+    deadlineNanos: Long,
+  ): Chunk[Byte] = {
+    val maxBytes = connector.maxRequestBodySize
+    declaredLength.foreach { declared =>
+      if (declared > maxBytes) {
+        // Declared over the cap: drain the wire (retaining nothing) so the
+        // reset below cannot race trailing DATA delivery, then reset.
+        discardRequestBody(stream, connection, deadlineNanos)
+        resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+        throw H2Transport.RequestBodyTooLarge(stream.id, maxBytes)
+      } else if (declared < 0L) {
+        resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+        throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, 0L)
+      }
+    }
+
+    val builder  = Chunk.newBuilder[Byte]
+    var received = 0L
+    var done     = false
 
     while (!done) {
-      awaitFrame(stream) match {
+      awaitFrame(stream, connection, deadlineNanos) match {
         case data: Data       =>
+          val size = data.data.length.toLong
+          // Account BEFORE buffering: the byte that crosses the cap is never retained.
+          if (received + size > maxBytes) {
+            resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+            throw H2Transport.RequestBodyTooLarge(stream.id, maxBytes)
+          }
           builder ++= data.data
-          done = data.endStream
+          received += size
+          if (data.endStream) {
+            done = true
+            checkReceivedLength(stream, connection, declaredLength, received)
+          }
         case headers: Headers =>
           done = headers.endStream
+          if (headers.endStream) checkReceivedLength(stream, connection, declaredLength, received)
         case _: WindowUpdate  => ()
         case other => throw new IllegalStateException("Unexpected HTTP/2 frame while reading request body: " + other)
       }
@@ -534,9 +695,136 @@ final class H2Transport[Ctx](
     builder.result()
   }
 
-  private def awaitFrame(stream: MuxStream[Int, H2Frame, H2Frame]): H2Frame = {
+  /**
+   * Reads until end-of-stream, retaining no bytes. Used when the declared
+   * `content-length` already exceeds the cap: draining keeps connection-level
+   * framing intact so the subsequent reset cannot race trailing DATA delivery.
+   * Retention stays at zero throughout; the peer's flow-control window bounds
+   * how much can arrive.
+   */
+  private def discardRequestBody(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    deadlineNanos: Long,
+  ): Unit = {
+    var done = false
+    while (!done) {
+      awaitFrame(stream, connection, deadlineNanos) match {
+        case data: Data       => done = data.endStream
+        case headers: Headers => done = headers.endStream
+        case _: WindowUpdate  => ()
+        case other => throw new IllegalStateException("Unexpected HTTP/2 frame while discarding request body: " + other)
+      }
+    }
+  }
+
+  /**
+   * Parses the declared request `content-length`, if any. Returns `Some(-1)`
+   * when the value is missing, malformed, or conflicts across duplicates, so
+   * every downstream comparison rejects it with `PROTOCOL_ERROR`. Uses a
+   * targeted single-name scan (`rawGetAll`, case-insensitive like the old
+   * `equalsIgnoreCase` walk) instead of materializing every header with
+   * `toList`; duplicate/conflict semantics are unchanged.
+   */
+  private def declaredContentLength(headers: zio.http.Headers): Option[Long] = {
+    var result: Option[Long] = None
+    var conflict             = false
+    val values               = headers.rawGetAll(Header.ContentLength.name)
+    var index                = 0
+    while (index < values.length) {
+      values(index).toLongOption match {
+        case Some(length) =>
+          if (result.exists(_ != length)) conflict = true
+          result = Some(length)
+        case None         => conflict = true
+      }
+      index += 1
+    }
+    if (conflict) Some(-1L)
+    else result
+  }
+
+  private def checkEmptyBodyLength(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+  ): Unit =
+    declaredLength.foreach { declared =>
+      if (declared != 0L) {
+        if (declared > connector.maxRequestBodySize) {
+          resetStream(stream, connection, H2Error.Code.FLOW_CONTROL_ERROR)
+          throw H2Transport.RequestBodyTooLarge(stream.id, connector.maxRequestBodySize)
+        } else {
+          resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+          throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, 0L)
+        }
+      }
+    }
+
+  private def checkReceivedLength(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    declaredLength: Option[Long],
+    received: Long,
+  ): Unit =
+    declaredLength.foreach { declared =>
+      if (declared != received) {
+        resetStream(stream, connection, H2Error.Code.PROTOCOL_ERROR)
+        throw H2Transport.RequestBodyLengthMismatch(stream.id, declared, received)
+      }
+    }
+
+  /**
+   * Resets `stream` with `errorCode` through the single upstream send site
+   * (`H2ConnectionControl.sendRstStream`, shared with the response abort and
+   * timer paths), which writes the RST_STREAM frame directly under the
+   * connection write lock and cancels the mux entry — so the failure stays
+   * per-stream and the connection survives for sibling streams. Best-effort: if
+   * the peer already reset the stream there is nobody left to notify, so a send
+   * failure is swallowed and the caller still throws the underlying bound
+   * violation.
+   */
+  /**
+   * Re-check-at-send probe before the first wire write of a response: the
+   * body/request timer may have fired (RST already on the wire) between
+   * body-read completion and this send. Never emit HEADERS/DATA on a reset
+   * stream — a HEADERS on a reset stream is a connection error (STREAM_CLOSED)
+   * for the peer. Complements `StreamSender`'s per-send `isClosed` guard, which
+   * covers every DATA frame including the first. The RST is already sent, so
+   * aborting maps to `ResponseAborted` and skips the error response in
+   * `handleStream`.
+   */
+  private def probeStreamOpen(stream: MuxStream[Int, H2Frame, H2Frame]): Unit =
+    if (stream.isClosed) throw ResponseAborted
+
+  private def resetStream(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    errorCode: H2Error.Code,
+  ): Unit =
+    try connection.connectionControl.sendRstStream(stream.id, errorCode)
+    catch {
+      case NonFatal(_) => ()
+    }
+
+  private def awaitFrame(
+    stream: MuxStream[Int, H2Frame, H2Frame],
+    connection: H2Connection,
+    deadlineNanos: Long,
+  ): H2Frame = {
     var frame: H2Frame = null
     while (frame == null) {
+      // Fused off path: the far-future sentinel means timeouts are disabled,
+      // so skip the per-iteration nanoTime read entirely.
+      if (deadlineNanos != Long.MaxValue && System.nanoTime() > deadlineNanos) {
+        // Time-to-complete exceeded: reset with CANCEL on the single shared
+        // control path, then surface the timeout (the 500 guard below skips
+        // reset streams, so no HEADERS follows the RST). Skipped when the
+        // stream is already closed (the virtual-thread timer won the race and
+        // its RST is on the wire): never RST a closed stream twice.
+        if (!stream.isClosed) resetStream(stream, connection, H2Error.Code.CANCEL)
+        throw H2Transport.StreamTimeout(stream.id, deadlineNanos)
+      }
       toReceivedFrame(stream.receive()) match {
         case Left(error) => throw new IllegalStateException("HTTP/2 stream receive failed: " + error)
         case Right(next) => frame = next
@@ -545,6 +833,14 @@ final class H2Transport[Ctx](
     }
     frame
   }
+
+  /**
+   * Body-completion deadline as absolute nanos, measured from stream start.
+   * Non-positive timeouts disable (far-future deadline, never hit).
+   */
+  private def bodyDeadlineNanos(streamStartNanos: Long): Long =
+    if (connector.bodyTimeoutMs <= 0L) Long.MaxValue
+    else streamStartNanos + connector.bodyTimeoutMs * 1000000L
 
   private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
     val result = stream.send(frame)
@@ -759,6 +1055,33 @@ final class H2Transport[Ctx](
 object H2Transport {
 
   /**
+   * Thrown after resetting the stream when a request body crosses
+   * `Connector.maxRequestBodySize`.
+   */
+  final case class RequestBodyTooLarge(streamId: Int, maxBytes: Long)
+      extends java.io.IOException(
+        s"HTTP/2 request body on stream $streamId exceeded maxRequestBodySize of $maxBytes bytes",
+      )
+
+  /**
+   * Thrown after resetting the stream when `content-length` disagrees with the
+   * bytes actually received.
+   */
+  final case class RequestBodyLengthMismatch(streamId: Int, declared: Long, received: Long)
+      extends java.io.IOException(
+        s"HTTP/2 request body on stream $streamId declared content-length $declared but received $received bytes",
+      )
+
+  /**
+   * Thrown after resetting the stream with `RST_STREAM(CANCEL)` when body
+   * completion exceeds its time-to-complete deadline.
+   */
+  final case class StreamTimeout(streamId: Int, deadlineNanos: Long)
+      extends java.util.concurrent.TimeoutException(
+        s"HTTP/2 stream $streamId exceeded body time-to-complete deadline",
+      )
+
+  /**
    * Per-stream abort marker: lives on the companion (static, stable prefix)
    * rather than on the StreamSender instance so `case _: H2Transport.Aborted`
    * type tests compile on both Scala 3 and 2.13 (where a path-dependent
@@ -787,6 +1110,126 @@ object H2Transport {
     scheme: String,
     authority: String,
   )
+
+  /**
+   * Forwarding headers stripped before route handlers run. Includes the
+   * normalized `x-client-ip` / `x-peer-address` headers themselves so a peer
+   * cannot spoof them: they are removed from the wire set and re-added by
+   * `resolveProxyTrust` after trust gating.
+   */
+  private val ProxyHeaderNames: List[String] =
+    List("x-forwarded-for", "x-forwarded-proto", "x-forwarded-host", "forwarded", "x-client-ip", "x-peer-address")
+
+  private final case class ForwardedValues(clientIp: Option[String], proto: Option[String], host: Option[String])
+
+  private final case class ResolvedProxy(headers: zio.http.Headers, proto: Option[String], host: Option[String])
+
+  /**
+   * Extracts forwarding values from `X-Forwarded-For/Proto/Host`, falling back
+   * to RFC 7239 `Forwarded` when no `X-Forwarded-For` is present. Only the
+   * first (leftmost, closest-to-client) element is used. Returns `None` when
+   * neither header family is present.
+   */
+  private def parseForwarded(headers: zio.http.Headers): Option[ForwardedValues] = {
+    val xff = headers.rawGet("x-forwarded-for").map(firstListValue).filter(_.nonEmpty)
+    if (xff.isDefined)
+      Some(
+        ForwardedValues(
+          clientIp = xff.map(normalizeForwardedIp),
+          proto = headers.rawGet("x-forwarded-proto").map(firstListValue).filter(_.nonEmpty).map(_.toLowerCase),
+          host = headers.rawGet("x-forwarded-host").map(firstListValue).filter(_.nonEmpty),
+        ),
+      )
+    else headers.rawGet("forwarded").map(parseRfc7239Forwarded)
+  }
+
+  private def firstListValue(value: String): String = {
+    val comma = value.indexOf(',')
+    (if (comma < 0) value else value.substring(0, comma)).trim
+  }
+
+  /**
+   * Normalizes one `for=` / `X-Forwarded-For` element to a bare IP: strips
+   * quotes, IPv6 brackets (with optional port), and an IPv4 port suffix.
+   */
+  private def normalizeForwardedIp(value: String): String = {
+    val trimmed = value.trim.stripPrefix("\"").stripSuffix("\"").trim
+    if (trimmed.startsWith("[")) {
+      val close = trimmed.indexOf(']')
+      if (close > 0) trimmed.substring(1, close) else trimmed
+    } else {
+      val colon = trimmed.indexOf(':')
+      if (colon >= 0 && trimmed.indexOf(':', colon + 1) < 0 && trimmed.contains(".")) trimmed.substring(0, colon)
+      else trimmed
+    }
+  }
+
+  /**
+   * Parses the first element of an RFC 7239 `Forwarded` header
+   * (`for=…;proto=…;host=…`). Obfuscated (`_…`) and `unknown` identifiers
+   * resolve to no client IP. Scanned with `indexOf` loops — no regex `split`
+   * anywhere on this path.
+   */
+  private def parseRfc7239Forwarded(value: String): ForwardedValues = {
+    var clientIp: Option[String] = None
+    var proto: Option[String]    = None
+    var host: Option[String]     = None
+    // First element only: up to the first ',' (or the end), mirroring the old
+    // `split(",", 2)(0)`.
+    val comma                    = value.indexOf(',')
+    val end                      = if (comma < 0) value.length else comma
+    var start                    = 0
+    while (start < end) {
+      val semi    = value.indexOf(';', start)
+      val pairEnd = if (semi < 0 || semi > end) end else semi
+      val eq      = value.indexOf('=', start)
+      if (eq > start && eq < pairEnd) {
+        val key = value.substring(start, eq).trim.toLowerCase
+        val raw = value.substring(eq + 1, pairEnd).trim.stripPrefix("\"").stripSuffix("\"").trim
+        key match {
+          case "for"   =>
+            if (raw.nonEmpty && !raw.equalsIgnoreCase("unknown") && !raw.startsWith("_"))
+              clientIp = Some(normalizeForwardedIp(raw))
+          case "proto" => if (raw.nonEmpty) proto = Some(raw.toLowerCase)
+          case "host"  => if (raw.nonEmpty) host = Some(raw)
+          case _       => ()
+        }
+      }
+      start = pairEnd + 1
+    }
+    ForwardedValues(clientIp, proto, host)
+  }
+
+  /**
+   * True when any forwarding/normalized header is present. Allocation-free
+   * boolean scans, so the common default-deny case (nothing present) pays no
+   * rebuild before `resolveProxyTrust` keeps the headers untouched.
+   */
+  private def hasProxyHeader(headers: zio.http.Headers): Boolean =
+    headers.has("x-forwarded-for") ||
+      headers.has("x-forwarded-proto") ||
+      headers.has("x-forwarded-host") ||
+      headers.has("forwarded") ||
+      headers.has("x-client-ip") ||
+      headers.has("x-peer-address")
+
+  /**
+   * Strips every forwarding/normalized header in a single pass over the header
+   * list (one builder, one output), replacing N per-name `remove` copies.
+   * `Headers` stores names pre-lowercased, so plain equality against the
+   * lowercase `ProxyHeaderNames` matches `remove`'s case-insensitive behavior.
+   */
+  private def stripProxyHeaders(headers: zio.http.Headers): zio.http.Headers = {
+    val pairs   = headers.toList
+    val builder = zio.http.HeadersBuilder.make(pairs.length)
+    var index   = 0
+    while (index < pairs.length) {
+      val (name, value) = pairs(index)
+      if (!ProxyHeaderNames.contains(name)) builder.add(name, value)
+      index += 1
+    }
+    builder.build()
+  }
 
   private implicit final class EitherOps[A](private val either: Either[String, A]) extends AnyVal {
     def getOrElse(default: => A): A =

@@ -89,8 +89,21 @@ class LoomH2ClientDriver(
     val socket = connectPlain(host, port)
     try {
       val (scheme, authority, target) = pseudoParts(request, 80)
-      H2WireClient.execute(socket.getInputStream, socket.getOutputStream, request, scheme, authority, target)
+      H2WireClient.execute(
+        socket.getInputStream,
+        socket.getOutputStream,
+        request,
+        scheme,
+        authority,
+        target,
+        config.maxResponseBodySize,
+      )
     } catch {
+      // The H2 exchange itself succeeded: a fallback would only re-download
+      // the same over-cap body under another protocol and mask the cause.
+      case cap: ResponseBodyTooLarge                                                       =>
+        closeQuietly(socket)
+        throw cap
       case NonFatal(failure) if config.alpn == ClientAlpnPolicy.H2PreferredWithH11Fallback =>
         closeQuietly(socket)
         h11Fallback().send(request)
@@ -116,7 +129,15 @@ class LoomH2ClientDriver(
         case "h2"       =>
           try {
             val (scheme, authority, target) = pseudoParts(request, 443)
-            H2WireClient.execute(socket.getInputStream, socket.getOutputStream, request, scheme, authority, target)
+            H2WireClient.execute(
+              socket.getInputStream,
+              socket.getOutputStream,
+              request,
+              scheme,
+              authority,
+              target,
+              config.maxResponseBodySize,
+            )
           } finally {
             closeQuietly(socket)
           }

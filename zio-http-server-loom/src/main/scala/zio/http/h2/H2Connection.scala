@@ -3,6 +3,7 @@ package zio.http.h2
 import java.io.{EOFException, IOException, InputStream, OutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -28,6 +29,12 @@ final class H2Connection(
   idleTimeoutMs: Long = 60000,
   requestTimeoutMs: Long = 30000,
   drainTimeoutMs: Long = 1000,
+  // Header-fragment (CONTINUATION) completion deadline for an incomplete
+  // header block. Expiry resets the stream with RST_STREAM(CANCEL).
+  // Non-positive disables. Forwarded from Connector.headerTimeoutMs.
+  // Appended last (never inserted mid-list) so existing positional call
+  // sites cannot silently rebind.
+  headerTimeoutMs: Long = 5000,
 ) {
   import H2Connection._
   import H2Frame._
@@ -49,9 +56,16 @@ final class H2Connection(
   private var readBuffer: Chunk[Byte]               = Chunk.empty
   private var peerSettings: List[Setting]           = Nil
   private var pendingHeaders: PendingHeaders        = null
-  @volatile private var settingsAcknowledged        = false
-  @volatile private var highestStreamId             = 0
-  @volatile private var lastGoAwayStreamId          = Int.MaxValue
+  @volatile private var pendingTimer: ScheduledFuture[?] = null
+  // Stream whose partial header block was discarded by the flood cap or the
+  // header-timeout expiry (RST CANCEL already sent): trailing in-flight
+  // CONTINUATIONs for it are ignored per RFC 9113 section 5.1 tolerance so
+  // the connection survives. Cleared when a new header block starts. 0 = none
+  // (0 is never a valid stream id).
+  @volatile private var resetPendingStreamId: Int        = 0
+  @volatile private var settingsAcknowledged             = false
+  @volatile private var highestStreamId                  = 0
+  @volatile private var lastGoAwayStreamId               = Int.MaxValue
 
   /**
    * Live control plane for this connection (T5): shares this connection's
@@ -143,6 +157,7 @@ final class H2Connection(
         shutdown(connectionCancelled("failure: " + error.getMessage))
         throw error
     } finally {
+      cancelPendingDeadline()
       control.stopIdleTimer()
       shutdown(connectionCancelled("closed"))
       writer.interrupt()
@@ -156,21 +171,46 @@ final class H2Connection(
   private def handleFrame(frame: H2Frame, onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
     // Any inbound frame is connection activity: keep the idle timer honest.
     control.resetIdleTimer()
-    if (pendingHeaders != null) {
+    // Snapshot once: the header-timeout thread nulls pendingHeaders on
+    // expiry, so triple-reading the volatile across the match below is a
+    // TOCTOU race (NPE/stale-stream mismatch). All branches use the local.
+    val pending = pendingHeaders
+    if (pending != null) {
       frame match {
-        case continuation: Continuation if continuation.streamId == pendingHeaders.streamId =>
-          val next = pendingHeaders.append(continuation)
-          if (continuation.endHeaders) {
-            pendingHeaders = null
-            deliverRequestHeaders(next.toHeaders, onStream)
-          } else pendingHeaders = next
-        case _                                                                              =>
-          throw protocolError("Expected CONTINUATION for stream " + pendingHeaders.streamId + ", received: " + frame)
+        case continuation: Continuation if continuation.streamId == pending.streamId =>
+          pending.append(continuation, pendingHeaderCapBytes) match {
+            case None       =>
+              // Encoded-fragment flood: reset only this stream with CANCEL and
+              // discard the partial block so the connection stays usable for
+              // sibling streams (mirrors the header-timeout expiry cleanup).
+              discardPendingBlock(continuation.streamId)
+            case Some(next) =>
+              if (continuation.endHeaders) {
+                pendingHeaders = null
+                cancelPendingDeadline()
+                deliverRequestHeaders(next.toHeaders, onStream)
+              } else pendingHeaders = next
+          }
+        case _                                                                       =>
+          throw protocolError("Expected CONTINUATION for stream " + pending.streamId + ", received: " + frame)
       }
     } else {
       frame match {
-        case headers: Headers if !headers.endHeaders => pendingHeaders = PendingHeaders(headers)
+        case headers: Headers if !headers.endHeaders =>
+          if (headers.headerBlock.length.toLong > pendingHeaderCapBytes) {
+            // A single fragment already over the encoded cap: reset without
+            // buffering anything, connection stays usable.
+            discardPendingBlock(headers.streamId)
+          } else {
+            pendingHeaders = PendingHeaders(headers)
+            resetPendingStreamId = 0
+            startPendingDeadline(headers.streamId)
+          }
         case headers: Headers                        => deliverRequestHeaders(headers, onStream)
+        case c: Continuation if c.streamId == resetPendingStreamId && resetPendingStreamId != 0 =>
+          () // Trailing CONTINUATION for a flood/timed-out header block already reset; ignore per 5.1 tolerance.
+        case c: Continuation if isKnownStream(c.streamId) =>
+          () // Trailing CONTINUATION after a timed-out header block was reset; ignore per 5.1 tolerance.
         case _: Continuation => throw protocolError("Unexpected CONTINUATION frame without open header block")
         case other if other.streamId == 0 => handleConnectionFrame(other)
         case other                        => deliverStreamFrame(other, onStream)
@@ -318,6 +358,99 @@ final class H2Connection(
     sendReset(streamId, errorCode)
     if (streamId > highestStreamId) highestStreamId = streamId
   }
+
+  /**
+   * Discards an incomplete header block and resets its stream with CANCEL: the
+   * single cleanup for the flood-cap and header-timeout paths. The RST goes
+   * through the single shared send site (`H2ConnectionControl.sendRstStream`,
+   * which shares this connection's `writeLock`), so the connection stays usable
+   * for sibling streams. The id is consumed (like `rejectHeaders`) so a later
+   * reuse trips the monotonic stream-id check, and trailing in-flight
+   * CONTINUATIONs for it are ignored via `resetPendingStreamId` (RFC 9113
+   * section 5.1 tolerance).
+   */
+  private def discardPendingBlock(streamId: Int): Unit = {
+    cancelPendingDeadline()
+    // The RST goes through the single shared send site
+    // (`H2ConnectionControl.sendRstStream`, which shares this connection's
+    // `writeLock`), so the connection stays usable for sibling streams. Best
+    // effort: if the peer already went away the send failure is swallowed.
+    // Sent only by the first claimer (see takePendingDiscard): exactly one
+    // RST goes out per discarded block.
+    if (takePendingDiscard(streamId, freshOk = true)) {
+      try control.sendRstStream(streamId, H2Error.Code.CANCEL)
+      catch {
+        case NonFatal(_) => ()
+      }
+    }
+  }
+
+  /**
+   * Header-fragment (slow-loris) deadline for an incomplete header block.
+   * Reuses the shared `H2ConnectionControl.scheduleTimeoutRst` mechanism
+   * (virtual-thread sleep, never a ZIO fiber; single shared wire-write lock).
+   * Pre-open blocks have no mux entry yet, so `requireOpenStream = false` and
+   * expiry predicates purely on the block still being pending. On expiry the
+   * stream is reset with CANCEL and the partial block discarded so the
+   * connection stays usable for sibling streams.
+   */
+  private def startPendingDeadline(streamId: Int): Unit = {
+    cancelPendingDeadline()
+    if (headerTimeoutMs <= 0L) return
+    pendingTimer = control.scheduleTimeoutRst(
+      streamId,
+      headerTimeoutMs,
+      H2Error.Code.CANCEL,
+      () => takePendingDiscard(streamId, freshOk = false),
+      requireOpenStream = false,
+    )
+  }
+
+  /**
+   * Claims the discard of the incomplete header block for `streamId` and
+   * reports whether this claimer owes the RST: records the discard (nulls the
+   * block, consumes the id like `rejectHeaders` so a later reuse trips the
+   * monotonic stream-id check, arms trailing-CONTINUATION tolerance via
+   * `resetPendingStreamId` per RFC 9113 section 5.1) once, exactly-once across
+   * the reader-side flood discard and the timer-thread expiry. The first claim
+   * wins — a buffered block, or (reader only, `freshOk`) a fresh single
+   * fragment already over the cap that was never buffered; the loser observes
+   * the recorded id and stands down, so exactly one RST goes out per discarded
+   * block. The timer never claims fresh (`freshOk = false`): a
+   * normally-completed block records no id, and must not draw a spurious RST. A
+   * pending block for another stream is never claimed (unreachable by protocol:
+   * no other frame may intervene before the block completes).
+   *
+   * Best-effort like the upstream request-timer cancel race: a CONTINUATION
+   * completing the block in the same instant as the expiry may still lose to a
+   * concurrently-claiming timer.
+   */
+  private def takePendingDiscard(streamId: Int, freshOk: Boolean): Boolean = {
+    val pending = pendingHeaders
+    if (pending != null && pending.streamId != streamId) return false
+    if (pending == null && (!freshOk || resetPendingStreamId == streamId)) return false
+    pendingHeaders = null
+    resetPendingStreamId = streamId
+    activeStreams.remove(streamId)
+    if (streamId > highestStreamId) highestStreamId = streamId
+    true
+  }
+
+  private def cancelPendingDeadline(): Unit = {
+    val timer = pendingTimer
+    if (timer != null) {
+      pendingTimer = null
+      timer.cancel(true)
+    }
+  }
+
+  /**
+   * Encoded-byte budget for one buffered (incomplete) header block: a multiple
+   * of the advertised decoded budget. HPACK encoding can expand relative to
+   * decoded size, so the wire cap is a multiple rather than the decoded limit
+   * itself; past it the peer is flooding and the stream is reset with CANCEL.
+   */
+  private def pendingHeaderCapBytes: Long = maxHeaderListSize.toLong * 4L
 
   /**
    * Refuses a new stream opened after our GOAWAY (RFC 9113 6.8): the client
@@ -597,23 +730,49 @@ private object H2Connection {
     ) ++ maxHeaderListSize.map(size => Setting(Setting.MAX_HEADER_LIST_SIZE, size.toLong)).toList
   }
 
+  /**
+   * One incomplete (CONTINUATION-fragmented) header block. Fragments are
+   * buffered as a chunk list (newest first) and concatenated exactly once in
+   * `toHeaders`, so N CONTINUATIONs cost O(total bytes) instead of the O(N *
+   * total) quadratic copy a per-append `++` would pay within the cap. Empty
+   * fragments contribute no bytes and are skipped, so a flood of empty
+   * CONTINUATIONs cannot grow the list without tripping the byte cap either.
+   * `totalLength` tracks the encoded bytes for the cap check without walking
+   * the list. Byte content delivered to `toHeaders` is identical to eager
+   * concatenation in arrival order.
+   */
   private final case class PendingHeaders(
     streamId: Int,
-    headerBlock: Chunk[Byte],
+    fragments: List[Chunk[Byte]],
+    totalLength: Long,
     endStream: Boolean,
     priority: Option[Priority],
     padLength: Int,
   ) {
-    def append(frame: H2Frame.Continuation): PendingHeaders =
-      copy(headerBlock = headerBlock ++ frame.headerBlock)
+    def append(frame: H2Frame.Continuation, capBytes: Long): Option[PendingHeaders] =
+      if (frame.headerBlock.isEmpty) Some(this)
+      else {
+        val next = totalLength + frame.headerBlock.length.toLong
+        if (next > capBytes) None
+        else Some(copy(fragments = frame.headerBlock :: fragments, totalLength = next))
+      }
 
-    def toHeaders: H2Frame.Headers =
-      H2Frame.Headers(streamId, headerBlock, endStream, endHeaders = true, priority, padLength)
+    def toHeaders: H2Frame.Headers = {
+      val combined = fragments.reverse.foldLeft(Chunk.empty[Byte])(_ ++ _)
+      H2Frame.Headers(streamId, combined, endStream, endHeaders = true, priority, padLength)
+    }
   }
 
   private object PendingHeaders {
     def apply(frame: H2Frame.Headers): PendingHeaders =
-      PendingHeaders(frame.streamId, frame.headerBlock, frame.endStream, frame.priority, frame.padLength)
+      PendingHeaders(
+        frame.streamId,
+        List(frame.headerBlock),
+        frame.headerBlock.length.toLong,
+        frame.endStream,
+        frame.priority,
+        frame.padLength,
+      )
   }
 
   private def runnable(body: => Unit): Runnable =

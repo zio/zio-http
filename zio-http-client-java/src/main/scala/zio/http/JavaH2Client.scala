@@ -1,15 +1,22 @@
 package zio.http
 
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.ByteBuffer
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.Flow
 
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
 
 import scala.annotation.experimental
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 /**
  * JDK `HttpClient`-backed [[Client]].
@@ -39,7 +46,7 @@ class JavaH2Client(
 
   def send(request: Request): Response = {
     val javaRequest  = toJavaRequest(request)
-    val javaResponse = httpClient.send(javaRequest, HttpResponse.BodyHandlers.ofByteArray())
+    val javaResponse = httpClient.send(javaRequest, JavaH2Client.boundedByteArrayHandler(config.maxResponseBodySize))
 
     val response = toResponse(javaResponse)
     enforcePolicy(response.version)
@@ -121,6 +128,14 @@ class JavaH2Client(
 
 object JavaH2Client {
 
+  /**
+   * Default response-body cap, sourced from [[ClientConfig]] so every client
+   * leg enforces the same bound. Raise via
+   * `ClientConfig(maxResponseBodySize = ...)`; the default preserves existing
+   * call sites.
+   */
+  val DefaultMaxResponseBodySize: Long = ClientConfig.DefaultMaxResponseBodySize
+
   def default: JavaH2Client = apply(ClientConfig())
 
   def apply(config: ClientConfig): JavaH2Client = {
@@ -158,6 +173,64 @@ object JavaH2Client {
    */
   private def selectedVersion(config: ClientConfig): HttpClient.Version =
     HttpClient.Version.HTTP_2
+
+  /**
+   * Response-body handler that accounts bytes incrementally and fails fast past
+   * `maxBytes`: the subscription is cancelled the moment the cap is exceeded,
+   * so a malicious server cannot force unbounded `ofByteArray` buffering on the
+   * client.
+   */
+  private[http] def boundedByteArrayHandler(
+    maxBytes: Long = DefaultMaxResponseBodySize,
+  ): HttpResponse.BodyHandler[Array[Byte]] =
+    new HttpResponse.BodyHandler[Array[Byte]] {
+      override def apply(responseInfo: HttpResponse.ResponseInfo): HttpResponse.BodySubscriber[Array[Byte]] =
+        new BoundedByteArraySubscriber(maxBytes)
+    }
+
+  private final class BoundedByteArraySubscriber(maxBytes: Long) extends HttpResponse.BodySubscriber[Array[Byte]] {
+    private val buffer                          = new ByteArrayOutputStream()
+    private val result                          = new CompletableFuture[Array[Byte]]()
+    private var subscription: Flow.Subscription = null
+    private var total: Long                     = 0L
+
+    override def onSubscribe(s: Flow.Subscription): Unit = {
+      subscription = s
+      s.request(Long.MaxValue)
+    }
+
+    override def onNext(items: java.util.List[ByteBuffer]): Unit =
+      try {
+        val iterator = items.iterator()
+        while (iterator.hasNext) {
+          val chunk = iterator.next()
+          val size  = chunk.remaining().toLong
+          if (total + size > maxBytes) {
+            val s = subscription
+            if (s != null) s.cancel()
+            result.completeExceptionally(ResponseBodyTooLarge(maxBytes))
+            return
+          }
+          val bytes = new Array[Byte](chunk.remaining())
+          chunk.get(bytes)
+          buffer.write(bytes, 0, bytes.length)
+          total += size
+        }
+      } catch {
+        case NonFatal(error) =>
+          val s = subscription
+          if (s != null) s.cancel()
+          result.completeExceptionally(error)
+      }
+
+    override def onError(throwable: Throwable): Unit =
+      result.completeExceptionally(throwable)
+
+    override def onComplete(): Unit =
+      result.complete(buffer.toByteArray)
+
+    override def getBody: CompletionStage[Array[Byte]] = result
+  }
 
   private def configuredHttpClient(
     config: ClientConfig,
