@@ -54,7 +54,7 @@ final case class AccessLogRecord(
   /**
    * Client-supplied `x-request-id` sanitized by [[AccessLog.sanitizeRequestId]]
    * (restricted charset, truncated to [[AccessLog.MaxRequestIdLength]]), or a
-   * generated id when absent or empty after sanitizing.
+   * generated UUID when absent or empty after sanitizing.
    */
   requestId: String,
   /** Socket peer address (`x-peer-address`, G3 trust gate). */
@@ -190,31 +190,30 @@ object AccessLog {
 
   /**
    * Resolves the request id: the client-supplied `x-request-id` header when
-   * present and non-empty, otherwise a freshly generated id.
+   * present and non-empty, otherwise a freshly generated UUID.
    *
    * The header value is sanitized before it reaches the record (see
    * [[sanitizeRequestId]]): only alphanumerics plus `-._~` survive, the result
    * is truncated to [[MaxRequestIdLength]] chars, and a value that is empty
-   * after sanitizing yields a generated id — so newline/ANSI log injection
+   * after sanitizing yields a generated UUID — so newline/ANSI log injection
    * and cardinality bombs cannot pass through.
    *
-   * Generated ids are process-unique counter+clock values (see
-   * [[freshRequestId]]), deliberately not `java.util.UUID`: UUID's
-   * SecureRandom-backed generation is unavailable on Scala.js, while a
-   * synchronized counter plus `nanoTime` works on every platform and is
-   * cheaper on the serving path.
+   * Note: id-less traffic pays one `UUID.randomUUID()` per request on the
+   * serving path; high-throughput services that do not need request ids should
+   * supply their own cheaper id (or reuse the peer/client tuple) in a custom
+   * emitter rather than calling this per request.
    */
   def requestId(headers: Headers): String =
     headers
       .rawGet(RequestIdHeader)
       .filter(_.nonEmpty)
       .map(sanitizeRequestId)
-      .getOrElse(freshRequestId())
+      .getOrElse(java.util.UUID.randomUUID().toString)
 
   /**
    * Sanitizes a client-supplied request id for safe logging: strips every
    * character outside `[A-Za-z0-9-._~]`, truncates to [[MaxRequestIdLength]]
-   * characters, and returns a generated id when nothing survives.
+   * characters, and returns a generated UUID when nothing survives.
    */
   def sanitizeRequestId(raw: String): String = {
     val kept = new StringBuilder()
@@ -227,37 +226,7 @@ object AccessLog {
       ) kept.append(c)
       i += 1
     }
-    if (kept.isEmpty) freshRequestId() else kept.toString
-  }
-
-  private val HexDigits = "0123456789abcdef"
-  private val idLock    = new Object
-  private var idCounter = 0L
-
-  /**
-   * Portable process-unique id (`req-<counter-hex><nanotime-hex>`): counter
-   * plus clock under one lock, hex-encoded with manual digit loops. Uses only
-   * `charAt`, arithmetic, and `synchronized`, so it works identically on JVM,
-   * Scala.js, and Native — unlike `UUID.randomUUID()`.
-   */
-  private def freshRequestId(): String = {
-    val (count, nanos) = idLock.synchronized {
-      idCounter += 1L
-      (idCounter, System.nanoTime())
-    }
-    val out = new StringBuilder(4 + 16 + 16)
-    out.append("req-")
-    appendHex(out, count)
-    appendHex(out, nanos)
-    out.toString
-  }
-
-  private def appendHex(out: StringBuilder, value: Long): Unit = {
-    var shift = 60
-    while (shift >= 0) {
-      out.append(HexDigits.charAt(((value >>> shift) & 0xfL).toInt))
-      shift -= 4
-    }
+    if (kept.isEmpty) java.util.UUID.randomUUID().toString else kept.toString
   }
 
   /**
