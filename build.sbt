@@ -51,6 +51,13 @@ ThisBuild / githubWorkflowAddedJobs :=
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) ++ BenchmarkWorkFlow()
 
+// The publish job runs `ci-release`, which builds what it needs, so it does not
+// need the build jobs' target directories. Passing them through artifacts only
+// made the release fragile: re-running the publish job discards the previous
+// attempt's artifacts, so the download then fails and the release cannot be
+// retried without re-running the whole matrix.
+ThisBuild / githubWorkflowArtifactUpload  := false
+
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
