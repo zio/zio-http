@@ -232,5 +232,19 @@ object OpenAPISpec extends ZIOSpecDefault {
 
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
+    test("Parameter equals/hashCode contract (#4133)") {
+      import OpenAPI._
+      val a = Parameter.queryParameter("id", None, None, Map.empty)
+      val b = Parameter.queryParameter("id", None, None, Map.empty, required = true)
+      val c = Parameter.queryParameter("other", None, None, Map.empty)
+      val d = Parameter.headerParameter("id", None, required = false, examples = Map.empty)
+      assertTrue(a == b) &&
+      assertTrue(a.hashCode == b.hashCode) &&
+      assertTrue(Set(a, b).size == 1) &&
+      assertTrue(Map(a -> 1, b -> 2).size == 1) &&
+      assertTrue(List(a, b).distinct.size == 1) &&
+      assertTrue(a != c) &&
+      assertTrue(a != d)
+    },
   )
 }
