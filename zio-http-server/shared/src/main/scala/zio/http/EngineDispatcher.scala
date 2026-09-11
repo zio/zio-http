@@ -12,8 +12,6 @@ import zio.blocks.scope.Scope
  *
  * Engines own their wire semantics (frames, flow control, connections) and hand
  * fully-decoded [[Request]] values to [[dispatch]]; routes never see frames.
- * The H1 engine (Todo 7) uses this directly; the H2 transport adopts it in Todo
- * 6.
  */
 @experimental
 final class EngineDispatcher[Ctx](

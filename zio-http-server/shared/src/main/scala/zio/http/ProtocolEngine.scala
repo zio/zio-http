@@ -31,8 +31,7 @@ final case class EngineId(value: String) extends AnyVal
  * `Server.serve(routes, context)`; engines share one [[EngineDispatcher]] for
  * route handling.
  *
- * Aggregate lifecycle (accept-stop, drain deadlines, force close) is
- * coordinated by the server owner in later todos; engines expose only the
+ * Shutdown coordination belongs to the server owner; engines expose only the
  * per-engine hooks:
  *
  *   - [[drain]]: stop accepting new work on owned connections and finish
