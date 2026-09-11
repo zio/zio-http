@@ -267,5 +267,50 @@ object PathCodecSpec extends ZIOHttpSpec {
           assertTrue(roundTripCodec.decode(path) == Right(()))
         },
       ),
+      suite("annotated")(
+        test("equality is symmetric and ignores annotations as metadata") {
+          val inner = PathCodec.empty / PathCodec.literal("users")
+          val a1    = inner ?? Doc.p("first")
+          val a2    = inner ?? Doc.p("second")
+
+          assertTrue(a1 == a2) &&
+          assertTrue(a2 == a1) &&
+          assertTrue(a1.hashCode == a2.hashCode) &&
+          assertTrue(a1.hashCode == inner.hashCode) &&
+          assertTrue(a1.decode(Path("/users")) == Right(()))
+        },
+        test("annotated never equals a non-annotated codec") {
+          val inner     = PathCodec.empty / PathCodec.literal("users")
+          val annotated = inner ?? Doc.p("docs")
+
+          assertTrue(!(annotated == inner)) &&
+          assertTrue(!(inner == annotated)) &&
+          assertTrue(annotated != inner)
+        },
+        test("annotated codecs over different codecs are not equal") {
+          val a1 = (PathCodec.empty / PathCodec.literal("users")) ?? Doc.p("docs")
+          val a2 = (PathCodec.empty / PathCodec.literal("posts")) ?? Doc.p("docs")
+
+          assertTrue(a1 != a2) &&
+          assertTrue(a2 != a1)
+        },
+        test("annotated codecs behave correctly in hash-based collections") {
+          val inner = PathCodec.empty / PathCodec.literal("users")
+          val a1    = inner ?? Doc.p("first")
+          val a2    = inner ?? Doc.p("second")
+
+          assertTrue(Set(a1, a2).size == 1) &&
+          assertTrue(Map(a1 -> "found")(a2) == "found")
+        },
+        test("route patterns over annotated codecs compare by codec") {
+          val r1 = RoutePattern(Method.GET, (PathCodec.empty / PathCodec.literal("users")) ?? Doc.p("first"))
+          val r2 = RoutePattern(Method.GET, (PathCodec.empty / PathCodec.literal("users")) ?? Doc.p("second"))
+          val r3 = RoutePattern(Method.GET, (PathCodec.empty / PathCodec.literal("posts")) ?? Doc.p("first"))
+
+          assertTrue(r1 == r2) &&
+          assertTrue(r1.hashCode == r2.hashCode) &&
+          assertTrue(r1 != r3)
+        },
+      ),
     )
 }
