@@ -1,24 +1,15 @@
 package zio.http
 
 /**
- * Transport resource owned by a [[ProtocolEngine]].
- *
- * Sealed so dispatch stays exhaustive: only the kinds listed here can be
- * registered. Future transports (for example UDP/QUIC for H3) extend this trait
- * in later todos; no engine may claim a kind that has no runtime support.
- */
-sealed trait TransportKind extends Product with Serializable
-
-object TransportKind {
-  case object Tcp  extends TransportKind
-  case object Unix extends TransportKind
-}
-
-/**
  * Application protocol spoken by a [[ProtocolEngine]].
  *
  * One protocol is served by exactly one engine per registry: duplicate
  * registrations are rejected deterministically by [[EngineRegistry.build]].
+ *
+ * There is deliberately no H3 member: H3/QUIC has no installed engine, so no
+ * engine may claim it and production configuration must neither advertise nor
+ * run it (see [[ConnectorFailure.H3NotAdvertised]]). Transport families are
+ * described by the shared [[TransportKind]] contract.
  */
 sealed trait ProtocolId extends Product with Serializable
 
@@ -108,6 +99,11 @@ object EngineRegistrationError {
  * Build with [[EngineRegistry.build]]: checks run in a fixed order (empty,
  * duplicate ids, incompatible transports, duplicate protocols) and report the
  * first violation in registration order, so failures are reproducible.
+ *
+ * Transport coexistence: TCP and UDP engines may share one registry because
+ * they draw numeric ports from independent OS namespaces — a future UDP
+ * (QUIC/H3) engine coexists with TCP engines on one numeric port. Unix-domain
+ * sockets share neither namespace and stay exclusive with every other kind.
  */
 final class EngineRegistry private (val engines: List[ProtocolEngine]) {
 
@@ -121,6 +117,18 @@ final class EngineRegistry private (val engines: List[ProtocolEngine]) {
 }
 
 object EngineRegistry {
+
+  /**
+   * True when two engine transport kinds may share one registry: identical
+   * kinds, or the TCP/UDP socket pair whose numeric-port namespaces are
+   * independent. Unix-domain sockets bind paths rather than ports and coexist
+   * with nothing.
+   */
+  private def coexistsWith(first: TransportKind, second: TransportKind): Boolean =
+    (first == second) || (isSocketFamily(first) && isSocketFamily(second))
+
+  private def isSocketFamily(kind: TransportKind): Boolean =
+    (kind == TransportKind.Tcp) || (kind == TransportKind.Udp)
 
   def build(engines: List[ProtocolEngine]): Either[EngineRegistrationError, EngineRegistry] = {
     if (engines.isEmpty) return Left(EngineRegistrationError.EmptyRegistry)
@@ -137,7 +145,7 @@ object EngineRegistry {
     index = 0
     while (index < engines.length) {
       val engine = engines(index)
-      if (engine.transportKind != expected)
+      if (!coexistsWith(expected, engine.transportKind))
         return Left(EngineRegistrationError.IncompatibleTransport(engine.id, expected, engine.transportKind))
       index += 1
     }
