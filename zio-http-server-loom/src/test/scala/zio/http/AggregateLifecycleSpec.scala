@@ -21,7 +21,8 @@ import zio.test._
  *   - `awaitShutdown` truly blocks until the terminal state.
  *   - `shutdown` is idempotent under repeated and concurrent calls.
  *   - Partial startup rolls back already-bound engines in reverse order.
- *   - Shutdown issued from an owned thread never self-joins.
+ *   - The handle keeps no thread registry: each engine terminates its own
+ *     threads behind requestStop/awaitDrain/forceClose.
  *
  * Every coordination point uses latches/barriers with bounded waits; no
  * sleep-polling anywhere on these paths.
@@ -262,89 +263,62 @@ object AggregateLifecycleSpec extends ZIOSpecDefault {
           good.drains.get() == 1,
         )
       },
-      test("shutdown from an owned thread skips self-join without deadlock") {
-        val engine = fakeEngine("e1")
-        val ref    = new java.util.concurrent.atomic.AtomicReference[AggregateServerHandle]()
-        val done   = new CountDownLatch(1)
-        val owned  = new Thread(
-          () => {
-            ref.get().shutdown()
-            done.countDown()
-          },
-          "owned-shutdown-caller",
-        )
-        val handle = AggregateServerHandle.live(List(engine), ownedThreads = List(owned))
-        ref.set(handle)
-        for {
-          _         <- ZIO.attempt(owned.start())
-          completed <- ZIO.attemptBlocking(done.await(15, TimeUnit.SECONDS))
-          _         <- ZIO.attemptBlocking(owned.join(15000))
-        } yield assertTrue(
-          completed,
-          handle.state == Terminated,
-          handle.skippedSelfJoins == 1,
-        )
-      },
-      test("shutdown joins owned threads before reporting terminated") {
-        val gate     = new CountDownLatch(1)
-        val exited   = new CountDownLatch(1)
-        val owned    = Thread
+      test("aggregate keeps no thread registry: shutdown delegates solely through LifecycleEngine") {
+        // An engine owns a worker thread the way a Loom acceptor loop would:
+        // it terminates the thread inside its own requestStop, and the handle
+        // never sees the thread. Shutdown must still reach Terminated with the
+        // worker gone, proving thread termination lives entirely behind
+        // LifecycleEngine.
+        val workerGate   = new CountDownLatch(1)
+        val workerExited = new CountDownLatch(1)
+        val worker       = Thread
           .ofVirtual()
           .start(() => {
-            gate.await(30, TimeUnit.SECONDS)
-            exited.countDown()
-            ()
+            try workerGate.await(30, TimeUnit.SECONDS)
+            catch { case _: InterruptedException => () }
+            finally workerExited.countDown()
           })
-        val stopSeen = new CountDownLatch(1)
-        val engine   = fakeEngine("e1", stopLatch = stopSeen)
-        val handle   = AggregateServerHandle.live(List(engine), ownedThreads = List(owned))
-        val bgDone   = new CountDownLatch(1)
-        for {
-          _         <- ZIO.attemptBlocking {
-            Thread
-              .ofVirtual()
-              .start(() => {
-                handle.shutdown()
-                bgDone.countDown()
-                ()
-              })
+        val engine       = new LifecycleEngine {
+          val name                                   = "self-owning-engine"
+          def requestStop(): Unit                    = {
+            workerGate.countDown()
+            worker.join(15000)
             ()
           }
-          _         <- ZIO.attemptBlocking(stopSeen.await(15, TimeUnit.SECONDS))
-          // Shutdown must still be inside the owned-thread join: the gate is
-          // unreleased, so a missing join would already have returned here.
-          stillOpen <- ZIO.attemptBlocking(bgDone.await(300, TimeUnit.MILLISECONDS))
-          alive     <- ZIO.attempt(owned.isAlive)
-          _         <- ZIO.attempt(gate.countDown())
-          finished  <- ZIO.attemptBlocking(bgDone.await(15, TimeUnit.SECONDS))
-          gone      <- ZIO.attemptBlocking(!owned.isAlive || exited.await(15, TimeUnit.SECONDS))
-        } yield assertTrue(!stillOpen, alive, finished, gone, handle.state == Terminated)
-      },
-      test("shutdown interrupts an owned thread that never exits") {
-        val gate   = new CountDownLatch(1)
-        val exited = new CountDownLatch(1)
-        val owned  = Thread
-          .ofVirtual()
-          .start(() => {
-            try {
-              gate.await(30, TimeUnit.SECONDS)
-              ()
-            } catch {
-              case _: InterruptedException => Thread.currentThread().interrupt()
-            } finally exited.countDown()
-          })
-        val handle = AggregateServerHandle.live(
-          List(fakeEngine("e1")),
-          ownedThreads = List(owned),
-          ownedJoinTimeout = Duration.ofMillis(300),
-        )
+          def awaitDrain(timeout: Duration): Boolean = !worker.isAlive
+          def forceClose(): Unit                     = ()
+        }
+        val handle       = AggregateServerHandle.live(List(engine))
         for {
-          _        <- ZIO.attemptBlocking(handle.shutdownAndWait())
-          wasAlive <- ZIO.attempt(owned.isAlive)
-          released <- ZIO.attemptBlocking(exited.await(15, TimeUnit.SECONDS))
-        } yield assertTrue(handle.state == Terminated, !wasAlive || released)
+          _      <- ZIO.attemptBlocking(handle.shutdownAndWait())
+          exited <- ZIO.attemptBlocking(workerExited.await(15, TimeUnit.SECONDS))
+        } yield assertTrue(
+          handle.state == Terminated,
+          exited,
+          !worker.isAlive,
+          hasNoThreadRegistry,
+        )
       },
     )
+
+  /**
+   * Structural half of the ownership contract: the aggregate handle must not
+   * maintain a second list of threads (nor self-join bookkeeping for one).
+   * Thread termination is owned entirely by each LifecycleEngine/listener
+   * implementation behind requestStop/awaitDrain/forceClose.
+   */
+  private def hasNoThreadRegistry: Boolean = {
+    val banned      = Set(
+      "ownedThreads",
+      "ownedJoinTimeout",
+      "selfJoinsSkipped",
+      "joinOwnedThreads",
+      "skippedSelfJoins",
+    )
+    val fieldNames  = classOf[AggregateServerHandle].getDeclaredFields.map(_.getName).toSet
+    val methodNames = classOf[AggregateServerHandle].getDeclaredMethods.map(_.getName).toSet
+    (fieldNames ++ methodNames).intersect(banned).isEmpty
+  }
 
   private final class FakeEngine(
     val name: String,

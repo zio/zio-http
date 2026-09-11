@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.jdk.CollectionConverters._
@@ -33,6 +32,13 @@ object AggregateLifecycleState {
  * This is scaffolding for the lifecycle contract (Todo 5). Concrete engines
  * (H1/H2/...) are wired in Todo 8; this trait only fixes the shutdown
  * vocabulary every engine must speak.
+ *
+ * Ownership boundary: each engine (and its listener) owns and terminates its
+ * own threads — virtual or platform, acceptor loops included — through
+ * [[requestStop]], [[awaitDrain]], and [[forceClose]]. The aggregate handle
+ * never sees those threads: a concrete implementation must terminate them
+ * before its `awaitDrain`/`forceClose` completes, so that when the handle
+ * reaches `Terminated` no engine thread is left behind.
  */
 trait LifecycleEngine {
 
@@ -59,39 +65,32 @@ trait LifecycleEngine {
  *   - `shutdown` runs exactly once (repeated/concurrent calls are safe):
  *     request stop on every engine, drain all engines in parallel bounded by
  *     `drainTimeout`, force-close only the engines that missed the deadline,
- *     join owned threads, then reach `Terminated`.
+ *     then reach `Terminated`. Thread termination is delegated entirely to the
+ *     engines (see [[LifecycleEngine]]); the handle keeps no thread registry.
  *   - `awaitShutdown` truly blocks until `Terminated`.
  *   - Engine errors never prevent termination; they are recorded in
  *     `drainErrors` (rollback close errors are attached as suppressed to the
  *     propagated bind failure instead).
- *   - Shutdown issued from an owned thread skips that thread's join
- *     (`skippedSelfJoins`) instead of deadlocking on a self-join.
  *
  * Deliberately NOT a [[ServerHandle]] (which is sealed to its own file): Todo 8
  * unifies the two once real engines are wired.
  */
 final class AggregateServerHandle private (
   engines: List[LifecycleEngine],
-  ownedThreads: List[Thread],
   drainTimeout: Duration,
-  ownedJoinTimeout: Duration,
 ) {
   import AggregateLifecycleState._
 
-  private val stateRef         = new AtomicReference[AggregateLifecycleState](Running)
-  private val shutdownStarted  = new AtomicBoolean(false)
-  private val terminal         = new CountDownLatch(1)
-  private val errors           = new ConcurrentLinkedQueue[Throwable]()
-  private val selfJoinsSkipped = new AtomicInteger(0)
+  private val stateRef        = new AtomicReference[AggregateLifecycleState](Running)
+  private val shutdownStarted = new AtomicBoolean(false)
+  private val terminal        = new CountDownLatch(1)
+  private val errors          = new ConcurrentLinkedQueue[Throwable]()
 
   /** Current lifecycle state. */
   def state: AggregateLifecycleState = stateRef.get()
 
   /** True until the handle reaches `Terminated`. */
   def isRunning: Boolean = state != Terminated
-
-  /** Number of owned-thread self-joins skipped by `shutdown`. */
-  def skippedSelfJoins: Int = selfJoinsSkipped.get()
 
   /** Engine errors observed during the last shutdown, if any. */
   def drainErrors: List[Throwable] = errors.asScala.toList
@@ -110,7 +109,6 @@ final class AggregateServerHandle private (
             if (!ok) closeQuietly(engine)
           }
         }
-        joinOwnedThreads()
       } finally {
         stateRef.set(Terminated)
         terminal.countDown()
@@ -170,37 +168,19 @@ final class AggregateServerHandle private (
     workers.filter(_.isAlive).foreach(_.interrupt())
     engines.map(engine => outcomes.getOrDefault(engine, false))
   }
-
-  /**
-   * Join owned threads (e.g. acceptor loops) so `awaitShutdown` only returns
-   * once they have exited. Never joins the calling thread; interrupts owned
-   * threads that ignore the join timeout instead of hanging shutdown.
-   */
-  private def joinOwnedThreads(): Unit =
-    ownedThreads.foreach { thread =>
-      if (thread eq Thread.currentThread()) selfJoinsSkipped.incrementAndGet()
-      else {
-        thread.join(ownedJoinTimeout.toMillis)
-        if (thread.isAlive) thread.interrupt()
-      }
-      ()
-    }
 }
 
 object AggregateServerHandle {
   private val DrainJoinGraceMillis = 2000L
 
-  val DefaultDrainTimeout: Duration     = Duration.ofSeconds(30)
-  val DefaultOwnedJoinTimeout: Duration = Duration.ofSeconds(10)
+  val DefaultDrainTimeout: Duration = Duration.ofSeconds(30)
 
   /** Wrap already-bound engines. */
   def live(
     engines: List[LifecycleEngine],
-    ownedThreads: List[Thread] = Nil,
     drainTimeout: Duration = DefaultDrainTimeout,
-    ownedJoinTimeout: Duration = DefaultOwnedJoinTimeout,
   ): AggregateServerHandle =
-    new AggregateServerHandle(engines, ownedThreads, drainTimeout, ownedJoinTimeout)
+    new AggregateServerHandle(engines, drainTimeout)
 
   /**
    * Bind engines in order; when a binder fails, force-close the engines bound
@@ -209,9 +189,7 @@ object AggregateServerHandle {
    */
   def start(
     binders: List[() => LifecycleEngine],
-    ownedThreads: List[Thread] = Nil,
     drainTimeout: Duration = DefaultDrainTimeout,
-    ownedJoinTimeout: Duration = DefaultOwnedJoinTimeout,
   ): AggregateServerHandle = {
     val bound = List.newBuilder[LifecycleEngine]
     try binders.foreach(binder => bound += binder())
@@ -223,6 +201,6 @@ object AggregateServerHandle {
         }
         throw bindFailure
     }
-    live(bound.result(), ownedThreads, drainTimeout, ownedJoinTimeout)
+    live(bound.result(), drainTimeout)
   }
 }
