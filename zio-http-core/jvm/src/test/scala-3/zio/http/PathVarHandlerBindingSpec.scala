@@ -269,7 +269,7 @@ pattern -> handler((wrongName: Int) => Response.text("x"))
  * Drives the REAL `dotc` compiler (out-of-process, `-Werror` = the Scala 3
  * spelling of `-Xfatal-warnings`) against a scratch snippet, using this test
  * JVM's own `java.class.path` (the exact classpath mill resolved for
- * `core.jvm[3.8.3].test`) plus the Scala 3 compiler's own jars (located under
+ * `core.jvm[3.9.0].test`) plus the Scala 3 compiler's own jars (located under
  * the same coursier cache the running JVM's `scala-library` jar came from).
  * This proves the unused-PathVar warning is a REAL compiler diagnostic
  * participating in a warnings-as-errors build (Todo 6's deliverable 3) - not an

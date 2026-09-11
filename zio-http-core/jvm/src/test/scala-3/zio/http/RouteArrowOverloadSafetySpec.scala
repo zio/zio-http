@@ -96,7 +96,7 @@ object RouteArrowOverloadSafetySpec extends ZIOSpecDefault {
         // finding (the plan's draft wording assumed the latter): the safety net still holds (the
         // compile still fails immediately, with no silent misparse or wrong-behavior compile),
         // but the exact message names `Handler`, not `Route`. Verified via a real
-        // `core.jvm[3.8.3].test.compile` run (not just this typeCheck) - see notepad.
+        // `core.jvm[3.9.0].test.compile` run (not just this typeCheck) - see notepad.
         assertZIO(typeCheck {
           """import zio.blocks.endpoint.PathCodec._
 import zio.blocks.endpoint.RoutePattern.{MethodSyntax, RoutePatternOps}
