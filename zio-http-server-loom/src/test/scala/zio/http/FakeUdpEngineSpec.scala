@@ -11,18 +11,16 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
- * Todo 14: future H3/QUIC transport seam — fake UDP engine.
+ * Future H3/QUIC transport seam — fake UDP engine.
  *
- * A test-only UDP engine exercises registration and per-engine lifecycle hooks
- * for a non-TCP transport: a UDP-only registry builds, TCP and UDP engines
- * coexist in one registry (independent port namespaces, so they may share a
- * numeric port), and duplicate protocols stay rejected across transports while
- * Unix domain sockets stay exclusive. The fake claims `Http1` purely as a
- * registration placeholder — no UDP wire behavior exists or is implied, and no
- * QUIC library is involved.
- *
- * Baseline pins: the Todo 1 TCP contract (H1-only builds, Tcp+Unix stays
- * incompatible) is unchanged.
+ * A test-only UDP engine exercises typed registration and per-engine lifecycle
+ * hooks for a non-TCP transport: it claims `HTTP/1.1` purely as a registration
+ * placeholder — no UDP wire behavior exists or is implied, and no QUIC library
+ * is involved. TCP and UDP engines coexist freely (no registry remains to
+ * reject them); coverage is connector-driven, so a mixed registration still
+ * binds the valid TCP connector. The numeric-port-namespace contract
+ * ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]]) is
+ * pinned unchanged below.
  */
 @experimental
 object FakeUdpEngineSpec extends ZIOSpecDefault {
@@ -30,120 +28,64 @@ object FakeUdpEngineSpec extends ZIOSpecDefault {
   /**
    * Test-only UDP engine. `drained`/`closed` record the per-engine lifecycle
    * hooks ([[ProtocolEngine.drain]]/[[ProtocolEngine.close]]) so the suite
-   * proves they fire through a built registry.
+   * proves they fire on a registered engine.
    */
-  private final class FakeUdpEngine(val id: EngineId) extends ProtocolEngine {
-    val transportKind: TransportKind        = TransportKind.Udp
-    val supportedProtocols: Set[ProtocolId] = Set[ProtocolId](ProtocolId.Http1)
-    val drained: AtomicBoolean              = new AtomicBoolean(false)
-    val closed: AtomicBoolean               = new AtomicBoolean(false)
-    def drain(): Unit                       = {
+  private final class FakeUdpEngine extends ProtocolEngine[Version.`HTTP/1.1`.type] {
+    val protocol: Version.`HTTP/1.1`.type = Version.`HTTP/1.1`
+    val transportKind: TransportKind      = TransportKind.Udp
+    val drained: AtomicBoolean            = new AtomicBoolean(false)
+    val closed: AtomicBoolean             = new AtomicBoolean(false)
+    def drain(): Unit                     = {
       drained.set(true)
       ()
     }
-    def close(): Unit                       = {
+    def close(): Unit                     = {
       closed.set(true)
       ()
     }
   }
 
-  private final class StubTcpEngine(
-    val id: EngineId,
-    val supportedProtocols: Set[ProtocolId],
-  ) extends ProtocolEngine {
+  private final class StubTcpEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {
     val transportKind: TransportKind = TransportKind.Tcp
     def drain(): Unit                = ()
     def close(): Unit                = ()
   }
 
-  private final class StubUnixEngine(
-    val id: EngineId,
-    val supportedProtocols: Set[ProtocolId],
-  ) extends ProtocolEngine {
-    val transportKind: TransportKind = TransportKind.Unix
-    def drain(): Unit                = ()
-    def close(): Unit                = ()
-  }
-
-  private val tcpH1: ProtocolEngine =
-    new StubTcpEngine(EngineId("tcp-h1"), Set[ProtocolId](ProtocolId.Http1))
-
-  private val tcpH2: ProtocolEngine =
-    new StubTcpEngine(EngineId("tcp-h2"), Set[ProtocolId](ProtocolId.H2))
+  private val tcpH2: ProtocolEngine[Version.`HTTP/2.0`.type] =
+    new StubTcpEngine(Version.`HTTP/2.0`)
 
   private val routes: Routes[Any] =
     Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("FakeUdpEngineSpec")(
-      suite("baseline TCP contract unchanged")(
-        test("H1-only TCP registry still builds") {
-          val result = EngineRegistry.build(List(tcpH1))
-          assertTrue(result.map(_.protocols) == Right[EngineRegistrationError, Set[ProtocolId]](Set(ProtocolId.Http1)))
-        },
-        test("Tcp+Unix registration is still an incompatible-transport failure") {
-          val unixH1 = new StubUnixEngine(EngineId("unix-h1"), Set[ProtocolId](ProtocolId.Http1))
-          val result = EngineRegistry.build(List(tcpH1, unixH1))
-          assertTrue(
-            result == Left(
-              EngineRegistrationError.IncompatibleTransport(EngineId("unix-h1"), TransportKind.Tcp, TransportKind.Unix),
-            ),
-          )
-        },
-      ),
       suite("fake UDP engine registration")(
-        test("UDP-only registry builds with the fake engine protocol") {
-          val udp    = new FakeUdpEngine(EngineId("udp-h1"))
-          val result = EngineRegistry.build(List(udp))
-          assertTrue(result.map(_.protocols) == Right[EngineRegistrationError, Set[ProtocolId]](Set(ProtocolId.Http1)))
-        },
-        test("TCP and UDP engines coexist in one registry on a shared numeric port") {
-          val udp    = new FakeUdpEngine(EngineId("udp-h1"))
-          val result = EngineRegistry.build(List(tcpH2, udp))
-          assertTrue(
-            result.map(_.protocols) == Right[EngineRegistrationError, Set[ProtocolId]](
-              Set(ProtocolId.H2, ProtocolId.Http1),
-            ),
-          )
-        },
-        test("duplicate protocol across TCP and UDP engines is still rejected") {
-          val udp      = new FakeUdpEngine(EngineId("udp-h1"))
-          val first    = EngineRegistry.build(List(tcpH1, udp))
-          val second   = EngineRegistry.build(List(tcpH1, udp))
-          val expected =
-            Left(EngineRegistrationError.DuplicateProtocol(ProtocolId.Http1, EngineId("tcp-h1"), EngineId("udp-h1")))
-          assertTrue(first == expected, second == expected)
-        },
-        test("Unix stays exclusive: Udp+Unix registration fails typed") {
-          val udp    = new FakeUdpEngine(EngineId("udp-h1"))
-          val unixH1 = new StubUnixEngine(EngineId("unix-h1"), Set[ProtocolId](ProtocolId.Http1))
-          val result = EngineRegistry.build(List(udp, unixH1))
-          assertTrue(
-            result == Left(
-              EngineRegistrationError.IncompatibleTransport(EngineId("unix-h1"), TransportKind.Udp, TransportKind.Unix),
-            ),
-          )
-        },
-        test("registry exposes the UDP engine and its lifecycle hooks fire") {
-          val udp   = new FakeUdpEngine(EngineId("udp-h1"))
-          val built = EngineRegistry.build(List(tcpH2, udp))
-          ZIO.attemptBlocking {
-            val found = built.toOption.flatMap(_.engineFor(ProtocolId.Http1))
-            found.foreach { engine =>
-              engine.drain()
-              engine.close()
-            }
-            assertTrue(built.isRight, found.contains(udp), udp.drained.get(), udp.closed.get())
-          }
-        },
-        test("serve with mixed TCP+UDP engines still binds the valid TCP connector") {
-          val udp     = new FakeUdpEngine(EngineId("udp-h1"))
-          val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngines(List(tcpH2, udp))
+        test("UDP engine registers alongside a TCP engine") {
+          val udp     = new FakeUdpEngine
+          val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(tcpH2).withEngine(udp)
           val context = Context.empty.add(server)
           ZIO.attemptBlocking {
             val handle = Server.serve(routes, context)
             try assertTrue(handle.bindings.length == 1)
             finally handle.shutdownAndWait()
+          }
+        },
+        test("serve with mixed TCP+UDP engines still binds the valid TCP connector") {
+          val udp     = new FakeUdpEngine
+          val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(tcpH2).withEngine(udp)
+          val context = Context.empty.add(server)
+          ZIO.attemptBlocking {
+            val handle = Server.serve(routes, context)
+            try assertTrue(handle.bindings.length == 1)
+            finally handle.shutdownAndWait()
+          }
+        },
+        test("registered engine lifecycle hooks fire") {
+          val udp = new FakeUdpEngine
+          ZIO.attemptBlocking {
+            udp.drain()
+            udp.close()
+            assertTrue(udp.drained.get(), udp.closed.get())
           }
         },
       ),

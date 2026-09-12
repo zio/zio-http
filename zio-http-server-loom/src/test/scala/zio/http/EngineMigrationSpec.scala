@@ -9,30 +9,32 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
- * Migration fixture for Todo 1 (protocol-engine contract).
+ * Migration to the typed protocol-engine contract.
  *
  * Intentional pre-release source breaks recorded here:
  *
- *   - `LoomServer` gains explicit thick-engine registration (`withEngine` /
- *     `withEngines`). Pre-Todo-1 construction `LoomServer(connector)` without
- *     engines keeps serving exactly as before (source-compatible: the new
- *     `engines` parameter defaults to `Nil`).
- *   - `serve` now validates registered engines BEFORE any socket is bound and
- *     throws a deterministic [[EngineRegistrationError]] (duplicate id,
- *     duplicate protocol, incompatible transport) instead of binding.
+ *   - `ProtocolEngine` is now keyed on the Blocks HTTP [[Version]] sum type
+ *     (`ProtocolEngine[P <: Version]` with a single `def protocol: P`).
+ *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
+ *     are deleted, not deprecated.
+ *   - `LoomServer` carries the registered versions as a tuple (`LoomServer[Ps
+ *     <: Tuple]` on Scala 3) and `withEngine` enforces max-one-per-version at
+ *     compile time. Duplicate registration has no runtime representation.
+ *   - `serve` keeps the legacy bind path when no engine is registered, so
+ *     `LoomServer(connector)` without engines serves exactly as before.
+ *     Declaring any engine opts into coverage: every served connector version
+ *     must then have a registered engine, else `serve` fails before bind with
+ *     [[EngineRegistrationError.MissingEngine]].
  *   - `Server.serve(routes, context)` remains the single application definition
  *     shared by all engines; no call-shape change.
  */
 @experimental
 object EngineMigrationSpec extends ZIOSpecDefault {
 
-  private final class StubEngine(
-    val id: EngineId,
-    val transportKind: TransportKind,
-    val supportedProtocols: Set[ProtocolId],
-  ) extends ProtocolEngine {
-    def drain(): Unit = ()
-    def close(): Unit = ()
+  private final class StubEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {
+    val transportKind: TransportKind = TransportKind.Tcp
+    def drain(): Unit                = ()
+    def close(): Unit                = ()
   }
 
   private val routes: Routes[Any] =
@@ -40,7 +42,7 @@ object EngineMigrationSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineMigrationSpec")(
-      test("pre-Todo-1 LoomServer(connector) without engines still serves") {
+      test("LoomServer(connector) without engines still serves") {
         val server  = LoomServer(Connector(bind = BindAddress.localhost(0)))
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
@@ -49,9 +51,9 @@ object EngineMigrationSpec extends ZIOSpecDefault {
           finally handle.shutdownAndWait()
         }
       },
-      test("valid engine registration serves normally") {
-        val h1      = new StubEngine(EngineId("h1"), TransportKind.Tcp, Set(ProtocolId.Http1))
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h1)
+      test("valid typed engine registration serves normally") {
+        val h2      = new StubEngine(Version.`HTTP/2.0`)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -59,10 +61,9 @@ object EngineMigrationSpec extends ZIOSpecDefault {
           finally handle.shutdownAndWait()
         }
       },
-      test("duplicate protocol registration fails serve fast with a typed error") {
-        val h1a     = new StubEngine(EngineId("h1-a"), TransportKind.Tcp, Set(ProtocolId.Http1))
-        val h1b     = new StubEngine(EngineId("h1-b"), TransportKind.Tcp, Set(ProtocolId.Http1))
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngines(List(h1a, h1b))
+      test("uncovered version fails serve fast with a typed missing-engine error") {
+        val h1      = new StubEngine(Version.`HTTP/1.1`)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h1)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val result =
@@ -71,34 +72,10 @@ object EngineMigrationSpec extends ZIOSpecDefault {
               try Left("bound")
               finally handle.shutdownAndWait()
             } catch {
-              case error: EngineRegistrationError.DuplicateProtocol => Right(error)
+              case error: EngineRegistrationError.MissingEngine => Right(error)
             }
           assertTrue(
-            result == Right(
-              EngineRegistrationError.DuplicateProtocol(ProtocolId.Http1, EngineId("h1-a"), EngineId("h1-b")),
-            ),
-          )
-        }
-      },
-      test("incompatible transport registration fails serve fast with a typed error") {
-        val tcpH1   = new StubEngine(EngineId("tcp-h1"), TransportKind.Tcp, Set(ProtocolId.Http1))
-        val unixH1  = new StubEngine(EngineId("unix-h1"), TransportKind.Unix, Set(ProtocolId.Http1))
-        val server  =
-          LoomServer(Connector(bind = BindAddress.localhost(0))).withEngines(List(tcpH1, unixH1))
-        val context = Context.empty.add(server)
-        ZIO.attemptBlocking {
-          val result =
-            try {
-              val handle = Server.serve(routes, context)
-              try Left("bound")
-              finally handle.shutdownAndWait()
-            } catch {
-              case error: EngineRegistrationError.IncompatibleTransport => Right(error)
-            }
-          assertTrue(
-            result == Right(
-              EngineRegistrationError.IncompatibleTransport(EngineId("unix-h1"), TransportKind.Tcp, TransportKind.Unix),
-            ),
+            result == Right(EngineRegistrationError.MissingEngine(Version.`HTTP/2.0`)),
           )
         }
       },

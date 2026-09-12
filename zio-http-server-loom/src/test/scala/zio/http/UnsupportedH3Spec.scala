@@ -10,7 +10,7 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
- * Todo 14: production H3/QUIC is unsupported — fail before bind.
+ * Production H3/QUIC is unsupported — fail before bind.
  *
  * No H3 engine is installed, so every production H3 shape must fail
  * `LoomServer.serve` validation with a deterministic [[InvalidConnector]]
@@ -52,7 +52,7 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
       case _: java.io.IOException => false
     }
 
-  private def serveFailsBeforeBind(server: LoomServer): Boolean = {
+  private def serveFailsBeforeBind(server: Server): Boolean = {
     val outcome: Either[String, InvalidConnector] =
       try {
         val handle = server.serve(routes, Context.empty)
@@ -147,12 +147,11 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
       },
       test("H3 fails even with a valid TCP engine registered") {
         val port   = freePort()
-        val engine = new ProtocolEngine {
-          val id: EngineId                        = EngineId("tcp-h1")
-          val transportKind: TransportKind        = TransportKind.Tcp
-          val supportedProtocols: Set[ProtocolId] = Set[ProtocolId](ProtocolId.Http1)
-          def drain(): Unit                       = ()
-          def close(): Unit                       = ()
+        val engine = new ProtocolEngine[Version.`HTTP/2.0`.type] {
+          val protocol: Version.`HTTP/2.0`.type = Version.`HTTP/2.0`
+          val transportKind: TransportKind      = TransportKind.Tcp
+          def drain(): Unit                     = ()
+          def close(): Unit                     = ()
         }
         val server = LoomServer(Connector(bind = BindAddress.localhost(port), protocol = Protocol.H3(tlsCfg)))
           .withEngine(engine)

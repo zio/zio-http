@@ -5,7 +5,7 @@ import zio.blocks.schema.DynamicValue
 import zio.test._
 
 /**
- * Todo 2: connector protocol sets and negotiation policy.
+ * Connector protocol sets and negotiation policy.
  *
  * Failing-first boundary fixtures for the Scala 3.9 validated
  * protocol-set/negotiation model: H1-only, H2-only (TLS `H2` and cleartext
