@@ -372,7 +372,15 @@ object serverLoom extends Module {
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName     = "zio-http-server-loom"
     def moduleDeps       = Seq(server.jvm(), h2Codec.jvm())
-    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def sources = {
+      // LoomServer is version-split: the typed tuple-keyed builder
+      // (NotGiven/Tuple.Contains) is Scala 3 only, with a Scala 2 fallback
+      // keeping the same runtime behavior (same pattern as core/endpoint).
+      val vDir =
+        if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
+      val base = Seq(r / "src" / "main" / "scala")
+      Task.Sources((if (vDir.nonEmpty) base :+ (r / "src" / "main" / vDir) else base) *)
+    }
     // Branch minimum is 75%: ~25% of branches are in private defensive Any-match arms
     // (toStream, toUnit, toOptionalFrame, toReceivedFrame, toSendError) that exist for
     // Mux API version compatibility and cannot be reached from outside the enclosing class.
@@ -385,7 +393,15 @@ object serverLoom extends Module {
     )
     object test extends ScoverageTests with ZioHttpTestModule {
       override def moduleDeps = Seq(serverLoom.jvm(), clientJava.jvm())
-      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+      override def sources    = {
+        // The typed-negation spec uses Scala 3 compile-time testing only.
+        val vDir =
+          if (crossScalaVersion.startsWith("2.")) "scala-2"
+          else if (crossScalaVersion.startsWith("3.")) "scala-3"
+          else ""
+        val base = Seq(r / "src" / "test" / "scala")
+        Task.Sources((if (vDir.nonEmpty) base :+ (r / "src" / "test" / vDir) else base) *)
+      }
     }
   }
 }

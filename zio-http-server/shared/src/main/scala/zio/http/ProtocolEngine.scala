@@ -1,32 +1,15 @@
 package zio.http
 
 /**
- * Application protocol spoken by a [[ProtocolEngine]].
+ * Thick protocol engine keyed on the Blocks HTTP [[Version]] sum type
+ * (`HTTP/1.0`, `HTTP/1.1`, `HTTP/2.0`, `HTTP/3.0`).
  *
- * One protocol is served by exactly one engine per registry: duplicate
- * registrations are rejected deterministically by [[EngineRegistry.build]].
- *
- * There is deliberately no H3 member: H3/QUIC has no installed engine, so no
- * engine may claim it and production configuration must neither advertise nor
- * run it (see [[ConnectorFailure.H3NotAdvertised]]). Transport families are
- * described by the shared [[TransportKind]] contract.
- */
-sealed trait ProtocolId extends Product with Serializable
-
-object ProtocolId {
-  case object Http1 extends ProtocolId
-  case object H2C   extends ProtocolId
-  case object H2    extends ProtocolId
-}
-
-/** Unique identity of a registered [[ProtocolEngine]]. */
-final case class EngineId(value: String) extends AnyVal
-
-/**
- * Thick protocol engine: owns its wire semantics and its connections.
- *
- * Engines never see each other's frames and are never discovered reflectively:
- * every engine serving a registry is listed explicitly via
+ * One engine serves exactly one version, and at most one engine per version may
+ * be registered on a server: on Scala 3 the bound is enforced at compile time
+ * by [[LoomServer.withEngine]] (`Tuple.Contains[Ps, P] =:= false`), so there is
+ * no runtime duplicate-registration path and no `EngineId`/`ProtocolId`
+ * registry. Engines never see each other's frames and are never discovered
+ * reflectively: every engine serving a server is listed explicitly via
  * [[LoomServer.withEngine]]. Application behavior stays defined once, in
  * `Server.serve(routes, context)`; engines share one [[EngineDispatcher]] for
  * route handling.
@@ -37,17 +20,18 @@ final case class EngineId(value: String) extends AnyVal
  *   - [[drain]]: stop accepting new work on owned connections and finish
  *     in-flight work promptly.
  *   - [[close]]: force-close owned connections immediately.
+ *
+ * The type parameter is covariant because engines are only ever read through it
+ * (see [[EngineCoverage.check]]); use sites still name the exact served version
+ * (the singleton type of the served `Version` case).
  */
-trait ProtocolEngine {
+trait ProtocolEngine[+P <: Version] {
 
-  /** Unique identity of this engine. */
-  def id: EngineId
+  /** The exact HTTP version this engine serves. */
+  def protocol: P
 
   /** Transport resource this engine can own connections on. */
   def transportKind: TransportKind
-
-  /** Application protocols this engine serves. */
-  def supportedProtocols: Set[ProtocolId]
 
   /** Initiate graceful drain of owned connections. */
   def drain(): Unit
@@ -59,10 +43,10 @@ trait ProtocolEngine {
 /**
  * Typed engine-registration failures.
  *
- * All failures are deterministic values: the same registration input always
- * yields the same error, in registration order. Carried as `Exception`
- * subclasses so invalid registrations can also fail `serve` fast, before any
- * socket is bound.
+ * Carried as `Exception` subclasses so invalid registrations can also fail
+ * `serve` fast, before any socket is bound. The only remaining failure is a
+ * coverage gap: duplicate registration is impossible by construction
+ * (compile-time max-one per version), so it has no runtime representation.
  */
 sealed abstract class EngineRegistrationError(message: String) extends Exception(message) {
   override def getMessage: String = message
@@ -70,102 +54,72 @@ sealed abstract class EngineRegistrationError(message: String) extends Exception
 
 object EngineRegistrationError {
 
-  /** Two engines share one [[EngineId]]. */
-  final case class DuplicateEngineId(id: EngineId)
-      extends EngineRegistrationError(s"Duplicate protocol engine id: ${id.value}")
-
   /**
-   * Two engines claim one [[ProtocolId]]; each protocol has exactly one owner.
+   * A served connector needs `version` but no registered engine claims it.
+   * Register one with `LoomServer.withEngine` before `serve`.
    */
-  final case class DuplicateProtocol(protocol: ProtocolId, first: EngineId, second: EngineId)
+  final case class MissingEngine(version: Version)
       extends EngineRegistrationError(
-        s"Duplicate protocol $protocol: claimed by ${first.value} and ${second.value}",
+        s"No protocol engine registered for HTTP version $version: register one with LoomServer.withEngine before serve",
       )
-
-  /** An engine's transport does not match the registry's transport. */
-  final case class IncompatibleTransport(engine: EngineId, expected: TransportKind, actual: TransportKind)
-      extends EngineRegistrationError(
-        s"Engine ${engine.value} uses transport $actual but the registry expects $expected",
-      )
-
-  /** A registry must contain at least one engine. */
-  case object EmptyRegistry extends EngineRegistrationError("Engine registry must contain at least one engine")
 }
 
 /**
- * Validated set of engines serving one application definition.
+ * Compile-time-keyed engine coverage for `serve`.
  *
- * Build with [[EngineRegistry.build]]: checks run in a fixed order (empty,
- * duplicate ids, incompatible transports, duplicate protocols) and report the
- * first violation in registration order, so failures are reproducible.
- *
- * Transport coexistence: TCP and UDP engines may share one registry because
- * they draw numeric ports from independent OS namespaces — a future UDP
- * (QUIC/H3) engine coexists with TCP engines on one numeric port. Unix-domain
- * sockets share neither namespace and stay exclusive with every other kind.
+ * Coverage is connector-driven and opt-in: a server with no explicitly
+ * registered engines keeps the legacy bind path unchanged, while declaring any
+ * engine opts the server into the typed contract — every served connector
+ * version must then have a registered engine, checked before any socket is
+ * bound (see [[EngineRegistrationError.MissingEngine]]). Extra engines no
+ * connector needs are allowed.
  */
-final class EngineRegistry private (val engines: List[ProtocolEngine]) {
-
-  /** Every protocol served by this registry, each with exactly one owner. */
-  val protocols: Set[ProtocolId] =
-    engines.foldLeft(Set.empty[ProtocolId])(_ ++ _.supportedProtocols)
-
-  /** The engine owning `protocol`, if registered. */
-  def engineFor(protocol: ProtocolId): Option[ProtocolEngine] =
-    engines.find(_.supportedProtocols.contains(protocol))
-}
-
-object EngineRegistry {
+object EngineCoverage {
 
   /**
-   * True when two engine transport kinds may share one registry: identical
-   * kinds, or the TCP/UDP socket pair whose numeric-port namespaces are
-   * independent. Unix-domain sockets bind paths rather than ports and coexist
-   * with nothing.
+   * Total `connector -> Version` mapping over the current [[Protocol]] cases.
+   *
+   * `Protocol.H2C` and `Protocol.H2` both mean wire `HTTP/2.0`: TLS vs
+   * cleartext is connector transport, not version. One `HTTP/2.0` engine
+   * therefore serves both binds (dual-bind sharing drain/close), so two H2
+   * connectors do NOT need two engines. `Protocol.H3` maps to `HTTP/3.0`, which
+   * has no engine: at `serve` it is refused earlier by connector validation
+   * (`ConnectorFailure.H3NotAdvertised`), while this mapping keeps the pure
+   * function total with no H3 special case.
+   *
+   * There is deliberately no H1 mapping yet: `Connector.protocol` has no H1
+   * case in this wave and no H1 engine or transport exists (both arrive with
+   * the H1 wave), so H2C connectors are never silently treated as H1. An engine
+   * may already claim `HTTP/1.1` (e.g. behind a config flag); coverage for H1
+   * connectors activates with the H1 connector case. Unregistered versions
+   * (`HTTP/1.0`, unclaimed `HTTP/1.1`, `HTTP/3.0`) simply have no engine.
    */
-  private def coexistsWith(first: TransportKind, second: TransportKind): Boolean =
-    (first == second) || (isSocketFamily(first) && isSocketFamily(second))
-
-  private def isSocketFamily(kind: TransportKind): Boolean =
-    (kind == TransportKind.Tcp) || (kind == TransportKind.Udp)
-
-  def build(engines: List[ProtocolEngine]): Either[EngineRegistrationError, EngineRegistry] = {
-    if (engines.isEmpty) return Left(EngineRegistrationError.EmptyRegistry)
-
-    val seenIds = scala.collection.mutable.Set.empty[EngineId]
-    var index   = 0
-    while (index < engines.length) {
-      val id = engines(index).id
-      if (!seenIds.add(id)) return Left(EngineRegistrationError.DuplicateEngineId(id))
-      index += 1
+  def protocolVersion(protocol: Protocol): Version =
+    protocol match {
+      case Protocol.H2C(_)      => Version.`HTTP/2.0`
+      case Protocol.H2(_, _)    => Version.`HTTP/2.0`
+      case Protocol.H3(_, _, _) => Version.`HTTP/3.0`
     }
 
-    val expected = engines.head.transportKind
-    index = 0
-    while (index < engines.length) {
-      val engine = engines(index)
-      if (!coexistsWith(expected, engine.transportKind))
-        return Left(EngineRegistrationError.IncompatibleTransport(engine.id, expected, engine.transportKind))
+  /**
+   * Checks that every connector version has a registered engine. Reports the
+   * first uncovered version in connector order, so failures are reproducible.
+   */
+  def check(
+    connectors: List[Connector],
+    engines: List[ProtocolEngine[Version]],
+  ): Either[EngineRegistrationError, Unit] = {
+    val owned                    = engines.map(_.protocol).toSet
+    var index                    = 0
+    var missing: Option[Version] = None
+    while (index < connectors.length && missing.isEmpty) {
+      val version = protocolVersion(connectors(index).protocol)
+      if (!owned.contains(version)) missing = Some(version)
       index += 1
     }
-
-    val owners = scala.collection.mutable.Map.empty[ProtocolId, EngineId]
-    index = 0
-    while (index < engines.length) {
-      val engine    = engines(index)
-      val protocols = engine.supportedProtocols.toList.sortBy(_.toString)
-      var j         = 0
-      while (j < protocols.length) {
-        val protocol = protocols(j)
-        owners.get(protocol) match {
-          case Some(first) => return Left(EngineRegistrationError.DuplicateProtocol(protocol, first, engine.id))
-          case None        => owners.put(protocol, engine.id)
-        }
-        j += 1
-      }
-      index += 1
+    missing match {
+      case Some(version) => Left(EngineRegistrationError.MissingEngine(version))
+      case None          => Right(())
     }
-
-    Right(new EngineRegistry(engines))
   }
 }
