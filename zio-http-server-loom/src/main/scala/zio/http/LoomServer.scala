@@ -14,15 +14,15 @@ import zio.http.h2.H2Transport
  * duplicate path and no zero-engine public state: every `apply` overload takes
  * at least one engine.
  *
- * The primary constructor stays package-visible with defaulted engines only for
- * pre-engine H2/client specs written before engines existed; it is not public
- * API and dies when the real H2 engine lands.
+ * The primary constructor is private: servers come only from the fixed `apply`
+ * overloads, so a server with zero engines is unrepresentable, not merely
+ * undocumented.
  */
-class LoomServer private[http] (
-  connector: Connector = Connector.default,
-  additionalConnectors: List[Connector] = Nil,
-  defectHandler: DefectHandler = DefectHandler.default,
-  engines: List[ProtocolEngine[Version]] = Nil,
+class LoomServer private (
+  connector: Connector,
+  additionalConnectors: List[Connector],
+  defectHandler: DefectHandler,
+  engines: List[ProtocolEngine[Version]],
 ) extends Server {
 
   def addConnector(c: Connector): LoomServer =
@@ -43,14 +43,13 @@ class LoomServer private[http] (
         case Right(_)      => ()
       }
     }
-    // Typed coverage (opt-in): declaring any engine opts into the contract, so
-    // every served connector version must then have a registered engine. A
-    // server with no engines keeps the legacy bind path unchanged.
-    if (engines.nonEmpty)
-      EngineCoverage.check(allConnectors, engines) match {
-        case Left(error) => throw error
-        case Right(_)    => ()
-      }
+    // Typed coverage: every served connector version must have a registered
+    // engine — construction requires at least one engine, so the check always
+    // runs. Uncovered versions fail before bind with `MissingEngine`.
+    EngineCoverage.check(allConnectors, engines) match {
+      case Left(error) => throw error
+      case Right(_)    => ()
+    }
     val bound         = allConnectors.map { c =>
       new H2Transport(routes, context, c, defectHandler).start()
     }

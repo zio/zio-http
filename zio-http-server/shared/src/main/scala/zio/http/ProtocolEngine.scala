@@ -66,12 +66,10 @@ object EngineRegistrationError {
 /**
  * Compile-time-keyed engine coverage for `serve`.
  *
- * Coverage is connector-driven and opt-in: a server with no explicitly
- * registered engines keeps the legacy bind path unchanged, while declaring any
- * engine opts the server into the typed contract — every served connector
- * version must then have a registered engine, checked before any socket is
- * bound (see [[EngineRegistrationError.MissingEngine]]). Extra engines no
- * connector needs are allowed.
+ * Coverage is connector-driven: every served connector version must have a
+ * registered engine, checked before any socket is bound (see
+ * [[EngineRegistrationError.MissingEngine]]). Extra engines no connector needs
+ * are allowed.
  */
 object EngineCoverage {
 
