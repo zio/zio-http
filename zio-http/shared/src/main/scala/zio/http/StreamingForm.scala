@@ -107,6 +107,10 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                                 .incomingStreamingBinary(newFormState.tree, newQueue)
                                 .mapError(_.asException)
                               _ = state.withCurrentQueue(newQueue)
+                              // The content of this part is forwarded through `buffer` and `newQueue`, so the
+                              // state machine only has to keep detecting boundaries. Without this it would also
+                              // accumulate the whole part in memory (#4283).
+                              _ = newFormState.startIgnoringContents
                             } yield Some(streamingFormData)
                           }.getOrThrowFiberFailure()
                         } else {

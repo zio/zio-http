@@ -91,7 +91,7 @@ private[http] object FormState {
         ast match {
           case content: Content         =>
             flush(content)
-            addToTree(EoL) // preserving EoL for multiline content
+            if (!dropContents) addToTree(EoL) // preserving EoL for multiline content
             self
           case EncapsulatingBoundary(_) => BoundaryEncapsulated(tree)
           case ClosingBoundary(_)       => BoundaryClosed(tree)
@@ -99,8 +99,13 @@ private[http] object FormState {
       } else {
         if (!lastByte.isEmpty) {
           if (isBufferEmpty) isBufferEmpty = false
-          buffer += lastByte.get
-          bufferSize += 1
+          // While contents are dropped, only the first bytes of a line are needed to tell a boundary delimiter
+          // from content: a line longer than the closing boundary can never be one. Not buffering past that point
+          // keeps memory bounded for arbitrarily large (e.g. newline-free) binary parts (#4283).
+          if (!dropContents || bufferSize <= closingBoundaryBytesSize) {
+            buffer += lastByte.get
+            bufferSize += 1
+          }
         }
         lastByte = OptionalByte.Some(byte)
         self
@@ -108,10 +113,21 @@ private[http] object FormState {
 
     }
 
+    /**
+     * Stops recording the content of the current part in the tree. Boundaries
+     * and headers are still tracked, but content lines are neither kept in the
+     * tree nor buffered beyond what boundary detection needs. Use this when the
+     * content is consumed elsewhere (e.g. streamed to the user) so that the
+     * memory used by the state machine stays bounded regardless of the part's
+     * size.
+     */
     def startIgnoringContents: FormStateBuffer = {
       if (!dropContents) dropContents = true
       self
     }
+
+    /** Number of bytes currently buffered for the line being parsed. */
+    private[http] def bufferedBytes: Int = bufferSize
 
     def reset(): Unit = {
       tree0.clear()
