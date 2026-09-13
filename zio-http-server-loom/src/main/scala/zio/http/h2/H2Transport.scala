@@ -2,7 +2,6 @@ package zio.http.h2
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
-import scala.annotation.experimental
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -37,7 +36,6 @@ import zio.http.{
   Version,
 }
 
-@experimental
 final class H2Transport[Ctx](
   routes: Routes[Ctx],
   context: Context[Ctx],
@@ -1051,7 +1049,6 @@ final class H2Transport[Ctx](
     }
 }
 
-@experimental
 object H2Transport {
 
   /**
