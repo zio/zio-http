@@ -5,14 +5,13 @@ package zio.http
  * (`HTTP/1.0`, `HTTP/1.1`, `HTTP/2.0`, `HTTP/3.0`).
  *
  * One engine serves exactly one version, and at most one engine per version may
- * be registered on a server: on Scala 3 the bound is enforced at compile time
- * by [[LoomServer.withEngine]] (`NotGiven[Ps <:< P]` over the accumulated
- * intersection), so there is no runtime duplicate-registration path and no
- * `EngineId`/`ProtocolId` registry. Engines never see each other's frames and
- * are never discovered reflectively: every engine serving a server is listed
- * explicitly via [[LoomServer.withEngine]]. Application behavior stays defined
- * once, in `Server.serve(routes, context)`; engines share one
- * [[EngineDispatcher]] for route handling.
+ * be registered on a server: the fixed [[LoomServer.apply]] overloads enforce
+ * the bound at compile time (pairwise `=:!=` evidence), so there is no runtime
+ * duplicate-registration path and no `EngineId`/`ProtocolId` registry. Engines
+ * never see each other's frames and are never discovered reflectively: every
+ * engine serving a server is listed explicitly via [[LoomServer.apply]].
+ * Application behavior stays defined once, in `Server.serve(routes, context)`;
+ * engines share one [[EngineDispatcher]] for route handling.
  *
  * Shutdown coordination belongs to the server owner; engines expose only the
  * per-engine hooks:
@@ -55,12 +54,12 @@ sealed abstract class EngineRegistrationError(message: String) extends Exception
 object EngineRegistrationError {
 
   /**
-   * A served connector needs `version` but no registered engine claims it.
-   * Register one with `LoomServer.withEngine` before `serve`.
+   * A served connector needs `version` but no registered engine claims it. List
+   * one with `LoomServer.apply` before `serve`.
    */
   final case class MissingEngine(version: Version)
       extends EngineRegistrationError(
-        s"No protocol engine registered for HTTP version $version: register one with LoomServer.withEngine before serve",
+        s"No protocol engine registered for HTTP version $version: list one with LoomServer.apply before serve",
       )
 }
 

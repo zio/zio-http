@@ -376,8 +376,7 @@ object serverLoom extends Module {
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName     = "zio-http-server-loom"
     def moduleDeps       = Seq(server.jvm(), h2Codec.jvm())
-    // Shared sources plus the Scala 2/3 engine-proof variant.
-    override def sources = Task.Sources(r / "src" / "main" / "scala", r / "src" / "main" / vDir(crossScalaVersion))
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
     // Branch minimum is 75%: ~25% of branches are in private defensive Any-match arms
     // (toStream, toUnit, toOptionalFrame, toReceivedFrame, toSendError) that exist for
     // Mux API version compatibility and cannot be reached from outside the enclosing class.

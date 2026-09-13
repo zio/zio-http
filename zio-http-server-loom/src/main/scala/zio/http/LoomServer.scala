@@ -4,56 +4,32 @@ import zio.blocks.context.Context
 import zio.http.h2.H2Transport
 
 /**
- * Marker for a server with no registered engines: the base of the registered
- * version set. `NoEngines` is unrelated to the [[Version]] hierarchy, so
- * `NoEngines <:< P` holds for no `P` and the first registration always passes
- * the [[EngineNotRegistered]] proof; every `withEngine` then accumulates
- * `Ps with P`, and an intersection is a subtype of each member, so repeating a
- * version always finds `Ps <:< P` and fails the proof instead.
- */
-sealed trait NoEngines
-
-/**
  * Loom (virtual-thread, blocking) [[Server]] with explicitly registered thick
  * protocol engines.
  *
- * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
- * max-one-per-version bound: [[withEngine]] requires an [[EngineNotRegistered]]
- * proof, which the Scala 3 variant derives from `NotGiven[Ps <:< P]` (the Scala
- * 2 variant is unchecked, with identical runtime behavior). There is no runtime
- * duplicate path. Each conditional branch still checks max-one independently,
- * so `if (flag) server.withEngine(engine) else server` typechecks and serves in
- * both branches.
+ * Engines are keyed on the Blocks HTTP [[Version]] sum type and listed once at
+ * construction, with a compile-time max-one-per-version bound: the fixed
+ * [[LoomServer.apply]] overloads require pairwise `=:!=` evidence, so listing
+ * two engines for the same version does not compile. There is no runtime
+ * duplicate path and no zero-engine public state: every `apply` overload takes
+ * at least one engine.
  *
- * @tparam Ps
- *   the intersection of engine versions registered so far (`NoEngines` when
- *   empty, `Ps with P` after each registration).
+ * The primary constructor stays package-visible with defaulted engines only for
+ * pre-engine H2/client specs written before engines existed; it is not public
+ * API and dies when the real H2 engine lands.
  */
-class LoomServer[Ps](
-  connector: Connector,
+class LoomServer private[http] (
+  connector: Connector = Connector.default,
   additionalConnectors: List[Connector] = Nil,
   defectHandler: DefectHandler = DefectHandler.default,
   engines: List[ProtocolEngine[Version]] = Nil,
 ) extends Server {
 
-  def addConnector(c: Connector): LoomServer[Ps] =
-    new LoomServer[Ps](connector, c :: additionalConnectors, defectHandler, engines)
+  def addConnector(c: Connector): LoomServer =
+    new LoomServer(connector, c :: additionalConnectors, defectHandler, engines)
 
-  def withDefectHandler(h: DefectHandler): LoomServer[Ps] =
-    new LoomServer[Ps](connector, additionalConnectors, h, engines)
-
-  /**
-   * Register the engine serving version `P`. At most one engine per version: a
-   * second registration for an already-registered `P` is a compile-time error
-   * on Scala 3, not a runtime failure.
-   *
-   * `Protocol.H2C` and `Protocol.H2` connectors share one `HTTP/2.0` engine
-   * (TLS vs cleartext is connector transport, not version).
-   */
-  def withEngine[P <: Version](
-    engine: ProtocolEngine[P],
-  )(implicit ev: EngineNotRegistered[Ps, P]): LoomServer[Ps with P] =
-    new LoomServer[Ps with P](connector, additionalConnectors, defectHandler, engine :: engines)
+  def withDefectHandler(h: DefectHandler): LoomServer =
+    new LoomServer(connector, additionalConnectors, h, engines)
 
   override def serve[Ctx](routes: Routes[Ctx], context: Context[Ctx]): ServerHandle = {
     val allConnectors = connector :: additionalConnectors
@@ -83,6 +59,65 @@ class LoomServer[Ps](
 }
 
 object LoomServer {
-  def apply(connector: Connector = Connector.default): LoomServer[NoEngines] =
-    new LoomServer[NoEngines](connector)
+
+  /** One engine: the minimal serving shape. */
+  def apply[P <: Version](connector: Connector, e1: ProtocolEngine[P]): LoomServer =
+    new LoomServer(connector, Nil, DefectHandler.default, List(e1))
+
+  /** Two engines of distinct versions. */
+  def apply[P <: Version, Q <: Version](connector: Connector, e1: ProtocolEngine[P], e2: ProtocolEngine[Q])(implicit
+    ev: P =:!= Q,
+  ): LoomServer =
+    new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2))
+
+  /** Three engines of pairwise distinct versions. */
+  def apply[P <: Version, Q <: Version, R <: Version](
+    connector: Connector,
+    e1: ProtocolEngine[P],
+    e2: ProtocolEngine[Q],
+    e3: ProtocolEngine[R],
+  )(implicit
+    ev1: P =:!= Q,
+    ev2: P =:!= R,
+    ev3: Q =:!= R,
+  ): LoomServer =
+    new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2, e3))
+
+  /**
+   * Four engines of pairwise distinct versions: the maximum, since the Blocks
+   * [[Version]] sum type has exactly four cases.
+   */
+  def apply[P <: Version, Q <: Version, R <: Version, S <: Version](
+    connector: Connector,
+    e1: ProtocolEngine[P],
+    e2: ProtocolEngine[Q],
+    e3: ProtocolEngine[R],
+    e4: ProtocolEngine[S],
+  )(implicit
+    ev1: P =:!= Q,
+    ev2: P =:!= R,
+    ev3: P =:!= S,
+    ev4: Q =:!= R,
+    ev5: Q =:!= S,
+    ev6: R =:!= S,
+  ): LoomServer =
+    new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2, e3, e4))
+}
+
+/**
+ * Type inequality used by the fixed engine-list [[LoomServer.apply]] overloads.
+ *
+ * Proved by implicit ambiguity: `neq` applies for any pair while the two
+ * `neqAmbig` instances also apply when both sides are equal, so duplicates
+ * never summon. Identical mechanics on Scala 2.13 and Scala 3, with no
+ * version-split helpers, facsimiles, or match types.
+ */
+sealed trait =:!=[A, B]
+
+object =:!= {
+  implicit def neq[A, B]: A =:!= B = new =:!=[A, B] {}
+
+  implicit def neqAmbig1[A]: A =:!= A = null
+
+  implicit def neqAmbig2[A]: A =:!= A = null
 }
