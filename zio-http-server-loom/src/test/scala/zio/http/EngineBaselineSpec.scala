@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -20,7 +18,7 @@ import zio.http.h2.H2RawClientFixture.RawH2Client
  * both without engines (legacy bind path) and with a registered HTTP/2.0 engine
  * (typed coverage).
  */
-@experimental
+
 object EngineBaselineSpec extends ZIOSpecDefault {
 
   private val routes: Routes[Any] =

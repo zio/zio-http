@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
@@ -28,7 +26,7 @@ import zio.test._
  *   - `Server.serve(routes, context)` remains the single application definition
  *     shared by all engines; no call-shape change.
  */
-@experimental
+
 object EngineMigrationSpec extends ZIOSpecDefault {
 
   private final class StubEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {

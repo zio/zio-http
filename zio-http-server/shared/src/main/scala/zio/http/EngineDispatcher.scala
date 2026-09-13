@@ -1,6 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
 import scala.collection.immutable.ListMap
 
 import zio.blocks.context.Context
@@ -13,7 +12,6 @@ import zio.blocks.scope.Scope
  * Engines own their wire semantics (frames, flow control, connections) and hand
  * fully-decoded [[Request]] values to [[dispatch]]; routes never see frames.
  */
-@experimental
 final class EngineDispatcher[Ctx](
   routes: Routes[Ctx],
   context: Context[Ctx],
@@ -67,7 +65,6 @@ final class EngineDispatcher[Ctx](
     }
 }
 
-@experimental
 object EngineDispatcher {
   private def buildRouteTree[Ctx](routes: Routes[Ctx]): RouteTree[Route[Ctx]] =
     routes.routes.foldLeft(RouteTree.empty[Route[Ctx]]) { (tree, route) =>

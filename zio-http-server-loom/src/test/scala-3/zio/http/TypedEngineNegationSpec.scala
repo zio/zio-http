@@ -1,6 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
 import scala.compiletime.testing.{typeCheckErrors, typeChecks}
 
 import zio.test._
@@ -15,7 +14,7 @@ import zio.test._
  * Scala 2 only documents the bound (see the `scala-2` `LoomServer` fallback),
  * so this spec lives in the Scala 3 test sources.
  */
-@experimental
+
 object TypedEngineNegationSpec extends ZIOSpecDefault {
 
   private final class StubEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {

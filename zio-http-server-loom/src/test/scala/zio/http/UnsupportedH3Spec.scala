@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
@@ -21,7 +19,7 @@ import zio.test._
  * advertised (no protocol-set mapping), never selected (no ALPN id), and never
  * run.
  */
-@experimental
+
 object UnsupportedH3Spec extends ZIOSpecDefault {
 
   private def tlsCfg: TlsConfig =

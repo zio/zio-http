@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
@@ -21,7 +19,7 @@ import zio.test._
  * must have a registered engine, else `serve` fails before bind with
  * [[EngineRegistrationError.MissingEngine]].
  */
-@experimental
+
 object ProtocolEngineSpec extends ZIOSpecDefault {
 
   private final class StubEngine[V <: Version](

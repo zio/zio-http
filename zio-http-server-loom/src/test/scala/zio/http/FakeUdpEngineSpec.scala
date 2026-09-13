@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import java.util.concurrent.atomic.AtomicBoolean
 
 import zio._
@@ -22,7 +20,7 @@ import zio.test._
  * ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]]) is
  * pinned unchanged below.
  */
-@experimental
+
 object FakeUdpEngineSpec extends ZIOSpecDefault {
 
   /**
