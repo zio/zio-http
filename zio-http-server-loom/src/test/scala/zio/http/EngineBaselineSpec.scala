@@ -14,9 +14,8 @@ import zio.http.h2.H2RawClientFixture.RawH2Client
  *
  * Pins the contract the typed engine wave preserves: one
  * `Server.serve(routes, context)` application definition, `LoomServer` bound to
- * an H2C connector, a single TCP binding, live traffic, and working shutdown —
- * both without engines (legacy bind path) and with a registered HTTP/2.0 engine
- * (typed coverage).
+ * an H2C connector with a registered HTTP/2.0 engine, a single TCP binding,
+ * live traffic, and working shutdown.
  */
 
 object EngineBaselineSpec extends ZIOSpecDefault {
@@ -24,10 +23,18 @@ object EngineBaselineSpec extends ZIOSpecDefault {
   private val routes: Routes[Any] =
     Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
+  private val engine: ProtocolEngine[Version.`HTTP/2.0`.type] =
+    new ProtocolEngine[Version.`HTTP/2.0`.type] {
+      val protocol: Version.`HTTP/2.0`.type = Version.`HTTP/2.0`
+      val transportKind: TransportKind      = TransportKind.Tcp
+      def drain(): Unit                     = ()
+      def close(): Unit                     = ()
+    }
+
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineBaselineSpec")(
       test("LoomServer binds one ephemeral TCP connector and serves GET / with 200") {
-        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -51,7 +58,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
         }
       },
       test("shutdown stops the server and awaitShutdown returns") {
-        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -61,12 +68,6 @@ object EngineBaselineSpec extends ZIOSpecDefault {
         }
       },
       test("registered HTTP/2.0 engine serves GET / with 200") {
-        val engine  = new ProtocolEngine[Version.`HTTP/2.0`.type] {
-          val protocol: Version.`HTTP/2.0`.type = Version.`HTTP/2.0`
-          val transportKind: TransportKind      = TransportKind.Tcp
-          def drain(): Unit                     = ()
-          def close(): Unit                     = ()
-        }
         val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)

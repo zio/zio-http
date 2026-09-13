@@ -28,9 +28,9 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
+  DefectHandler,
   Handler,
   Http2Config,
-  LoomServer,
   Method,
   Middleware,
   Protocol,
@@ -38,6 +38,7 @@ import zio.http.{
   Response,
   Route,
   Routes,
+  ServerHandle,
   Status,
   TrustedProxyConfig,
   handler,
@@ -346,7 +347,17 @@ object H2HardeningMatrixSpec extends ZIOSpecDefault {
         ZIO.attempt {
           val sink   = CaptureSink()
           val handle =
-            new LoomServer(connector).serve(MatrixRoutes @@ Middleware.accessLog(sink), Context.empty)
+            ServerHandle.live(
+              List(
+                new H2Transport(
+                  MatrixRoutes @@ Middleware.accessLog(sink),
+                  Context.empty,
+                  connector,
+                  DefectHandler.default,
+                )
+                  .start(),
+              ),
+            )
           (handle, sink)
         },
       ) { case (handle, _) => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore }

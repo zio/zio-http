@@ -21,12 +21,13 @@ import zio.http.{
   BindAddress,
   BoundAddress,
   Connector,
+  DefectHandler,
   Handler,
-  LoomServer,
   Request,
   Response,
   Route,
   Routes,
+  ServerHandle,
   Status,
   handler,
 }
@@ -195,7 +196,7 @@ object H2SlowStreamSpec extends ZIOSpecDefault {
             bodyTimeoutMs = bodyTimeoutMs,
             requestTimeoutMs = requestTimeoutMs,
           )
-          new LoomServer(connector).serve(routes, Context.empty)
+          ServerHandle.live(List(new H2Transport(routes, Context.empty, connector, DefectHandler.default).start()))
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>

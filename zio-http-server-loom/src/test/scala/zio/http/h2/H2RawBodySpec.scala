@@ -21,12 +21,13 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  LoomServer,
+  DefectHandler,
   Method,
   Request,
   Response,
   Route,
   Routes,
+  ServerHandle,
   Status,
   handler,
 }
@@ -191,7 +192,7 @@ object H2RawBodySpec extends ZIOSpecDefault {
       .acquireRelease(
         ZIO.attempt {
           val connector = Connector(bind = BindAddress.localhost(0))
-          new LoomServer(connector).serve(HmacRoutes, Context.empty)
+          ServerHandle.live(List(new H2Transport(HmacRoutes, Context.empty, connector, DefectHandler.default).start()))
         },
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>

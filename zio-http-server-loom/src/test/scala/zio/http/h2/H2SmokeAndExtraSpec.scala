@@ -154,8 +154,8 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
           }
         }
       },
-      // ── LoomServer.withDefectHandler covers withDefectHandler code path ──
-      test("LoomServer.withDefectHandler returns server using new defect handler") {
+      // ── Transport serves with a custom defect handler mapping defects to 503 ──
+      test("Custom defect handler maps handler defects to 503") {
         import zio.blocks.context.Context
         val customDefect = new DefectHandler {
           override def handleDefect(request: zio.http.Request, throwable: Throwable) =
@@ -169,10 +169,13 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
             },
           ),
         )
-        val server       = new zio.http.LoomServer().withDefectHandler(customDefect)
         ZIO
           .acquireRelease(
-            ZIO.attempt(server.serve(routes, Context.empty)),
+            ZIO.attempt(
+              ServerHandle.live(
+                List(new H2Transport(routes, Context.empty, Connector.default, customDefect).start()),
+              ),
+            ),
           )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
             val port = handle.bindings.head.address match {

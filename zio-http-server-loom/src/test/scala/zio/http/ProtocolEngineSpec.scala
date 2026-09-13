@@ -13,11 +13,10 @@ import zio.test._
  * max-one-per-version bound (the fixed `LoomServer.apply` overloads require
  * pairwise `=:!=` evidence). There is no runtime duplicate path: registering
  * two engines for one version does not compile (proven by
- * `TypedEngineNegationSpec` on Scala 3; the Scala 2 proof is an unchecked no-op
- * with identical runtime). The only runtime registration failure left is a
- * coverage gap: once any engine is declared, every served connector version
- * must have a registered engine, else `serve` fails before bind with
- * [[EngineRegistrationError.MissingEngine]].
+ * `TypedEngineNegationSpec` on Scala 3; the shared trick works identically on
+ * Scala 2.13). The only runtime registration failure left is a coverage gap:
+ * every served connector version must have a registered engine, else `serve`
+ * fails before bind with [[EngineRegistrationError.MissingEngine]].
  */
 
 object ProtocolEngineSpec extends ZIOSpecDefault {
@@ -116,7 +115,7 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
       test("H2C and H2 connectors share one HTTP/2.0 engine") {
         val first   = Connector(bind = BindAddress.localhost(0))
         val second  = Connector(bind = BindAddress.localhost(0))
-        val server  = LoomServer(first, h2).addConnector(second)
+        val server  = LoomServer(first, h2).addConnector(second).withDefectHandler(DefectHandler.default)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)

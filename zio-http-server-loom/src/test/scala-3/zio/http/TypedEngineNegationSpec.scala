@@ -11,9 +11,11 @@ import zio.test._
  * listing two engines for one version is a type error, not a runtime failure.
  * This spec pins both sides: well-formed lists (and the config-flag conditional
  * pattern) typecheck, duplicates do not — including a repeat after an
- * intervening version and the four-arity overload. The `=:!=` ambiguity trick
- * works identically on Scala 2.13, but `compiletime.testing` exists only on
- * Scala 3, so this spec lives in the Scala 3 test sources.
+ * intervening version and the four-arity overload — and a zero-engine server is
+ * unrepresentable (no zero-engine `apply` overload exists and the constructor
+ * is private). The `=:!=` ambiguity trick works identically on Scala 2.13, but
+ * `compiletime.testing` exists only on Scala 3, so this spec lives in the Scala
+ * 3 test sources.
  */
 
 object TypedEngineNegationSpec extends ZIOSpecDefault {
@@ -64,6 +66,16 @@ object TypedEngineNegationSpec extends ZIOSpecDefault {
       val errors = typeCheckErrors(
         "LoomServer(Connector(bind = BindAddress.localhost(0)), h2, h1a, h1b)",
       )
+      assertTrue(errors.nonEmpty)
+    },
+    test("zero-engine apply does not exist") {
+      val errors =
+        typeCheckErrors("LoomServer(Connector(bind = BindAddress.localhost(0)))")
+      assertTrue(errors.nonEmpty)
+    },
+    test("direct construction is private") {
+      val errors =
+        typeCheckErrors("new LoomServer(Connector(bind = BindAddress.localhost(0)))")
       assertTrue(errors.nonEmpty)
     },
     test("config-flag conditional listing typechecks") {

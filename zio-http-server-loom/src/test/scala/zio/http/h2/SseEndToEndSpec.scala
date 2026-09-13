@@ -20,8 +20,8 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
+  DefectHandler,
   Http2Config,
-  LoomServer,
   Method,
   Path,
   PooledLoomH2Client,
@@ -31,6 +31,7 @@ import zio.http.{
   Response,
   Route,
   Routes,
+  ServerHandle,
   Status,
   URL,
   handler,
@@ -274,7 +275,9 @@ object SseEndToEndSpec extends ZIOSpecDefault {
       Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))
     ZIO
       .acquireRelease(
-        ZIO.attempt(new LoomServer(connector).serve(routes, Context.empty)),
+        ZIO.attempt(
+          ServerHandle.live(List(new H2Transport(routes, Context.empty, connector, DefectHandler.default).start())),
+        ),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
         val port = handle.bindings.head.address match {

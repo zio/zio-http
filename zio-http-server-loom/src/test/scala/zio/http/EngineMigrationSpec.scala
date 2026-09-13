@@ -18,14 +18,10 @@ import zio.test._
  *   - `LoomServer` lists engines once at startup through fixed `apply`
  *     overloads (`apply(c, e1)`, `apply(c, e1, e2)`, ...) with pairwise `=:!=`
  *     evidence enforcing max-one-per-version at compile time. Duplicate
- *     registration has no runtime representation. There is no zero-engine
- *     public state; the package-internal defaulted constructor behind
- *     `new LoomServer(connector)` exists only for pre-engine specs and dies
- *     with the real H2 engine.
- *   - `serve` keeps the legacy bind path when no engine is registered, so
- *     `LoomServer(connector)` without engines serves exactly as before.
- *     Declaring any engine opts into coverage: every served connector version
- *     must then have a registered engine, else `serve` fails before bind with
+ *     registration has no runtime representation. A server with zero engines is
+ *     unrepresentable: the private constructor admits only the gated overloads.
+ *   - `serve` always checks coverage: every served connector version must have
+ *     a registered engine, else `serve` fails before bind with
  *     [[EngineRegistrationError.MissingEngine]].
  *   - `Server.serve(routes, context)` remains the single application definition
  *     shared by all engines; no call-shape change.
@@ -44,18 +40,6 @@ object EngineMigrationSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineMigrationSpec")(
-      test("legacy internal construction without engines still serves") {
-        // Package-internal `new`: pre-engine H2 specs rely on the legacy bind
-        // path, which dies with the real H2 engine. Public construction
-        // always lists engines upfront.
-        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
-        val context = Context.empty.add(server)
-        ZIO.attemptBlocking {
-          val handle = Server.serve(routes, context)
-          try assertTrue(handle.bindings.length == 1)
-          finally handle.shutdownAndWait()
-        }
-      },
       test("valid typed engine registration serves normally") {
         val h2      = new StubEngine(Version.`HTTP/2.0`)
         val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2)
