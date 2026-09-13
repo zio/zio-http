@@ -11,22 +11,24 @@ import zio.test._
 /**
  * Future H3/QUIC transport seam — fake UDP engine.
  *
- * A test-only UDP engine exercises typed registration and per-engine lifecycle
- * hooks for a non-TCP transport: it claims `HTTP/1.1` purely as a registration
- * placeholder — no UDP wire behavior exists or is implied, and no QUIC library
- * is involved. TCP and UDP engines coexist freely (no registry remains to
- * reject them); coverage is connector-driven, so a mixed registration still
- * binds the valid TCP connector. The numeric-port-namespace contract
- * ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]]) is
- * pinned unchanged below.
+ * A test-only UDP engine exercises typed registration and per-engine hook
+ * recording for a non-TCP transport: it claims `HTTP/1.1` purely as a
+ * registration placeholder — no UDP wire behavior exists or is implied, and no
+ * QUIC library is involved. TCP and UDP engines coexist freely (no registry
+ * remains to reject them); coverage is connector-driven, so a mixed
+ * registration still binds the valid TCP connector. The numeric-port-namespace
+ * contract ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]])
+ * is pinned unchanged below.
  */
 
 object FakeUdpEngineSpec extends ZIOSpecDefault {
 
   /**
-   * Test-only UDP engine. `drained`/`closed` record the per-engine lifecycle
-   * hooks ([[ProtocolEngine.drain]]/[[ProtocolEngine.close]]) so the suite
-   * proves they fire on a registered engine.
+   * Test-only UDP engine. `drained`/`closed` record direct calls to the
+   * per-engine hooks ([[ProtocolEngine.drain]]/[[ProtocolEngine.close]]); the
+   * test below invokes them directly, so it proves the hook methods record
+   * invocation — not server-lifecycle integration (nothing calls these hooks
+   * during serve/shutdown yet).
    */
   private final class FakeUdpEngine extends ProtocolEngine[Version.`HTTP/1.1`.type] {
     val protocol: Version.`HTTP/1.1`.type = Version.`HTTP/1.1`
@@ -78,7 +80,7 @@ object FakeUdpEngineSpec extends ZIOSpecDefault {
             finally handle.shutdownAndWait()
           }
         },
-        test("registered engine lifecycle hooks fire") {
+        test("engine drain/close hooks record direct calls") {
           val udp = new FakeUdpEngine
           ZIO.attemptBlocking {
             udp.drain()
