@@ -6,7 +6,7 @@ package zio.http
  *
  * One engine serves exactly one version, and at most one engine per version may
  * be registered on a server: the fixed [[LoomServer.apply]] overloads enforce
- * the bound at compile time (pairwise `=:!=` evidence), so there is no runtime
+ * the bound at compile time (pairwise `=!=` evidence), so there is no runtime
  * duplicate-registration path and no `EngineId`/`ProtocolId` registry. Engines
  * never see each other's frames and are never discovered reflectively: every
  * engine serving a server is listed explicitly via [[LoomServer.apply]].

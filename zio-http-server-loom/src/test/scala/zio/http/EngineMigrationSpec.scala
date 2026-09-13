@@ -16,7 +16,7 @@ import zio.test._
  *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
  *     are deleted, not deprecated.
  *   - `LoomServer` lists engines once at startup through fixed `apply`
- *     overloads (`apply(c, e1)`, `apply(c, e1, e2)`, ...) with pairwise `=:!=`
+ *     overloads (`apply(c, e1)`, `apply(c, e1, e2)`, ...) with pairwise `=!=`
  *     evidence enforcing max-one-per-version at compile time. Duplicate
  *     registration has no runtime representation. A server with zero engines is
  *     unrepresentable: the private constructor admits only the gated overloads.

@@ -9,7 +9,7 @@ import zio.http.h2.H2Transport
  *
  * Engines are keyed on the Blocks HTTP [[Version]] sum type and listed once at
  * construction, with a compile-time max-one-per-version bound: the fixed
- * [[LoomServer.apply]] overloads require pairwise `=:!=` evidence, so listing
+ * [[LoomServer.apply]] overloads require pairwise `=!=` evidence, so listing
  * two engines for the same version does not compile. There is no runtime
  * duplicate path and no zero-engine public state: every `apply` overload takes
  * at least one engine.
@@ -65,7 +65,7 @@ object LoomServer {
 
   /** Two engines of distinct versions. */
   def apply[P <: Version, Q <: Version](connector: Connector, e1: ProtocolEngine[P], e2: ProtocolEngine[Q])(implicit
-    ev: P =:!= Q,
+    ev: P =!= Q,
   ): LoomServer =
     new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2))
 
@@ -76,9 +76,9 @@ object LoomServer {
     e2: ProtocolEngine[Q],
     e3: ProtocolEngine[R],
   )(implicit
-    ev1: P =:!= Q,
-    ev2: P =:!= R,
-    ev3: Q =:!= R,
+    ev1: P =!= Q,
+    ev2: P =!= R,
+    ev3: Q =!= R,
   ): LoomServer =
     new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2, e3))
 
@@ -93,12 +93,12 @@ object LoomServer {
     e3: ProtocolEngine[R],
     e4: ProtocolEngine[S],
   )(implicit
-    ev1: P =:!= Q,
-    ev2: P =:!= R,
-    ev3: P =:!= S,
-    ev4: Q =:!= R,
-    ev5: Q =:!= S,
-    ev6: R =:!= S,
+    ev1: P =!= Q,
+    ev2: P =!= R,
+    ev3: P =!= S,
+    ev4: Q =!= R,
+    ev5: Q =!= S,
+    ev6: R =!= S,
   ): LoomServer =
     new LoomServer(connector, Nil, DefectHandler.default, List(e1, e2, e3, e4))
 }
@@ -106,17 +106,18 @@ object LoomServer {
 /**
  * Type inequality used by the fixed engine-list [[LoomServer.apply]] overloads.
  *
- * Proved by implicit ambiguity: `neq` applies for any pair while the two
- * `neqAmbig` instances also apply when both sides are equal, so duplicates
- * never summon. Identical mechanics on Scala 2.13 and Scala 3, with no
- * version-split helpers, facsimiles, or match types.
+ * Deliberately local (same syntax as `zio.=!=`, but core server packages take
+ * on no new dependency for this). Proved by implicit ambiguity: `neq` applies
+ * for any pair while the two `neqAmbig` instances also apply when both sides
+ * are equal, so duplicates never summon. Identical mechanics on Scala 2.13 and
+ * Scala 3, with no version-split helpers, facsimiles, or match types.
  */
-sealed trait =:!=[A, B]
+sealed trait =!=[A, B]
 
-object =:!= {
-  implicit def neq[A, B]: A =:!= B = new =:!=[A, B] {}
+object =!= {
+  implicit def neq[A, B]: A =!= B = new =!=[A, B] {}
 
-  implicit def neqAmbig1[A]: A =:!= A = null
+  implicit def neqAmbig1[A]: A =!= A = null
 
-  implicit def neqAmbig2[A]: A =:!= A = null
+  implicit def neqAmbig2[A]: A =!= A = null
 }

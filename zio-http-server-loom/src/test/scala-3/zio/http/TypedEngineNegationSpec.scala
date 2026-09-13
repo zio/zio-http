@@ -7,13 +7,14 @@ import zio.test._
 /**
  * Scala 3 compile-time proof of the max-one-engine-per-version bound.
  *
- * The fixed `LoomServer.apply` overloads require pairwise `=:!=` evidence, so
+ * The fixed `LoomServer.apply` overloads require pairwise `=!=` evidence, so
  * listing two engines for one version is a type error, not a runtime failure.
  * This spec pins both sides: well-formed lists (and the config-flag conditional
  * pattern) typecheck, duplicates do not — including a repeat after an
  * intervening version and the four-arity overload — and a zero-engine server is
  * unrepresentable (no zero-engine `apply` overload exists and the constructor
- * is private). The `=:!=` ambiguity trick works identically on Scala 2.13, but
+ * is private). The `=!=` evidence is a small local definition (same syntax as
+ * `zio.=!=`, but core server packages take on no new dependency for this), and
  * `compiletime.testing` exists only on Scala 3, so this spec lives in the Scala
  * 3 test sources.
  */
