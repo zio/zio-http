@@ -15,10 +15,13 @@ import zio.test._
  *     (`ProtocolEngine[P <: Version]` with a single `def protocol: P`).
  *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
  *     are deleted, not deprecated.
- *   - `LoomServer` accumulates the registered versions as an intersection
- *     (`LoomServer[Ps]` from `NoEngines`, `Ps with P` per `withEngine`) and
- *     `withEngine` enforces max-one-per-version at compile time. Duplicate
- *     registration has no runtime representation.
+ *   - `LoomServer` lists engines once at startup through fixed `apply`
+ *     overloads (`apply(c, e1)`, `apply(c, e1, e2)`, ...) with pairwise `=:!=`
+ *     evidence enforcing max-one-per-version at compile time. Duplicate
+ *     registration has no runtime representation. There is no zero-engine
+ *     public state; the package-internal defaulted constructor behind
+ *     `new LoomServer(connector)` exists only for pre-engine specs and dies
+ *     with the real H2 engine.
  *   - `serve` keeps the legacy bind path when no engine is registered, so
  *     `LoomServer(connector)` without engines serves exactly as before.
  *     Declaring any engine opts into coverage: every served connector version
@@ -41,8 +44,11 @@ object EngineMigrationSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineMigrationSpec")(
-      test("LoomServer(connector) without engines still serves") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)))
+      test("legacy internal construction without engines still serves") {
+        // Package-internal `new`: pre-engine H2 specs rely on the legacy bind
+        // path, which dies with the real H2 engine. Public construction
+        // always lists engines upfront.
+        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -52,7 +58,7 @@ object EngineMigrationSpec extends ZIOSpecDefault {
       },
       test("valid typed engine registration serves normally") {
         val h2      = new StubEngine(Version.`HTTP/2.0`)
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -62,7 +68,7 @@ object EngineMigrationSpec extends ZIOSpecDefault {
       },
       test("uncovered version fails serve fast with a typed missing-engine error") {
         val h1      = new StubEngine(Version.`HTTP/1.1`)
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h1)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h1)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val result =

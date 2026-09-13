@@ -441,7 +441,7 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
-        ZIO.attempt(LoomServer(connector).serve(routes, Context.empty)),
+        ZIO.attempt(new LoomServer(connector).serve(routes, Context.empty)),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
         val port = handle.bindings.head.address match {

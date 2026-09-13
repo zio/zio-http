@@ -60,7 +60,7 @@ object FakeUdpEngineSpec extends ZIOSpecDefault {
       suite("fake UDP engine registration")(
         test("UDP engine registers alongside a TCP engine") {
           val udp     = new FakeUdpEngine
-          val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(tcpH2).withEngine(udp)
+          val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), tcpH2, udp)
           val context = Context.empty.add(server)
           ZIO.attemptBlocking {
             val handle = Server.serve(routes, context)
@@ -70,7 +70,7 @@ object FakeUdpEngineSpec extends ZIOSpecDefault {
         },
         test("serve with mixed TCP+UDP engines still binds the valid TCP connector") {
           val udp     = new FakeUdpEngine
-          val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(tcpH2).withEngine(udp)
+          val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), tcpH2, udp)
           val context = Context.empty.add(server)
           ZIO.attemptBlocking {
             val handle = Server.serve(routes, context)

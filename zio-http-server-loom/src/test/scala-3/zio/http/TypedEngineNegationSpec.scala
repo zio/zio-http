@@ -7,14 +7,13 @@ import zio.test._
 /**
  * Scala 3 compile-time proof of the max-one-engine-per-version bound.
  *
- * `LoomServer.withEngine` requires `NotGiven[Ps <:< P]` over the accumulated
- * intersection, so a second registration for an already-registered version is a
- * type error, not a runtime failure. This spec pins both sides: single
- * registration (and the config-flag conditional pattern) typechecks, duplicate
- * registration does not — including a repeat after an intervening version,
- * which proves the phantom is a set rather than just the last registration.
- * Scala 2 carries an unchecked proof with identical runtime (see the `scala-2`
- * helper), so this spec lives in the Scala 3 test sources.
+ * The fixed `LoomServer.apply` overloads require pairwise `=:!=` evidence, so
+ * listing two engines for one version is a type error, not a runtime failure.
+ * This spec pins both sides: well-formed lists (and the config-flag conditional
+ * pattern) typecheck, duplicates do not — including a repeat after an
+ * intervening version and the four-arity overload. The `=:!=` ambiguity trick
+ * works identically on Scala 2.13, but `compiletime.testing` exists only on
+ * Scala 3, so this spec lives in the Scala 3 test sources.
  */
 
 object TypedEngineNegationSpec extends ZIOSpecDefault {
@@ -25,6 +24,9 @@ object TypedEngineNegationSpec extends ZIOSpecDefault {
     def close(): Unit                = ()
   }
 
+  private val h10: ProtocolEngine[Version.`HTTP/1.0`.type] =
+    new StubEngine(Version.`HTTP/1.0`)
+
   private val h1a: ProtocolEngine[Version.`HTTP/1.1`.type] =
     new StubEngine(Version.`HTTP/1.1`)
 
@@ -34,32 +36,40 @@ object TypedEngineNegationSpec extends ZIOSpecDefault {
   private val h2: ProtocolEngine[Version.`HTTP/2.0`.type] =
     new StubEngine(Version.`HTTP/2.0`)
 
+  private val h3: ProtocolEngine[Version.`HTTP/3.0`.type] =
+    new StubEngine(Version.`HTTP/3.0`)
+
   override def spec = suite("TypedEngineNegationSpec")(
-    test("single registration typechecks") {
+    test("single engine typechecks") {
       assertTrue(
-        typeChecks("LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2)"),
+        typeChecks("LoomServer(Connector(bind = BindAddress.localhost(0)), h2)"),
       )
     },
-    test("two versions typecheck") {
+    test("two engines typecheck") {
       assertTrue(
-        typeChecks("LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2).withEngine(h1a)"),
+        typeChecks("LoomServer(Connector(bind = BindAddress.localhost(0)), h2, h1a)"),
       )
     },
-    test("duplicate registration does not compile") {
+    test("four engines typecheck") {
+      assertTrue(
+        typeChecks("LoomServer(Connector(bind = BindAddress.localhost(0)), h10, h1a, h2, h3)"),
+      )
+    },
+    test("duplicate engines do not compile") {
       val errors =
-        typeCheckErrors("LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h1a).withEngine(h1b)")
+        typeCheckErrors("LoomServer(Connector(bind = BindAddress.localhost(0)), h1a, h1b)")
       assertTrue(errors.nonEmpty)
     },
     test("repeat after an intervening version does not compile") {
       val errors = typeCheckErrors(
-        "LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2).withEngine(h1a).withEngine(h1b)",
+        "LoomServer(Connector(bind = BindAddress.localhost(0)), h2, h1a, h1b)",
       )
       assertTrue(errors.nonEmpty)
     },
-    test("config-flag conditional registration typechecks") {
+    test("config-flag conditional listing typechecks") {
       assertTrue(
         typeChecks(
-          """val base = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2); if (sys.env.contains("ZIO_HTTP_ENABLE_H1")) base.withEngine(h1a) else base""",
+          """val c = Connector(bind = BindAddress.localhost(0)); if (sys.env.contains("ZIO_HTTP_ENABLE_H1")) LoomServer(c, h2, h1a) else LoomServer(c, h2)""",
         ),
       )
     },

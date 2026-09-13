@@ -274,7 +274,7 @@ object SseEndToEndSpec extends ZIOSpecDefault {
       Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))
     ZIO
       .acquireRelease(
-        ZIO.attempt(LoomServer(connector).serve(routes, Context.empty)),
+        ZIO.attempt(new LoomServer(connector).serve(routes, Context.empty)),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
         val port = handle.bindings.head.address match {

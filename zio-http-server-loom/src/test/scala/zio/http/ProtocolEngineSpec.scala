@@ -10,9 +10,9 @@ import zio.test._
  * Typed thick protocol-engine registration and one shared dispatcher.
  *
  * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
- * max-one-per-version bound (`LoomServer.withEngine` requires
- * `NotGiven[Ps <:< P]` on Scala 3). There is no runtime duplicate path:
- * registering two engines for one version does not compile (proven by
+ * max-one-per-version bound (the fixed `LoomServer.apply` overloads require
+ * pairwise `=:!=` evidence). There is no runtime duplicate path: registering
+ * two engines for one version does not compile (proven by
  * `TypedEngineNegationSpec` on Scala 3; the Scala 2 proof is an unchecked no-op
  * with identical runtime). The only runtime registration failure left is a
  * coverage gap: once any engine is declared, every served connector version
@@ -40,13 +40,15 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
     Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
   /**
-   * Serves one ephemeral H2C connector, adding the H1 engine only when `flag`
-   * holds.
+   * Serves one ephemeral H2C connector; both branches list engines upfront at
+   * the same plain `LoomServer` type, so the flag only switches the H1 engine.
    */
   private def serveWithFlag(flag: Boolean) = {
-    val base    = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2)
-    val server  = if (flag) base.withEngine(h1) else base
-    val context = Context.empty.add(server)
+    val connector = Connector(bind = BindAddress.localhost(0))
+    val server    =
+      if (flag) LoomServer(connector, h2, h1)
+      else LoomServer(connector, h2)
+    val context   = Context.empty.add(server)
     ZIO.attemptBlocking {
       val handle = Server.serve(routes, context)
       try assertTrue(handle.bindings.length == 1)
@@ -76,7 +78,7 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("ProtocolEngineSpec")(
       test("single-version registration serves normally") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -86,7 +88,7 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
       },
       test("missing engine fails serve before bind with a typed error") {
         val port   = freePort()
-        val server = LoomServer(Connector(bind = BindAddress.localhost(port))).withEngine(h1)
+        val server = LoomServer(Connector(bind = BindAddress.localhost(port)), h1)
         ZIO.attemptBlocking {
           val result =
             try {
@@ -103,7 +105,7 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
         }
       },
       test("extra engine no connector needs is allowed") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(h2).withEngine(h1)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2, h1)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -114,7 +116,7 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
       test("H2C and H2 connectors share one HTTP/2.0 engine") {
         val first   = Connector(bind = BindAddress.localhost(0))
         val second  = Connector(bind = BindAddress.localhost(0))
-        val server  = LoomServer(first).addConnector(second).withEngine(h2)
+        val server  = LoomServer(first, h2).addConnector(second)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)

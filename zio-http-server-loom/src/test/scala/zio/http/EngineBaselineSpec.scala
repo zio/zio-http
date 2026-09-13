@@ -27,7 +27,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineBaselineSpec")(
       test("LoomServer binds one ephemeral TCP connector and serves GET / with 200") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)))
+        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -51,7 +51,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
         }
       },
       test("shutdown stops the server and awaitShutdown returns") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)))
+        val server  = new LoomServer(Connector(bind = BindAddress.localhost(0)))
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -67,7 +67,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
           def drain(): Unit                     = ()
           def close(): Unit                     = ()
         }
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0))).withEngine(engine)
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {

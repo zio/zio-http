@@ -169,9 +169,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
             },
           ),
         )
-        val server       = zio.http
-          .LoomServer()
-          .withDefectHandler(customDefect)
+        val server       = new zio.http.LoomServer().withDefectHandler(customDefect)
         ZIO
           .acquireRelease(
             ZIO.attempt(server.serve(routes, Context.empty)),
