@@ -1,7 +1,5 @@
 package zio.http
 
-import scala.annotation.experimental
-
 import zio.blocks.context.Context
 import zio.http.h2.H2Transport
 
@@ -9,38 +7,43 @@ import zio.http.h2.H2Transport
  * Loom (virtual-thread, blocking) [[Server]] with explicitly registered thick
  * protocol engines.
  *
- * Scala 2 fallback: the Scala 3 tuple-keyed `LoomServer[Ps]` with its
- * compile-time max-one-per-version bound (`Tuple.Contains[Ps, P] =:= false`)
- * cannot be expressed in the Scala 2 shared sources, so this variant keeps the
- * same runtime behavior (connector validation, opt-in engine coverage, bind)
- * with a plain registration method. Max-one per version is enforced at compile
- * time on Scala 3 only; on Scala 2 duplicate versions are a programming error
- * with no runtime representation.
+ * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
+ * max-one-per-version bound: [[withEngine]] requires an [[EngineNotRegistered]]
+ * proof, which the Scala 3 variant derives from
+ * `Tuple.Contains[Ps, P] =:= false` (the Scala 2 variant is unchecked, with
+ * identical runtime behavior). There is no runtime duplicate path. Each
+ * conditional branch still checks max-one independently, so
+ * `if (flag) server.withEngine(engine) else server` typechecks and serves in
+ * both branches.
+ *
+ * @tparam Ps
+ *   the tuple of engine versions registered so far, in most-recent-first order.
  */
-@experimental
-class LoomServer(
+class LoomServer[Ps <: Tuple](
   connector: Connector,
   additionalConnectors: List[Connector] = Nil,
   defectHandler: DefectHandler = DefectHandler.default,
   engines: List[ProtocolEngine[Version]] = Nil,
 ) extends Server {
 
-  def addConnector(c: Connector): LoomServer =
-    new LoomServer(connector, c :: additionalConnectors, defectHandler, engines)
+  def addConnector(c: Connector): LoomServer[Ps] =
+    new LoomServer[Ps](connector, c :: additionalConnectors, defectHandler, engines)
 
-  def withDefectHandler(h: DefectHandler): LoomServer =
-    new LoomServer(connector, additionalConnectors, h, engines)
+  def withDefectHandler(h: DefectHandler): LoomServer[Ps] =
+    new LoomServer[Ps](connector, additionalConnectors, h, engines)
 
   /**
-   * Register the engine serving a version. On Scala 3 prefer the typed
-   * overload, which rejects a second engine for the same version at compile
-   * time.
+   * Register the engine serving version `P`. At most one engine per version: a
+   * second registration for an already-registered `P` is a compile-time error
+   * on Scala 3, not a runtime failure.
    *
    * `Protocol.H2C` and `Protocol.H2` connectors share one `HTTP/2.0` engine
    * (TLS vs cleartext is connector transport, not version).
    */
-  def withEngine(engine: ProtocolEngine[Version]): LoomServer =
-    new LoomServer(connector, additionalConnectors, defectHandler, engine :: engines)
+  def withEngine[P <: Version](
+    engine: ProtocolEngine[P],
+  )(implicit ev: EngineNotRegistered[Ps, P]): LoomServer[P *: Ps] =
+    new LoomServer[P *: Ps](connector, additionalConnectors, defectHandler, engine :: engines)
 
   override def serve[Ctx](routes: Routes[Ctx], context: Context[Ctx]): ServerHandle = {
     val allConnectors = connector :: additionalConnectors
@@ -69,8 +72,7 @@ class LoomServer(
   }
 }
 
-@experimental
 object LoomServer {
-  def apply(connector: Connector = Connector.default): LoomServer =
-    new LoomServer(connector)
+  def apply(connector: Connector = Connector.default): LoomServer[EmptyTuple] =
+    new LoomServer[EmptyTuple](connector)
 }
