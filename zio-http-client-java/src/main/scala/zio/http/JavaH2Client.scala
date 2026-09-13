@@ -14,7 +14,6 @@ import java.util.concurrent.Flow
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
 
-import scala.annotation.experimental
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
@@ -150,13 +149,11 @@ object JavaH2Client {
    * Forced HTTP/1.1 leg for [[LoomH2ClientDriver]]'s composable fallback: same
    * mapping, same timeouts, ALPN pinned to `http/1.1`.
    */
-  @experimental
   def h11(config: ClientConfig): JavaH2Client = {
     ClientTlsSupport.validateTlsMaterial(config.tls)
     new JavaH2Client(configuredHttpClient(config, None, HttpClient.Version.HTTP_1_1), config, enforceAlpn = false)
   }
 
-  @experimental
   def h11(config: ClientConfig, sslContext: SSLContext): JavaH2Client =
     new JavaH2Client(
       configuredHttpClient(config, Some(sslContext), HttpClient.Version.HTTP_1_1),
