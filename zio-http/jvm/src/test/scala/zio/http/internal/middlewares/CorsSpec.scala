@@ -95,6 +95,27 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
     ),
   )
 
+  // App where an actual-request method is NOT listed in allowedMethods.
+  // Per the Fetch spec (https://fetch.spec.whatwg.org/#http-cors-protocol) the
+  // allowedMethods / Access-Control-Allow-Methods check is preflight-only, so an
+  // actual request with an allowed origin must succeed regardless of its method.
+  // See: https://github.com/zio/zio-http/issues/4130
+  val appActualMethodNotAllowed = Routes(
+    Method.GET / "success"  -> handler(Response.ok),
+    Method.POST / "success" -> handler(Response.ok),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  } @@ cors(
+    CorsConfig(
+      allowedOrigin = {
+        case Header.Origin.Value(_, host, _) if host == "allowed.com" =>
+          Some(Header.AccessControlAllowOrigin.Specific(Header.Origin.Value("http", host, None)))
+        case _                                                        => None
+      },
+      allowedMethods = AccessControlAllowMethods(Method.GET),
+    ),
+  )
+
   override def spec = suite("CorsSpec")(
     test("OPTIONS request with allowAllHeaders server config") {
       val request =
@@ -293,6 +314,61 @@ object CorsSpec extends ZIOHttpSpec with TestExtensions {
       } yield assertTrue(
         extractStatus(res) == Status.Ok,
         res.hasHeader(Header.AccessControlAllowOrigin("http", "allowed.com")),
+      )
+    },
+    // Tests for https://github.com/zio/zio-http/issues/4130
+    // Per the Fetch spec the allowedMethods check is preflight-only: an actual
+    // (non-preflight) request with an allowed origin must succeed even when its
+    // method is not listed in allowedMethods.
+    test("POST actual request from allowed origin succeeds when method is not in allowedMethods - issue #4130") {
+      val request =
+        Request
+          .post(URL(Path.root / "success"), Body.empty)
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "allowed.com"),
+            ),
+          )
+
+      for {
+        res <- appActualMethodNotAllowed.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.Ok,
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "allowed.com")),
+      )
+    },
+    test("POST actual request from disallowed origin is still rejected - issue #4130") {
+      val request =
+        Request
+          .post(URL(Path.root / "success"), Body.empty)
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "notallowed.com"),
+            ),
+          )
+
+      for {
+        res <- appActualMethodNotAllowed.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.Forbidden,
+      )
+    },
+    test("OPTIONS preflight with method not in allowedMethods is still rejected - issue #4130") {
+      val request =
+        Request
+          .options(URL(Path.root / "success"))
+          .copy(
+            headers = Headers(
+              Header.Origin("http", "allowed.com"),
+              Header.AccessControlRequestMethod(Method.POST),
+            ),
+          )
+
+      for {
+        res <- appActualMethodNotAllowed.runZIO(request)
+      } yield assertTrue(
+        extractStatus(res) == Status.NotFound,
+        !res.hasHeader(Header.AccessControlAllowOrigin.name),
       )
     },
     test("OPTIONS request with AllowedHeaders.Some returns intersection of requested and allowed headers") {
