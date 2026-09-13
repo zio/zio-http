@@ -15,9 +15,10 @@ import zio.test._
  *     (`ProtocolEngine[P <: Version]` with a single `def protocol: P`).
  *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
  *     are deleted, not deprecated.
- *   - `LoomServer` carries the registered versions as a tuple (`LoomServer[Ps
- *     <: Tuple]` on Scala 3) and `withEngine` enforces max-one-per-version at
- *     compile time. Duplicate registration has no runtime representation.
+ *   - `LoomServer` accumulates the registered versions as an intersection
+ *     (`LoomServer[Ps]` from `NoEngines`, `Ps with P` per `withEngine`) and
+ *     `withEngine` enforces max-one-per-version at compile time. Duplicate
+ *     registration has no runtime representation.
  *   - `serve` keeps the legacy bind path when no engine is registered, so
  *     `LoomServer(connector)` without engines serves exactly as before.
  *     Declaring any engine opts into coverage: every served connector version

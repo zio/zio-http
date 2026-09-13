@@ -4,22 +4,32 @@ import zio.blocks.context.Context
 import zio.http.h2.H2Transport
 
 /**
+ * Marker for a server with no registered engines: the base of the registered
+ * version set. `NoEngines` is unrelated to the [[Version]] hierarchy, so
+ * `NoEngines <:< P` holds for no `P` and the first registration always passes
+ * the [[EngineNotRegistered]] proof; every `withEngine` then accumulates
+ * `Ps with P`, and an intersection is a subtype of each member, so repeating a
+ * version always finds `Ps <:< P` and fails the proof instead.
+ */
+sealed trait NoEngines
+
+/**
  * Loom (virtual-thread, blocking) [[Server]] with explicitly registered thick
  * protocol engines.
  *
  * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
  * max-one-per-version bound: [[withEngine]] requires an [[EngineNotRegistered]]
- * proof, which the Scala 3 variant derives from
- * `Tuple.Contains[Ps, P] =:= false` (the Scala 2 variant is unchecked, with
- * identical runtime behavior). There is no runtime duplicate path. Each
- * conditional branch still checks max-one independently, so
- * `if (flag) server.withEngine(engine) else server` typechecks and serves in
+ * proof, which the Scala 3 variant derives from `NotGiven[Ps <:< P]` (the Scala
+ * 2 variant is unchecked, with identical runtime behavior). There is no runtime
+ * duplicate path. Each conditional branch still checks max-one independently,
+ * so `if (flag) server.withEngine(engine) else server` typechecks and serves in
  * both branches.
  *
  * @tparam Ps
- *   the tuple of engine versions registered so far, in most-recent-first order.
+ *   the intersection of engine versions registered so far (`NoEngines` when
+ *   empty, `Ps with P` after each registration).
  */
-class LoomServer[Ps <: Tuple](
+class LoomServer[Ps](
   connector: Connector,
   additionalConnectors: List[Connector] = Nil,
   defectHandler: DefectHandler = DefectHandler.default,
@@ -42,8 +52,8 @@ class LoomServer[Ps <: Tuple](
    */
   def withEngine[P <: Version](
     engine: ProtocolEngine[P],
-  )(implicit ev: EngineNotRegistered[Ps, P]): LoomServer[P *: Ps] =
-    new LoomServer[P *: Ps](connector, additionalConnectors, defectHandler, engine :: engines)
+  )(implicit ev: EngineNotRegistered[Ps, P]): LoomServer[Ps with P] =
+    new LoomServer[Ps with P](connector, additionalConnectors, defectHandler, engine :: engines)
 
   override def serve[Ctx](routes: Routes[Ctx], context: Context[Ctx]): ServerHandle = {
     val allConnectors = connector :: additionalConnectors
@@ -73,6 +83,6 @@ class LoomServer[Ps <: Tuple](
 }
 
 object LoomServer {
-  def apply(connector: Connector = Connector.default): LoomServer[EmptyTuple] =
-    new LoomServer[EmptyTuple](connector)
+  def apply(connector: Connector = Connector.default): LoomServer[NoEngines] =
+    new LoomServer[NoEngines](connector)
 }

@@ -11,10 +11,10 @@ import zio.test._
  *
  * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
  * max-one-per-version bound (`LoomServer.withEngine` requires
- * `Tuple.Contains[Ps, P] =:= false` on Scala 3). There is no runtime duplicate
- * path: registering two engines for one version does not compile (proven by
- * `TypedEngineNegationSpec` on Scala 3; the Scala 2 fallback documents the same
- * bound without enforcing it). The only runtime registration failure left is a
+ * `NotGiven[Ps <:< P]` on Scala 3). There is no runtime duplicate path:
+ * registering two engines for one version does not compile (proven by
+ * `TypedEngineNegationSpec` on Scala 3; the Scala 2 proof is an unchecked no-op
+ * with identical runtime). The only runtime registration failure left is a
  * coverage gap: once any engine is declared, every served connector version
  * must have a registered engine, else `serve` fails before bind with
  * [[EngineRegistrationError.MissingEngine]].
