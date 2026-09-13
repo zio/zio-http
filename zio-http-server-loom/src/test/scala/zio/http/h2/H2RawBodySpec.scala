@@ -5,8 +5,6 @@ import java.nio.charset.StandardCharsets
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -61,7 +59,6 @@ import zio.http.{
  * string this spec asserts on — Qaizn consumes `(keyId, messageBytes, macHex)`
  * triples produced exactly this way and owns accept/reject.
  */
-@experimental
 object H2RawBodySpec extends ZIOSpecDefault {
 
   /** RFC 4231 Test Case 1 key: 20 bytes of 0x0b. */

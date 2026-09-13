@@ -4,8 +4,6 @@ import java.io.InputStream
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
@@ -13,7 +11,6 @@ import zio.http.h2.H2Frame.{GoAway, Headers, Settings}
 import zio.http.h2.hpack.{HeaderField, Hpack}
 import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Response, Route, Routes}
 
-@experimental
 object H2CSmokeTest {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
   private val StreamId      = 1

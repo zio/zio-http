@@ -3,7 +3,6 @@ package zio.http.h2
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.annotation.experimental
 import scala.collection.mutable.ListBuffer
 
 import zio._
@@ -63,7 +62,6 @@ import zio.http.{
  * with `acquireRelease` (server) and try/finally `close()` (pool) — no stray
  * threads, servers, ports, or files.
  */
-@experimental
 object SseEndToEndSpec extends ZIOSpecDefault {
 
   private val Utf8 = StandardCharsets.UTF_8

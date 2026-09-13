@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -46,7 +45,6 @@ import zio.http.{
  * Condition park (no spin), lengths stay primitive Ints (no boxing), and all
  * RST paths reuse the single T5 `sendRstStream` send site (monomorphic).
  */
-@experimental
 object StreamingEdgeSpec extends ZIOSpecDefault {
 
   /**

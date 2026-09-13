@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -47,7 +46,6 @@ import zio.http.{
  * flight), makes no per-frame megamorphic calls (final FlowController, single
  * MuxStream impl), and boxes nothing (primitive Int lengths).
  */
-@experimental
 object StreamingBodySpec extends ZIOSpecDefault {
 
   private val BodyBytes10M = 10 * 1024 * 1024

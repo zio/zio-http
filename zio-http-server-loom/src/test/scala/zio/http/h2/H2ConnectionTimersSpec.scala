@@ -2,8 +2,6 @@ package zio.http.h2
 
 import java.io.{ByteArrayOutputStream, IOException, OutputStream}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.mux.Mux
 import zio.test.TestAspect.sequential
@@ -15,7 +13,6 @@ import zio.http.h2.H2RawClientFixture.toStreamHelper
 /**
  * Connection-timer behavior: request timers, idle timers, and timer futures.
  */
-@experimental
 object H2ConnectionTimersSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

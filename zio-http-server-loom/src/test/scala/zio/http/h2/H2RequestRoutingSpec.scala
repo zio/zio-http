@@ -1,7 +1,5 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.endpoint.RoutePattern
@@ -18,7 +16,6 @@ import zio.http.h2.hpack.{HeaderField, Hpack}
  * Request-handling behavior: authority parsing, route dispatch, and response
  * framing.
  */
-@experimental
 object H2RequestRoutingSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

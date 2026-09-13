@@ -7,8 +7,6 @@ import java.security.cert.X509Certificate
 import java.time.Duration
 import javax.net.ssl.{SSLContext, SSLEngine, TrustManager, X509ExtendedTrustManager}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.config.Secret
@@ -58,7 +56,6 @@ import zio.http.{
  * deliberately-insecure test-only certificate rather than a real trust
  * boundary).
  */
-@experimental
 object H2IndependentClientSpec extends ZIOSpecDefault {
 
   private val TestCert =

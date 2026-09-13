@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -31,7 +30,6 @@ import zio.http.{
 }
 
 /** Tests that call H2CSmokeTest.main() and cover additional edge cases. */
-@experimental
 object H2SmokeAndExtraSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

@@ -10,7 +10,6 @@ import java.util.Base64
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.{KeyManagerFactory, SSLContext, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -52,7 +51,6 @@ import zio.http.{
  * socket peer address. A server with `requireClientAuth` must reject a peer
  * that presents no certificate.
  */
-@experimental
 object H2ProxyTrustSpec extends ZIOSpecDefault {
   private final case class ProxyCase(
     name: String,

@@ -8,7 +8,6 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLSocket
 
-import scala.annotation.experimental
 import scala.util.control.NonFatal
 
 /**
@@ -42,7 +41,6 @@ import scala.util.control.NonFatal
  * bodies (streaming upload), no hostname endpoint identification on the raw H2
  * leg (the JDK fallback leg verifies per JDK defaults).
  */
-@experimental
 class LoomH2ClientDriver(
   config: ClientConfig,
   sslContextOverride: Option[SSLContext],
@@ -194,7 +192,6 @@ class LoomH2ClientDriver(
     }
 }
 
-@experimental
 object LoomH2ClientDriver {
 
   def default: LoomH2ClientDriver = apply(ClientConfig())

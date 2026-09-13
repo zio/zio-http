@@ -10,8 +10,6 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.http.h2.FrameCodec
 import zio.http.h2.H2Error
@@ -55,7 +53,6 @@ private[http] final class StaleConnectionException(message: String, cause: Throw
  * lessons). Request upload stays fully buffered (`Body.toArray`, T14 semantics) -
  * asymmetric by design, documented on the pool.
  */
-@experimental
 private[http] final class PooledH2Connection private (
   val socket: Socket,
   private val input: InputStream,
@@ -488,7 +485,6 @@ private[http] final class PooledH2Connection private (
  * Response HEADERS for one exchange plus the hooks to stream/cancel the body.
  * `bodyInput` is None when `endStream` was set on the response HEADERS.
  */
-@experimental
 private[http] final class H2Exchange(
   val streamId: Int,
   val status: Status,
@@ -510,7 +506,6 @@ private[http] final class H2Exchange(
  * Terminal state is observable via [[completedCleanly]] (pool reuses only clean
  * connections; anything else is evicted, never black-holed).
  */
-@experimental
 private[http] final class H2BodyInput(
   val streamId: Int,
   val cancelled: AtomicBoolean,
@@ -582,7 +577,6 @@ private[http] final class H2BodyInput(
   override def close(): Unit = ()
 }
 
-@experimental
 private[http] object PooledH2Connection {
   private val Preface: Array[Byte]   =
     "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII)
@@ -636,7 +630,6 @@ private[http] object PooledH2Connection {
   }
 }
 
-@experimental
 private[http] final class PooledFrameReader(input: InputStream) {
   private var buffer = Chunk.empty[Byte]
 

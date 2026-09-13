@@ -3,8 +3,6 @@ package zio.http
 import java.nio.file.Files
 import java.security.KeyStore
 
-import scala.annotation.experimental
-
 import zio.test._
 
 /**
@@ -18,7 +16,6 @@ import zio.test._
  * file/kind expected - instead of surfacing late on the first request. A
  * correct PEM trust+key config still builds every driver.
  */
-@experimental
 object ClientTlsFailFastSpec extends ZIOSpecDefault {
 
   /** Test cert/key pair (PKCS#8 RSA, CN=localhost, expires 2027-06-30). */

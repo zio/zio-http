@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -63,7 +62,6 @@ import zio.http.{
  * them, it does not redefine enforcement semantics. If a cell fails, the bug is
  * reported, not fixed here.
  */
-@experimental
 object H2HardeningMatrixSpec extends ZIOSpecDefault {
 
   private val BodyCap: Long         = 1024L

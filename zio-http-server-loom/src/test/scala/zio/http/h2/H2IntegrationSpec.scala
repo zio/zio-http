@@ -4,7 +4,6 @@ import java.io.InputStream
 import java.net.{InetSocketAddress, Socket}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -36,7 +35,6 @@ import zio.http.{
 }
 import zio.http.ResultType._
 
-@experimental
 object H2IntegrationSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("H2IntegrationSpec")(

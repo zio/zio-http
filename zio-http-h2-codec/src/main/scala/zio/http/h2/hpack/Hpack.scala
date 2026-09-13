@@ -3,21 +3,18 @@ package zio.http.h2.hpack
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable.ListBuffer
 
 import zio.blocks.chunk.Chunk
 
 final case class HeaderField(name: String, value: String, sensitive: Boolean = false)
 
-@experimental
 object Hpack {
   def encode(headers: List[HeaderField]): Chunk[Byte] = new HpackEncoder().encode(headers)
 
   def decode(bytes: Chunk[Byte]): Either[String, List[HeaderField]] = new HpackDecoder().decode(bytes)
 }
 
-@experimental
 final class HpackCodec(initialMaxTableSize: Int = 4096, maxAllowedTableSize: Int = 4096) {
   private val encoder = new HpackEncoder(initialMaxTableSize)
   private val decoder = new HpackDecoder(initialMaxTableSize, maxAllowedTableSize)
@@ -30,7 +27,6 @@ final class HpackCodec(initialMaxTableSize: Int = 4096, maxAllowedTableSize: Int
     lock.synchronized(decoder.decode(bytes))
 }
 
-@experimental
 final class HpackEncoder(initialMaxTableSize: Int = 4096) {
   private val dynamicTable                  = new DynamicTable(initialMaxTableSize)
   private var pendingMinSize: Option[Int]   = None
@@ -131,7 +127,6 @@ final class HpackEncoder(initialMaxTableSize: Int = 4096) {
   }
 }
 
-@experimental
 final class HpackDecoder(initialMaxTableSize: Int = 4096, maxAllowedTableSize: Int = 4096) {
   private val dynamicTable = new DynamicTable(initialMaxTableSize)
 

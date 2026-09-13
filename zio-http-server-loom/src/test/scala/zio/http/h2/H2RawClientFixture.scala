@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -22,7 +21,7 @@ import zio.http.h2.hpack.{HeaderField, HpackDecoder, HpackEncoder}
  * bound to an ephemeral port plus a minimal raw HTTP/2 client speaking the wire
  * protocol (preface, SETTINGS, HPACK, multiplexed streams).
  */
-@experimental
+
 object H2RawClientFixture {
 
   val SimpleRoutes: Routes[Any] =
