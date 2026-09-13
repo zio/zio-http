@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.annotation.experimental
 import scala.jdk.CollectionConverters._
 
 import zio._
@@ -42,7 +41,6 @@ import zio.http.h2.hpack.HpackCodec
  * per-request authority/authorization recording so leaks are observable. Small
  * bodies only (no WINDOW_UPDATE top-ups needed).
  */
-@experimental
 object ClientPoolSafetySpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

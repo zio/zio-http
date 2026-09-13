@@ -4,8 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -35,7 +33,6 @@ import zio.http.{
  * PROTOCOL_ERROR or a stream error of type ENHANCE_YOUR_CALM. The list must
  * never be silently truncated and must never reach the handler.
  */
-@experimental
 object MaxHeaderListSizeSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

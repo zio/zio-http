@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -30,7 +29,6 @@ import zio.http.{BindAddress, BoundAddress, Connector, Handler, Http2Config, Loo
  * for sibling streams. Trailing in-flight CONTINUATIONs for the reset block are
  * tolerated per RFC 9113 section 5.1.
  */
-@experimental
 object H2ContinuationFloodSpec extends ZIOSpecDefault {
 
   /**

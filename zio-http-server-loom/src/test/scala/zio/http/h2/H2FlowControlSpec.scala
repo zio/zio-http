@@ -1,7 +1,5 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio._
 import zio.test.TestAspect.sequential
 import zio.test._
@@ -9,7 +7,6 @@ import zio.test._
 /**
  * Flow-control send-window behavior: blocking, wake-ups, and waiter signaling.
  */
-@experimental
 object H2FlowControlSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

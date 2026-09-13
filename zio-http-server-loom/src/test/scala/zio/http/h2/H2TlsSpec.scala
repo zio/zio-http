@@ -4,7 +4,6 @@ import java.net.Socket
 import java.nio.charset.StandardCharsets
 import javax.net.ssl.{SSLContext, SSLParameters, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -32,7 +31,6 @@ import zio.http.{
   TlsSource,
 }
 
-@experimental
 object H2TlsSpec extends ZIOSpecDefault {
 
   private val TestCert =

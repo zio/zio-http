@@ -18,8 +18,6 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509ExtendedTrustManager
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
@@ -47,7 +45,6 @@ import zio.http.h2.H2Transport
  *     silent 200;
  *   - connect timeout fires instead of hanging.
  */
-@experimental
 object LoomH2ClientAlpnSpec extends ZIOSpecDefault {
 
   private val TestCert =

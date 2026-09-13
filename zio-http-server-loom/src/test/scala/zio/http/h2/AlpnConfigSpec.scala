@@ -3,8 +3,6 @@ package zio.http.h2
 import java.net.Socket
 import javax.net.ssl.{SSLContext, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
@@ -45,7 +43,6 @@ import zio.http.{
  * rejection vs. acceptance. It is independent from any future client-side
  * `ClientAlpnPolicy`.
  */
-@experimental
 object AlpnConfigSpec extends ZIOSpecDefault {
 
   private val TestCert =

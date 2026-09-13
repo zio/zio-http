@@ -3,15 +3,12 @@ package zio.http.h2
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.{CancellationException, TimeUnit, TimeoutException}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.{Mux, MuxError}
 import zio.test.TestAspect.sequential
 import zio.test._
 
-@experimental
 object H2ConnectionControlSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

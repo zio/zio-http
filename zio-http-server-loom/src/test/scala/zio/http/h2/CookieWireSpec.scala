@@ -4,7 +4,6 @@ import java.io.InputStream
 import java.net.{InetSocketAddress, Socket}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -35,7 +34,6 @@ import zio.http.{
 // v4 core). Header.Custom therefore carries the exact Set-Cookie bytes that
 // Cookie.Response(isSecure = true, isHttpOnly = true, sameSite = Strict) and
 // Cookie.clear would emit, so the H2 wire passthrough is asserted byte-exact.
-@experimental
 object CookieWireSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("CookieWireSpec")(

@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -38,7 +37,6 @@ import zio.http.{
 }
 
 /** Extra integration tests targeting uncovered branches in H2Transport. */
-@experimental
 object H2TransportCoverageSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

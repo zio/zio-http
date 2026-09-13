@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets
 
 import javax.net.ssl.{SSLContext, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -70,7 +69,6 @@ import zio.http.{
  * 9113 section 6.9 (see [[RawH2Client.topUp]]); without it the server's
  * FlowController parks forever and the test — not the server — is at fault.
  */
-@experimental
 object H2HardeningIntegrationSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

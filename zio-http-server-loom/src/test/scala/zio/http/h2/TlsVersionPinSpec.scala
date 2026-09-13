@@ -3,8 +3,6 @@ package zio.http.h2
 import java.net.Socket
 import javax.net.ssl.{SSLContext, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
@@ -42,7 +40,6 @@ import zio.http.{
  *     fast with a clear `ALPN not configured on provided SSLContext` error
  *     instead of a silent bypass.
  */
-@experimental
 object TlsVersionPinSpec extends ZIOSpecDefault {
 
   private val TestCert =

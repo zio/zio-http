@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -61,7 +60,6 @@ import zio.http.{
  * 9113 section 6.9 (see [[RawH2Client.topUp]]); without it the server's
  * FlowController parks forever and the test — not the server — is at fault.
  */
-@experimental
 object SseDelayIntegrationSpec extends ZIOSpecDefault {
 
   private val Utf8 = StandardCharsets.UTF_8

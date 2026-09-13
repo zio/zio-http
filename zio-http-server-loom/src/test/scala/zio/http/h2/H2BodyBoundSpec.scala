@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -46,7 +45,6 @@ import zio.http.{
  *     reading the body,
  *   - a `content-length` that disagrees with the received bytes is rejected.
  */
-@experimental
 object H2BodyBoundSpec extends ZIOSpecDefault {
 
   private val BodyCap: Long = 1024L

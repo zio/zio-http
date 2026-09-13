@@ -3,8 +3,6 @@ package zio.http.h2
 import java.io.{ByteArrayOutputStream, IOException, InputStream, OutputStream}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -22,7 +20,6 @@ import zio.http.h2.hpack.{HeaderField, Hpack}
  * Connection-lifecycle behavior: protocol-error shutdowns, writer failures,
  * GOAWAY drain, and shutdown safety.
  */
-@experimental
 object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

@@ -3,7 +3,6 @@ package zio.http.h2
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.annotation.experimental
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
 import zio._
@@ -21,7 +20,6 @@ import zio.http.sse.{ServerSentEvent, SseCodec}
  * `event:`/`id:`/`retry:` lines, blank-line terminator); `Body.sse` maps the
  * event stream per-event so payloads are never materialized into one Chunk.
  */
-@experimental
 object SseCodecSpec extends ZIOSpecDefault {
 
   private val Utf8 = StandardCharsets.UTF_8

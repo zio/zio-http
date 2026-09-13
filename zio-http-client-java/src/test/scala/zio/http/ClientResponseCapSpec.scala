@@ -3,8 +3,6 @@ package zio.http
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -30,7 +28,6 @@ import zio.http.ResultType._
  * server (no new dependencies — the JDK client downgrades to `http/1.1` there,
  * which also proves the cap lives on the body handler, not the protocol leg).
  */
-@experimental
 object ClientResponseCapSpec extends ZIOSpecDefault {
 
   private val BigBodySize: Int = 256 * 1024

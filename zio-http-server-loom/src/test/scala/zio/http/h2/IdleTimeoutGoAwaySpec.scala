@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -26,7 +25,6 @@ import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, R
  * with a drain period per RFC 9113 section 6.8, then close; request timeouts
  * surface as RST_STREAM(CANCEL).
  */
-@experimental
 object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
 
   private val IdleTimeout = java.time.Duration.ofMillis(200)
