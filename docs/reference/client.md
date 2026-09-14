@@ -54,7 +54,7 @@ val good =
       .streaming(Request.get("http://jsonplaceholder.typicode.com/todos"))
       .flatMap(_.body.asString)
   }.flatMap(???)
-  
+
 // BAD: The server might be streaming the response body, and we've forcefully closed the connection before it finishes
 val bad1 =
   ZIO.scoped {
@@ -662,9 +662,36 @@ Here are some of the above configuration options in more detail:
 
 ### Configuring SSL
 
-The default SSL configuration of `ZClient.Config.default` is `None`. To enable and configure SSL for the client, we can use the `ZClient.Config#ssl` method. This method takes a config of type `ClientSSLConfig` which supports different SSL configurations such as `Default`, `FromCertFile`, `FromCertResource`, `FromTrustStoreFile`, and `FromTrustStoreResource.
+The default SSL configuration of `ZClient.Config.default` is `None`. To enable and configure SSL for the client, use the `ZClient.Config#ssl` method with one of the following `ClientSSLConfig` variants:
 
-Let's see an example of how to configure SSL for the client:
+- `Default` disables server certificate verification.
+- `FromSystemTrustStore` validates server certificates against the JVM's default trust store.
+- `FromCertFile`, `FromCertResource`, and `FromCertBytes` trust a custom PEM certificate.
+- `FromTrustStoreFile` and `FromTrustStoreResource` use a custom trust store.
+- `FromClientAndServerCert` combines server verification with a client certificate for mutual TLS.
+
+The byte-based variants are programmatic-only and are not available through the corresponding ZIO Config decoders.
+
+For example, a client can use the JVM's standard trusted certificate authorities:
+
+```scala mdoc:compile-only
+import zio.http._
+
+val config =
+  ZClient.Config.default.ssl(ClientSSLConfig.FromSystemTrustStore)
+```
+
+When loading `ZClient.Config` through ZIO Config, select the same mode with:
+
+```hocon
+ssl {
+  type = "FromSystemTrustStore"
+}
+```
+
+For mutual TLS, use `FromSystemTrustStore` as the server certificate configuration in `FromClientAndServerCert` to retain JVM system trust while supplying a client certificate.
+
+Let's see another example of how to configure SSL for the client:
 
 ```scala mdoc:passthrough
 import utils._

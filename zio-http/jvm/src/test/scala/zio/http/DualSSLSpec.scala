@@ -117,6 +117,41 @@ object DualSSLSpec extends ZIOHttpSpec {
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
+          test("verify the server against the system trust store, rejecting an untrusted server certificate") {
+            Client
+              .batched(Request.get(httpsUrl))
+              .fold(
+                { e =>
+                  val chain                   =
+                    Iterator.iterate(e: Throwable)(_.getCause).takeWhile(_ != null).map(_.toString).mkString(" | ")
+                  val rejectedUntrustedServer =
+                    List(
+                      "DecoderException",
+                      "PrematureChannelClosureException",
+                      "SSLHandshakeException",
+                      "ValidatorException",
+                    )
+                      .exists(chain.contains) ||
+                      chain.contains("unable to find valid certification path") || chain.contains("PKIX")
+                  if (rejectedUntrustedServer) assertCompletes
+                  else assertNever(s"request failed with unexpected error: $chain")
+                },
+                _ => assertNever("expected server verification to reject the untrusted self-signed server certificate"),
+              )
+          }.provide(
+            Client.customized,
+            ZLayer.succeed(
+              ZClient.Config.default.ssl(
+                ClientSSLConfig.FromClientAndServerCert(
+                  ClientSSLConfig.FromSystemTrustStore,
+                  ClientSSLCertConfig.FromClientCertBytes(resourceBytes("client.crt"), resourceBytes("client.key")),
+                ),
+              ),
+            ),
+            NettyClientDriver.live,
+            DnsResolver.default,
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+          ),
           // Unfortunately if the channel closes before we create the request, we can't extract the DecoderException
           test("fail when client has the server certificate but no client certificate is configured") {
             Client
