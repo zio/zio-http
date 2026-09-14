@@ -23,10 +23,6 @@ object Versions {
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
 val wsRoot        = BuildCtx.workspaceRoot
 
-/** Version-specific source dir for cross-built modules (`scala-2` on 2.x, `scala-3` on 3.x). */
-def vDir(crossScalaVersion: String): String =
-  if (crossScalaVersion.startsWith("2.")) "scala-2" else "scala-3"
-
 trait ZioHttpPublishModule extends PublishModule {
   def publishVersion = Task.Input {
     sys.env.get("ZIO_HTTP_SNAPSHOT_VERSION").getOrElse {
@@ -389,8 +385,7 @@ object serverLoom extends Module {
     )
     object test extends ScoverageTests with ZioHttpTestModule {
       override def moduleDeps = Seq(serverLoom.jvm(), clientJava.jvm())
-      // Shared specs plus the Scala 3 compile-time negation spec.
-      override def sources    = Task.Sources(r / "src" / "test" / "scala", r / "src" / "test" / vDir(crossScalaVersion))
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
     }
   }
 }

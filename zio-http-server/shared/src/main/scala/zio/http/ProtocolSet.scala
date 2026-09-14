@@ -74,18 +74,17 @@ object AppProtocol {
 }
 
 /**
- * Network transport family of a [[Connector]] binding and of a
- * [[ProtocolEngine]].
+ * Network transport family of a [[Connector]] binding.
  *
- * This is the single transport-kind contract shared by the connector model and
- * the engine model: `Tcp` serves the H1/H2C/H2 family, `Udp` is registered for
- * the future QUIC/H3 seam only (no engine is installed, so
- * [[ConnectorValidation.validateTransport]] rejects every UDP binding with
- * [[ConnectorFailure.TcpUdpMismatch]]), and `Unix` names Unix-domain-socket
- * engines. TCP and UDP draw numeric ports from independent OS namespaces, so a
- * TCP connector/engine and a UDP connector/engine may share a numeric port (see
- * [[TransportKind.sharesPortNamespace]] and [[Connector.bindConflicts]]).
- * Production configuration must not advertise or run H3.
+ * This is the single transport-kind contract of the connector model: `Tcp`
+ * serves the H1/H2C/H2 family, `Udp` is registered for the future QUIC/H3 seam
+ * only ([[ConnectorValidation.validateTransport]] rejects every UDP binding
+ * with [[ConnectorFailure.TcpUdpMismatch]]), and `Unix` names
+ * Unix-domain-socket bindings. TCP and UDP draw numeric ports from independent
+ * OS namespaces, so a TCP connector and a UDP connector may share a numeric
+ * port (see [[TransportKind.sharesPortNamespace]] and
+ * [[Connector.bindConflicts]]). Production configuration must not advertise or
+ * run H3.
  */
 sealed trait TransportKind
 
