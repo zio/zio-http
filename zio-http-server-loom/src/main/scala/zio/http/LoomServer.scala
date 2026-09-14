@@ -64,7 +64,7 @@ object LoomServer {
    * @tparam R
    *   the intersection of required wire versions so far.
    */
-  final class Requires[R <: Version](first: Connector, rest: List[Connector]) {
+  final class Requires[R <: Version] private[LoomServer] (first: Connector, rest: List[Connector]) {
 
     /** List another H2C connector; the required set gains `HTTP/2.0`. */
     def addConnector(c: H2CConnector): Requires[R with Version.`HTTP/2.0`.type] =

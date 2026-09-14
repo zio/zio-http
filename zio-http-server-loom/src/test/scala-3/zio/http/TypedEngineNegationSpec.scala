@@ -63,6 +63,11 @@ object TypedEngineNegationSpec extends ZIOSpecDefault {
         typeChecks("LoomServer.connectors(h2c(0)).addConnector(h3c(0, tlsHole)).serveWith(h2a, h3)"),
       )
     },
+    test("TLS H2 connector maps to HTTP/2.0") {
+      assertTrue(
+        typeChecks("LoomServer.connectors(new H2Connector(tls = tlsHole)).serveWith(h2a)"),
+      )
+    },
     test("config-flag conditional listing typechecks") {
       assertTrue(
         typeChecks(
@@ -78,6 +83,12 @@ object TypedEngineNegationSpec extends ZIOSpecDefault {
     test("extra engine does not compile") {
       val errors =
         typeCheckErrors("LoomServer.connectors(h2c(0)).serveWith(h2a, h1a)")
+      assertTrue(errors.nonEmpty)
+    },
+    test("fewer engines than required versions does not compile") {
+      val errors = typeCheckErrors(
+        "LoomServer.connectors(h2c(0)).addConnector(h3c(0, tlsHole)).serveWith(h2a)",
+      )
       assertTrue(errors.nonEmpty)
     },
     test("duplicate engines do not compile") {

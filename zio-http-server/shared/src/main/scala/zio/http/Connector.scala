@@ -189,7 +189,8 @@ object Protocol {
  * `H2CConnector` and `H2Connector` both mean wire `HTTP/2.0` (TLS vs cleartext
  * is connector transport, not version), so one `HTTP/2.0` engine covers both
  * binds. All validation, migration, schemas, and transports keep taking the
- * base [[Connector]] and are untouched by version tracking.
+ * base [[Connector]] and are untouched by version tracking. There is no H1
+ * connector yet: `HTTP/1.1` serving arrives with the H1 wave.
  */
 final class H2CConnector(
   bind: BindAddress = BindAddress.Tcp(),
