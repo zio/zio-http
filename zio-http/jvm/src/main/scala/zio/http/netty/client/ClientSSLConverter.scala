@@ -84,6 +84,8 @@ private[netty] object ClientSSLConverter {
   ): SslContextBuilder = sslConfig match {
     case ClientSSLConfig.Default                                                                              =>
       sslContextBuilder.trustManager(InsecureTrustManagerFactory.INSTANCE)
+    case ClientSSLConfig.FromSystemTrustStore                                                                 =>
+      sslContextBuilder
     case ClientSSLConfig.FromCertFile(certPath)                                                               =>
       val certStream = new FileInputStream(certPath)
       sslContextBuilder.trustManager(certStream)
