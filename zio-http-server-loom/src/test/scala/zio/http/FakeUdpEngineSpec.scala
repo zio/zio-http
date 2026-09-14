@@ -3,22 +3,17 @@ package zio.http
 import java.util.concurrent.atomic.AtomicBoolean
 
 import zio._
-import zio.blocks.context.Context
-import zio.blocks.endpoint.RoutePattern
 import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
  * Future H3/QUIC transport seam — fake UDP engine.
  *
- * A test-only UDP engine exercises typed registration and per-engine hook
- * recording for a non-TCP transport: it claims `HTTP/1.1` purely as a
+ * A test-only UDP engine placeholder: it claims `HTTP/1.1` purely as a
  * registration placeholder — no UDP wire behavior exists or is implied, and no
- * QUIC library is involved. TCP and UDP engines coexist freely (no registry
- * remains to reject them); coverage is connector-driven, so a mixed
- * registration still binds the valid TCP connector. The numeric-port-namespace
- * contract ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]])
- * is pinned unchanged below.
+ * QUIC library is involved. The numeric-port-namespace contract
+ * ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]]) is
+ * pinned unchanged below.
  */
 
 object FakeUdpEngineSpec extends ZIOSpecDefault {
@@ -45,41 +40,9 @@ object FakeUdpEngineSpec extends ZIOSpecDefault {
     }
   }
 
-  private final class StubTcpEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {
-    val transportKind: TransportKind = TransportKind.Tcp
-    def drain(): Unit                = ()
-    def close(): Unit                = ()
-  }
-
-  private val tcpH2: ProtocolEngine[Version.`HTTP/2.0`.type] =
-    new StubTcpEngine(Version.`HTTP/2.0`)
-
-  private val routes: Routes[Any] =
-    Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
-
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("FakeUdpEngineSpec")(
       suite("fake UDP engine registration")(
-        test("UDP engine registers alongside a TCP engine") {
-          val udp     = new FakeUdpEngine
-          val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), tcpH2, udp)
-          val context = Context.empty.add(server)
-          ZIO.attemptBlocking {
-            val handle = Server.serve(routes, context)
-            try assertTrue(handle.bindings.length == 1)
-            finally handle.shutdownAndWait()
-          }
-        },
-        test("serve with mixed TCP+UDP engines still binds the valid TCP connector") {
-          val udp     = new FakeUdpEngine
-          val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), tcpH2, udp)
-          val context = Context.empty.add(server)
-          ZIO.attemptBlocking {
-            val handle = Server.serve(routes, context)
-            try assertTrue(handle.bindings.length == 1)
-            finally handle.shutdownAndWait()
-          }
-        },
         test("engine drain/close hooks record direct calls") {
           val udp = new FakeUdpEngine
           ZIO.attemptBlocking {

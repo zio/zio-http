@@ -9,14 +9,13 @@ import zio.test._
 /**
  * Typed thick protocol-engine registration and one shared dispatcher.
  *
- * Engines are keyed on the Blocks HTTP [[Version]] sum type with a compile-time
- * max-one-per-version bound (the fixed `LoomServer.apply` overloads require
- * pairwise `=!=` evidence). There is no runtime duplicate path: registering two
- * engines for one version does not compile (proven by `TypedEngineNegationSpec`
- * on Scala 3; the shared trick works identically on Scala 2.13). The only
- * runtime registration failure left is a coverage gap: every served connector
- * version must have a registered engine, else `serve` fails before bind with
- * [[EngineRegistrationError.MissingEngine]].
+ * Connectors are listed first and engines second: `LoomServer.connectors`
+ * accumulates the required version set at type level, and `serveWith` compiles
+ * only when the supplied versions match it exactly (pairwise `=!=` evidence).
+ * Duplicates, extras, and missing versions do not compile (proven by
+ * `TypedEngineNegationSpec` on Scala 3; the shared trick works identically on
+ * Scala 2.13), so there is no runtime registration path left at all: every
+ * served connector version has a registered engine by construction.
  */
 
 object ProtocolEngineSpec extends ZIOSpecDefault {
@@ -29,9 +28,6 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
     def close(): Unit = ()
   }
 
-  private val h1: ProtocolEngine[Version.`HTTP/1.1`.type] =
-    new StubEngine(Version.`HTTP/1.1`)
-
   private val h2: ProtocolEngine[Version.`HTTP/2.0`.type] =
     new StubEngine(Version.`HTTP/2.0`)
 
@@ -39,72 +35,34 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
     Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
   /**
-   * Serves one ephemeral H2C connector; both branches list engines upfront at
-   * the same plain `LoomServer` type, so the flag only switches the H1 engine.
+   * Serves H2C connectors; the flag-off branch lists one connector and one
+   * engine, the flag-on branch two of each. Both branches are plain
+   * `LoomServer`, so the flag only switches which exact set is built.
    */
   private def serveWithFlag(flag: Boolean) = {
-    val connector = Connector(bind = BindAddress.localhost(0))
-    val server    =
-      if (flag) LoomServer(connector, h2, h1)
-      else LoomServer(connector, h2)
-    val context   = Context.empty.add(server)
+    val first   = new H2CConnector(bind = BindAddress.localhost(0))
+    val context =
+      if (flag) {
+        val server = LoomServer
+          .connectors(first)
+          .addConnector(new H2CConnector(bind = BindAddress.localhost(0)))
+          .serveWith(h2)
+        Context.empty.add(server)
+      } else {
+        val server = LoomServer.connectors(first).serveWith(h2)
+        Context.empty.add(server)
+      }
     ZIO.attemptBlocking {
       val handle = Server.serve(routes, context)
-      try assertTrue(handle.bindings.length == 1)
+      try assertTrue(handle.bindings.length == (if (flag) 2 else 1))
       finally handle.shutdownAndWait()
     }
   }
 
-  /** A TCP port that is free right now on loopback. */
-  private def freePort(): Int = {
-    val socket = new java.net.ServerSocket(0)
-    try socket.getLocalPort
-    finally socket.close()
-  }
-
-  /** True when nothing on loopback currently holds `port`. */
-  private def portIsFree(port: Int): Boolean =
-    try {
-      val socket = new java.net.ServerSocket()
-      try {
-        socket.bind(new java.net.InetSocketAddress("127.0.0.1", port))
-        true
-      } finally socket.close()
-    } catch {
-      case _: java.io.IOException => false
-    }
-
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("ProtocolEngineSpec")(
-      test("single-version registration serves normally") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2)
-        val context = Context.empty.add(server)
-        ZIO.attemptBlocking {
-          val handle = Server.serve(routes, context)
-          try assertTrue(handle.bindings.length == 1)
-          finally handle.shutdownAndWait()
-        }
-      },
-      test("missing engine fails serve before bind with a typed error") {
-        val port   = freePort()
-        val server = LoomServer(Connector(bind = BindAddress.localhost(port)), h1)
-        ZIO.attemptBlocking {
-          val result =
-            try {
-              val handle = Server.serve(routes, context = Context.empty.add(server))
-              try Left("bound")
-              finally handle.shutdownAndWait()
-            } catch {
-              case error: EngineRegistrationError.MissingEngine => Right(error)
-            }
-          assertTrue(
-            result == Right(EngineRegistrationError.MissingEngine(Version.`HTTP/2.0`)),
-            portIsFree(port),
-          )
-        }
-      },
-      test("extra engine no connector needs is allowed") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2, h1)
+      test("single-version listing serves normally") {
+        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(h2)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -113,9 +71,13 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
         }
       },
       test("H2C and H2 connectors share one HTTP/2.0 engine") {
-        val first   = Connector(bind = BindAddress.localhost(0))
-        val second  = Connector(bind = BindAddress.localhost(0))
-        val server  = LoomServer(first, h2).addConnector(second).withDefectHandler(DefectHandler.default)
+        val first   = new H2CConnector(bind = BindAddress.localhost(0))
+        val second  = new H2CConnector(bind = BindAddress.localhost(0))
+        val server  = LoomServer
+          .connectors(first)
+          .addConnector(second)
+          .serveWith(h2)
+          .withDefectHandler(DefectHandler.default)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
@@ -128,13 +90,6 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
       },
       test("config-flag conditional registration serves with the flag on") {
         serveWithFlag(true)
-      },
-      test("connector versions map to wire versions explicitly") {
-        assertTrue(
-          EngineCoverage.protocolVersion(Protocol.H2C()) == Version.`HTTP/2.0`,
-          EngineCoverage.protocolVersion(Protocol.H2(tlsForMapping)) == Version.`HTTP/2.0`,
-          EngineCoverage.protocolVersion(Protocol.H3(tlsForMapping)) == Version.`HTTP/3.0`,
-        )
       },
       test("shared dispatcher serves a matching route with 200") {
         val routes     = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
@@ -166,10 +121,4 @@ object ProtocolEngineSpec extends ZIOSpecDefault {
         }
       },
     ) @@ sequential
-
-  private def tlsForMapping: TlsConfig =
-    TlsConfig(
-      certChain = TlsSource.PemString(zio.blocks.config.Secret("CERT")),
-      privateKey = TlsSource.PemString(zio.blocks.config.Secret("KEY")),
-    )
 }

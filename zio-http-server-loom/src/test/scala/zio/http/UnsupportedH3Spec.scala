@@ -39,6 +39,14 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
       def close(): Unit                     = ()
     }
 
+  private val h3engine: ProtocolEngine[Version.`HTTP/3.0`.type] =
+    new ProtocolEngine[Version.`HTTP/3.0`.type] {
+      val protocol: Version.`HTTP/3.0`.type = Version.`HTTP/3.0`
+      val transportKind: TransportKind      = TransportKind.Tcp
+      def drain(): Unit                     = ()
+      def close(): Unit                     = ()
+    }
+
   /** A TCP port that is free right now on loopback. */
   private def freePort(): Int = {
     val socket = new java.net.ServerSocket(0)
@@ -78,8 +86,9 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
     suite("UnsupportedH3Spec")(
       test("H3 connector fails serve before bind with H3NotAdvertised") {
         val port   = freePort()
-        val server =
-          LoomServer(Connector(bind = BindAddress.localhost(port), protocol = Protocol.H3(tlsCfg)), h2engine)
+        val server = LoomServer
+          .connectors(new H3Connector(bind = BindAddress.localhost(port), tls = tlsCfg))
+          .serveWith(h3engine)
         ZIO.attemptBlocking {
           val refused: Either[String, InvalidConnector] =
             try {
@@ -98,10 +107,11 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
       },
       test("UDP-transport connector fails serve before bind with TcpUdpMismatch") {
         val port   = freePort()
-        val server = LoomServer(
-          Connector(bind = BindAddress.localhost(port), transport = TransportKind.Udp),
-          h2engine,
-        )
+        val server = LoomServer
+          .connectors(
+            new H2CConnector(bind = BindAddress.localhost(port), transport = TransportKind.Udp),
+          )
+          .serveWith(h2engine)
         ZIO.attemptBlocking {
           val refused: Either[String, InvalidConnector] =
             try {
@@ -123,8 +133,10 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
       test("H3 as an additional connector fails before any connector binds") {
         val firstPort  = freePort()
         val secondPort = freePort()
-        val server     = LoomServer(Connector(bind = BindAddress.localhost(firstPort)), h2engine)
-          .addConnector(Connector(bind = BindAddress.localhost(secondPort), protocol = Protocol.H3(tlsCfg)))
+        val server     = LoomServer
+          .connectors(new H2CConnector(bind = BindAddress.localhost(firstPort)))
+          .addConnector(new H3Connector(bind = BindAddress.localhost(secondPort), tls = tlsCfg))
+          .serveWith(h2engine, h3engine)
         ZIO.attemptBlocking {
           assertTrue(serveFailsBeforeBind(server), portIsFree(firstPort), portIsFree(secondPort))
         }
@@ -153,12 +165,11 @@ object UnsupportedH3Spec extends ZIOSpecDefault {
           preface.validate == Left(ConnectorFailure.H3NotAdvertised),
         )
       },
-      test("H3 fails even with a valid TCP engine registered") {
+      test("H3 fails even with an exactly-covering H3 engine registered") {
         val port   = freePort()
-        val server = LoomServer(
-          Connector(bind = BindAddress.localhost(port), protocol = Protocol.H3(tlsCfg)),
-          h2engine,
-        )
+        val server = LoomServer
+          .connectors(new H3Connector(bind = BindAddress.localhost(port), tls = tlsCfg))
+          .serveWith(h3engine)
         ZIO.attemptBlocking {
           assertTrue(serveFailsBeforeBind(server), portIsFree(port))
         }

@@ -13,9 +13,9 @@ import zio.http.h2.H2RawClientFixture.RawH2Client
  * Baseline characterization of the server bind/serve/shutdown behavior.
  *
  * Pins the contract the typed engine wave preserves: one
- * `Server.serve(routes, context)` application definition, `LoomServer` bound to
- * an H2C connector with a registered HTTP/2.0 engine, a single TCP binding,
- * live traffic, and working shutdown.
+ * `Server.serve(routes, context)` application definition, `LoomServer` built
+ * connectors-first with an H2C connector and an HTTP/2.0 engine, a single TCP
+ * binding, live traffic, and working shutdown.
  */
 
 object EngineBaselineSpec extends ZIOSpecDefault {
@@ -34,7 +34,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineBaselineSpec")(
       test("LoomServer binds one ephemeral TCP connector and serves GET / with 200") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
+        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -58,7 +58,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
         }
       },
       test("shutdown stops the server and awaitShutdown returns") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
+        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {
@@ -68,7 +68,7 @@ object EngineBaselineSpec extends ZIOSpecDefault {
         }
       },
       test("registered HTTP/2.0 engine serves GET / with 200") {
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), engine)
+        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(engine)
         val context = Context.empty.add(server)
         val handle  = Server.serve(routes, context)
         ZIO.attemptBlocking {

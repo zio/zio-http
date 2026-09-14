@@ -15,14 +15,14 @@ import zio.test._
  *     (`ProtocolEngine[P <: Version]` with a single `def protocol: P`).
  *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
  *     are deleted, not deprecated.
- *   - `LoomServer` lists engines once at startup through fixed `apply`
- *     overloads (`apply(c, e1)`, `apply(c, e1, e2)`, ...) with pairwise `=!=`
- *     evidence enforcing max-one-per-version at compile time. Duplicate
- *     registration has no runtime representation. A server with zero engines is
- *     unrepresentable: the private constructor admits only the gated overloads.
- *   - `serve` always checks coverage: every served connector version must have
- *     a registered engine, else `serve` fails before bind with
- *     [[EngineRegistrationError.MissingEngine]].
+ *   - `LoomServer` is built connectors-first: `connectors` lists bindings and
+ *     accumulates the required version set at type level, then `serveWith`
+ *     supplies engines once and compiles only on an exact version match
+ *     (pairwise `=!=` evidence). Duplicates, extras, missing versions, and
+ *     zero-engine servers are all compile-time rejections with no runtime
+ *     representation.
+ *   - `serve` model-validates every connector before bind; structurally invalid
+ *     connectors fail with typed `InvalidConnector`.
  *   - `Server.serve(routes, context)` remains the single application definition
  *     shared by all engines; no call-shape change.
  */
@@ -40,32 +40,14 @@ object EngineMigrationSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineMigrationSpec")(
-      test("valid typed engine registration serves normally") {
+      test("valid typed engine listing serves normally") {
         val h2      = new StubEngine(Version.`HTTP/2.0`)
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h2)
+        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(h2)
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)
           try assertTrue(handle.bindings.length == 1)
           finally handle.shutdownAndWait()
-        }
-      },
-      test("uncovered version fails serve fast with a typed missing-engine error") {
-        val h1      = new StubEngine(Version.`HTTP/1.1`)
-        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)), h1)
-        val context = Context.empty.add(server)
-        ZIO.attemptBlocking {
-          val result =
-            try {
-              val handle = Server.serve(routes, context)
-              try Left("bound")
-              finally handle.shutdownAndWait()
-            } catch {
-              case error: EngineRegistrationError.MissingEngine => Right(error)
-            }
-          assertTrue(
-            result == Right(EngineRegistrationError.MissingEngine(Version.`HTTP/2.0`)),
-          )
         }
       },
     ) @@ sequential
