@@ -19,11 +19,11 @@ package zio.http
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.atomic._
 
-import scala.annotation.unroll
-
 import zio._
 
 import zio.http.Server.Config.ResponseCompressionConfig
+
+import com.lihaoyi.unroll
 
 /**
  * Represents a server, which is capable of serving zero or more HTTP

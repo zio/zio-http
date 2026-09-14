@@ -19,10 +19,10 @@ package zio.http
 import java.net.{InetAddress, UnknownHostException}
 import java.time.Instant
 
-import scala.annotation.unroll
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import com.lihaoyi.unroll
 
 trait DnsResolver {
   def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]]

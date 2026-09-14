@@ -511,9 +511,11 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     new Handler[R1, Err1, In1, Out1] {
       override def apply(in: In1): ZIO[Scope & R1, Err1, Out1] =
         (self(in), that(in)) match {
-          case (self: Exit[Err, Out], _)    => self
-          case (_, other: Exit[Err1, Out1]) => other
-          case (self, other)                => self.raceFirst(other)
+          // The type arguments are erased, so they are left as wildcards: an already-completed
+          // effect is returned as-is, and it is the static type that guarantees it fits.
+          case (self: Exit[_, _], _)  => self
+          case (_, other: Exit[_, _]) => other
+          case (self, other)          => self.raceFirst(other)
         }
     }
 
