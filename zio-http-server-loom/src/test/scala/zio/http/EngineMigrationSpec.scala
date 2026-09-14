@@ -7,42 +7,31 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
- * Migration to the typed protocol-engine contract.
+ * Migration to the connectors-only server contract.
  *
  * Intentional pre-release source breaks recorded here:
  *
- *   - `ProtocolEngine` is now keyed on the Blocks HTTP [[Version]] sum type
- *     (`ProtocolEngine[P <: Version]` with a single `def protocol: P`).
- *     `EngineId`, `ProtocolId`, `EngineRegistry`, and `withEngines(List(...))`
- *     are deleted, not deprecated.
- *   - `LoomServer` is built connectors-first: `connectors` lists bindings and
- *     accumulates the required version set at type level, then `serveWith`
- *     supplies engines once and compiles only on an exact version match
- *     (pairwise `=!=` evidence). Duplicates, extras, missing versions, and
- *     zero-engine servers are all compile-time rejections with no runtime
- *     representation.
+ *   - Users configure connectors only and never supply engines: `LoomServer`
+ *     takes ≥1 connector, and the matching built-in engine object is selected
+ *     internally at serve. `ProtocolEngine`, `EngineId`, `ProtocolId`,
+ *     `EngineRegistry`, `withEngine(s)`, phased `connectors`/`serveWith`,
+ *     `Requires`, and local `=:!=` are deleted, not deprecated.
  *   - `serve` model-validates every connector before bind; structurally invalid
- *     connectors fail with typed `InvalidConnector`.
+ *     connectors fail with typed `InvalidConnector`, and versions without an
+ *     engine fail before bind.
  *   - `Server.serve(routes, context)` remains the single application definition
- *     shared by all engines; no call-shape change.
+ *     shared by all bindings; no call-shape change.
  */
 
 object EngineMigrationSpec extends ZIOSpecDefault {
-
-  private final class StubEngine[V <: Version](val protocol: V) extends ProtocolEngine[V] {
-    val transportKind: TransportKind = TransportKind.Tcp
-    def drain(): Unit                = ()
-    def close(): Unit                = ()
-  }
 
   private val routes: Routes[Any] =
     Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("EngineMigrationSpec")(
-      test("valid typed engine listing serves normally") {
-        val h2      = new StubEngine(Version.`HTTP/2.0`)
-        val server  = LoomServer.connectors(new H2CConnector(bind = BindAddress.localhost(0))).serveWith(h2)
+      test("connector-only server serves normally") {
+        val server  = LoomServer(Connector(bind = BindAddress.localhost(0)))
         val context = Context.empty.add(server)
         ZIO.attemptBlocking {
           val handle = Server.serve(routes, context)

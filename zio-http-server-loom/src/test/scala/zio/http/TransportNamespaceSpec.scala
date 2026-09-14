@@ -1,57 +1,21 @@
 package zio.http
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import zio._
 import zio.test.TestAspect.sequential
 import zio.test._
 
 /**
- * Future H3/QUIC transport seam — fake UDP engine.
- *
- * A test-only UDP engine placeholder: it claims `HTTP/1.1` purely as a
- * registration placeholder — no UDP wire behavior exists or is implied, and no
- * QUIC library is involved. The numeric-port-namespace contract
- * ([[TransportKind.sharesPortNamespace]], [[Connector.bindConflicts]]) is
- * pinned unchanged below.
+ * Transport numeric-port-namespace contract: which bindings may share a numeric
+ * port ([[TransportKind.sharesPortNamespace]]) and when two connectors collide
+ * ([[Connector.bindConflicts]]). UDP shares nothing with TCP (the future QUIC
+ * seam), Unix paths collide only with themselves, and ephemeral ports never
+ * conflict.
  */
 
-object FakeUdpEngineSpec extends ZIOSpecDefault {
-
-  /**
-   * Test-only UDP engine. `drained`/`closed` record direct calls to the
-   * per-engine hooks ([[ProtocolEngine.drain]]/[[ProtocolEngine.close]]); the
-   * test below invokes them directly, so it proves the hook methods record
-   * invocation — not server-lifecycle integration (nothing calls these hooks
-   * during serve/shutdown yet).
-   */
-  private final class FakeUdpEngine extends ProtocolEngine[Version.`HTTP/1.1`.type] {
-    val protocol: Version.`HTTP/1.1`.type = Version.`HTTP/1.1`
-    val transportKind: TransportKind      = TransportKind.Udp
-    val drained: AtomicBoolean            = new AtomicBoolean(false)
-    val closed: AtomicBoolean             = new AtomicBoolean(false)
-    def drain(): Unit                     = {
-      drained.set(true)
-      ()
-    }
-    def close(): Unit                     = {
-      closed.set(true)
-      ()
-    }
-  }
+object TransportNamespaceSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
-    suite("FakeUdpEngineSpec")(
-      suite("fake UDP engine registration")(
-        test("engine drain/close hooks record direct calls") {
-          val udp = new FakeUdpEngine
-          ZIO.attemptBlocking {
-            udp.drain()
-            udp.close()
-            assertTrue(udp.drained.get(), udp.closed.get())
-          }
-        },
-      ),
+    suite("TransportNamespaceSpec")(
       suite("numeric port sharing across transports")(
         test("TCP and UDP share one port namespace flag independently") {
           assertTrue(
