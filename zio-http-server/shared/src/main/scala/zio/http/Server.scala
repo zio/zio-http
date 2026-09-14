@@ -5,10 +5,10 @@ import zio.blocks.context.{Context, ContextHas, IsNominalType}
 /**
  * Server runtime interface. Implementations live in backend modules.
  *
- * Usage (engines are listed once at startup):
+ * Usage (connectors first, then the engines covering exactly their versions):
  * {{{
  * val context = Context.empty
- *   .add(LoomServer(Connector(port = 8080), h2Engine))
+ *   .add(LoomServer.connectors(H2CConnector(BindAddress.localhost(8080))).serveWith(h2Engine))
  *   .add(myDatabase)
  *
  * val handle = Server.serve(routes, context)
