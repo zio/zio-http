@@ -38,6 +38,7 @@ object ClientSSLConfig {
     val trustManagerPassword     = Config.secret("trustManagerPassword")
 
     val default                 = Config.succeed(Default)
+    val fromSystemTrustStore    = Config.succeed(FromSystemTrustStore)
     val fromCertFile            = certPath.map(FromCertFile(_))
     val fromCertResource        = certPath.map(FromCertResource(_))
     val fromTrustStoreFile      = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
@@ -89,6 +90,7 @@ object ClientSSLConfig {
 
     tpe.switch(
       "Default"                 -> default,
+      "FromSystemTrustStore"    -> fromSystemTrustStore,
       "FromCertFile"            -> fromCertFile,
       "FromCertResource"        -> fromCertResource,
       "FromTrustStoreFile"      -> fromTrustStoreFile,
@@ -98,6 +100,8 @@ object ClientSSLConfig {
   }
 
   case object Default                                    extends ClientSSLConfig
+  // Validates server certificates against the JVM's default trust store.
+  case object FromSystemTrustStore                       extends ClientSSLConfig
   final case class FromCertFile(certPath: String)        extends ClientSSLConfig
   final case class FromCertResource(certPath: String)    extends ClientSSLConfig
   // No redacted toString: these are server trust bytes (a public certificate), not secret key material.

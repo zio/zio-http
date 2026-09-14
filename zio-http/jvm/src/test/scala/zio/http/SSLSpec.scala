@@ -85,6 +85,25 @@ object SSLSpec extends ZIOHttpSpec {
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
           ),
+          test("fail when system trust store does not trust the server certificate") {
+            Client
+              .batched(Request.get(httpsUrl))
+              .fold(
+                { e =>
+                  val expectedErrors = List("DecoderException", "PrematureChannelClosureException")
+                  val errorType      = e.getClass.getSimpleName
+                  if (expectedErrors.contains(errorType)) assertCompletes
+                  else assertNever(s"request failed with unexpected error type: $errorType")
+                },
+                _ => assertNever("expected the system trust store to reject the self-signed server certificate"),
+              )
+          }.provide(
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.FromSystemTrustStore)),
+            NettyClientDriver.live,
+            DnsResolver.default,
+            ZLayer.succeed(NettyConfig.defaultWithFastShutdown),
+          ),
           test("succeed when client has default SSL") {
             val actual = Client.batched(Request.get(httpsUrl)).map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
