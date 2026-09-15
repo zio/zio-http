@@ -11,7 +11,6 @@ import zio.test.TestAspect.sequential
 import zio.test._
 
 import zio.http.ResultType._
-import zio.http.h2.H2Transport
 
 /**
  * Response-body caps on every client leg, all sourced from
@@ -224,19 +223,9 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
   ): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
-        ZIO.attempt {
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                BigRoutes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0)),
-                DefectHandler.default,
-              )
-                .start(),
-            ),
-          )
-        },
+        ZIO.attempt(
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(BigRoutes, Context.empty),
+        ),
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>
         val port = handle.bindings.head.address match {
