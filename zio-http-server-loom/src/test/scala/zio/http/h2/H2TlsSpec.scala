@@ -144,21 +144,6 @@ tylLU8iZnM9E7+/GSVghdQ==
             }
           }
       },
-      test("Protocol.H2 sets http2Config from H2 connector") {
-        ZIO.attempt {
-          val tlsCfg    = TlsConfig(
-            certChain = TlsSource.PemString(Secret(TestCert)),
-            privateKey = TlsSource.PemString(Secret(TestKey)),
-          )
-          val transport = new H2Transport(
-            Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok))),
-            Context.empty,
-            Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-            DefectHandler.default,
-          )
-          assertTrue(transport != null)
-        }
-      },
       test("H2 over TLS with PKCS1 RSA key (wrapPkcs1RsaKey path)") {
         ZIO
           .acquireRelease(

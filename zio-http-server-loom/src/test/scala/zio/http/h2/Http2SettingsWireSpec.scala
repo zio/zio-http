@@ -109,15 +109,9 @@ object Http2SettingsWireSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                SimpleRoutes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config)),
-                DefectHandler.default,
-              ).start(),
-            ),
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))).serve(
+            SimpleRoutes,
+            Context.empty,
           ),
         ),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))

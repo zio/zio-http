@@ -2,14 +2,28 @@ package zio.http.h2
 
 import zio._
 import zio.blocks.chunk.Chunk
+import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
 import zio.test.TestAspect.sequential
 import zio.test._
 
-import zio.http.{Body, Handler, Request, Response, Route, Routes, Status, handler}
+import zio.http.{
+  BindAddress,
+  Body,
+  BoundAddress,
+  Connector,
+  Handler,
+  LoomServer,
+  Request,
+  Response,
+  Route,
+  Routes,
+  Status,
+  handler,
+}
 import zio.http.ResultType._
 import zio.http.h2.H2Frame._
-import zio.http.h2.H2RawClientFixture.{RawH2Client, withRawServer}
+import zio.http.h2.H2RawClientFixture.RawH2Client
 import zio.http.h2.hpack.{HeaderField, Hpack}
 
 /**
@@ -17,6 +31,23 @@ import zio.http.h2.hpack.{HeaderField, Hpack}
  * framing.
  */
 object H2RequestRoutingSpec extends ZIOSpecDefault {
+
+  private def withServer[R](
+    routes: Routes[Any],
+  )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
+    ZIO
+      .acquireRelease(
+        ZIO.attempt(
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(routes, Context.empty),
+        ),
+      )(h => ZIO.succeed(h.shutdownAndWait()))
+      .flatMap { handle =>
+        val port = handle.bindings.head.address match {
+          case BoundAddress.Tcp(_, p) => p
+          case other                  => throw new AssertionError("Expected TCP: " + other)
+        }
+        use(port)
+      }
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("H2RequestRoutingSpec")(
@@ -30,7 +61,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -69,7 +100,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -104,7 +135,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
           Route(RoutePattern.GET, Handler.succeed(Response.ok)),
           Route(RoutePattern.POST, Handler.succeed(Response(Status.Created))),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -126,7 +157,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -145,7 +176,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
             Handler.succeed(Response(status = Status.Ok, body = Body.fromChunk(exactBody))),
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -158,7 +189,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
       // ── H2Transport: buildResponseHeaders when body is empty ─────────────
       test("empty response body sends HEADERS with endStream=true and no DATA") {
         val routes = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -173,7 +204,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
         val routes = Routes(
           Route(RoutePattern.GET, Handler.succeed(Response(status = Status.Ok, body = Body.fromString("ok")))),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -202,7 +233,7 @@ object H2RequestRoutingSpec extends ZIOSpecDefault {
       },
       test("H2Transport with empty Routes returns 404 for any request") {
         val routes = Routes.empty[Any]
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {

@@ -188,6 +188,13 @@ case class Http2Config(
   initialWindowSize: Int = 65535,
   maxFrameSize: Int = 16384,
   maxHeaderListSize: Int = 8192,
+  /**
+   * Send-window stall timeout in milliseconds: how long a parked writer waits
+   * for WINDOW_UPDATE before failing with a flow-control timeout. Mirrors
+   * `FlowController.DefaultSendWindowTimeoutMs`; connector-scoped so each
+   * binding tunes it instead of threading transport-construction parameters.
+   */
+  sendWindowTimeoutMs: Long = 30000L,
 ) {
   if (maxFrameSize < 16384 || maxFrameSize > 16777215)
     throw new IllegalArgumentException("maxFrameSize must be in [16384,16777215]")

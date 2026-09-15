@@ -41,7 +41,6 @@ final class H2Transport[Ctx](
   context: Context[Ctx],
   connector: Connector,
   defectHandler: DefectHandler,
-  sendWindowTimeoutMs: Long = FlowController.DefaultSendWindowTimeoutMs,
 ) {
   private val routeTree: RouteTree[Route[Ctx]] =
     H2Transport.buildRouteTree(routes)
@@ -589,7 +588,7 @@ final class H2Transport[Ctx](
           abort()
           throw new H2Transport.Aborted
         }
-        flowController.consumeSendWindow(stream.id, chunk.length, sendWindowTimeoutMs)
+        flowController.consumeSendWindow(stream.id, chunk.length, http2Config.sendWindowTimeoutMs)
         sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
         if (stream.isClosed) {
           abort()

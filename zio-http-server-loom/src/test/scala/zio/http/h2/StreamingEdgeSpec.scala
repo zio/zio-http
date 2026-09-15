@@ -23,6 +23,7 @@ import zio.http.{
   Connector,
   DefectHandler,
   Http2Config,
+  LoomServer,
   Protocol,
   Request,
   Response,
@@ -84,7 +85,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        val streamed      = withRawServer(streaming) { port =>
+        val streamed      = withServer(streaming) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -94,7 +95,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             } finally client.close()
           }
         }
-        val knownRun      = withRawServer(known) { port =>
+        val knownRun      = withServer(known) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -187,7 +188,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes, idleTimeout = java.time.Duration.ofMillis(350)) { port =>
+        withServer(routes, idleTimeout = java.time.Duration.ofMillis(350)) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -344,7 +345,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes, http2Config = Http2Config(maxConcurrentStreams = 2)) { port =>
+        withServer(routes, http2Config = Http2Config(maxConcurrentStreams = 2)) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -420,10 +421,9 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(
+        withServer(
           routes,
-          http2Config = Http2Config(initialWindowSize = 0),
-          sendWindowTimeoutMs = 1500L,
+          http2Config = Http2Config(initialWindowSize = 0, sendWindowTimeoutMs = 1500L),
         ) { port =>
           ZIO.attemptBlocking {
             val client    = new RawH2Client(port, autoWindowUpdate = false)
@@ -478,10 +478,9 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(
+        withServer(
           routes,
-          http2Config = Http2Config(initialWindowSize = 0),
-          sendWindowTimeoutMs = 8000L,
+          http2Config = Http2Config(initialWindowSize = 0, sendWindowTimeoutMs = 8000L),
         ) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
@@ -615,7 +614,7 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val before           = countStreamThreads()
             val client           = new RawH2Client(port)
@@ -739,11 +738,40 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
     count
   }
 
+  private def withServer[R](
+    routes: Routes[Any],
+    http2Config: Http2Config = Http2Config(),
+    idleTimeout: java.time.Duration = java.time.Duration.ofSeconds(60),
+  )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
+    ZIO
+      .acquireRelease(
+        ZIO.attempt(
+          LoomServer(
+            Connector(
+              bind = BindAddress.localhost(0),
+              protocol = Protocol.H2C(http2Config),
+              idleTimeout = idleTimeout,
+            ),
+          ).serve(routes, Context.empty),
+        ),
+      )(h => ZIO.succeed(h.shutdownAndWait()))
+      .flatMap { handle =>
+        val port = handle.bindings.head.address match {
+          case BoundAddress.Tcp(_, p) => p
+          case other                  => throw new AssertionError("Expected TCP: " + other)
+        }
+        use(port)
+      }
+
+  /**
+   * Raw-transport fixture for wire-level flow-control cells (manual
+   * WINDOW_UPDATE driving, overflow, RST accounting): inputs no public HTTP
+   * call can produce.
+   */
   private def withRawServer[R](
     routes: Routes[Any],
     http2Config: Http2Config = Http2Config(),
     idleTimeout: java.time.Duration = java.time.Duration.ofSeconds(60),
-    sendWindowTimeoutMs: Long = FlowController.DefaultSendWindowTimeoutMs,
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
@@ -759,7 +787,6 @@ object StreamingEdgeSpec extends ZIOSpecDefault {
                   idleTimeout = idleTimeout,
                 ),
                 DefectHandler.default,
-                sendWindowTimeoutMs,
               ).start(),
             ),
           ),
