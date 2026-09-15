@@ -21,16 +21,15 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
   Http2Config,
+  LoomServer,
   Method,
   Protocol,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
   handler,
 }
@@ -87,7 +86,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             resetHeapPeaks()
             val client = new RawH2Client(port)
@@ -140,7 +139,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -179,7 +178,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes, http2Config = Http2Config(maxFrameSize = 16384)) { port =>
+        withServer(routes, http2Config = Http2Config(maxFrameSize = 16384)) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -210,7 +209,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes, http2Config = Http2Config(initialWindowSize = 100)) { port =>
+        withServer(routes, http2Config = Http2Config(initialWindowSize = 100)) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -277,7 +276,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -308,7 +307,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -372,7 +371,7 @@ object StreamingBodySpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val before           = countStreamThreads()
             val client           = new RawH2Client(port)
@@ -489,22 +488,16 @@ object StreamingBodySpec extends ZIOSpecDefault {
     count
   }
 
-  private def withRawServer[R](
+  private def withServer[R](
     routes: Routes[Any],
     http2Config: Http2Config = Http2Config(),
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                routes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config)),
-                DefectHandler.default,
-              ).start(),
-            ),
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))).serve(
+            routes,
+            Context.empty,
           ),
         ),
       )(h => ZIO.succeed(h.shutdownAndWait()))

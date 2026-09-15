@@ -22,11 +22,11 @@ import zio.http.{
   Connector,
   DefectHandler,
   Handler,
+  LoomServer,
   Protocol,
   Response,
   Route,
   Routes,
-  ServerHandle,
   TlsConfig,
   TlsSource,
 }
@@ -92,21 +92,18 @@ tylLU8iZnM9E7+/GSVghdQ==
         ZIO
           .acquireRelease(
             ZIO.attempt {
-              val tlsCfg    = TlsConfig(
+              val tlsCfg = TlsConfig(
                 certChain = TlsSource.PemString(Secret(TestCert)),
                 privateKey = TlsSource.PemString(Secret(TestKey)),
               )
-              val transport = new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok))),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
               )
-              transport.start()
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }
@@ -123,21 +120,18 @@ tylLU8iZnM9E7+/GSVghdQ==
         ZIO
           .acquireRelease(
             ZIO.attempt {
-              val tlsCfg    = TlsConfig(
+              val tlsCfg = TlsConfig(
                 certChain = TlsSource.PemString(Secret(TestCert)),
                 privateKey = TlsSource.PemString(Secret(TestKey)),
               )
-              val transport = new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok))),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
               )
-              transport.start()
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }
@@ -173,16 +167,14 @@ tylLU8iZnM9E7+/GSVghdQ==
                 certChain = TlsSource.PemString(Secret(RsaCert)),
                 privateKey = TlsSource.PemString(Secret(RsaKey)),
               )
-              new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok))),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
-              ).start()
+              )
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }
@@ -227,16 +219,14 @@ tylLU8iZnM9E7+/GSVghdQ==
                 certChain = TlsSource.PemString(Secret(EcCert)),
                 privateKey = TlsSource.PemString(Secret(EcKey)),
               )
-              new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok))),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
-              ).start()
+              )
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }

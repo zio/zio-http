@@ -144,12 +144,12 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
         ZIO
           .acquireRelease(
             ZIO.attempt {
-              val tlsCfg    = TlsConfig(
+              val tlsCfg = TlsConfig(
                 certChain = TlsSource.PemString(Secret(ServerCertPem)),
                 privateKey = TlsSource.PemString(Secret(ServerKeyPem)),
                 requireClientAuth = true,
               )
-              val transport = new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(
                   Route(
                     RoutePattern.GET,
@@ -160,14 +160,11 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                   ),
                 ),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
               )
-              transport.start()
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }
@@ -201,7 +198,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 // Stage 3 (per-connection abort): the server is still bound
                 // afterwards and never dispatched the request past the
                 // failed handshake.
-                val serverStillBound         = handle.binding.address match {
+                val serverStillBound         = handle.bindings.head.address match {
                   case BoundAddress.Tcp(_, thePort) => thePort == tcpPort
                   case _                            => false
                 }
@@ -227,13 +224,13 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
         ZIO
           .acquireRelease(
             ZIO.attempt {
-              val tlsCfg    = TlsConfig(
+              val tlsCfg = TlsConfig(
                 certChain = TlsSource.PemString(Secret(ServerCertPem)),
                 privateKey = TlsSource.PemString(Secret(ServerKeyPem)),
                 requireClientAuth = true,
                 trustCertChain = Some(TlsSource.PemString(Secret(WrongCaPem))),
               )
-              val transport = new H2Transport(
+              LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
                 Routes(
                   Route(
                     RoutePattern.GET,
@@ -244,14 +241,11 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                   ),
                 ),
                 Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-                DefectHandler.default,
               )
-              transport.start()
             },
-          )(h => ZIO.succeed(h.close0()))
+          )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
-            val tcpPort = handle.binding.address match {
+            val tcpPort = handle.bindings.head.address match {
               case BoundAddress.Tcp(_, thePort) => thePort
               case other                        => throw new AssertionError("Expected TCP: " + other)
             }
@@ -276,7 +270,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
                 val refusedBeforeHandshake   = handshakeError.exists(_.isInstanceOf[ConnectException])
                 val serverSpokeH2AfterReject =
                   if (refusedBeforeHandshake) true else client.serverProceeds()
-                val serverStillBound         = handle.binding.address match {
+                val serverStillBound         = handle.bindings.head.address match {
                   case BoundAddress.Tcp(_, thePort) => thePort == tcpPort
                   case _                            => false
                 }

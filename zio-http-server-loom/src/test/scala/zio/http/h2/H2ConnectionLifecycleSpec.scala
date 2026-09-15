@@ -11,7 +11,7 @@ import zio.blocks.mux.Mux
 import zio.test.TestAspect.sequential
 import zio.test._
 
-import zio.http.{BindAddress, Connector, DefectHandler, Handler, Response, Route, Routes, ServerHandle}
+import zio.http.{BindAddress, Connector, Handler, LoomServer, Response, Route, Routes}
 import zio.http.h2.H2Frame._
 import zio.http.h2.H2RawClientFixture.{RawH2Client, SimpleRoutes, withRawServer}
 import zio.http.h2.hpack.{HeaderField, Hpack}
@@ -200,15 +200,9 @@ object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
         ZIO
           .acquireRelease(
             ZIO.attempt(
-              ServerHandle.live(
-                List(
-                  new H2Transport(
-                    SimpleRoutes,
-                    Context.empty,
-                    Connector(bind = BindAddress.localhost(0)),
-                    DefectHandler.default,
-                  ).start(),
-                ),
+              LoomServer(Connector(bind = BindAddress.localhost(0))).serve(
+                SimpleRoutes,
+                Context.empty,
               ),
             ),
           )(h => ZIO.succeed(h.shutdownAndWait()))

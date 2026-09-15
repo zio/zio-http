@@ -14,8 +14,8 @@ import zio.http.{
   BindAddress,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
+  LoomServer,
   Protocol,
   Response,
   Route,
@@ -196,16 +196,14 @@ tylLU8iZnM9E7+/GSVghdQ==
     ZIO
       .acquireRelease(
         ZIO.attempt {
-          new H2Transport(
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
             Routes(Route(RoutePattern.GET, Handler.succeed(Response.text("tls-pin-ok")))),
             Context.empty,
-            Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-            DefectHandler.default,
-          ).start()
+          )
         },
-      )(handle => ZIO.succeed(handle.close0()))
+      )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
-        val port = handle.binding.address match {
+        val port = handle.bindings.head.address match {
           case BoundAddress.Tcp(_, thePort) => thePort
           case other                        => throw new AssertionError("Expected TCP: " + other)
         }
