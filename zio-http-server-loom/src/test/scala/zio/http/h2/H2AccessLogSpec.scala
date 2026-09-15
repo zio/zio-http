@@ -23,15 +23,14 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
+  LoomServer,
   Method,
   Middleware,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
   TrustedProxyConfig,
   URL,
@@ -320,12 +319,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
             bind = BindAddress.localhost(0),
             trustedProxy = trusted,
           )
-          ServerHandle.live(
-            List(
-              new H2Transport(routes @@ Middleware.accessLog(sink), Context.empty, connector, DefectHandler.default)
-                .start(),
-            ),
-          )
+          LoomServer(connector).serve(routes @@ Middleware.accessLog(sink), Context.empty)
         },
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>

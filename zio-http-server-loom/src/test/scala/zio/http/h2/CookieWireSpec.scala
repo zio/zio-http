@@ -21,6 +21,7 @@ import zio.http.{
   Connector,
   DefectHandler,
   Handler,
+  LoomServer,
   Method,
   Response,
   Route,
@@ -117,9 +118,12 @@ object CookieWireSpec extends ZIOSpecDefault {
     defectHandler: DefectHandler = DefectHandler.default,
   ): Task[ServerHandle] =
     ZIO.attempt(
-      ServerHandle.live(
-        List(new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), defectHandler).start()),
-      ),
+      LoomServer(Connector(bind = BindAddress.localhost(0)))
+        .withDefectHandler(defectHandler)
+        .serve(
+          routes,
+          Context.empty,
+        ),
     )
 
   private def tcpPort(handle: ServerHandle): Int =

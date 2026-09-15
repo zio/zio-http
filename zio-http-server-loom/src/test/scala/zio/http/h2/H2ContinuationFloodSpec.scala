@@ -16,18 +16,7 @@ import zio.test._
 import zio.http.ResultType._
 import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, HpackDecoder, HpackEncoder}
-import zio.http.{
-  BindAddress,
-  BoundAddress,
-  Connector,
-  DefectHandler,
-  Handler,
-  Http2Config,
-  Response,
-  Route,
-  Routes,
-  ServerHandle,
-}
+import zio.http.{BindAddress, BoundAddress, Connector, Handler, Http2Config, LoomServer, Response, Route, Routes}
 
 /**
  * CONTINUATION flood bound for the H2 server transport.
@@ -125,9 +114,7 @@ object H2ContinuationFloodSpec extends ZIOSpecDefault {
       .acquireRelease(
         ZIO.attempt {
           val connector = Connector(bind = BindAddress.localhost(0))
-          ServerHandle.live(
-            List(new H2Transport(SimpleRoutes, Context.empty, connector, DefectHandler.default).start()),
-          )
+          LoomServer(connector).serve(SimpleRoutes, Context.empty)
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>
@@ -148,9 +135,7 @@ object H2ContinuationFloodSpec extends ZIOSpecDefault {
             bind = BindAddress.localhost(0),
             protocol = zio.http.Protocol.H2C(Http2Config(maxHeaderListSize = 1024)),
           )
-          ServerHandle.live(
-            List(new H2Transport(SimpleRoutes, Context.empty, connector, DefectHandler.default).start()),
-          )
+          LoomServer(connector).serve(SimpleRoutes, Context.empty)
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>

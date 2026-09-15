@@ -22,10 +22,10 @@ import zio.http.{
   DefectHandler,
   Handler,
   Halt,
+  LoomServer,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
 }
 
@@ -172,9 +172,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
         ZIO
           .acquireRelease(
             ZIO.attempt(
-              ServerHandle.live(
-                List(new H2Transport(routes, Context.empty, Connector.default, customDefect).start()),
-              ),
+              LoomServer(Connector.default).withDefectHandler(customDefect).serve(routes, Context.empty),
             ),
           )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
@@ -240,12 +238,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
-                .start(),
-            ),
-          ),
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(routes, Context.empty),
         ),
       )(h => ZIO.succeed(h.shutdownAndWait()))
       .flatMap { handle =>

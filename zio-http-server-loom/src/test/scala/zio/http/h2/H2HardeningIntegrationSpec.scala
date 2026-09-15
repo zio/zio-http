@@ -26,15 +26,14 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
   Http2Config,
+  LoomServer,
   Protocol,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
   TlsConfig,
   TlsSource,
@@ -443,7 +442,7 @@ object H2HardeningIntegrationSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(List(new H2Transport(routes, Context.empty, connector, DefectHandler.default).start())),
+          LoomServer(connector).serve(routes, Context.empty),
         ),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>

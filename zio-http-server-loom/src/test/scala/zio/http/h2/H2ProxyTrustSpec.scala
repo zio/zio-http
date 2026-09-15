@@ -29,12 +29,12 @@ import zio.http.{
   BoundAddress,
   Connector,
   DefectHandler,
+  LoomServer,
   Protocol,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   TlsConfig,
   TlsSource,
   TrustedProxyConfig,
@@ -326,7 +326,7 @@ object H2ProxyTrustSpec extends ZIOSpecDefault {
             protocol = Protocol.H2C(),
             trustedProxy = trusted,
           )
-          ServerHandle.live(List(new H2Transport(EchoRoutes, Context.empty, connector, DefectHandler.default).start()))
+          LoomServer(connector).serve(EchoRoutes, Context.empty)
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>

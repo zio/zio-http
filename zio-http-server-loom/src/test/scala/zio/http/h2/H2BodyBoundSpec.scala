@@ -20,13 +20,12 @@ import zio.http.{
   BindAddress,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
+  LoomServer,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
   handler,
 }
@@ -135,7 +134,7 @@ object H2BodyBoundSpec extends ZIOSpecDefault {
             bind = BindAddress.localhost(0),
             maxRequestBodySize = BodyCap,
           )
-          ServerHandle.live(List(new H2Transport(EchoRoutes, Context.empty, connector, DefectHandler.default).start()))
+          LoomServer(connector).serve(EchoRoutes, Context.empty)
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>
