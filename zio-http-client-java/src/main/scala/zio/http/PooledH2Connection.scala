@@ -565,8 +565,18 @@ private[http] final class H2BodyInput(
       count
     } catch {
       case failure: Throwable =>
-        if (failed == null) failed = failure
-        throw failure
+        // Audible, not silent: the pooled body drains through `Body.toArray`,
+        // which maps a mid-pull `IOException` to an empty body. Checked
+        // transport failures (EOF, reset, broken `WINDOW_UPDATE` write) are
+        // therefore wrapped unchecked so the drain throws instead of coming
+        // back empty; deadline, cancel, and cap failures are unchecked
+        // already and pass through untouched.
+        val loud: Throwable = failure match {
+          case io: IOException => H2BodyStreamFailure(streamId, io)
+          case other           => other
+        }
+        if (failed == null) failed = loud
+        throw loud
     }
   }
 
