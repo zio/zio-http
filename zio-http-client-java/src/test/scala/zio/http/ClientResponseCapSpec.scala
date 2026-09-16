@@ -95,9 +95,16 @@ object ClientResponseCapSpec extends ZIOSpecDefault {
         val pool = PooledLoomH2Client(ClientConfig())
         try {
           val response = pool.send(Request.get(absUrl(s"http://127.0.0.1:$port/")))
+          // Eager drain: the pooled body streams lazily and holds its pool
+          // slot until consumed, so materialize it here, inside the bracket,
+          // while the server is still up. Leaving it inside `assertTrue`
+          // would defer the drain into ZIO Test's lazy assertion arrows,
+          // which evaluate after `shutdownAndWait()` has closed the server —
+          // the drain would then hit EOF and come back empty.
+          val body     = response.body.toArray
           assertTrue(
             response.status == Status.Ok,
-            response.body.toArray.sameElements(BigBytes),
+            body.sameElements(BigBytes),
           )
         } finally pool.close()
       }
