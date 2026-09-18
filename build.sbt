@@ -56,7 +56,7 @@ ThisBuild / githubWorkflowAddedJobs :=
 // made the release fragile: re-running the publish job discards the previous
 // attempt's artifacts, so the download then fails and the release cannot be
 // retried without re-running the whole matrix.
-ThisBuild / githubWorkflowArtifactUpload  := false
+ThisBuild / githubWorkflowArtifactUpload := false
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
@@ -443,7 +443,7 @@ lazy val sbtZioHttpGrpc = (project in file("sbt-zio-http-grpc"))
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin"  % "0.11.20",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
-      "com.google.protobuf"   % "protobuf-java"   % "4.36.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.36.2"  % "protobuf",
     ),
   )
   .settings(
@@ -467,7 +467,7 @@ lazy val sbtZioHttpGrpcTests = (project in file("sbt-zio-http-grpc-tests"))
     libraryDependencies ++= Seq(
       `zio-test-sbt`,
       `zio-test`,
-      "com.google.protobuf"   % "protobuf-java"   % "4.36.1"  % "protobuf",
+      "com.google.protobuf"   % "protobuf-java"   % "4.36.2"  % "protobuf",
       "com.thesamet.scalapb" %% "scalapb-runtime" % "0.11.20" % "protobuf",
     ),
     Compile / run / fork := true,
