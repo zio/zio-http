@@ -31,9 +31,12 @@ import com.github.luben.zstd.ZstdInputStream
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
+  private val zstdText = "z" * (64 * 1024 + 1)
+
   private val text: Routes[Any, Response] =
     Routes(
-      Method.GET / "text" -> handler(Response.text("Hello World!\n")),
+      Method.GET / "text"      -> handler(Response.text("Hello World!\n")),
+      Method.GET / "text-zstd" -> handler(Response.text(zstdText)),
     )
 
   private val stream =
@@ -109,7 +112,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           decompressed <- decompressed(res)
         } yield assertTrue(decompressed == "Hello World!\n")
       },
-      test("with Response.text (zstd)") {
+      test("with Response.text (zstd, over 64 KiB)") {
         for {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
@@ -118,14 +121,15 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           response     <- client.batched(
             Request(
               method = Method.GET,
-              url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+              url = URL(Path.root / "text-zstd", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
             ).addHeader(Header.AcceptEncoding(Header.AcceptEncoding.Zstd())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressedZstd(res)
         } yield assertTrue(
           response.header(Header.ContentEncoding).contains(Header.ContentEncoding.Zstd),
-          decompressed == "Hello World!\n",
+          decompressed.length > 64 * 1024,
+          decompressed == zstdText,
         )
       },
       test("with Response.stream") {
