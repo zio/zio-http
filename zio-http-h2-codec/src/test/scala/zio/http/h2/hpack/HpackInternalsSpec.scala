@@ -1,10 +1,7 @@
 package zio.http.h2.hpack
 
-import scala.annotation.experimental
-
 import zio.test._
 
-@experimental
 object HpackInternalsSpec extends ZIOSpecDefault {
   override def spec =
     suite("HpackInternalsSpec")(

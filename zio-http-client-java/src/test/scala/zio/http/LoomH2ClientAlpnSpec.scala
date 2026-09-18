@@ -18,15 +18,12 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509ExtendedTrustManager
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
 import zio.test.TestAspect.sequential
 import zio.test._
-import zio.http.h2.H2Transport
 
 /**
  * Todo 14: the Loom H2 client driver negotiates per [[ClientAlpnPolicy]].
@@ -47,7 +44,6 @@ import zio.http.h2.H2Transport
  *     silent 200;
  *   - connect timeout fires instead of hanging.
  */
-@experimental
 object LoomH2ClientAlpnSpec extends ZIOSpecDefault {
 
   private val TestCert =
@@ -233,16 +229,14 @@ tylLU8iZnM9E7+/GSVghdQ==
     ZIO
       .acquireRelease(
         ZIO.attempt {
-          new H2Transport(
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(
             Routes(Route(RoutePattern.GET, Handler.succeed(Response.text("loom-h2c-ok")))),
             Context.empty,
-            Connector(bind = BindAddress.localhost(0)),
-            DefectHandler.default,
-          ).start()
+          )
         },
-      )(handle => ZIO.succeed(handle.close0()))
+      )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
-        val port = handle.binding.address match {
+        val port = handle.bindings.head.address match {
           case BoundAddress.Tcp(_, thePort) => thePort
           case other                        => throw new AssertionError("Expected TCP: " + other)
         }
@@ -257,16 +251,14 @@ tylLU8iZnM9E7+/GSVghdQ==
             certChain = TlsSource.PemString(Secret(TestCert)),
             privateKey = TlsSource.PemString(Secret(TestKey)),
           )
-          new H2Transport(
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
             Routes(Route(RoutePattern.GET, Handler.succeed(Response.text("loom-h2-ok")))),
             Context.empty,
-            Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-            DefectHandler.default,
-          ).start()
+          )
         },
-      )(handle => ZIO.succeed(handle.close0()))
+      )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
-        val port = handle.binding.address match {
+        val port = handle.bindings.head.address match {
           case BoundAddress.Tcp(_, thePort) => thePort
           case other                        => throw new AssertionError("Expected TCP: " + other)
         }
@@ -276,7 +268,8 @@ tylLU8iZnM9E7+/GSVghdQ==
   /**
    * Minimal h1.1-only TLS endpoint stub (test-only): raw TLS socket offering
    * exactly `serverAlpn`, then plain HTTP/1.1 framing. Lets the spec prove the
-   * *client's* ALPN policy without depending on any HTTP/1.1 server.
+   * *client's* ALPN policy without depending on any HTTP/1.1 server. Raw
+   * because public `LoomServer` cannot serve HTTP/1.1 yet.
    */
   private def withH11StubServer[R](serverAlpn: List[String])(
     use: Int => ZIO[R, Throwable, TestResult],

@@ -4,7 +4,6 @@ import java.io.InputStream
 import java.net.{InetSocketAddress, Socket}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -24,6 +23,7 @@ import zio.http.{
   DefectHandler,
   Halt,
   Handler,
+  LoomServer,
   Method,
   Middleware,
   Request,
@@ -36,7 +36,6 @@ import zio.http.{
 }
 import zio.http.ResultType._
 
-@experimental
 object H2IntegrationSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("H2IntegrationSpec")(
@@ -485,9 +484,12 @@ object H2IntegrationSpec extends ZIOSpecDefault {
     defectHandler: DefectHandler = DefectHandler.default,
   ): Task[ServerHandle] =
     ZIO.attempt(
-      ServerHandle.live(
-        List(new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), defectHandler).start()),
-      ),
+      LoomServer(Connector(bind = BindAddress.localhost(0)))
+        .withDefectHandler(defectHandler)
+        .serve(
+          routes,
+          Context.empty,
+        ),
     )
 
   private def tcpPort(handle: ServerHandle): Int =

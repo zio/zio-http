@@ -7,8 +7,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.http.h2.FrameCodec
 import zio.http.h2.H2Error
@@ -34,7 +32,6 @@ import zio.http.h2.hpack.Hpack
  * [[LoomH2ClientDriver]], and [[PoolConfig]] (read by the driver where
  * applicable, pooling itself deferred).
  */
-@experimental
 private[http] object H2WireClient {
 
   private val Preface: Array[Byte]   = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)

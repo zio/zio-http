@@ -2,7 +2,6 @@ package zio.http.h2
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
-import scala.annotation.experimental
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -37,13 +36,11 @@ import zio.http.{
   Version,
 }
 
-@experimental
 final class H2Transport[Ctx](
   routes: Routes[Ctx],
   context: Context[Ctx],
   connector: Connector,
   defectHandler: DefectHandler,
-  sendWindowTimeoutMs: Long = FlowController.DefaultSendWindowTimeoutMs,
 ) {
   private val routeTree: RouteTree[Route[Ctx]] =
     H2Transport.buildRouteTree(routes)
@@ -591,7 +588,7 @@ final class H2Transport[Ctx](
           abort()
           throw new H2Transport.Aborted
         }
-        flowController.consumeSendWindow(stream.id, chunk.length, sendWindowTimeoutMs)
+        flowController.consumeSendWindow(stream.id, chunk.length, http2Config.sendWindowTimeoutMs)
         sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
         if (stream.isClosed) {
           abort()
@@ -1051,7 +1048,6 @@ final class H2Transport[Ctx](
     }
 }
 
-@experimental
 object H2Transport {
 
   /**

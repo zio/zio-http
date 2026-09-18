@@ -16,11 +16,8 @@
 
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.{Chunk, ChunkBuilder}
 
-@experimental
 object FrameCodec {
   import H2Error._
   import H2Frame._

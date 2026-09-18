@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -17,7 +16,7 @@ import zio.test._
 
 import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, HpackDecoder, HpackEncoder}
-import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Response, Route, Routes, ServerHandle}
+import zio.http.{BindAddress, BoundAddress, Connector, Handler, LoomServer, Response, Route, Routes}
 
 /**
  * T5: Connector.idleTimeout wired into the live H2 path.
@@ -26,7 +25,6 @@ import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, R
  * with a drain period per RFC 9113 section 6.8, then close; request timeouts
  * surface as RST_STREAM(CANCEL).
  */
-@experimental
 object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
 
   private val IdleTimeout = java.time.Duration.ofMillis(200)
@@ -178,15 +176,9 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                SimpleRoutes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0), idleTimeout = IdleTimeout),
-                DefectHandler.default,
-              ).start(),
-            ),
+          LoomServer(Connector(bind = BindAddress.localhost(0), idleTimeout = IdleTimeout)).serve(
+            SimpleRoutes,
+            Context.empty,
           ),
         ),
       )(h => ZIO.succeed(h.shutdownAndWait()))
@@ -202,15 +194,9 @@ object IdleTimeoutGoAwaySpec extends ZIOSpecDefault {
    * Blocking variant for the thread-leak probe (needs the port outside ZIO).
    */
   private def withIdleServerSync[R](use: Int => R): R = {
-    val handle = ServerHandle.live(
-      List(
-        new H2Transport(
-          SimpleRoutes,
-          Context.empty,
-          Connector(bind = BindAddress.localhost(0), idleTimeout = IdleTimeout),
-          DefectHandler.default,
-        ).start(),
-      ),
+    val handle = LoomServer(Connector(bind = BindAddress.localhost(0), idleTimeout = IdleTimeout)).serve(
+      SimpleRoutes,
+      Context.empty,
     )
     try {
       val port = handle.bindings.head.address match {

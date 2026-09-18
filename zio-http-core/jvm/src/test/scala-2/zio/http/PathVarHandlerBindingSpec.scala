@@ -151,6 +151,12 @@ object PathVarHandlerBindingSpec extends ZIOSpecDefault {
       assertTrue(result == ResultType.responseAsResult(Response.text("user=7")))
     },
     test(
+      "proof harness selects the running Scala version compiler jar, not a stale cache entry",
+    ) {
+      val selected = FatalWarningsProof.selectedCompilerJar
+      assertTrue(selected.contains(scala.util.Properties.versionNumberString))
+    },
+    test(
       "14 (-Xfatal-warnings build-level proof). a 3-segment pattern with only 1 var consumed FAILS to compile under fatal-warnings with exactly 2 distinct warnings naming the other 2 vars",
     ) {
       val code               =
@@ -320,6 +326,13 @@ private object FatalWarningsProof {
     new java.io.File(libEntry).getParentFile.getParentFile.getParentFile.getParentFile.getParentFile
   }
 
+  /**
+   * Absolute path of the compiler jar the proof subprocesses use (exposed for
+   * the selection test).
+   */
+  def selectedCompilerJar: String =
+    findJar(coursierRoot(), "org/scala-lang", "scala-compiler-")
+
   private def findJar(root: java.io.File, groupPath: String, artifactPrefix: String): String = {
     val dir                                         = new java.io.File(root, groupPath)
     def search(d: java.io.File): List[java.io.File] =
@@ -332,9 +345,15 @@ private object FatalWarningsProof {
           List(f)
         else Nil
       }
-    search(dir)
-      .sortBy(_.getName)
-      .lastOption
+    // Prefer the compiler matching the running Scala version: the shared cache
+    // may hold several versions and lexicographic order is not version order
+    // ("2.13.18" sorts before "2.13.8"). Fall back to the old last-sorted
+    // choice only when the running version is absent.
+    val runningVersion                              = scala.util.Properties.versionNumberString
+    val candidates                                  = search(dir).sortBy(_.getName)
+    candidates
+      .find(_.getName == s"$artifactPrefix$runningVersion.jar")
+      .orElse(candidates.lastOption)
       .map(_.getAbsolutePath)
       .getOrElse(throw new IllegalStateException(s"Could not locate $artifactPrefix*.jar under $dir"))
   }

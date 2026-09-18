@@ -3,8 +3,6 @@ package zio.http.h2
 import java.io.{ByteArrayOutputStream, IOException, InputStream, OutputStream}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -13,7 +11,7 @@ import zio.blocks.mux.Mux
 import zio.test.TestAspect.sequential
 import zio.test._
 
-import zio.http.{BindAddress, Connector, DefectHandler, Handler, Response, Route, Routes, ServerHandle}
+import zio.http.{BindAddress, Connector, Handler, LoomServer, Response, Route, Routes}
 import zio.http.h2.H2Frame._
 import zio.http.h2.H2RawClientFixture.{RawH2Client, SimpleRoutes, withRawServer}
 import zio.http.h2.hpack.{HeaderField, Hpack}
@@ -22,7 +20,6 @@ import zio.http.h2.hpack.{HeaderField, Hpack}
  * Connection-lifecycle behavior: protocol-error shutdowns, writer failures,
  * GOAWAY drain, and shutdown safety.
  */
-@experimental
 object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -203,15 +200,9 @@ object H2ConnectionLifecycleSpec extends ZIOSpecDefault {
         ZIO
           .acquireRelease(
             ZIO.attempt(
-              ServerHandle.live(
-                List(
-                  new H2Transport(
-                    SimpleRoutes,
-                    Context.empty,
-                    Connector(bind = BindAddress.localhost(0)),
-                    DefectHandler.default,
-                  ).start(),
-                ),
+              LoomServer(Connector(bind = BindAddress.localhost(0))).serve(
+                SimpleRoutes,
+                Context.empty,
               ),
             ),
           )(h => ZIO.succeed(h.shutdownAndWait()))

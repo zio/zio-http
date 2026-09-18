@@ -1,7 +1,5 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio.test._
 
 import zio.http.TrustedProxyConfig
@@ -12,7 +10,6 @@ import zio.http.TrustedProxyConfig
  * match, and unparseable peer IPs must never be trusted — with zero DNS
  * resolution at request time.
  */
-@experimental
 object TrustedProxyUnitSpec extends ZIOSpecDefault {
 
   override def spec: Spec[Any, Any] =

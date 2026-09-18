@@ -16,8 +16,6 @@
 
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 
 final case class Priority(dependency: Int, weight: Int, exclusive: Boolean)
@@ -26,7 +24,6 @@ sealed trait H2Frame extends Product with Serializable {
   def streamId: Int
 }
 
-@experimental
 object H2Frame {
   final case class Data(streamId: Int, data: Chunk[Byte], endStream: Boolean, padLength: Int = 0) extends H2Frame
 

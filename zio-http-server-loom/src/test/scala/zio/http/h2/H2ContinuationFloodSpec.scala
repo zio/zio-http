@@ -4,7 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -17,7 +16,18 @@ import zio.test._
 import zio.http.ResultType._
 import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, HpackDecoder, HpackEncoder}
-import zio.http.{BindAddress, BoundAddress, Connector, Handler, Http2Config, LoomServer, Response, Route, Routes}
+import zio.http.{
+  BindAddress,
+  BoundAddress,
+  Connector,
+  DefectHandler,
+  Handler,
+  Http2Config,
+  Response,
+  Route,
+  Routes,
+  ServerHandle,
+}
 
 /**
  * CONTINUATION flood bound for the H2 server transport.
@@ -30,7 +40,6 @@ import zio.http.{BindAddress, BoundAddress, Connector, Handler, Http2Config, Loo
  * for sibling streams. Trailing in-flight CONTINUATIONs for the reset block are
  * tolerated per RFC 9113 section 5.1.
  */
-@experimental
 object H2ContinuationFloodSpec extends ZIOSpecDefault {
 
   /**
@@ -116,7 +125,9 @@ object H2ContinuationFloodSpec extends ZIOSpecDefault {
       .acquireRelease(
         ZIO.attempt {
           val connector = Connector(bind = BindAddress.localhost(0))
-          new LoomServer(connector).serve(SimpleRoutes, Context.empty)
+          ServerHandle.live(
+            List(new H2Transport(SimpleRoutes, Context.empty, connector, DefectHandler.default).start()),
+          )
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>
@@ -137,7 +148,9 @@ object H2ContinuationFloodSpec extends ZIOSpecDefault {
             bind = BindAddress.localhost(0),
             protocol = zio.http.Protocol.H2C(Http2Config(maxHeaderListSize = 1024)),
           )
-          new LoomServer(connector).serve(SimpleRoutes, Context.empty)
+          ServerHandle.live(
+            List(new H2Transport(SimpleRoutes, Context.empty, connector, DefectHandler.default).start()),
+          )
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>

@@ -427,24 +427,30 @@ object zio extends Module {
   }
 }
 
-/** Aggregate command that runs every engine-relevant JVM test module - and validates each
+/** Aggregate command that runs every shipped JVM test module - and validates each
   * one's Scoverage coverage minimums - for a single Scala version. This is the ONE place that
-  * lists those modules: CI's `testJvm` job calls `testEngine` once per Scala version, so adding
-  * a new engine test module here is the only change needed - `.github/workflows/ci.yml` never
-  * has to be touched again.
+  * lists those modules: CI's `testJvm` job calls `testJvm` once per Scala version, so adding
+  * a new shipped JVM test module here is the only change needed - `.github/workflows/ci.yml`
+  * never has to be touched again.
+  *
+  * Coverage data accumulates in `out/` across runs, so minimums are trustworthy
+  * only from a clean output directory: run `rm -rf out` first locally (CI
+  * runners always start clean; `out/` is deliberately not cached there).
   *
   * Failure propagation: `testForked()` and `validateCoverageMinimums()` both throw (via
   * `mill.api.Result.Failure`) when tests fail or coverage drops below the configured minimums.
   * Since this command body calls them directly and does not catch exceptions, any failure
-  * aborts `testEngine` immediately with a non-zero exit code.
+  * aborts `testJvm` immediately with a non-zero exit code.
   */
-def testEngine(scalaVersion: String) = Task.Command {
+def testJvm(scalaVersion: String) = Task.Command {
   core.jvm(scalaVersion).test.testForked()()
   core.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   h2Codec.jvm(scalaVersion).test.testForked()()
   h2Codec.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   serverLoom.jvm(scalaVersion).test.testForked()()
   serverLoom.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
+  clientJava.jvm(scalaVersion).test.testForked()()
+  clientJava.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   zio.jvm(scalaVersion).test.testForked()()
   zio.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   endpoint.jvm(scalaVersion).test.testForked()()

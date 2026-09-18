@@ -5,7 +5,6 @@ import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicReference
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -19,7 +18,6 @@ import zio.http.h2.H2Frame._
 import zio.http.h2.hpack.{HeaderField, Hpack, HpackDecoder, HpackEncoder}
 import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Response, Route, Routes, ServerHandle}
 
-@experimental
 object H2ConnectionSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =

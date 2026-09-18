@@ -56,8 +56,8 @@ jobs:
           key: ${{ runner.os }}-coursier-${{ hashFiles('build.mill') }}
           restore-keys: |
             ${{ runner.os }}-coursier-
-      - name: Run engine tests and validate coverage minimums
-        run: chmod +x ./mill && ./mill testEngine --scalaVersion '${{ matrix.scala }}'
+      - name: Run JVM release tests and validate coverage minimums
+        run: chmod +x ./mill && ./mill testJvm --scalaVersion '${{ matrix.scala }}'
 
   docsSite:
     name: Build website

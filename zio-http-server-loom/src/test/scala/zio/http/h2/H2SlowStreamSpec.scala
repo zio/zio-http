@@ -5,7 +5,6 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -51,7 +50,6 @@ import zio.http.{
  *     stalled handler stream is reset; fast streams are untouched);
  *   - a deadline reset never emits HEADERS after the RST.
  */
-@experimental
 object H2SlowStreamSpec extends ZIOSpecDefault {
 
   private val HeaderTimeoutMs: Long  = 1000L
@@ -197,7 +195,7 @@ object H2SlowStreamSpec extends ZIOSpecDefault {
             bodyTimeoutMs = bodyTimeoutMs,
             requestTimeoutMs = requestTimeoutMs,
           )
-          new LoomServer(connector).serve(routes, Context.empty)
+          LoomServer(connector).serve(routes, Context.empty)
         },
       )(handle => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore)
       .flatMap { handle =>

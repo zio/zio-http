@@ -7,7 +7,6 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-import scala.annotation.experimental
 import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
@@ -16,7 +15,6 @@ import zio.blocks.mux.{Mux, MuxError, MuxStream}
 import zio.http.Http2Config
 import zio.http.h2.hpack.{HeaderField, HpackCodec}
 
-@experimental
 final class H2Connection(
   input: InputStream,
   output: OutputStream,
@@ -675,7 +673,6 @@ final class H2Connection(
     }
 }
 
-@experimental
 private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
 
