@@ -445,6 +445,11 @@ object Server extends ServerPlatformSpecific {
       ): CompressionOptions =
         CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
+      /**
+       * Creates Zstd CompressionOptions. Defines defaults as per
+       * io.netty.handler.codec.compression.ZstdOptions#DEFAULT
+       * Requires zstd-jni runtime dependency to be present in the classpath
+       */
       def zstd(
         level: Int = ZstdConfig.DefaultLevel,
         blockSize: Int = ZstdConfig.DefaultBlockSize,

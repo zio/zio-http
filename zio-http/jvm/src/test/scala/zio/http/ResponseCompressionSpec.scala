@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.StandardCharsets
 
 import zio.test.TestAspect.withLiveClock
@@ -26,6 +26,8 @@ import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 import zio.stream.ZStream
 
 import zio.http.netty.NettyConfig
+
+import com.github.luben.zstd.ZstdInputStream
 
 object ResponseCompressionSpec extends ZIOHttpSpec {
 
@@ -79,7 +81,14 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
     ).sandbox
 
   private val app                              = text ++ stream ++ file
-  private lazy val serverConfig: Server.Config = Server.Config.default.port(0).responseCompression()
+  private lazy val serverConfig: Server.Config =
+    Server.Config.default
+      .port(0)
+      .responseCompression(
+        Server.Config.ResponseCompressionConfig.default.copy(
+          options = Server.Config.ResponseCompressionConfig.default.options :+ Server.Config.CompressionOptions.zstd(),
+        ),
+      )
 
   override def spec =
     suite("Response compression")(
@@ -99,6 +108,25 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
         } yield assertTrue(decompressed == "Hello World!\n")
+      },
+      test("with Response.text (zstd)") {
+        for {
+          server       <- ZIO.service[Server]
+          client       <- ZIO.service[Client]
+          _            <- server.installInternal(app)
+          port         <- server.port
+          response     <- client.batched(
+            Request(
+              method = Method.GET,
+              url = URL(Path.root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", Some(port))),
+            ).addHeader(Header.AcceptEncoding(Header.AcceptEncoding.Zstd())),
+          )
+          res          <- response.body.asChunk
+          decompressed <- decompressedZstd(res)
+        } yield assertTrue(
+          response.header(Header.ContentEncoding).contains(Header.ContentEncoding.Zstd),
+          decompressed == "Hello World!\n",
+        )
       },
       test("with Response.stream") {
         streamTest("stream")
@@ -149,10 +177,17 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
     } yield assertTrue(decompressed == expected)
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =
-    ZIO.attempt {
-      val inputStream = new ByteArrayInputStream(bytes.toArray)
-      new java.util.zip.GZIPInputStream(inputStream)
-    }.mapError(Some(_))
+    decompressedWith(bytes)(new java.util.zip.GZIPInputStream(_))
+
+  private def decompressedZstd(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =
+    decompressedWith(bytes)(new ZstdInputStream(_))
+
+  private def decompressedWith(
+    bytes: Chunk[Byte],
+  )(decompress: InputStream => InputStream): ZIO[Any, Throwable, String] =
+    ZIO
+      .attempt(decompress(new ByteArrayInputStream(bytes.toArray)))
+      .mapError(Some(_))
       .flatMap { stream =>
         ZInputStream.fromInputStream(stream).readAll(4096).map { decompressedBytes =>
           new String(decompressedBytes.toArray, StandardCharsets.UTF_8)
