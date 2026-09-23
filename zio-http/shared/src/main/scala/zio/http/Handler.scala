@@ -466,7 +466,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Handler[Any, Err, In, Out] =
     new Handler[Any, Err, In, Out] {
       override def apply(in: In): ZIO[Scope, Err, Out] =
-        self(in).asInstanceOf[ZIO[R, Err, Out]].provideEnvironment(r)
+        self(in).asInstanceOf[ZIO[Scope & R, Err, Out]].provideSomeEnvironment[Scope](_.unionAll[R](r))
     }
 
   /**
@@ -477,7 +477,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
       override def apply(in: In): ZIO[Scope & R0, Err1, Out] =
-        self(in).asInstanceOf[ZIO[R, Err, Out]].provideLayer(layer).asInstanceOf[ZIO[Scope & R0, Err1, Out]]
+        ZIO.scopedWith(layerScope =>
+          layer
+            .build(layerScope)
+            .flatMap(r =>
+              self(in).asInstanceOf[ZIO[Scope & R, Err, Out]].provideSomeEnvironment[Scope](_.unionAll[R](r)),
+            ),
+        )
     }
 
   /**
@@ -499,7 +505,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
       override def apply(in: In): ZIO[Scope & R0, Err1, Out] =
-        self(in).asInstanceOf[ZIO[R, Err, Out]].provideSomeLayer(layer)
+        ZIO.scopedWith(layerScope =>
+          (ZLayer.environment[R0] <*> layer)
+            .build(layerScope)
+            .flatMap(r =>
+              self(in)
+                .asInstanceOf[ZIO[Scope & R, Err, Out]]
+                .provideSomeEnvironment[Scope](_.unionAll[R0 with R1](r).asInstanceOf[ZEnvironment[Scope & R]]),
+            ),
+        )
     }
 
   /**
