@@ -16,8 +16,6 @@
 
 package zio.http.netty.client
 
-import scala.annotation.unroll
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -28,6 +26,7 @@ import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
+import com.lihaoyi.unroll
 import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
