@@ -4,7 +4,7 @@ package example
 
 import zio.http.codec._
 
-object CombinerTypesExample extends App {
+object CombinerTypesExample {
 
   val foo = HttpCodec.query[String]("foo")
   val bar = HttpCodec.query[String]("bar")
