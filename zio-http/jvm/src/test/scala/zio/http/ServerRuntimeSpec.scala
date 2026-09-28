@@ -115,7 +115,27 @@ object ServerRuntimeSpec extends RoutesRunnableSpec {
             .zipRight(routes.deploy.body.run(path = Path.root / "test", method = Method.GET))
             .flatMap(_.asString(Charsets.Utf8))
             .map(b => assertTrue(b == "ok")) *> ref.get.map { v => assertTrue(v == 1) }
-        } @@ TestAspect.flaky
+        } @@ TestAspect.flaky +
+        test("handlers are interruptible even when the Server layer is built uninterruptibly (#4240)") {
+          // The runtime used to fork request handlers is captured at Server-layer build time. If the
+          // layer is built inside an uninterruptible region (e.g. zio-test's `beforeAll`, which runs
+          // as an `acquireRelease` acquire), handlers must still be interruptible, otherwise
+          // `NettyRuntime` can never cancel them on connection close.
+          val routes      = Routes(
+            Method.GET / "check" -> handler(ZIO.checkInterruptible(s => ZIO.succeed(Response.text(s.toString)))),
+          )
+          val serverLayer = ZLayer.succeed(Server.Config.default.onAnyOpenPort) >>> Server.live
+          ZIO.scoped {
+            for {
+              env  <- ZIO.uninterruptible(serverLayer.build)
+              port <- Server.installRoutes(routes).provideEnvironment(env)
+              body <- Client
+                .batched(Request.get(s"http://localhost:$port/check"))
+                .flatMap(_.body.asString(Charsets.Utf8))
+                .provide(Client.default)
+            } yield assertTrue(body == "Interruptible")
+          }
+        }
     }
       .provide(
         Scope.default,
