@@ -308,7 +308,7 @@ object HeaderSpec extends ZIOHttpSpec {
         assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http"))))
       },
       test("should parse a list of accepted encodings") {
-        val header = Header.AcceptEncoding.parse("gzip, br;q=0.8, zio-http")
+        val header = Header.AcceptEncoding.parse("gzip, br;q=0.8, zstd;q=0.6, zio-http")
         assert(header)(
           isRight(
             equalTo(
@@ -316,6 +316,7 @@ object HeaderSpec extends ZIOHttpSpec {
                 NonEmptyChunk(
                   Header.AcceptEncoding.GZip(),
                   Header.AcceptEncoding.Br(Some(0.8)),
+                  Header.AcceptEncoding.Zstd(Some(0.6)),
                   Header.AcceptEncoding.Unknown("zio-http"),
                 ),
               ),
