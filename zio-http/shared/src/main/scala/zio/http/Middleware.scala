@@ -90,7 +90,7 @@ object Middleware extends HandlerAspects {
     // The repetition of config fields across branches is intentional: each call to
     // Headers(...) produces a flat FromIterable, avoiding any Concat wrapper that
     // Headers#++ would introduce.
-    val (nonPreflightHeaders, preflightBaseHeaders): (Headers, Headers) =
+    val (nonPreflightHeaders, preflightBaseHeaders) =
       config.maxAge match {
         case Some(maxAge) =>
           (

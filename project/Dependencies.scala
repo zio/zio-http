@@ -33,7 +33,9 @@ object Dependencies {
       "com.aayushatharva.brotli4j" % "brotli4j" % "1.23.0" % "provided",
     )
 
-  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.1.12"
+  // Pinned to 0.2.0: 0.3.0's `unroll-plugin` is cross-published per full Scala version and has no
+  // build for Scala 3.9.0.
+  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.2.0"
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
