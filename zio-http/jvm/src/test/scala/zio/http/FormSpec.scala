@@ -403,6 +403,52 @@ object FormSpec extends ZIOHttpSpec {
           assertTrue(s.contains(content))
         }
       },
+      test("streaming a large binary part without line breaks") {
+        // Regression test for #4283: the whole part used to be accumulated by the parser
+        val N        = 16 * 1024 * 1024
+        val boundary = Boundary("X-INSOMNIA-BOUNDARY")
+        val form     = Form(
+          FormField.streamingBinaryField(
+            name = "file",
+            data = ZStream.repeat(1.toByte).rechunk(64 * 1024).take(N.toLong),
+            mediaType = MediaType.application.`octet-stream`,
+            filename = Some("file.bin"),
+          ),
+          FormField.Simple("after", "the file"),
+        )
+        val fields   = StreamingForm(form.multipartBytes(boundary).rechunk(64 * 1024), boundary).fields
+        fields.mapZIO {
+          case sb: FormField.StreamingBinary =>
+            sb.data.runFold((0L, true)) { case ((count, allOnes), b) => (count + 1, allOnes && b == 1) }.map {
+              case (count, allOnes) => (sb.name, count, allOnes)
+            }
+          case other                         => ZIO.succeed((other.name, 0L, true))
+        }.runCollect.map { collected =>
+          assertTrue(collected == Chunk(("file", N.toLong, true), ("after", 0L, true)))
+        }
+      } @@ timeout(60.seconds),
+      test("streaming a binary part whose lines look like boundaries") {
+        val boundary = Boundary("X-INSOMNIA-BOUNDARY")
+        // strict prefixes of the delimiter, dashes and bare CRs are all legal content
+        val line     = "--X-INSOMNIA-BOUNDAR\r\n-\r\n--\r\n\r\n\r--X-INSOMNI\r\n--"
+        val bytes    = Chunk.fromArray(Array.fill(200)(line).mkString.getBytes(StandardCharsets.UTF_8))
+        val form     = Form(
+          FormField.binaryField("file", bytes, MediaType.application.`octet-stream`),
+          FormField.Simple("after", "the file"),
+        )
+        check(Gen.int(1, 4096)) { chunkSize =>
+          val stream = form.multipartBytes(boundary).rechunk(chunkSize)
+          for {
+            streamed  <- StreamingForm(stream, boundary).fields.mapZIO(_.asChunk).runCollect
+            collected <- StreamingForm(stream, boundary).collectAll
+          } yield assertTrue(
+            streamed.size == 2,
+            streamed(0) == bytes,
+            collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+            collected.get("after").get.stringValue.contains("the file"),
+          )
+        }
+      } @@ samples(10),
     ) @@ sequential
 
   def spec =
