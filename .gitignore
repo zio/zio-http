@@ -7,7 +7,6 @@
 .bloop/
 .bsp 
 .metals 
-.vscode 
 out
 .cache/
 .history/
@@ -37,3 +36,4 @@ project/metals.sbt
 project/.bloop
 profiling/src/main/scala/Main.scala
 .docs-audit-state.json
+config.bat

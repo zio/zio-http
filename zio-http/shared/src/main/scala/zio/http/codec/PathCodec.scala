@@ -929,8 +929,10 @@ object PathCodec {
         }
       }
 
+      // trySkipLiteralIdx holds the deepest collision first. Retry from the
+      // deepest literal outward, so a fallback nested under a matched prefix
+      // (like `/auth/*`) is tried before one closer to the root (like `/*`).
       if (trySkipLiteralIdx.nonEmpty && result == null) {
-        trySkipLiteralIdx = trySkipLiteralIdx.reverse
         while (trySkipLiteralIdx.nonEmpty && result == null) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
