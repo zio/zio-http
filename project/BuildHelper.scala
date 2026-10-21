@@ -7,11 +7,11 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.21"
   val Scala213         = "2.13.18"
-  val Scala3           = "3.3.7"
+  val Scala3           = "3.9.0"
   val ScoverageVersion = "2.3.0"
   val JmhVersion       = "0.4.7"
 
-  private val stdOptions = Seq(
+  private def stdOptions(scalaVersion: String) = Seq(
     "-deprecation",
     "-encoding",
     "UTF-8",
@@ -20,7 +20,12 @@ object BuildHelper extends ScalaSettings {
     "-language:postfixOps",
   ) ++ {
     if (sys.env.contains("CI")) {
-      Seq("-Xfatal-warnings")
+      // On Scala 3, `-Xfatal-warnings` is a deprecated alias whose own deprecation warning
+      // `-Werror` would then turn into an error, failing the build before anything is compiled.
+      CrossVersion.partialVersion(scalaVersion) match {
+        case Some((3, _)) => Seq("-Werror")
+        case _            => Seq("-Xfatal-warnings")
+      }
     } else {
       Nil // to enable Scalafix locally
     }
@@ -65,7 +70,7 @@ object BuildHelper extends ScalaSettings {
     name                           := s"$prjName$shadedSuffix",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
-    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
+    scalacOptions ++= stdOptions(scalaVersion.value) ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.vovapolu" %% "scaluzzi" % "0.1.23",

@@ -47,7 +47,7 @@ trait ScalaSettings {
     "-opt:l:inline",
   )
 
-  val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent")
+  val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent", "-source:3.3")
 
   val scala213Settings: Seq[String] = baseSettings ++ Seq(
     "-Xlint:nonlocal-return",    // A return statement used an exception for flow control.
