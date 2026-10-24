@@ -216,6 +216,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
+      `zstd-jni`,
       `scala-compat-collection`,
     ) ++ netty,
   )

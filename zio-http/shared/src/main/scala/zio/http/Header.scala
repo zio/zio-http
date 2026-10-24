@@ -402,6 +402,13 @@ object Header {
     }
 
     /**
+     * A compression format that uses the Zstandard (zstd) algorithm.
+     */
+    final case class Zstd(weight: Option[Double] = None) extends AcceptEncoding {
+      override val raw: String = "zstd"
+    }
+
+    /**
      * Indicates the identity function (that is, without modification or
      * compression). This value is always considered as acceptable, even if
      * omitted.
@@ -447,6 +454,7 @@ object Header {
         case "compress" => Compress(weight)
         case "deflate"  => Deflate(weight)
         case "gzip"     => GZip(weight)
+        case "zstd"     => Zstd(weight)
         case "identity" => Identity(weight)
         case "*"        => NoPreference(weight)
         case other      => Unknown(other, weight)
@@ -498,6 +506,7 @@ object Header {
         case Multiple(encodings)      => encodings.map(render).mkString(",")
         case n @ NoPreference(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
         case Unknown(u, weight)       => weight.fold(u)(value => s"$u;q=$value")
+        case z @ Zstd(weight)         => weight.fold(z.raw)(value => s"${z.raw};q=$value")
       }
 
   }
@@ -1894,6 +1903,10 @@ object Header {
       override val encoding: String = "gzip"
     }
 
+    case object Zstd extends ContentEncoding {
+      override val encoding: String = "zstd"
+    }
+
     /**
      * Maintains a list of ContentEncoding values.
      */
@@ -1907,6 +1920,7 @@ object Header {
         case "compress" => Some(Compress)
         case "deflate"  => Some(Deflate)
         case "gzip"     => Some(GZip)
+        case "zstd"     => Some(Zstd)
         case _          => None
       }
     }
