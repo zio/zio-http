@@ -30,7 +30,7 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
       "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
-      "com.aayushatharva.brotli4j" % "brotli4j" % "1.23.0" % "provided",
+      "com.aayushatharva.brotli4j" % "brotli4j" % "1.24.0" % "provided",
     )
 
   val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.1.12"
