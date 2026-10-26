@@ -9,7 +9,7 @@ import zio.http.endpoint.openapi.OpenAPI
 import zio.http.gen.openapi.EndpointGen
 import zio.http.gen.scala.CodeGen
 
-object GenerateEndpointFromOpenAPIExample extends App {
+object GenerateEndpointFromOpenAPIExample {
   val userOpenAPI = OpenAPI.fromJson(
     """|{
        |  "openapi": "3.0.0",
@@ -59,10 +59,12 @@ object GenerateEndpointFromOpenAPIExample extends App {
        |""".stripMargin,
   )
 
-  CodeGen.writeFiles(
-    EndpointGen.fromOpenAPI(userOpenAPI.toOption.get),
-    basePath = Paths.get("./users/src/main/scala"),
-    basePackage = "org.example",
-    scalafmtPath = None,
-  )
+  def main(args: Array[String]): Unit = {
+    val _ = CodeGen.writeFiles(
+      EndpointGen.fromOpenAPI(userOpenAPI.toOption.get),
+      basePath = Paths.get("./users/src/main/scala"),
+      basePackage = "org.example",
+      scalafmtPath = None,
+    )
+  }
 }
