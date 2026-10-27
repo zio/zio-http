@@ -265,6 +265,10 @@ const config = {
             position: 'left',
             label: 'Examples',
           },
+          // The Scaladoc is plain HTML copied into static/api by `sbt apiDocs`, outside the Docusaurus router:
+          // pathname:// makes it a full page load and keeps the broken link checker off it. The API pages copy this
+          // navbar (scripts/lib/api-theme.mjs, NAV_LINKS).
+          { to: 'pathname:///api/', label: 'API', position: 'left', target: '_self' },
 //          {to: '/blog', label: 'Blog', position: 'left'},
           {
             type: 'doc',
@@ -301,6 +305,11 @@ const config = {
               {
                 label: 'Examples',
                 to: '/examples/hello-world',
+              },
+              {
+                label: 'API',
+                to: 'pathname:///api/',
+                target: '_self',
               },
             ],
           },

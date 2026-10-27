@@ -12,8 +12,8 @@ sdk use java 21.0.7-tem
 sdk install sbt 1.11.1
 sdk use sbt 1.11.1
 
-# Run mdoc
-sbt mdoc
+# Run mdoc into website/docs, and generate the Scaladoc into website/static/api (served at /api)
+sbt mdoc apiDocs
 
 # Build website
 cd website
