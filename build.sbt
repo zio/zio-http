@@ -6,6 +6,8 @@ import scala.concurrent.duration.*
 
 val releaseDrafterVersion = "5"
 
+lazy val generateApiDocs = taskKey[File]("Generate the unified Scaladoc into website/static/api")
+
 // Setting default log level to INFO
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
@@ -515,7 +517,94 @@ lazy val docs = project
     projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttpJVM),
+    // The API reference served at /api on the website: one unified Scaladoc for every published
+    // library module (the JVM side of zio-http, since JVM and JS share the public API). A new
+    // published module must be added here too. The sbt-zio-http-grpc plugin is Scala 2.12 only.
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(
+      zioHttpJVM,
+      zioHttpTestkit,
+      zioHttpCli,
+      zioHttpGen,
+      zioHttpDatastarSdk,
+      zioHttpHtmx,
+      zioHttpStomp,
+      zioHttpMetrics,
+    ),
+    ScalaUnidoc / unidoc / scalacOptions ++= {
+      val root     = (ThisBuild / baseDirectory).value
+      val revision = scala.util.Try("git rev-parse HEAD".!!.trim).getOrElse("main")
+      Seq(
+        "-project",
+        "ZIO HTTP",
+        "-project-version",
+        version.value,
+        "-sourceroot",
+        root.getAbsolutePath,
+        s"-source-links:github://zio/zio-http/$revision",
+        "-social-links:github::https://github.com/zio/zio-http",
+        // Load the side menu from one JS file: inlined, it repeats the whole package tree on every
+        // page and the site grows many times larger.
+        "-dynamic-side-menu",
+      )
+    },
+    // sbt-api-mappings (via zio-sbt-website) maps every module to its javadoc.io page, so links
+    // between documented types would leave the site for javadoc.io, which has no page for a
+    // snapshot. Every zio-http module is documented here, so drop its mappings; other libraries
+    // keep theirs.
+    ScalaUnidoc / unidoc / apiMappings ~= (_.filterNot { case (_, url) =>
+      url.toString.startsWith("https://javadoc.io/page/dev.zio/zio-http")
+    }),
+    // Copies the unified Scaladoc into website/static/api, so `yarn build` publishes it at /api.
+    // The website skin (website/scripts/theme-api.mjs) targets Scaladoc 3's output, so run it on
+    // Scala 3: `sbt apiDocs` (aliases.sbt) is `++3.x docs/generateApiDocs`.
+    generateApiDocs                            := {
+      if (!scalaVersion.value.startsWith("3."))
+        sys.error(s"generateApiDocs needs Scala 3 (got ${scalaVersion.value}); run `sbt apiDocs` instead")
+      val apiDir      = (ThisBuild / baseDirectory).value / "website" / "static" / "api"
+      val docDir      = (ScalaUnidoc / doc).value
+      IO.delete(apiDir)
+      IO.copyDirectory(docDir, apiDir)
+      // Scaladoc bugs in scripts/ux.js break navigation; patch them in place.
+      // Each patch fails the task once its target text is gone, so a Scaladoc upgrade that fixes
+      // (or rewrites) the script gets the patch reviewed instead of silently skipped.
+      val uxJsPatches = Seq(
+        // The dynamic side menu interpolates `baseUrl`, an array of path segments, straight into its
+        // links, so JavaScript joins it with commas: under /api every menu link becomes
+        // ",api/zio/http.html", which resolves against the current page and 404s. (At a site root
+        // the array is [""] and the bug is invisible.) Join it with "/".
+        "return `${baseUrl}/${loc.join(\"/\")}.html`;"                                   ->
+          "return `${baseUrl.join(\"/\")}/${loc.join(\"/\")}.html`;",
+        // Same-origin link clicks are loaded in place with jQuery's `$.get`, and jQuery comes from
+        // code.jquery.com: when it fails to load, the click handler calls preventDefault and then
+        // throws "$ is not defined", so no link navigates. Use fetch, and fall back to a normal page
+        // load if the request fails (the never-settling promise keeps the in-place load from
+        // running then).
+        "$.get(href, function (data) {"                                                  ->
+          ("fetch(href).then((r) => (r.ok ? r.text() : Promise.reject(r)))" +
+            ".catch(() => { window.location.href = href; return new Promise(() => {}); })" +
+            ".then(function (data) {"),
+        // Back and Forward restore the page content but not the dynamic side menu, which keeps
+        // highlighting the page you left. Update it the way a link click does.
+        "  loadPageState(document, e.state);\n"                                          ->
+          ("  const oldLoc = getRawLoc();\n" +
+            "  loadPageState(document, e.state);\n" +
+            "  if (dynamicSideMenu && updateMenu) updateMenu(oldLoc, getRawLoc());\n"),
+        // A URL naming a section (#attributes) rather than a member expands it with the member's
+        // toggle button, which a section does not have, so the page setup throws there and skips
+        // the rest (code highlighting included). Toggle the button only when there is one.
+        "btn.classList.toggle(\"expand\");\n        btn.classList.toggle(\"expanded\");" ->
+          "btn?.classList.toggle(\"expand\");\n        btn?.classList.toggle(\"expanded\");",
+      )
+      val uxJs        = apiDir / "scripts" / "ux.js"
+      val patchedUxJs = uxJsPatches.foldLeft(IO.read(uxJs)) { case (src, (broken, fixed)) =>
+        if (!src.contains(broken))
+          sys.error(s"$uxJs no longer contains `$broken`: check whether Scaladoc fixed it and drop this patch")
+        src.replace(broken, fixed)
+      }
+      IO.write(uxJs, patchedUxJs)
+      Keys.streams.value.log.info(s"Copied the API docs from $docDir to $apiDir")
+      apiDir
+    },
     ciWorkflowName                             := "Continuous Integration",
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(

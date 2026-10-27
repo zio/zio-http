@@ -3,6 +3,8 @@ addCommandAlias("fmtCheck", "scalafmtCheck; Test / scalafmtCheck; sFixCheck")
 addCommandAlias("sFix", "scalafix OrganizeImports; Test / scalafix OrganizeImports")
 addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; Test / scalafix --check OrganizeImports")
 addCommandAlias("generateMediaTypes", "zioHttpTools/runMain zio.http.tools.GenerateMediaTypes")
+// The API reference served at /api: the unified Scaladoc, built on Scala 3 (see `docs / generateApiDocs`).
+addCommandAlias("apiDocs", s"++${BuildHelper.Scala3} docs/generateApiDocs")
 addCommandAlias("mimaChecks", "zioHttpJVM/mimaReportBinaryIssues; zioHttpHtmx/mimaReportBinaryIssues")
 
 onLoadMessage := {
