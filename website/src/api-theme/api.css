@@ -1,0 +1,770 @@
+/* The site skin for the Scaladoc pages under /api (scripts/theme-api.mjs links it from every page, after Scaladoc's own
+   stylesheets). It draws the navbar the way the Docusaurus navbar looks (Infima's .navbar with src/css/custom.css), sets
+   the site fonts and colours, and moves Scaladoc's layout under the 60px navbar (Scaladoc assumes a 64px header). The
+   values are Infima's defaults unless src/css/custom.css overrides them. */
+
+/* The site fonts (src/css/custom.css imports them from @fontsource-variable; theme-api.mjs copies the files here) */
+@font-face {
+  font-family: 'Inter Variable';
+  src: url('/api/site-fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  src: url('/api/site-fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --zh-primary: #81c784;
+  --zh-font-base: 'Inter Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --zh-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --zh-text: #1c1e21;
+  --zh-background: #ffffff;
+  --zh-surface: #ffffff;
+  --zh-emphasis-200: #ebedf0;
+  --zh-emphasis-300: #dadde1;
+  --zh-hover-overlay: rgba(0, 0, 0, 0.05);
+  --zh-navbar-height: 3.75rem;
+  --zh-navbar-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+
+  --header-height: var(--zh-navbar-height);
+  --body-font-family: var(--zh-font-base);
+  --code-font-family: var(--zh-font-mono);
+  --text-primary: var(--zh-text);
+  --border-default: var(--zh-emphasis-300);
+  /* The docs page background */
+  --background-default: var(--zh-background);
+  --background-main: var(--zh-background);
+  --background-nav: var(--zh-background);
+  --focus-default: var(--zh-primary);
+}
+
+/* Dark mode: Infima's dark surfaces instead of Scaladoc's greys */
+:root.theme-dark {
+  --zh-text: #e3e3e3;
+  --zh-background: #1b1b1d;
+  --zh-surface: #242526;
+  --zh-emphasis-200: #444950;
+  --zh-emphasis-300: #606770;
+  --zh-hover-overlay: rgba(255, 255, 255, 0.05);
+
+  --text-primary: var(--zh-text);
+  --text-secondary: #dadde1;
+  --border-default: var(--zh-emphasis-300);
+  --background-default: var(--zh-background);
+  --background-subtle: var(--zh-background);
+  --background-main: var(--zh-background);
+  --background-nav: var(--zh-background);
+  --background-neutral: var(--zh-surface);
+}
+
+/* Navbar: the surface colour with Infima's light shadow underneath, weight 500 links that turn green on hover */
+#header.zh-navbar {
+  --header-height: var(--zh-navbar-height);
+  height: var(--zh-navbar-height);
+  padding: 0.5rem 1rem;
+  background: var(--zh-surface);
+  border-bottom: none;
+  box-shadow: var(--zh-navbar-shadow);
+  color: var(--zh-text);
+  font-family: var(--zh-font-base);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.zh-navbar__left,
+.zh-navbar__right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.zh-navbar__brand,
+#mobile-menu .mobile-menu-logo {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-right: 1rem;
+  color: var(--zh-text);
+  text-decoration: none;
+}
+
+.zh-navbar__brand:hover,
+#mobile-menu .mobile-menu-logo:hover {
+  color: var(--zh-text);
+  text-decoration: none;
+}
+
+/* .navbar__logo: 2rem high, 0.5rem before the title; one image per colour mode, as Docusaurus' ThemedImage */
+.zh-logo {
+  height: 2rem;
+  width: auto;
+  margin-right: 0.5rem;
+}
+
+.zh-logo--dark,
+:root.theme-dark .zh-logo--light {
+  display: none;
+}
+
+:root.theme-dark .zh-logo--dark {
+  display: inline;
+}
+
+.zh-navbar__title {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zh-navbar__link {
+  /* inline-block, as .navbar__item: the external-link icon then sits on the text baseline as on docs pages */
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  color: var(--zh-text);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s cubic-bezier(0.08, 0.52, 0.52, 1);
+}
+
+.zh-navbar__link:hover,
+.zh-navbar__link--active {
+  color: var(--zh-primary);
+  text-decoration: none;
+}
+
+.zh-navbar__external {
+  margin-left: 0.3rem;
+}
+
+.zh-navbar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* No browser button padding: it squeezed the 24px colour-mode icon to 20px */
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--zh-text);
+  cursor: pointer;
+  line-height: 0;
+}
+
+/* Shown at every width, as the docs search button is (Scaladoc hides its own on narrow screens) */
+#search-toggle.zh-navbar__icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  margin-left: 0.5rem;
+}
+
+#search-toggle.zh-navbar__icon:hover {
+  color: var(--zh-primary);
+}
+
+/* The onboard button, as src/components/OnboardAgentButton/NavbarButton.module.css */
+.zh-onboard {
+  margin: 0 0.4rem;
+  padding: 0.35rem;
+  font-size: 1.25rem;
+  transition: color 0.2s ease;
+}
+
+.zh-onboard:hover {
+  color: var(--zh-primary);
+}
+
+.zh-onboard__done,
+.zh-onboard--copied .zh-onboard__idle {
+  display: none;
+}
+
+.zh-onboard--copied .zh-onboard__done {
+  display: inline;
+}
+
+/* Colour-mode toggle: a round 2rem button showing the current mode, as Docusaurus draws it */
+.zh-mode {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.zh-mode:hover {
+  background: var(--zh-emphasis-200);
+}
+
+.zh-mode svg {
+  display: none;
+}
+
+:root[data-theme-choice='light'] .zh-mode__light,
+:root[data-theme-choice='dark'] .zh-mode__dark {
+  display: inline;
+}
+
+.zh-navbar :focus-visible,
+#mobile-menu :focus-visible {
+  outline: 2px solid var(--zh-primary);
+  outline-offset: 2px;
+}
+
+/* The hamburger sits left of the logo and opens Scaladoc's mobile menu; Docusaurus collapses its items at 996px */
+#mobile-menu-toggle.zh-navbar__toggle {
+  display: none;
+  /* Scaladoc gives its toggle a 24px left margin on narrow screens; the docs toggle sits at the navbar's padding */
+  margin-left: 0;
+  margin-right: 0.5rem;
+  padding: 0;
+  color: var(--zh-text);
+  cursor: pointer;
+  line-height: 0;
+}
+
+@media (max-width: 996px) {
+  #mobile-menu-toggle.zh-navbar__toggle {
+    display: inline-flex;
+  }
+
+  .zh-navbar__link,
+  .zh-onboard,
+  .zh-mode {
+    display: none;
+  }
+
+  #mobile-menu.show {
+    display: block;
+  }
+}
+
+/* Mobile menu: the navbar's surface, the site links on top */
+#mobile-menu {
+  background-color: var(--zh-surface);
+  color: var(--zh-text);
+  font-family: var(--zh-font-base);
+}
+
+#mobile-menu .mobile-menu-header {
+  height: var(--zh-navbar-height);
+  padding: 0.5rem 1rem;
+  border: none;
+  box-shadow: var(--zh-navbar-shadow);
+  justify-content: space-between;
+}
+
+#mobile-menu .mobile-menu-logo {
+  opacity: 1;
+}
+
+#mobile-menu .mobile-menu-item {
+  color: var(--zh-text);
+  border-bottom-color: var(--zh-emphasis-300);
+}
+
+.zh-mobile-links {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.zh-mobile-link {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  color: #606770;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+:root.theme-dark .zh-mobile-link {
+  color: #dadde1;
+}
+
+.zh-mobile-link:hover,
+.zh-mobile-link--active {
+  background: var(--zh-hover-overlay);
+  text-decoration: none;
+}
+
+.zh-mobile-link--active,
+:root.theme-dark .zh-mobile-link--active {
+  color: var(--zh-primary);
+}
+
+/* Name the current colour mode beside Scaladoc's mobile toggle */
+#mobile-menu .mobile-menu-item.mode::after {
+  content: 'Colour mode: light';
+}
+
+:root[data-theme-choice='dark'] #mobile-menu .mobile-menu-item.mode::after {
+  content: 'Colour mode: dark';
+}
+
+/* Scrolling: the window scrolls, as on a docs page, so its scrollbar runs the whole height of the window beside a fixed
+   navbar. Scaladoc locks the body and scrolls #main as a pane under an absolutely placed header, which put the
+   scrollbar partly under the navbar. The sidebar is fixed under the navbar and runs to the bottom (the footer is gone),
+   and #main is back in the page flow beside it, clipping the content Scaladoc's tablet sidebar pushes sideways. */
+html,
+body {
+  height: auto;
+  overflow: visible;
+}
+
+#header.zh-navbar {
+  position: fixed;
+  top: 0;
+}
+
+#leftColumn {
+  position: fixed;
+  top: var(--zh-navbar-height);
+  height: calc(100vh - var(--zh-navbar-height));
+  border-right: 1px solid var(--zh-emphasis-200);
+}
+
+#main {
+  position: relative;
+  left: auto;
+  right: auto;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  overflow-x: clip;
+}
+
+@media (min-width: 997px) {
+  #main {
+    margin-left: 300px;
+  }
+}
+
+/* Overlays Scaladoc places from the top of the page stay on screen when it scrolls */
+#searchbar-container,
+#mobile-menu,
+#mobile-sidebar-toggle {
+  position: fixed;
+}
+
+/* A link to a #section stops just under the navbar, as on a docs page (Scaladoc's offset is 144px) */
+[id] {
+  scroll-margin-top: calc(var(--zh-navbar-height) + 0.5rem);
+}
+
+/* Typography: the docs pages' scale (Infima with src/css/custom.css), section by section. Scaladoc sizes text with
+   utility classes (body-small is 13px whether it is the sidebar or a sentence), so each section is set here to the size
+   of its counterpart on a docs page rather than by remapping those classes. */
+body,
+#main {
+  font-family: var(--body-font-family);
+}
+
+/* Sidebar: the docs sidebar (Infima's .menu). Rows are .menu__link (16px, weight 500, 6px 12px padding, 0.25rem apart,
+   0.25rem radius), each level indented 12px, the caret a chevron on the right (Infima's, pointing down when unfolded),
+   Scaladoc's kind icons (package, class, object, trait...) before each name, and Infima's colours: grey links, the
+   current page bold on a 5% tint, the pages above it in the primary colour. */
+:root {
+  --zh-menu-color: #606770;
+  --zh-menu-color-active: var(--zh-primary);
+  --zh-menu-icon-filter: none;
+  /* Infima's caret (a chevron at 50% black): right when folded, down when unfolded */
+  --zh-menu-icon-folded: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 24 24"><path fill="rgba(0,0,0,0.5)" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"></path></svg>');
+  --zh-menu-icon-unfolded: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 24 24"><path fill="rgba(0,0,0,0.5)" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path></svg>');
+}
+
+:root.theme-dark {
+  --zh-menu-color: #dadde1;
+  --zh-menu-icon-filter: invert(100%) sepia(94%) saturate(17%) hue-rotate(223deg) brightness(104%) contrast(98%);
+}
+
+/* Scrollbars: Scaladoc hides them (a 5px one in the sidebar), the docs pages keep the browser's. Setting the standard
+   scrollbar-color makes the browser ignore Scaladoc's ::-webkit-scrollbar rules and draw full-width ones again, in
+   its default colours, with Docusaurus' color-scheme per mode. */
+:root {
+  color-scheme: light;
+  --zh-scrollbar: #c1c1c1 #f1f1f1;
+}
+
+:root.theme-dark {
+  color-scheme: dark;
+  --zh-scrollbar: #6b6b6b #2b2b2b;
+}
+
+:root,
+#leftColumn .side-menu {
+  scrollbar-color: var(--zh-scrollbar);
+}
+
+/* Scaladoc's Docs/API switcher only matters on a Scaladoc site with its own docs section; /api has the API alone, and
+   the site docs are a navbar link away. Hide it and give the menu its height. */
+#leftColumn .switcher-container {
+  display: none;
+}
+
+#leftColumn .side-menu {
+  height: 100%;
+  padding: 0.5rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  font-weight: 500;
+}
+
+#leftColumn .side-menu .ni .ni {
+  padding-left: 0.75rem;
+}
+
+#leftColumn .side-menu .nh {
+  display: flex;
+  align-items: stretch;
+  margin-top: 0.25rem;
+  padding: 0;
+  border-radius: 0.25rem;
+  transition: background 200ms cubic-bezier(0.08, 0.52, 0.52, 1);
+}
+
+/* Like .menu__list-item:not(:first-child): no gap above the first row */
+#leftColumn .side-menu > .ni:first-child > .nh {
+  margin-top: 0;
+}
+
+#leftColumn .side-menu .nh:hover,
+#leftColumn .side-menu .nh.selected {
+  background: var(--zh-hover-overlay);
+}
+
+#leftColumn .side-menu .nh > a {
+  flex: 1;
+  left: 0;
+  max-width: none;
+  padding: 0.375rem 0.75rem;
+  color: var(--zh-menu-color);
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 500;
+  transition: color 200ms cubic-bezier(0.08, 0.52, 0.52, 1);
+}
+
+#leftColumn .side-menu .nh.cs > a,
+#leftColumn .side-menu .nh.selected > a {
+  color: var(--zh-menu-color-active) !important;
+}
+
+/* The current page is bold when it is a leaf, as .menu__link--active:not(.menu__link--sublist) */
+#leftColumn .side-menu .nh.selected:not(:has(> button.ar)) > a {
+  font-weight: 700;
+}
+
+/* Kind icons at 1.5rem (Scaladoc draws them at 16px). They are 0.25rem taller than a row's text, so they reach 0.125rem
+   into the row's padding above and below rather than make the row taller than a docs row. */
+#leftColumn .side-menu .micon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-block: -0.125rem;
+}
+
+/* The caret: Scaladoc's arrow button, moved after the link and drawn as .menu__caret */
+#leftColumn .side-menu .nh > button.ar {
+  order: 1;
+  position: static;
+  left: auto;
+  flex: none;
+  box-sizing: content-box;
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: none;
+  transition: background 200ms cubic-bezier(0.08, 0.52, 0.52, 1);
+}
+
+#leftColumn .side-menu .nh > button.ar:hover {
+  background: var(--zh-hover-overlay);
+}
+
+#leftColumn .side-menu .nh > button.ar.icon-button::after {
+  content: '';
+  display: block;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: var(--zh-menu-icon-folded) 50% / 2rem 2rem;
+  filter: var(--zh-menu-icon-filter);
+}
+
+#leftColumn .side-menu .nh > button.ar.icon-button.expanded::after {
+  background-image: var(--zh-menu-icon-unfolded);
+}
+
+/* Breadcrumbs, as Docusaurus draws them (Infima's .breadcrumbs at the doc page's 0.8 size): links in the text colour,
+   the current page tinted in the primary colour, chevron separators, a home icon, pill-shaped */
+:root {
+  --zh-crumb-separator-filter: none;
+}
+
+:root.theme-dark {
+  --zh-crumb-separator-filter: invert(64%) sepia(11%) saturate(0%) hue-rotate(149deg) brightness(99%) contrast(95%);
+}
+
+#content .zh-breadcrumbs {
+  margin: 0 0 0.8rem;
+  font-family: var(--body-font-family);
+}
+
+.zh-breadcrumbs__list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.zh-breadcrumbs__item {
+  display: inline-block;
+}
+
+.zh-breadcrumbs__item:not(:last-child)::after {
+  content: ' ';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0 0.5rem;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 256 256"><g><g><polygon points="79.093,0 48.907,30.187 146.72,128 48.907,225.813 79.093,256 207.093,128"/></g></g></svg>') center;
+  filter: var(--zh-crumb-separator-filter);
+  opacity: 0.5;
+}
+
+.zh-breadcrumbs__link {
+  display: inline-block;
+  padding: 0.32rem 0.64rem;
+  border-radius: 1.5rem;
+  color: var(--zh-text);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  text-decoration: none;
+  transition: background 200ms cubic-bezier(0.08, 0.52, 0.52, 1), color 200ms cubic-bezier(0.08, 0.52, 0.52, 1);
+}
+
+#content .zh-breadcrumbs__link {
+  text-decoration: none;
+}
+
+a.zh-breadcrumbs__link:hover,
+.zh-breadcrumbs__item--active .zh-breadcrumbs__link {
+  background: var(--zh-hover-overlay);
+  text-decoration: none;
+}
+
+a.zh-breadcrumbs__link:hover {
+  color: var(--zh-text);
+}
+
+.zh-breadcrumbs__item--active .zh-breadcrumbs__link {
+  color: var(--zh-primary);
+}
+
+.zh-breadcrumbs__home {
+  position: relative;
+  top: 1px;
+  width: 1.1rem;
+  height: 1.1rem;
+  vertical-align: top;
+}
+
+/* The table of contents: 0.8rem, as .table-of-contents__link */
+#toc .toc-list a,
+#toc .toc-title {
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+#toc .toc-title {
+  font-weight: 700;
+}
+
+/* The table of contents' rhythm: Infima's 0.5rem between entries and 1rem per nesting level */
+#toc li {
+  margin: 0.5rem 0;
+}
+
+#toc .toc-list li > ul {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+}
+
+/* Headings: the docs markdown sizes (3rem for the title, then 2, 1.5 and 1rem) at Infima's bold */
+#content h1,
+#content h2,
+#content h3,
+#content h4 {
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+#content h1,
+#content h1:first-of-type {
+  font-size: 3rem;
+  line-height: 1.25;
+}
+
+#content h2 {
+  font-size: 2rem;
+}
+
+#content h3 {
+  font-size: 1.5rem;
+}
+
+#content h4 {
+  font-size: 1rem;
+}
+
+/* Running text, labels and tables: 16px at line height 1.65, table labels bold like a docs <th> */
+#content .body-medium,
+#content .body-small,
+#content p,
+#content li,
+#content dt,
+#content dd,
+#content .originInfo {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+#content dl.attributes > dt {
+  font-weight: 700;
+}
+
+#content button,
+#content .text-button {
+  font-family: var(--body-font-family);
+  font-size: 0.8rem;
+}
+
+/* Code: the site's monospace at 95% (--ifm-code-font-size in src/css/custom.css); blocks and signatures at line height
+   1.45, as a docs code block */
+#content code,
+#content pre,
+#content .monospace,
+#content .signature,
+#content .snippet pre code {
+  font-family: var(--code-font-family);
+}
+
+#content :not(pre) > code {
+  font-family: var(--code-font-family);
+  font-size: 0.95em;
+  line-height: inherit;
+}
+
+#content pre,
+#content pre code,
+#content .mono-small-block,
+#content .mono-medium,
+#content .mono-medium .signature {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* Columns: the docs page grid (Infima's .container > .row with a 75% doc column and a 25% table of contents, 16px
+   gutters, 1320px at most and 1450px from 1200px on, as src/css/custom.css widens it), so text starts 16px right of a
+   300px sidebar as it does on a docs page. Scaladoc's own grid is a 313px sidebar, 48-68px gutters and a 720px text
+   column. */
+@media (min-width: 429px) {
+  #leftColumn {
+    box-sizing: border-box;
+    width: 300px;
+  }
+}
+
+/* Below 997px the sidebar slides in over the page, pushing the text aside as Scaladoc does */
+@media (max-width: 996px) {
+  #content.sidebar-shown {
+    margin-left: 300px;
+  }
+}
+
+/* Under the navbar the column starts 1rem down, as the docs .container does (Scaladoc pads it 144px) */
+#content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-top: calc(var(--zh-navbar-height) + 1rem);
+  padding-inline: 1rem;
+  gap: 2rem;
+  justify-content: flex-start;
+}
+
+@media (min-width: 1200px) {
+  #content {
+    max-width: 1450px;
+  }
+}
+
+/* Docusaurus keeps the sidebar down to 997px; Scaladoc folds it away below 1025px */
+@media (min-width: 997px) and (max-width: 1024px) {
+  #leftColumn {
+    left: 0;
+  }
+
+  #mobile-sidebar-toggle {
+    display: none;
+  }
+
+  /* The sidebar is pinned here, so Scaladoc's push for a slid-in sidebar would count it twice */
+  #content.sidebar-shown {
+    margin-left: auto;
+  }
+}
+
+/* Inside the 1rem padding: 75% of the row less its 1rem gutters, then the 2rem between the columns */
+#content > div:first-child {
+  width: calc(75% - 0.5rem);
+  max-width: none;
+  flex: none;
+}
+
+#toc {
+  width: calc(25% - 1.5rem);
+  flex: none;
+}
+
+#toc-container {
+  box-sizing: border-box;
+  width: 100%;
+  top: calc(var(--zh-navbar-height) + 1rem);
+}
+
+/* Docusaurus drops the table of contents at 996px and gives the text the full width */
+@media (max-width: 996px) {
+  #toc {
+    display: none;
+  }
+
+  #content > div:first-child {
+    width: 100%;
+  }
+}
+
+/* One left edge for the text: the title first (its class/object badge after it), attribute labels flush left */
+#content .cover-header {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+#content .cover-header > a {
+  margin-left: 1rem;
+}
+
+#content dl.attributes > dt {
+  text-align: left;
+  padding-left: 0;
+}
