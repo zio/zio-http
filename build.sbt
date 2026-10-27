@@ -530,22 +530,27 @@ lazy val docs = project
       zioHttpStomp,
       zioHttpMetrics,
     ),
+    // Scala 3 Scaladoc options: the API reference is built on Scala 3 (`sbt apiDocs`). CI's
+    // "Check doc generation" runs `sbt ++2.13 doc`, which reaches this unidoc too, and Scala 2's
+    // Scaladoc rejects them ("bad option: '-project'").
     ScalaUnidoc / unidoc / scalacOptions ++= {
       val root     = (ThisBuild / baseDirectory).value
       val revision = scala.util.Try("git rev-parse HEAD".!!.trim).getOrElse("main")
-      Seq(
-        "-project",
-        "ZIO HTTP",
-        "-project-version",
-        version.value,
-        "-sourceroot",
-        root.getAbsolutePath,
-        s"-source-links:github://zio/zio-http/$revision",
-        "-social-links:github::https://github.com/zio/zio-http",
-        // Load the side menu from one JS file: inlined, it repeats the whole package tree on every
-        // page and the site grows many times larger.
-        "-dynamic-side-menu",
-      )
+      if (!scalaVersion.value.startsWith("3.")) Seq.empty
+      else
+        Seq(
+          "-project",
+          "ZIO HTTP",
+          "-project-version",
+          version.value,
+          "-sourceroot",
+          root.getAbsolutePath,
+          s"-source-links:github://zio/zio-http/$revision",
+          "-social-links:github::https://github.com/zio/zio-http",
+          // Load the side menu from one JS file: inlined, it repeats the whole package tree on every
+          // page and the site grows many times larger.
+          "-dynamic-side-menu",
+        )
     },
     // sbt-api-mappings (via zio-sbt-website) maps every module to its javadoc.io page, so links
     // between documented types would leave the site for javadoc.io, which has no page for a
