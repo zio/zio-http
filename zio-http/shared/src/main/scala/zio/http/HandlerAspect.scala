@@ -111,6 +111,24 @@ final case class HandlerAspect[-Env, +CtxOut](
       }
     }
 
+  override def apply[Env1 <: Env, Err](
+    route: Route[Env1, Err],
+  ): Route[Env1, Err] =
+    route.transform[Env1] { handler =>
+      if (self == HandlerAspect.identity) handler
+      else {
+        Handler.scoped[Env1] {
+          for {
+            tuple <- protocol.incomingHandler
+            (state, (request, _)) = tuple
+            either   <- Handler.fromZIO(handler(request)).either
+            response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+            response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+          } yield response
+        }
+      }
+    }
+
   /**
    * Applies middleware to the specified handler, which must process the context
    * produced by this middleware.

@@ -38,11 +38,19 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
+  ): Handler[Env1, Response, In1, Response] = {
+    implicit val trace: Trace = Trace.empty
+    Handler.scoped[Env1] {
+      Handler.fromFunctionZIO[In1] { in0 =>
+        val req0 = Handler.extractRequest(in0)
+        val perCallHandler: Handler[R, Response, Request, Response] =
+          Handler.fromFunctionZIO[Request] { req =>
+            val updatedIn = Handler.replaceRequest(in0, req)
+            self.asInstanceOf[Handler[R, Response, In1, Response]](updatedIn)
+          }
+        aspect.applyHandler(perCallHandler)(req0)
+      }
+    }
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
@@ -51,15 +59,21 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
-        }
+  ): Handler[Env0, Response, In1, Response] =
+    Handler.scoped[Env0] {
+      Handler.fromFunctionZIO[In1] { in0 =>
+        val req0 = Handler.extractRequest(in0)
+        aspect.applyHandlerContext {
+          Handler.scoped[Env0] {
+            handler { (ctx: Ctx, req: Request) =>
+              val updatedIn = Handler.replaceRequest(in0, req)
+              val h: ZIO[Scope & Ctx, Response, Response] =
+                self
+                  .asInstanceOf[Handler[Ctx, Response, In1, Response]](updatedIn)
+              h.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+            }
+          }
+        }(req0)
       }
     }
 
@@ -717,11 +731,44 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A]
 
-  object IsRequest {
+  private[http] trait IsRequestLowPriority {
+    implicit def tuple2[A]: Handler.IsRequest[(A, Request)] =
+      Handler.IsRequest.request.asInstanceOf[Handler.IsRequest[(A, Request)]]
+    implicit def tuple3[A, B]: Handler.IsRequest[(A, B, Request)] =
+      Handler.IsRequest.request.asInstanceOf[Handler.IsRequest[(A, B, Request)]]
+    implicit def tuple4[A, B, C]: Handler.IsRequest[(A, B, C, Request)] =
+      Handler.IsRequest.request.asInstanceOf[Handler.IsRequest[(A, B, C, Request)]]
+    implicit def tuple5[A, B, C, D]: Handler.IsRequest[(A, B, C, D, Request)] =
+      Handler.IsRequest.request.asInstanceOf[Handler.IsRequest[(A, B, C, D, Request)]]
+    implicit def tuple6[A, B, C, D, E]: Handler.IsRequest[(A, B, C, D, E, Request)] =
+      Handler.IsRequest.request.asInstanceOf[Handler.IsRequest[(A, B, C, D, E, Request)]]
+  }
+
+  object IsRequest extends IsRequestLowPriority {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
   }
+
+  private[http] def extractRequest[In](in: In): Request =
+    in match {
+      case req: Request                                                                                    => req
+      case p: Product if p.productArity > 0 && p.productElement(p.productArity - 1).isInstanceOf[Request] =>
+        p.productElement(p.productArity - 1).asInstanceOf[Request]
+      case other                                                                                           =>
+        other.asInstanceOf[Request]
+    }
+
+  private[http] def replaceRequest[In](in: In, req: Request): In =
+    (in match {
+      case _: Request                   => req
+      case (a, _: Request)              => (a, req)
+      case (a, b, _: Request)           => (a, b, req)
+      case (a, b, c, _: Request)        => (a, b, c, req)
+      case (a, b, c, d, _: Request)     => (a, b, c, d, req)
+      case (a, b, c, d, e, _: Request)  => (a, b, c, d, e, req)
+      case other                        => other
+    }).asInstanceOf[In]
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(

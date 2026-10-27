@@ -507,5 +507,35 @@ object RouteSpec extends ZIOHttpSpec {
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
     },
+    test("Apply context middleware to route with path parameter (#3141)") {
+      case class WebSession(id: Int)
+
+      def maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+        HandlerAspect.interceptIncomingHandler(
+          Handler.fromFunctionZIO[Request] { req =>
+            ZIO.succeed((req, None))
+          },
+        )
+
+      val routeUnparenthesized = Method.GET / "base" / string("1") -> handler((_: String, _: Request) => {
+        withContext((_: Option[WebSession]) => {
+          ZIO.logInfo("Hello").as(Response.ok)
+        })
+      }) @@ maybeWebSession
+
+      val routeParenthesized = (Method.GET / "base" / string("1") -> handler((_: String, _: Request) => {
+        withContext((_: Option[WebSession]) => {
+          ZIO.logInfo("Hello").as(Response.ok)
+        })
+      })) @@ maybeWebSession
+
+      for {
+        res1 <- routeUnparenthesized(Request.get(url"/base/1"))
+        res2 <- routeParenthesized(Request.get(url"/base/1"))
+      } yield assertTrue(
+        extractStatus(res1) == Status.Ok,
+        extractStatus(res2) == Status.Ok,
+      )
+    },
   )
 }

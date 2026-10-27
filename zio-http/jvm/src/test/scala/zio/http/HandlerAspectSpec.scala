@@ -46,5 +46,33 @@ object HandlerAspectSpec extends ZIOSpecDefault {
         } yield assertTrue(bodyString == "1 test")
       },
       // format: on
+      test("HandlerAspect can be applied to handler with path parameter tuple input (#3141)") {
+        case class WebSession(id: Int)
+
+        def maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request] { req =>
+              ZIO.succeed((req, Some(WebSession(42))))
+            },
+          )
+
+        val route = Method.GET / "base" / string("id") -> handler((id: String, _: Request) => {
+          withContext((session: Option[WebSession]) => {
+            ZIO.succeed(Response.text(s"$id:${session.map(_.id).getOrElse(0)}"))
+          })
+        }) @@ maybeWebSession
+
+        for {
+          response <- route.toRoutes.runZIO(Request.get(url"/base/1"))
+          body     <- response.body.asString
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == "1:42",
+        )
+      },
+      test("Handler.@@ rejects non-Request input that does not end with Request") {
+        val checked = typeCheck("""Handler.fromFunction[Int](_ => Response.ok) @@ HandlerAspect.debug""")
+        assertZIO(checked)(Assertion.isLeft)
+      },
     )
 }
