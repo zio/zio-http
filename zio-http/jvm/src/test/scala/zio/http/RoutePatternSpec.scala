@@ -196,6 +196,24 @@ object RoutePatternSpec extends ZIOHttpSpec {
             r2 == Handler.notFound,
           )
         },
+        test("nested trailing fallback wins after a deeper literal fails to match") {
+          val tree: Tree[Any] = Tree
+            .empty[Any]
+            .addAll(
+              List(
+                (Method.GET / "auth" / "2fa" / "status", Handler.ok),
+                (Method.GET / "auth" / trailing, Handler.notFound),
+                (Method.GET / trailing, Handler.badRequest),
+              ),
+            )
+
+          assertTrue(
+            tree.get(Method.GET, Path("/auth/2fa/status")) == Handler.ok,
+            tree.get(Method.GET, Path("/auth/2fa/setup/form")) == Handler.notFound,
+            tree.get(Method.GET, Path("/auth/login/form")) == Handler.notFound,
+            tree.get(Method.GET, Path("/other/path")) == Handler.badRequest,
+          )
+        },
       ),
       test("on conflict, last one wins") {
         var tree: Tree[Any] = RoutePattern.Tree.empty
