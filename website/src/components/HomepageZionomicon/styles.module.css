@@ -1,72 +1,73 @@
 .zionomicon {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
-  gap: clamp(32px, 6vw, 80px);
+  display: flex;
   align-items: center;
-  padding-top: clamp(56px, 8vw, 112px);
-  padding-bottom: clamp(56px, 8vw, 112px);
+  padding: 4rem 0;
+  width: 100%;
+  background-color: var(--ifm-color-emphasis-100);
 }
 
-.copy {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.wideContainer {
+  margin: 0 auto;
+  padding: 0 var(--ifm-spacing-horizontal);
+  width: 100%;
+  max-width: 1400px;
 }
 
-.subtitle {
-  margin: 0;
-  font-size: 17px;
-  line-height: 1.6;
-  color: var(--hp-text);
+.ziconContent {
+  padding: 2rem;
 }
 
-.description {
-  max-width: 56ch;
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.65;
-  color: var(--hp-text-2);
-  text-wrap: pretty;
+.ziconSubtitle {
+  font-size: 1.2rem;
+  color: var(--ifm-color-primary);
+  margin-bottom: 1.5rem;
 }
 
-.lessons {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.ziconContent ul {
+  margin-bottom: 2rem;
 }
 
-.lessonsTitle {
-  font-size: 15px;
-  font-weight: 600;
+.ziconContent li {
+  margin-bottom: 0.5rem;
 }
 
-.lessonList {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--hp-text-2);
+.buttonContainer {
+  margin-top: 2rem;
+  text-align: center;
 }
 
-.cta {
-  display: flex;
-  margin-top: 6px;
-}
-
-.cover {
+.ziconImageContainer {
   display: flex;
   justify-content: center;
-  padding: clamp(28px, 5vw, 56px);
-  border: 1px solid var(--hp-line);
-  border-radius: 14px;
-  background: var(--hp-surface);
+  align-items: center;
+  padding: 2rem;
 }
 
-.coverImage {
-  width: 100%;
-  max-width: 320px;
+.ziconImage {
+  max-width: 100%;
   height: auto;
-  border-radius: 6px;
-  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Responsive styles */
+@media (max-width: 996px) {
+  .zionomicon .row {
+    flex-direction: column-reverse;
+  }
+
+  .ziconContent {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+
+  .ziconContent ul {
+    display: inline-block;
+    text-align: left;
+  }
+
+  .ziconImageContainer {
+    padding: 2rem 1rem 0.5rem 1rem;
+  }
 }

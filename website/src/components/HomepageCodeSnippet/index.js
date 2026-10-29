@@ -7,7 +7,6 @@ import styles from './styles.module.css';
 const TABS = [
   {
     label: 'Create an HTTP Server',
-    fileName: 'GreetingServer.scala',
     code: `import zio._
 import zio.http._
 
@@ -29,133 +28,157 @@ object GreetingServer extends ZIOAppDefault {
   },
   {
     label: 'Define Endpoints',
-    fileName: 'UserEndpoints.scala',
     code: `import zio._
 import zio.http._
 import zio.http.endpoint._
-import zio.schema._
+import zio.http.codec.Doc
 
-case class User(id: Int, name: String)
-object User {
-  implicit val schema: Schema[User] = DeriveSchema.gen[User]
-}
+val greetEndpoint =
+  Endpoint(GET / "greet" ?? Doc.p("Greet an individual by name"))
+    .query(
+      HttpCodec.query[String]("name") ??
+        Doc.p("The name of the person to greet")
+    )
+    .out[String]
 
-// one description: server, client and OpenAPI
-val getUser =
-  Endpoint(Method.GET / "users" / int("id"))
-    .out[User]
+val greetRoute: Route[Any, Nothing] =
+  greetEndpoint.implementHandler(
+    handler((name: String) => s"Hello, $name!")
+  )
 
-val routes = Routes(
-  getUser.implement(id => ZIO.succeed(User(id, "Ada")))
-)`,
+def run = Server
+  .serve(Routes(greetRoute))
+  .provide(Server.default)`,
   },
   {
     label: 'Add Middleware',
-    fileName: 'Middleware.scala',
     code: `import zio._
 import zio.http._
+import zio.http.Middleware
 
 val routes =
   Routes(
-    Method.GET / "hello" -> handler(Response.text("Hello!"))
+    Method.GET / "api" / "data" -> handler {
+      Response.json("""{"status":"ok"}""")
+    }
   )
 
-// middleware composes with @@
-val app =
-  routes @@
-    Middleware.requestLogging() @@
-    Middleware.cors @@
-    Middleware.timeout(5.seconds)
+// Compose middleware with the @@ operator
+val app = routes
+  @@ Middleware.timeout(10.seconds)
+  @@ Middleware.requestLogging()
+  @@ Middleware.cors
 
 def run = Server.serve(app).provide(Server.default)`,
   },
   {
     label: 'HTTP Client',
-    fileName: 'ClientExample.scala',
     code: `import zio._
 import zio.http._
 
-val program =
-  for {
-    client <- ZIO.service[Client]
-    res    <- client.batched(Request.get("https://api.example.com/users"))
-    body   <- res.body.asString
-  } yield body
+object ApiClient extends ZIOAppDefault {
 
-def run = program.provide(Client.default)`,
+  val program: ZIO[Client, Throwable, Unit] =
+    for {
+      url <- ZIO.fromEither(
+               URL.decode("https://api.example.com/users")
+             )
+      response <- ZClient.batched(
+                    Request
+                      .get(url)
+                      .addHeader(Header.Accept.json)
+                  )
+      body     <- response.bodyAs[String]
+      _        <- ZIO.debug(s"Response: $body")
+    } yield ()
+
+  def run = program.provide(Client.default)
+}`,
   },
   {
     label: 'WebSocket',
-    fileName: 'WebSocketEcho.scala',
     code: `import zio._
 import zio.http._
-import zio.http.ChannelEvent.Read
+import zio.http.ChannelEvent._
 
-val echo = Handler.webSocket { channel =>
-  channel.receiveAll {
-    case Read(WebSocketFrame.Text(text)) =>
-      channel.send(Read(WebSocketFrame.text(s"echo: $text")))
-    case _ => ZIO.unit
+val wsRoute =
+  Method.GET / "ws" -> handler {
+    Handler.webSocket { channel =>
+      channel.receiveAll {
+        case Read(WebSocketFrame.Text(msg)) =>
+          channel.send(
+            Read(WebSocketFrame.text(s"Echo: $msg"))
+          )
+        case ExceptionCaught(cause) =>
+          ZIO.logError(s"Channel error: \${cause.getMessage}")
+        case _ =>
+          ZIO.unit
+      }
+    }.toResponse
   }
-}
 
-val routes = Routes(
-  Method.GET / "ws" -> handler(echo.toResponse)
-)`,
+def run = Server
+  .serve(Routes(wsRoute))
+  .provide(Server.default)`,
   },
 ];
 
 export default function HomepageCodeSnippet() {
   const [activeTab, setActiveTab] = useState(0);
-  const { fileName, code } = TABS[activeTab];
 
   return (
-    <section className="hp-band">
-      <div className={clsx('hp-inner', styles.inner)}>
-        <div className={styles.copy}>
-          <span className="hp-eyebrow">In action</span>
-          <h2 className="hp-h2">ZIO HTTP in Action</h2>
-          <p className={clsx('hp-lead', styles.lead)}>
+    <section className={styles.codeSnippetSection}>
+      <div className={styles.innerContainer}>
+        {/* Left Column */}
+        <div className={styles.leftColumn}>
+          <h2 className="section-title">ZIO HTTP in Action</h2>
+          <p>
             Explore idiomatic Scala patterns for building high-performance,
             type-safe HTTP servers and clients. From routing and endpoints to
             middleware and real-time communication.
           </p>
-          <div className={styles.tabs} role="tablist" aria-orientation="vertical">
-            {TABS.map((tab, idx) => (
-              <button
-                key={tab.label}
-                id={`tab-${idx}`}
-                className={clsx(styles.tab, activeTab === idx && styles.tabActive)}
-                onClick={() => setActiveTab(idx)}
-                aria-selected={activeTab === idx}
-                aria-controls="tabpanel"
-                type="button"
-                role="tab">
-                <span className={styles.tabNumber}>
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
+          <div>
+            <Link
+              className="button button--outline button--lg"
+              to="/">
+              Explore the Docs
+            </Link>
           </div>
-          <Link className={clsx('hp-link', styles.docsLink)} to="/">
-            Explore the Docs &rarr;
-          </Link>
         </div>
 
-        <div className={clsx('hp-code', styles.panel)}>
-          <div className={styles.panelHeader}>
-            <span className={styles.fileName}>{fileName}</span>
-            <span className={styles.language}>SCALA</span>
-          </div>
-          {/* Docusaurus CodeBlock highlights Scala and adds the copy button. */}
-          <div
-            id="tabpanel"
-            role="tabpanel"
-            aria-labelledby={`tab-${activeTab}`}>
-            <CodeBlock key={activeTab} language="scala">
-              {code}
-            </CodeBlock>
+        {/* Right Column */}
+        <div className={styles.rightColumn}>
+          <div className={styles.codePanel}>
+            {/* Tab Bar */}
+            <div className={styles.tabBar} role="tablist">
+              {TABS.map((tab, idx) => (
+                <button
+                  key={idx}
+                  id={`tab-${idx}`}
+                  className={clsx(
+                    styles.tab,
+                    activeTab === idx && styles.tabActive
+                  )}
+                  onClick={() => setActiveTab(idx)}
+                  aria-selected={activeTab === idx}
+                  aria-controls={`tabpanel-${idx}`}
+                  type="button"
+                  role="tab">
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Code Area — Docusaurus CodeBlock (highlights Scala + has copy) */}
+            <div
+              id={`tabpanel-${activeTab}`}
+              className={styles.codeArea}
+              role="tabpanel"
+              aria-labelledby={`tab-${activeTab}`}>
+              <CodeBlock key={activeTab} language="scala" showLineNumbers>
+                {TABS[activeTab].code.trim()}
+              </CodeBlock>
+            </div>
           </div>
         </div>
       </div>

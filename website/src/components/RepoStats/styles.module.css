@@ -1,5 +1,13 @@
-.version {
-  font-family: var(--hp-font-mono);
+/* The hero banner is dark in both themes, so these colors are fixed. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  font-family: 'IBM Plex Mono', var(--ifm-font-family-monospace);
   font-size: 12px;
-  color: var(--hp-muted);
+  color: #8a93a8;
+}
+
+.value {
+  color: #e8eaf0;
 }

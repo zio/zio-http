@@ -1,10 +1,20 @@
 import React from 'react';
+import clsx from 'clsx';
+import {
+  LuShieldCheck,
+  LuFileText,
+  LuBraces,
+  LuLayers,
+  LuRadio,
+  LuFlaskConical,
+} from 'react-icons/lu';
 import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
 
 const FeatureList = [
   {
     title: 'Type-Driven Endpoints',
+    Icon: LuShieldCheck,
     description: (
       <>
         Declarative or imperative endpoints, type-checked against the
@@ -14,6 +24,7 @@ const FeatureList = [
   },
   {
     title: 'OpenAPI, Both Ways',
+    Icon: LuFileText,
     description: (
       <>
         Generate OpenAPI docs from your endpoints — or endpoints from an
@@ -23,6 +34,7 @@ const FeatureList = [
   },
   {
     title: 'Schema-Powered Codecs',
+    Icon: LuBraces,
     description: (
       <>
         Encode and decode bodies via ZIO Schema: JSON, Protobuf, Avro, and
@@ -32,6 +44,7 @@ const FeatureList = [
   },
   {
     title: 'Composable Middleware',
+    Icon: LuLayers,
     description: (
       <>
         Auth, CORS, logging, and metrics as reusable, composable middleware.
@@ -40,6 +53,7 @@ const FeatureList = [
   },
   {
     title: 'Real-Time Ready',
+    Icon: LuRadio,
     description: (
       <>
         Built-in WebSockets and Server-Sent Events for live, streaming apps.
@@ -48,6 +62,7 @@ const FeatureList = [
   },
   {
     title: 'First-Class Testing',
+    Icon: LuFlaskConical,
     description: (
       <>
         Test routes and clients without a live server, using the testkit.
@@ -56,22 +71,45 @@ const FeatureList = [
   },
 ];
 
+function Feature({Icon, title, description, features = [], index = 0}) {
+  return (
+    <div
+      className={clsx('col col--4', styles.featureCardCol)}
+      style={{ '--reveal-i': index }}>
+      <div className={clsx('card-modern', styles.featureCard)}>
+        <div className={styles.featureCardHeader}>
+          <div className={styles.featureCardIcon}>
+            <Icon role="img" aria-hidden="true" />
+          </div>
+          <h3>{title}</h3>
+        </div>
+        <p className={styles.featureCardDescription}>{description}</p>
+        {features.length > 0 && (
+          <ul className={styles.featureCardFeatures}>
+            {features.map((feature, idx) => (
+              <li key={idx}>{feature}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function HomepageFeatures() {
   return (
     <SectionWrapper
-      eyebrow="Key features"
-      title="Key Features"
+      title={<>Key <span className="gradient-text">Features</span></>}
       subtitle="Build high-performance, scalable web applications with ZIO HTTP"
+      className={styles.features}
     >
-      <ul className={styles.grid}>
-        {FeatureList.map(({ title, description }, idx) => (
-          <li key={title} className={styles.feature}>
-            <span className={styles.number}>{String(idx + 1).padStart(2, '0')}</span>
-            <h3 className={styles.title}>{title}</h3>
-            <p className={styles.description}>{description}</p>
-          </li>
-        ))}
-      </ul>
+      <div className={styles.wideContainer}>
+        <div className={clsx('row', styles.featureCards)}>
+          {FeatureList.map((props, idx) => (
+            <Feature key={idx} index={idx} {...props} />
+          ))}
+        </div>
+      </div>
     </SectionWrapper>
   );
 }

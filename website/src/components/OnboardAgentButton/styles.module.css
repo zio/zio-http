@@ -1,3 +1,4 @@
+/* Only used in the hero banner, which is dark in both themes. */
 .card {
   display: flex;
   align-items: center;
@@ -5,10 +6,10 @@
   gap: 14px;
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid var(--hp-line);
+  border: 1px solid #1c2337;
   border-radius: 10px;
-  background: var(--hp-surface);
-  color: var(--hp-text);
+  background: #0b1020;
+  color: #e8eaf0;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
@@ -16,13 +17,7 @@
 }
 
 .card:hover {
-  border-color: var(--hp-accent);
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  border-color: #b8e62a;
 }
 
 .title {
@@ -30,13 +25,8 @@
   font-weight: 600;
 }
 
-.subtitle {
-  font-size: 13px;
-  color: var(--hp-muted);
-}
-
 .arrow {
-  font-family: var(--hp-font-mono);
+  font-family: 'IBM Plex Mono', var(--ifm-font-family-monospace);
   font-size: 16px;
-  color: var(--hp-accent);
+  color: #b8e62a;
 }

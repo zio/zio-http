@@ -1,37 +1,44 @@
+/* The hero banner is dark in both themes, so its colors are fixed. IBM Plex is
+   used here only; the rest of the site keeps Inter + JetBrains Mono. */
 .hero {
+  --hero-mono: 'IBM Plex Mono', var(--ifm-font-family-monospace);
+
+  background: #06080f;
+  color: #e8eaf0;
+  font-family: 'IBM Plex Sans', var(--ifm-font-family-base);
+}
+
+.inner {
   display: flex;
   flex-direction: column;
   gap: clamp(28px, 4vw, 44px);
-  padding-top: clamp(40px, 7vw, 88px);
-  padding-bottom: clamp(56px, 8vw, 104px);
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 88px) clamp(20px, 4vw, 40px) clamp(48px, 7vw, 96px);
 }
 
-/* Request arrow (accent, left to right) and response arrow (neutral, right to left). */
+/* Request arrow (lime, left to right) and response arrow (neutral, right to left). */
 .request,
 .response {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-family: var(--hp-font-mono);
+  font-family: var(--hero-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
 }
 
 .request {
-  color: var(--hp-accent);
+  color: #b8e62a;
 }
 
 .response {
   align-items: flex-end;
-  color: var(--hp-text);
-}
-
-.arrowLabel {
-  color: inherit;
+  color: #e8eaf0;
 }
 
 .response .arrowLabel {
-  color: var(--hp-text-2);
+  color: #c6ccda;
 }
 
 .arrowRow {
@@ -67,21 +74,22 @@
 .copy {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 24px;
 }
 
 .heading {
   margin: 0;
-  font-size: clamp(38px, 5.2vw, 66px);
+  font-family: inherit;
+  font-size: clamp(38px, 5vw, 64px);
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.02;
   text-wrap: balance;
-  color: var(--hp-text);
+  color: inherit;
 }
 
 .accent {
-  color: var(--hp-accent);
+  color: #b8e62a;
 }
 
 .subtitle {
@@ -89,8 +97,7 @@
   max-width: 46ch;
   font-size: 18px;
   line-height: 1.6;
-  color: var(--hp-text-2);
-  text-wrap: pretty;
+  color: #c6ccda;
 }
 
 .tags {
@@ -104,20 +111,55 @@
 
 .tag {
   padding: 5px 12px;
-  border: 1px solid var(--hp-border);
+  border: 1px solid #2a3348;
   border-radius: 999px;
-  font-family: var(--hp-font-mono);
+  font-family: var(--hero-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hp-text-2);
+  color: #c6ccda;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 12px;
+}
+
+.primary,
+.secondary {
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.primary {
+  padding: 13px 22px;
+  background: #b8e62a;
+  color: #0b1020;
+  font-weight: 600;
+}
+
+.primary:hover {
+  background: #d3f35c;
+  color: #0b1020;
+  text-decoration: none;
+}
+
+.secondary {
+  padding: 12px 22px;
+  border: 1px solid #2a3348;
+  color: #e8eaf0;
+  font-weight: 500;
+}
+
+.secondary:hover {
+  border-color: #b8e62a;
+  color: #e8eaf0;
+  text-decoration: none;
 }
 
 .side {
@@ -129,9 +171,9 @@
 
 .codeCard {
   overflow: hidden;
-  border: 1px solid var(--hp-code-line);
+  border: 1px solid #1c2337;
   border-radius: 12px;
-  background: var(--hp-code-bg);
+  background: #0b1020;
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
 }
 
@@ -141,18 +183,43 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 18px;
-  border-bottom: 1px solid var(--hp-code-line);
-  font-family: var(--hp-font-mono);
+  border-bottom: 1px solid #1c2337;
+  font-family: var(--hero-mono);
 }
 
 .fileName {
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: var(--hp-code-muted);
+  color: #8a93a8;
 }
 
 .language {
   font-size: 10px;
   letter-spacing: 0.1em;
-  color: var(--hp-code-accent);
+  color: #b8e62a;
+}
+
+.code {
+  margin: 0;
+  padding: 20px;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--hero-mono);
+  font-size: clamp(12px, 1.05vw, 14px);
+  line-height: 1.75;
+  color: #c6ccda;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.kw {
+  color: #b8e62a;
+}
+
+.type {
+  color: #a78bfa;
+}
+
+.str {
+  color: #4fd1c5;
 }

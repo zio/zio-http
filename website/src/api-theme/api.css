@@ -1,8 +1,7 @@
 /* The site skin for the Scaladoc pages under /api (scripts/theme-api.mjs links it from every page, after Scaladoc's own
    stylesheets). It draws the navbar the way the Docusaurus navbar looks (Infima's .navbar with src/css/custom.css), sets
    the site fonts and colours, and moves Scaladoc's layout under the 60px navbar (Scaladoc assumes a 64px header). The
-   values are Infima's defaults unless src/css/custom.css overrides them; the navbar's own --zh-nav-* values are the
-   --hp-* palette of src/css/custom.css (translucent, bordered, 14px links). */
+   values are Infima's defaults unless src/css/custom.css overrides them. */
 
 /* The site fonts (src/css/custom.css imports them from @fontsource-variable; theme-api.mjs copies the files here) */
 @font-face {
@@ -33,10 +32,6 @@
   --zh-hover-overlay: rgba(0, 0, 0, 0.05);
   --zh-navbar-height: 3.75rem;
   --zh-navbar-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
-  --zh-nav-bg: color-mix(in srgb, #ffffff 88%, transparent);
-  --zh-nav-line: #e6eaf2;
-  --zh-nav-text: #0b1020;
-  --zh-nav-text-2: #38405a;
 
   --header-height: var(--zh-navbar-height);
   --body-font-family: var(--zh-font-base);
@@ -58,10 +53,6 @@
   --zh-emphasis-200: #444950;
   --zh-emphasis-300: #606770;
   --zh-hover-overlay: rgba(255, 255, 255, 0.05);
-  --zh-nav-bg: color-mix(in srgb, #06080f 88%, transparent);
-  --zh-nav-line: #141a2a;
-  --zh-nav-text: #e8eaf0;
-  --zh-nav-text-2: #c6ccda;
 
   --text-primary: var(--zh-text);
   --text-secondary: #dadde1;
@@ -73,17 +64,15 @@
   --background-neutral: var(--zh-surface);
 }
 
-/* Navbar: translucent and blurred over the page with a hairline underneath, 14px links that brighten on hover */
+/* Navbar: the surface colour with Infima's light shadow underneath, weight 500 links that turn green on hover */
 #header.zh-navbar {
   --header-height: var(--zh-navbar-height);
   height: var(--zh-navbar-height);
   padding: 0.5rem 1rem;
-  background: var(--zh-nav-bg);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--zh-nav-line);
-  box-shadow: none;
-  color: var(--zh-nav-text);
+  background: var(--zh-surface);
+  border-bottom: none;
+  box-shadow: var(--zh-navbar-shadow);
+  color: var(--zh-text);
   font-family: var(--zh-font-base);
   font-size: 16px;
   line-height: 1.65;
@@ -102,13 +91,13 @@
   align-items: center;
   min-width: 0;
   margin-right: 1rem;
-  color: var(--zh-nav-text);
+  color: var(--zh-text);
   text-decoration: none;
 }
 
 .zh-navbar__brand:hover,
 #mobile-menu .mobile-menu-logo:hover {
-  color: var(--zh-nav-text);
+  color: var(--zh-text);
   text-decoration: none;
 }
 
@@ -129,9 +118,7 @@
 }
 
 .zh-navbar__title {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -139,16 +126,15 @@
   /* inline-block, as .navbar__item: the external-link icon then sits on the text baseline as on docs pages */
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  color: var(--zh-nav-text-2);
-  font-size: 14px;
-  font-weight: 400;
+  color: var(--zh-text);
+  font-weight: 500;
   text-decoration: none;
   transition: color 0.2s cubic-bezier(0.08, 0.52, 0.52, 1);
 }
 
 .zh-navbar__link:hover,
 .zh-navbar__link--active {
-  color: var(--zh-nav-text);
+  color: var(--zh-primary);
   text-decoration: none;
 }
 
@@ -165,7 +151,7 @@
   border: none;
   border-radius: 0;
   background: transparent;
-  color: var(--zh-nav-text);
+  color: var(--zh-text);
   cursor: pointer;
   line-height: 0;
 }

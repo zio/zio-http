@@ -6,8 +6,8 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
-/* IBM Plex for the homepage only (see --hp-font-* on .home); docs and /api
-   keep Inter + JetBrains Mono. Only the weights the design uses. */
+/* IBM Plex for the homepage hero only (see components/HomepageHero); the rest
+   of the site keeps Inter + JetBrains Mono. Only the weights the hero uses. */
 @import '@fontsource/ibm-plex-sans/400.css';
 @import '@fontsource/ibm-plex-sans/500.css';
 @import '@fontsource/ibm-plex-sans/600.css';
@@ -98,217 +98,204 @@
     margin-bottom: 2rem;
 }
 
-/* ── Homepage design system ───────────────────────────────────────────── */
-/* The palette is on :root so the navbar and footer share it. Dark values are
-   the design's; light values keep the layout and swap to darker greens so
-   accent text stays readable on white. */
+/* ── Motion: scroll reveal + reduced-motion guard ─────────────────────── */
+/* Base state is the final, visible one so SSR / no-JS / reduced-motion users
+   see fully-rendered sections. The entrance animation only applies when the
+   user has not requested reduced motion. */
+.reveal {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.6s ease,
+      transform 0.6s ease;
+    will-change: opacity, transform;
+  }
+
+  .reveal.reveal--visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Fullpage-style scroll: one section per gesture ───────────────────── */
+/* The JS hook (useFullpageScroll) intercepts wheel/keyboard so each gesture
+   animates to the adjacent section boundary. This supplies the smooth scroll
+   and the offset so a section lands below the sticky navbar, not under it.
+   Scoped to the homepage via a class added to <html> (see pages/index.js).
+   scroll-behavior stays `auto`: the hook animates each glide frame-by-frame
+   with its own easing, so CSS smooth scrolling would double up and fight it. */
+html.homepage-snap .fp-section {
+  scroll-margin-top: var(--ifm-navbar-height);
+}
+
+/* ── Section system + modern card primitives ─────────────────────────── */
 :root {
-  --hp-bg: #ffffff;
-  --hp-surface: #f4f6fb;
-  --hp-surface-raised: #e8edf6;
-  --hp-line: #dde3ee;
-  --hp-line-soft: #e6eaf2;
-  --hp-border: #c5ccdb;
-  --hp-text: #0b1020;
-  --hp-text-2: #38405a;
-  --hp-muted: #566079;
-  --hp-accent: #466f00;
-  --hp-accent-hover: #2f4a00;
-
-  /* Filled buttons and code panels use the same colors in both themes. */
-  --hp-button-bg: #b8e62a;
-  --hp-button-bg-hover: #d3f35c;
-  --hp-button-text: #0b1020;
-  --hp-code-bg: #0b1020;
-  --hp-code-bg-deep: #06080f;
-  --hp-code-line: #1c2337;
-  --hp-code-text: #c6ccda;
-  --hp-code-muted: #8a93a8;
-  --hp-code-accent: #b8e62a;
+  --gradient-brand: linear-gradient(90deg, #81c784, #26a69a);
+  --brand-shadow: rgba(129, 199, 132, 0.18);
 }
 
-[data-theme='dark'] {
-  --hp-bg: #06080f;
-  --hp-surface: #0b1020;
-  --hp-surface-raised: #141b2e;
-  --hp-line: #1c2337;
-  --hp-line-soft: #141a2a;
-  --hp-border: #2a3348;
-  --hp-text: #e8eaf0;
-  --hp-text-2: #c6ccda;
-  --hp-muted: #8a93a8;
-  --hp-accent: #b8e62a;
-  --hp-accent-hover: #d3f35c;
+.section-modern {
+  padding: 3.5rem 0;
 }
 
-/* The homepage root. IBM Plex is scoped here only (docs and /api keep Inter and
-   JetBrains Mono): the two --hp-font vars are the one place to change it, and
-   they feed Infima's font vars so headings, buttons and code follow. */
-.home {
-  --hp-font-sans: 'IBM Plex Sans', 'Inter Variable', system-ui, sans-serif;
-  --hp-font-mono: 'IBM Plex Mono', 'JetBrains Mono Variable', ui-monospace,
-    monospace;
-  --ifm-font-family-base: var(--hp-font-sans);
-  --ifm-heading-font-family: var(--hp-font-sans);
-  --ifm-font-family-monospace: var(--hp-font-mono);
-
-  background: var(--hp-bg);
-  color: var(--hp-text);
-  font-family: var(--hp-font-sans);
-}
-
-/* 1450px is the site's container width, so the sections line up with the
-   navbar and footer instead of sitting in a narrower column. */
-.hp-inner {
-  max-width: 1450px;
-  margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 40px);
-}
-
-.hp-band {
-  background: var(--hp-surface);
-  border-top: 1px solid var(--hp-line-soft);
-  border-bottom: 1px solid var(--hp-line-soft);
-}
-
-.hp-eyebrow {
-  font-family: var(--hp-font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hp-accent);
-}
-
-.hp-h2 {
-  margin: 0;
-  font-size: clamp(30px, 3.6vw, 44px);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
-  color: var(--hp-text);
-}
-
-.hp-lead {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.65;
-  color: var(--hp-text-2);
-}
-
-.hp-link {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--hp-accent);
-}
-
-.hp-link:hover {
-  color: var(--hp-accent-hover);
-  text-decoration: none;
-}
-
-.hp-button {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--hp-border);
-  border-radius: 8px;
-  padding: 12px 22px;
-  background: transparent;
-  color: var(--hp-text);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.4;
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.hp-button:hover {
-  border-color: var(--hp-accent);
-  color: var(--hp-text);
-  text-decoration: none;
-}
-
-.hp-button--primary {
-  border-color: var(--hp-button-bg);
-  background: var(--hp-button-bg);
-  color: var(--hp-button-text);
-  font-weight: 600;
-}
-
-.hp-button--primary:hover {
-  border-color: var(--hp-button-bg-hover);
-  background: var(--hp-button-bg-hover);
-  color: var(--hp-button-text);
-}
-
-/* Arrow-bulleted list used by the ecosystem and Zionomicon sections. */
-.hp-arrows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.hp-arrows li {
+.section-modern__head {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.5rem;
 }
 
-.hp-arrows li::before {
-  content: '\2192';
-  flex: none;
-  color: var(--hp-accent);
+.section-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0.5rem 0 0;
 }
 
-/* Code panels: Docusaurus CodeBlock restyled with the design's token colors.
-   Prism sets token colors inline, hence the !important. */
-.hp-code [class*='codeBlockContainer'] {
-  margin: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+.section-subtitle {
+  margin: 1rem 0 0;
+  max-width: 42rem;
+  color: var(--ifm-color-emphasis-700);
 }
 
-.hp-code pre {
-  background: transparent !important;
-  font-family: var(--hp-font-mono);
-  padding: 20px;
-  font-size: 13px;
-  line-height: 1.75;
+.eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #2e7d32;
+  background: rgba(129, 199, 132, 0.16);
+  padding: 0.28rem 0.85rem;
+  border-radius: 999px;
 }
 
-.hp-code pre code {
-  padding: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+.gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.hp-code .token {
-  color: var(--hp-code-text) !important;
+.gradient-rule {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gradient-brand);
+  margin: 0.85rem auto 0;
 }
 
-.hp-code .token.keyword,
-.hp-code .token.boolean {
-  color: var(--hp-code-accent) !important;
+/* Theme-aware modern card: solid in light, glass in dark. */
+.card-modern {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  /* Light theme: solid card so it reads on the light section surface. */
+  background: var(--ifm-card-background-color, #fff);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.hp-code .token.class-name,
-.hp-code .token.builtin {
-  color: #a78bfa !important;
+/* Dark theme: glass surface. Opaque fallback declared before backdrop-filter. */
+[data-theme='dark'] .card-modern {
+  background: rgba(30, 32, 48, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.hp-code .token.string,
-.hp-code .token.char,
-.hp-code .token.number,
-.hp-code .token.interpolation-string {
-  color: #4fd1c5 !important;
+.card-modern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.hp-code .token.comment {
-  color: #7e88a0 !important;
+@media (prefers-reduced-motion: no-preference) {
+  .card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px var(--brand-shadow);
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+  .card-modern:hover::before {
+    opacity: 1;
+  }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-modern:hover {
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+}
+
+
+
+/* ── Staggered reveal: cascade cards in a marked section ──────────────── */
+/* Sections tagged .reveal-stagger skip the whole-section block fade and
+   instead fade their cards in one-by-one, ordered by the inline --reveal-i.
+   Opacity-only (transform stays free for the card hover-lift). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-stagger {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .reveal-stagger .card-modern {
+    opacity: 0;
+  }
+  .reveal-stagger.reveal--visible .card-modern {
+    opacity: 1;
+    transition:
+      opacity 0.5s ease calc(var(--reveal-i, 0) * 70ms),
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+}
+
+
+/* ── Ambient: single static page-wide wash (homepage main) ────────────── */
+/* One subtle green→teal gradient on the homepage <main>. It scrolls with the
+   content (not fixed, so it never swims relative to sections) and is a single
+   continuous fade (no per-section color seams). No orbs, no motion, no JS. */
+html.homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.06),
+    rgba(38, 166, 154, 0.035) 45%,
+    transparent 90%
+  );
+}
+
+html[data-theme='dark'].homepage-snap main {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.1),
+    rgba(38, 166, 154, 0.06) 45%,
+    transparent 90%
+  );
+}
+
+
+
+
+
 
 /* No italics in any code block site-wide (Prism themes italicize comments and
    some keywords); applies to docs pages too, not just the homepage panel. */
@@ -486,135 +473,3 @@
 
 .navbar-sidebar .header-discord-link { display: flex; align-items: center; gap: 0.5rem; }
 .navbar-sidebar .header-discord-link::after { content: 'Discord'; }
-
-/* ── Navbar and footer in the homepage design ─────────────────────────── */
-/* Restyled with the --hp-* palette; items and behaviour are unchanged (see
-   docusaurus.config.js). Layout widths are Docusaurus' own, so the navbar and
-   footer look the same on the homepage and on docs pages. */
-.navbar {
-  background: color-mix(in srgb, var(--hp-bg) 88%, transparent);
-  border-bottom: 1px solid var(--hp-line-soft);
-  box-shadow: none;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-.navbar__title {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--hp-text);
-}
-
-.navbar__link {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--hp-text-2);
-}
-
-.navbar__link:hover,
-.navbar__link--active {
-  color: var(--hp-text);
-}
-
-.navbar .DocSearch-Button {
-  height: auto;
-  padding: 7px 12px;
-  border: 1px solid var(--hp-line);
-  border-radius: 8px;
-  background: var(--hp-surface);
-  color: var(--hp-muted);
-}
-
-@media (min-width: 997px) {
-  .navbar .DocSearch-Button {
-    min-width: 150px;
-  }
-}
-
-.navbar .DocSearch-Button:hover {
-  border-color: var(--hp-accent);
-  box-shadow: none;
-}
-
-.footer {
-  padding: 56px 0 40px;
-  background: var(--hp-surface);
-  border-top: 1px solid var(--hp-line-soft);
-  color: var(--hp-muted);
-}
-
-/* Four columns: a brand cell (the logo mark and name, drawn on ::before) then
-   the Docs, Community and More link columns. */
-.footer__links {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-  gap: 32px;
-  margin: 0 0 44px;
-}
-
-.footer__links::before {
-  content: 'ZIO HTTP';
-  align-self: start;
-  min-height: 26px;
-  padding-left: 36px;
-  background: url('/img/zio-http-logo-mark.png') no-repeat left center / 26px;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 26px;
-  letter-spacing: -0.02em;
-  color: var(--hp-text);
-}
-
-.footer .footer__col {
-  max-width: none;
-  padding: 0;
-  margin: 0;
-}
-
-.footer__title {
-  margin-bottom: 12px;
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hp-muted);
-}
-
-.footer__item {
-  margin-bottom: 12px;
-}
-
-.footer__item:last-child {
-  margin-bottom: 0;
-}
-
-.footer__link-item {
-  font-size: 14px;
-  color: var(--hp-text-2);
-}
-
-.footer__link-item:hover {
-  color: var(--hp-text);
-  text-decoration: none;
-}
-
-.footer__link-item svg {
-  display: none;
-}
-
-.footer__bottom {
-  padding: 22px 0 0;
-  border-top: 1px solid var(--hp-line-soft);
-  font-size: 13px;
-  text-align: left;
-}
-
-.footer__copyright {
-  color: var(--hp-muted);
-}
-
-.footer__copyright a {
-  color: var(--hp-text-2);
-}

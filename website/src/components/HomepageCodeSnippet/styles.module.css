@@ -1,95 +1,211 @@
-.inner {
+.codeSnippetSection {
+  background-color: var(--ifm-color-emphasis-100);
+  padding: 5rem 0;
+  width: 100%;
+}
+
+.innerContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
-  gap: clamp(32px, 5vw, 64px);
-  align-items: start;
-  padding-top: clamp(56px, 8vw, 104px);
-  padding-bottom: clamp(56px, 8vw, 104px);
+  grid-template-columns: 2fr 3fr;
+  gap: 4rem;
+  align-items: center;
 }
 
-.copy {
+.leftColumn {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 1.5rem;
 }
 
-.lead {
-  max-width: 44ch;
-  text-wrap: pretty;
+.leftColumn h2 {
+  color: var(--ifm-heading-color);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
 }
 
-.tabs {
+.leftColumn p {
+  color: var(--ifm-text-color-secondary);
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Button uses default Infima styling that respects light/dark theme.
+   Override the outline hover: Infima fills with the light brand green and
+   keeps white text (low contrast in both themes). Use dark text on the
+   green fill so the label stays legible. */
+.leftColumn :global(.button--outline:hover),
+.leftColumn :global(.button--outline:active) {
+  background-color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #0d1117;
+}
+
+.rightColumn {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
+  /* Let the grid track shrink so wide code scrolls inside its panel instead of stretching the page. */
+  min-width: 0;
+}
+
+.codePanel {
+  background-color: #1e2030;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.tabBar {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #161b22;
+}
+
+.tabBar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
 }
 
 .tab {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  flex-shrink: 0;
+  padding: 0.75rem 1.25rem;
   border: none;
-  border-radius: 8px;
   background: transparent;
-  color: var(--hp-muted);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  text-align: left;
+  color: #8b949e;
   cursor: pointer;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  font-family: inherit;
 }
 
 .tab:hover {
-  color: var(--hp-text);
+  color: #e6edf3;
 }
 
 .tabActive {
-  background: var(--hp-surface-raised);
-  color: var(--hp-text);
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--ifm-color-primary);
 }
 
-.tabNumber {
-  font-family: var(--hp-font-mono);
-  font-size: 11px;
-  color: var(--hp-muted);
+.codeArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.tabActive .tabNumber {
-  color: var(--hp-accent);
+.pre {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  overflow: auto;
+  /* Fixed height (fits the tallest snippet) so the panel doesn't resize
+     when switching tabs; taller content scrolls within this box. */
+  height: 560px;
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
-.docsLink {
-  margin-top: 6px;
+.codeLine {
+  display: block;
 }
 
-.panel {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--hp-code-line);
-  border-radius: 12px;
-  background: var(--hp-code-bg-deep);
+.lineNumber {
+  display: inline-block;
+  width: 2.5ch;
+  min-width: 2.5ch;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.25);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
-.panelHeader {
+.lineContent {
+  display: inline;
+}
+
+.toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--hp-code-line);
-  font-family: var(--hp-font-mono);
+  padding: 0.5rem 1rem;
+  background-color: #161b22;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.fileName {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--hp-code-muted);
+.langBadge {
+  font-size: 0.75rem;
+  color: #8b949e;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: var(--ifm-font-family-monospace);
 }
 
-.language {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--hp-code-accent);
+.copyButton {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.copyButton:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+.copyButtonCopied {
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+}
+
+@media screen and (max-width: 996px) {
+  .innerContainer {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .tabBar {
+    overflow-x: auto;
+  }
+
+  .pre {
+    overflow: auto;
+    height: 460px;
+  }
+}
+
+/* Fit the Docusaurus CodeBlock into the panel + keep a stable height so
+   switching tabs doesn't resize the panel. */
+.codeArea :global(.theme-code-block) {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.codeArea :global(pre) {
+  margin: 0;
+  height: 560px;
+  overflow: auto;
+  border-radius: 0;
+}
+
+/* No italics in the code (some prism themes italicize comments/keywords). */
+.codeArea :global(.token) {
+  font-style: normal !important;
 }

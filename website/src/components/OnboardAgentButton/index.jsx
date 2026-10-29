@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import clsx from 'clsx';
 import { PROMPT } from './prompt.mjs';
 import styles from './styles.module.css';
 
@@ -30,8 +29,8 @@ export async function copyPrompt(text) {
   }
 }
 
-// Homepage hero card: copies the same setup prompt as the navbar button.
-export default function OnboardAgentButton({ className }) {
+// Hero card: copies the same setup prompt as the navbar button.
+export default function OnboardAgentButton() {
   const [copied, setCopied] = useState(false);
   const timer = useRef(null);
 
@@ -54,18 +53,16 @@ export default function OnboardAgentButton({ className }) {
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={clsx(styles.card, className)}
+      className={styles.card}
     >
-      <span className={styles.text}>
-        <span className={styles.title}>
-          {copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}
-        </span>
-        <span className={styles.subtitle}>
-          Works with Claude, Codex, Cursor, and OpenCode
-        </span>
+      <span className={styles.title}>
+        {copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}
       </span>
       <span className={styles.arrow} aria-hidden="true">
         &rarr;
+      </span>
+      <span className="sr-only">
+        Works with Claude, Codex, Cursor, and OpenCode
       </span>
     </button>
   );
