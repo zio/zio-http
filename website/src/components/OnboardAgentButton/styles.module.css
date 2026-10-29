@@ -1,0 +1,42 @@
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--hp-line);
+  border-radius: 10px;
+  background: var(--hp-surface);
+  color: var(--hp-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--hp-accent);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--hp-muted);
+}
+
+.arrow {
+  font-family: var(--hp-font-mono);
+  font-size: 16px;
+  color: var(--hp-accent);
+}

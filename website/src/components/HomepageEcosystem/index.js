@@ -1,5 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import Link from '@docusaurus/Link';
 import SectionWrapper from '@site/src/components/SectionWrapper';
 import styles from './styles.module.css';
@@ -22,11 +23,7 @@ const EcosystemProjects = [
       'Integrated metrics and observability.',
       'Seamless interop with Java and Scala libraries.',
     ],
-    link: 'https://zio.dev',
-    icon: {
-      type: 'image',
-      value: 'img/ZIO.png'
-    }
+    link: 'https://zio.dev'
   },
   {
     title: 'ZIO Schema',
@@ -37,11 +34,7 @@ const EcosystemProjects = [
       'Schema transformations and migrations',
       'Integration with ZIO HTTP'
     ],
-    link: 'https://zio.dev/zio-schema/',
-    icon: {
-      type: 'text',
-      value: '🧬'
-    }
+    link: 'https://zio.dev/zio-schema/'
   },
   {
     title: 'ZIO Config',
@@ -52,11 +45,7 @@ const EcosystemProjects = [
       'Documentation generation',
       'Validation and error reporting'
     ],
-    link: 'https://zio.dev/zio-config/',
-    icon: {
-      type: 'text',
-      value: '🛠️'
-    }
+    link: 'https://zio.dev/zio-config/'
   },
   {
     title: 'ZIO Logging',
@@ -67,11 +56,7 @@ const EcosystemProjects = [
       'Context-aware logging',
       'Integration with MDC and log correlation'
     ],
-    link: 'https://zio.dev/zio-logging/',
-    icon: {
-      type: 'text',
-      value: '📝'
-    }
+    link: 'https://zio.dev/zio-logging/'
   },
   {
     title: 'ZIO Stream',
@@ -82,11 +67,7 @@ const EcosystemProjects = [
       'Rich set of combinators for data transformation',
       'Backpressure handling and flow control'
     ],
-    link: 'https://zio.dev/reference/stream/',
-    icon: {
-      type: 'text',
-      value: '🔗'
-    }
+    link: 'https://zio.dev/reference/stream/'
   },
   {
     title: 'ZIO Test',
@@ -98,11 +79,7 @@ const EcosystemProjects = [
       'Run test effects in parallel for faster test suites',
       'Integration with JUnit and other test frameworks',
     ],
-    link: 'https://zio.dev/reference/test/',
-    icon: {
-      type: 'text',
-      value: '✅ '
-    }
+    link: 'https://zio.dev/reference/test/'
   },
   {
     title: 'ZIO STM',
@@ -113,102 +90,54 @@ const EcosystemProjects = [
       'No deadlocks or race conditions',
       'Automatic retry of interrupted transactions'
     ],
-    link: 'https://zio.dev/reference/stm/',
-    icon: {
-      type: 'text',
-      value: '🔒️'
-    }
+    link: 'https://zio.dev/reference/stm/'
   }
 ];
 
 export default function HomepageEcosystem() {
-  // Separate ZIO from other projects
-  const zioProject = EcosystemProjects[0];
-  const otherProjects = EcosystemProjects.slice(1);
+  const zioLogo = useBaseUrl('img/ZIO.png');
+  // ZIO gets its own wide card; the rest are numbered library cards.
+  const [zioProject, ...otherProjects] = EcosystemProjects;
 
   return (
     <SectionWrapper
-      title={<span className="gradient-text">Ecosystem</span>}
+      band
+      eyebrow="Ecosystem"
+      title="Ecosystem"
       subtitle="A complete toolkit for building scalable, resilient applications"
-      className={styles.ecosystem}
     >
-      <div className={styles.wideContainer}>
-        {/* ZIO in its own row */}
-        <div className={clsx('row', styles.ecosystemCards)}>
-          <div
-            className={clsx('col col--8 col--offset-2', styles.mainProjectCol)}
-            style={{ '--reveal-i': 0 }}>
-            <div className={clsx('card-modern', styles.ecosystemCard)}>
-              <div className={styles.mainProjectHeader}>
-                {zioProject.icon.type === 'image' ? (
-                  <img
-                    src={zioProject.icon.value}
-                    alt="ZIO logo"
-                    className={styles.mainProjectLogo}
-                  />
-                ) : (
-                  <div className={styles.mainProjectLogoText}>
-                    {zioProject.icon.value}
-                  </div>
-                )}
-                <h3 className={styles.srOnly}>{zioProject.title}</h3>
-              </div>
-              <p className={styles.ecosystemCardDescription}>{zioProject.description}</p>
-              <ul className={styles.ecosystemCardFeatures}>
-                {zioProject.features.map((feature, fidx) => (
-                  <li key={fidx}>{feature}</li>
-                ))}
-              </ul>
-              <div className={styles.ecosystemCardFooter}>
-                <Link
-                  className={clsx('button button--outline button--primary', styles.ecosystemCardButton)}
-                  to={zioProject.link}
-                  target="_blank"
-                  rel="noopener noreferrer">
-                  Learn More
-                </Link>
-              </div>
-            </div>
-          </div>
+      <div className={styles.zio}>
+        <div className={styles.zioIntro}>
+          <img src={zioLogo} alt="ZIO logo" className={styles.zioLogo} />
+          <h3 className={styles.zioTitle}>{zioProject.title}</h3>
+          <p className={styles.zioDescription}>{zioProject.description}</p>
+          <Link className="hp-link" to={zioProject.link}>
+            Learn More &rarr;
+          </Link>
         </div>
-
-        {/* Other projects in a second row */}
-        <div className={clsx('row', styles.ecosystemCards)}>
-          {otherProjects.map((project, idx) => (
-            <div
-              key={idx}
-              className={clsx('col col--4 col--md-6', styles.ecosystemCardCol)}
-              style={{ '--reveal-i': idx }}>
-              <div className={clsx('card-modern', styles.ecosystemCard)}>
-                <div className={styles.ecosystemCardHeader}>
-                  <div className={styles.ecosystemCardIcon}>
-                    {project.icon.type === 'image' ? (
-                      <img src={project.icon.value} alt={`${project.title} icon`} />
-                    ) : (
-                      project.icon.value
-                    )}
-                  </div>
-                  <h3>{project.title}</h3>
-                </div>
-                <p className={styles.ecosystemCardDescription}>{project.description}</p>
-                <ul className={styles.ecosystemCardFeatures}>
-                  {project.features.map((feature, fidx) => (
-                    <li key={fidx}>{feature}</li>
-                  ))}
-                </ul>
-                <div className={styles.ecosystemCardFooter}>
-                  <Link
-                    className={clsx('button button--outline button--primary', styles.ecosystemCardButton)}
-                    to={project.link}
-                    target="_blank"
-                    rel="noopener noreferrer">
-                    Learn More
-                  </Link>
-                </div>
-              </div>
-            </div>
+        <ul className={clsx('hp-arrows', styles.zioFeatures)}>
+          {zioProject.features.map((feature) => (
+            <li key={feature}>{feature}</li>
           ))}
-        </div>
+        </ul>
+      </div>
+
+      <div className={styles.cards}>
+        {otherProjects.map((project, idx) => (
+          <div key={project.title} className={styles.card}>
+            <span className={styles.number}>{String(idx + 1).padStart(2, '0')}</span>
+            <h3 className={styles.cardTitle}>{project.title}</h3>
+            <p className={styles.cardDescription}>{project.description}</p>
+            <ul className={clsx('hp-arrows', styles.cardFeatures)}>
+              {project.features.map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+            <Link className={clsx('hp-link', styles.cardLink)} to={project.link}>
+              Learn More &rarr;
+            </Link>
+          </div>
+        ))}
       </div>
     </SectionWrapper>
   );

@@ -1,0 +1,14 @@
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  padding-top: clamp(56px, 8vw, 112px);
+  padding-bottom: clamp(56px, 8vw, 112px);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+}

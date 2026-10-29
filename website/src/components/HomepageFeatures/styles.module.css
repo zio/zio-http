@@ -1,103 +1,37 @@
-.features {
-  background-color: var(--ifm-color-emphasis-100);
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 0 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.wideContainer {
-  margin: 0 auto;
-  padding: 0 var(--ifm-spacing-horizontal);
-  width: 100%;
-  max-width: 1400px;
-}
-
-.featureCards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.featureCardCol {
-  margin-bottom: 2rem;
-}
-
-/* Make sure all cards have the same height in a row */
-.featureCard {
-  height: 100%;
+.feature {
   display: flex;
   flex-direction: column;
-  padding: 2rem;
-  transition: all 0.3s ease;
+  gap: 10px;
+  padding: 26px 0 34px;
+  border-top: 1px solid var(--hp-line);
 }
 
-.featureCardHeader {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1rem;
-  text-align: left;
-  margin-bottom: 1.25rem;
+.number {
+  font-family: var(--hp-font-mono);
+  font-size: 11px;
+  color: var(--hp-accent);
 }
 
-.featureCardIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.85rem;
-  color: var(--ifm-color-primary);
-  background: linear-gradient(
-    135deg,
-    rgba(129, 199, 132, 0.22),
-    rgba(129, 199, 132, 0.06)
-  );
-  transition: transform 0.3s ease;
-}
-
-.featureCardIcon svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  stroke-width: 2;
-}
-
-.featureCard:hover .featureCardIcon {
-  transform: translateY(-2px);
-}
-
-.featureCardHeader h3 {
+.title {
   margin: 0;
-  font-size: 1.25rem;
-  color: var(--ifm-heading-color);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--hp-text);
 }
 
-.featureCardDescription {
-  margin-bottom: 1.5rem;
-  color: var(--ifm-color-emphasis-700);
-  flex-grow: 0;
-}
-
-.featureCardFeatures {
-  margin-bottom: 1.5rem;
-  padding-left: 1.5rem;
-  flex-grow: 1;
-}
-
-.featureCardFeatures li {
-  margin-bottom: 0.5rem;
-  color: var(--ifm-color-emphasis-800);
-}
-
-/* Responsive styles for feature cards */
-@media (max-width: 996px) {
-  .featureCardCol {
-    width: 100%;
-  }
-
-  .features {
-    padding: 3rem 0;
-  }
-
-  .featureCard {
-    padding: 1.5rem;
-  }
+.description {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--hp-muted);
 }
