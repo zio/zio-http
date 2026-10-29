@@ -157,8 +157,10 @@
   font-family: var(--hp-font-sans);
 }
 
+/* 1450px is the site's container width, so the sections line up with the
+   navbar and footer instead of sitting in a narrower column. */
 .hp-inner {
-  max-width: 1200px;
+  max-width: 1450px;
   margin: 0 auto;
   padding: 0 clamp(20px, 4vw, 40px);
 }
