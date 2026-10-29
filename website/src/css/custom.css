@@ -288,16 +288,11 @@ html[data-theme='dark'].homepage-snap main {
 
 
 
-/* Code blocks site-wide (docs and homepage) share one panel: the dark surface
-   with a hairline border and rounded corners, a darker title bar, and the
-   theme's own token colors. Docusaurus sets the colors inline, hence !important. */
-.theme-code-block,
-.theme-code-block pre {
-  background-color: #1e2030 !important;
-}
-
+/* Code blocks site-wide (docs and homepage) share the hero snippet's panel: a
+   hairline border, rounded corners, no shadow, and a darker title bar. The
+   token colors stay with the light/dark Prism theme. */
 .theme-code-block {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2f3140;
   border-radius: 8px;
   box-shadow: none;
 }
