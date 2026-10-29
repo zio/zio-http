@@ -175,7 +175,7 @@ export default function HomepageCodeSnippet() {
               className={styles.codeArea}
               role="tabpanel"
               aria-labelledby={`tab-${activeTab}`}>
-              <CodeBlock key={activeTab} language="scala" showLineNumbers>
+              <CodeBlock key={activeTab} language="scala">
                 {TABS[activeTab].code.trim()}
               </CodeBlock>
             </div>

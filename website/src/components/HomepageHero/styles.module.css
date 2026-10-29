@@ -140,7 +140,7 @@
   color: #0d1117;
 }
 
-.actions :global(.button--primary) {
+.actions :global(.button--primary:not(.button--outline)) {
   color: #0d1117;
 }
 

@@ -288,6 +288,26 @@ html[data-theme='dark'].homepage-snap main {
 
 
 
+/* Code blocks site-wide (docs and homepage) share one panel: the dark surface
+   with a hairline border and rounded corners, a darker title bar, and the
+   theme's own token colors. Docusaurus sets the colors inline, hence !important. */
+.theme-code-block,
+.theme-code-block pre {
+  background-color: #1e2030 !important;
+}
+
+.theme-code-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.theme-code-block [class*='codeBlockTitle'] {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #161b22 !important;
+  color: #8b949e;
+}
+
 /* No italics in any code block site-wide (Prism themes italicize comments and
    some keywords); applies to docs pages too, not just the homepage panel. */
 .token {

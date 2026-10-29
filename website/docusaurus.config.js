@@ -1,7 +1,6 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
@@ -347,7 +346,9 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} ZIO Maintainers · Licensed under the <a href="https://github.com/zio/zio-http/blob/main/LICENSE">Apache License 2.0</a> · Built with <a href="https://docusaurus.io/">Docusaurus</a>`,
       },
       prism: {
-        theme: lightCodeTheme,
+        // One dark code theme in both color modes, so every snippet looks like the
+        // homepage ones (see the code-block rules in src/css/custom.css).
+        theme: darkCodeTheme,
         darkTheme: darkCodeTheme,
         additionalLanguages: ['java', 'scala'],
       },
