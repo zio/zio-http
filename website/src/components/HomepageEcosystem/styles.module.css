@@ -20,12 +20,14 @@
   height: 40px;
 }
 
+/* The logo already spells "ZIO"; the heading stays for screen readers only. */
 .zioTitle {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--hp-text);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .zioDescription {
