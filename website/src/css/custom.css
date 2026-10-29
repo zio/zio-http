@@ -99,13 +99,10 @@
 }
 
 /* ── Homepage design system ───────────────────────────────────────────── */
-/* Tokens live on the .home wrapper (see pages/index.js). Dark values are the
-   design's palette; light values keep the layout and swap to darker greens so
-   accent text stays readable on white. Homepage fonts are set here only. */
-.home {
-  --hp-font-sans: 'IBM Plex Sans', var(--ifm-font-family-base);
-  --hp-font-mono: 'IBM Plex Mono', var(--ifm-font-family-monospace);
-
+/* The palette is on :root so the navbar and footer share it. Dark values are
+   the design's; light values keep the layout and swap to darker greens so
+   accent text stays readable on white. */
+:root {
   --hp-bg: #ffffff;
   --hp-surface: #f4f6fb;
   --hp-surface-raised: #e8edf6;
@@ -128,13 +125,9 @@
   --hp-code-text: #c6ccda;
   --hp-code-muted: #8a93a8;
   --hp-code-accent: #b8e62a;
-
-  background: var(--hp-bg);
-  color: var(--hp-text);
-  font-family: var(--hp-font-sans);
 }
 
-[data-theme='dark'] .home {
+[data-theme='dark'] {
   --hp-bg: #06080f;
   --hp-surface: #0b1020;
   --hp-surface-raised: #141b2e;
@@ -146,6 +139,22 @@
   --hp-muted: #8a93a8;
   --hp-accent: #b8e62a;
   --hp-accent-hover: #d3f35c;
+}
+
+/* The homepage root. IBM Plex is scoped here only (docs and /api keep Inter and
+   JetBrains Mono): the two --hp-font vars are the one place to change it, and
+   they feed Infima's font vars so headings, buttons and code follow. */
+.home {
+  --hp-font-sans: 'IBM Plex Sans', 'Inter Variable', system-ui, sans-serif;
+  --hp-font-mono: 'IBM Plex Mono', 'JetBrains Mono Variable', ui-monospace,
+    monospace;
+  --ifm-font-family-base: var(--hp-font-sans);
+  --ifm-heading-font-family: var(--hp-font-sans);
+  --ifm-font-family-monospace: var(--hp-font-mono);
+
+  background: var(--hp-bg);
+  color: var(--hp-text);
+  font-family: var(--hp-font-sans);
 }
 
 .hp-inner {
