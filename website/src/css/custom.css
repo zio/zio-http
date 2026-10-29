@@ -487,19 +487,14 @@
 
 /* ── Navbar and footer in the homepage design ─────────────────────────── */
 /* Restyled with the --hp-* palette; items and behaviour are unchanged (see
-   docusaurus.config.js). The 1200px content width applies to standalone
-   pages only, so docs pages keep their wider layout. */
+   docusaurus.config.js). Layout widths are Docusaurus' own, so the navbar and
+   footer look the same on the homepage and on docs pages. */
 .navbar {
   background: color-mix(in srgb, var(--hp-bg) 88%, transparent);
   border-bottom: 1px solid var(--hp-line-soft);
   box-shadow: none;
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-}
-
-html.plugin-pages .navbar__inner {
-  max-width: 1200px;
-  margin: 0 auto;
 }
 
 .navbar__title {
@@ -545,10 +540,6 @@ html.plugin-pages .navbar__inner {
   background: var(--hp-surface);
   border-top: 1px solid var(--hp-line-soft);
   color: var(--hp-muted);
-}
-
-html.plugin-pages .footer .container {
-  max-width: 1200px !important;
 }
 
 /* Four columns: a brand cell (the logo mark and name, drawn on ::before) then
