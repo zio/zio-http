@@ -336,7 +336,8 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} ZIO Maintainers. Built with Docusaurus.`,
+        // Copyright, licence and credit on one line; the year is the build year.
+        copyright: `Copyright © ${new Date().getFullYear()} ZIO Maintainers · Licensed under the <a href="https://github.com/zio/zio-http/blob/main/LICENSE">Apache License 2.0</a> · Built with <a href="https://docusaurus.io/">Docusaurus</a>`,
       },
       prism: {
         theme: lightCodeTheme,
