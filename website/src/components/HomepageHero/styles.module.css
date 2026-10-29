@@ -1,44 +1,55 @@
-/* The hero banner is dark in both themes, so its colors are fixed. IBM Plex is
-   used here only; the rest of the site keeps Inter + JetBrains Mono. */
+/* The hero follows the site theme (light and dark) and uses the same fonts,
+   accent, buttons and code-panel look as the sections below it. */
 .hero {
-  --hero-mono: 'IBM Plex Mono', var(--ifm-font-family-monospace);
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.06),
+    rgba(38, 166, 154, 0.035) 70%,
+    transparent
+  );
+}
 
-  background: #06080f;
-  color: #e8eaf0;
-  font-family: 'IBM Plex Sans', var(--ifm-font-family-base);
+[data-theme='dark'] .hero {
+  background: linear-gradient(
+    180deg,
+    rgba(129, 199, 132, 0.1),
+    rgba(38, 166, 154, 0.06) 70%,
+    transparent
+  );
 }
 
 .inner {
   display: flex;
   flex-direction: column;
   gap: clamp(28px, 4vw, 44px);
-  max-width: 1240px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: clamp(40px, 7vw, 88px) clamp(20px, 4vw, 40px) clamp(48px, 7vw, 96px);
 }
 
-/* Request arrow (lime, left to right) and response arrow (neutral, right to left). */
+/* Request arrow (brand green, left to right) and response arrow (neutral, right to left). */
 .request,
 .response {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-family: var(--hero-mono);
-  font-size: 11px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
 }
 
 .request {
-  color: #b8e62a;
+  color: var(--ifm-color-primary);
 }
 
 .response {
   align-items: flex-end;
-  color: #e8eaf0;
+  color: var(--ifm-font-color-base);
 }
 
 .response .arrowLabel {
-  color: #c6ccda;
+  color: var(--ifm-color-emphasis-700);
 }
 
 .arrowRow {
@@ -79,25 +90,19 @@
 
 .heading {
   margin: 0;
-  font-family: inherit;
-  font-size: clamp(38px, 5vw, 64px);
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.02;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
   text-wrap: balance;
-  color: inherit;
-}
-
-.accent {
-  color: #b8e62a;
 }
 
 .subtitle {
   margin: 0;
   max-width: 46ch;
-  font-size: 18px;
-  line-height: 1.6;
-  color: #c6ccda;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: var(--ifm-text-color-secondary, var(--ifm-color-emphasis-700));
 }
 
 .tags {
@@ -110,14 +115,14 @@
 }
 
 .tag {
-  padding: 5px 12px;
-  border: 1px solid #2a3348;
+  padding: 0.28rem 0.85rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 999px;
-  font-family: var(--hero-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #c6ccda;
+  color: var(--ifm-color-emphasis-700);
 }
 
 .actions {
@@ -126,40 +131,17 @@
   gap: 12px;
 }
 
-.primary,
-.secondary {
-  border-radius: 8px;
-  font-size: 15px;
-  line-height: 1.4;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease;
+/* Same outline-hover fix as the section buttons: Infima fills with the light
+   brand green and keeps white text, so use dark text on the fill. */
+.actions :global(.button--outline:hover),
+.actions :global(.button--outline:active) {
+  background-color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #0d1117;
 }
 
-.primary {
-  padding: 13px 22px;
-  background: #b8e62a;
-  color: #0b1020;
-  font-weight: 600;
-}
-
-.primary:hover {
-  background: #d3f35c;
-  color: #0b1020;
-  text-decoration: none;
-}
-
-.secondary {
-  padding: 12px 22px;
-  border: 1px solid #2a3348;
-  color: #e8eaf0;
-  font-weight: 500;
-}
-
-.secondary:hover {
-  border-color: #b8e62a;
-  color: #e8eaf0;
-  text-decoration: none;
+.actions :global(.button--primary) {
+  color: #0d1117;
 }
 
 .side {
@@ -169,12 +151,12 @@
   min-width: 0;
 }
 
+/* Same panel as the "ZIO HTTP in Action" code area. */
 .codeCard {
   overflow: hidden;
-  border: 1px solid #1c2337;
-  border-radius: 12px;
-  background: #0b1020;
-  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background-color: #1e2030;
 }
 
 .codeHeader {
@@ -182,44 +164,29 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid #1c2337;
-  font-family: var(--hero-mono);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #161b22;
+  font-size: 0.8rem;
 }
 
 .fileName {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: #8a93a8;
+  color: #8b949e;
 }
 
 .language {
-  font-size: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.1em;
-  color: #b8e62a;
+  color: var(--ifm-color-primary);
 }
 
-.code {
+.codeCard :global(.theme-code-block) {
   margin: 0;
-  padding: 20px;
   border-radius: 0;
-  background: transparent;
-  font-family: var(--hero-mono);
-  font-size: clamp(12px, 1.05vw, 14px);
-  line-height: 1.75;
-  color: #c6ccda;
-  white-space: pre-wrap;
-  word-break: break-word;
+  box-shadow: none;
 }
 
-.kw {
-  color: #b8e62a;
-}
-
-.type {
-  color: #a78bfa;
-}
-
-.str {
-  color: #4fd1c5;
+.codeCard :global(.token) {
+  font-style: normal !important;
 }

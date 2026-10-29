@@ -1,4 +1,4 @@
-/* Only used in the hero banner, which is dark in both themes. */
+/* Hero card: the site's card surface, theme-aware. */
 .card {
   display: flex;
   align-items: center;
@@ -6,27 +6,33 @@
   gap: 14px;
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #1c2337;
-  border-radius: 10px;
-  background: #0b1020;
-  color: #e8eaf0;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 14px;
+  background: var(--ifm-card-background-color, #fff);
+  color: var(--ifm-font-color-base);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+[data-theme='dark'] .card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .card:hover {
-  border-color: #b8e62a;
+  border-color: rgba(129, 199, 132, 0.4);
 }
 
 .title {
-  font-size: 14px;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
 .arrow {
-  font-family: 'IBM Plex Mono', var(--ifm-font-family-monospace);
-  font-size: 16px;
-  color: #b8e62a;
+  font-size: 1.1rem;
+  color: var(--ifm-color-primary);
 }

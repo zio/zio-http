@@ -6,15 +6,6 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
-/* IBM Plex for the homepage hero only (see components/HomepageHero); the rest
-   of the site keeps Inter + JetBrains Mono. Only the weights the hero uses. */
-@import '@fontsource/ibm-plex-sans/400.css';
-@import '@fontsource/ibm-plex-sans/500.css';
-@import '@fontsource/ibm-plex-sans/600.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource/ibm-plex-mono/600.css';
-
 @config '../../tailwind.config.js';
 
 /* Tailwind v4 changed the default border color to currentColor; restore the
