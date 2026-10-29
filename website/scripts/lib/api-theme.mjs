@@ -30,6 +30,7 @@ export const NAV_LINKS = [
   { label: 'API', href: '/api/', position: 'left', current: true },
   { label: 'FAQ', href: '/faq', position: 'right' },
   { label: 'GitHub', href: 'https://github.com/zio/zio-http', position: 'right', external: true },
+  { label: 'Discord', href: 'https://discord.gg/2ccFBr4', position: 'right', external: true },
 ];
 
 // The navbar logo of docusaurus.config.js: one image per colour mode, as Docusaurus' ThemedImage shows them.
