@@ -69,8 +69,10 @@ test('the navbar links match the Docusaurus navbar, with API as the current page
   // A `type: 'doc'` item links to its doc's URL: the docs are served at the site root, and index.md has the slug
   // /introduction.
   const docUrl = (docId) => (docId === 'index' ? '/introduction' : `/${docId}`);
+  // The GitHub and Discord items are icon-only on the docs (no label), but the API pages keep their text (NAV_LINKS).
+  const iconLabels = { 'header-github-link': 'GitHub', 'header-discord-link': 'Discord' };
   const site = config.themeConfig.navbar.items.map((i) => ({
-    label: i.label,
+    label: i.label ?? iconLabels[i.className],
     href: i.type === 'doc' ? docUrl(i.docId) : (i.to ?? i.href).replace('pathname://', ''),
     position: i.position,
   }));
@@ -78,6 +80,7 @@ test('the navbar links match the Docusaurus navbar, with API as the current page
   const nav = navbarHtml({ prompt: PROMPT });
   assert.match(nav, /<a class="zh-navbar__link zh-navbar__link--active" href="\/api\/" aria-current="page">API<\/a>/);
   assert.match(nav, /<a class="zh-navbar__link" href="https:\/\/github\.com\/zio\/zio-http" target="_blank" rel="noopener noreferrer">GitHub<svg/);
+  assert.match(nav, /<a class="zh-navbar__link" href="https:\/\/discord\.gg\/2ccFBr4" target="_blank" rel="noopener noreferrer">Discord<svg/);
   // Left items follow the brand, right items come before the onboard button, the colour-mode toggle and search.
   const left = nav.slice(nav.indexOf('zh-navbar__left'), nav.indexOf('zh-navbar__right'));
   assert.ok(left.includes('>Examples</a>') && !left.includes('>FAQ</a>'));

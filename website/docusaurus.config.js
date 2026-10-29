@@ -278,8 +278,15 @@ const config = {
           },
           {
             href: 'https://github.com/zio/zio-http',
-            label: 'GitHub',
             position: 'right',
+            className: 'header-github-link',
+            'aria-label': 'GitHub repository',
+          },
+          {
+            href: 'https://discord.gg/2ccFBr4',
+            position: 'right',
+            className: 'header-discord-link',
+            'aria-label': 'Join the ZIO Discord server',
           },
 
         ],
