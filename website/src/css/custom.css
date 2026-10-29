@@ -484,3 +484,144 @@
 
 .navbar-sidebar .header-discord-link { display: flex; align-items: center; gap: 0.5rem; }
 .navbar-sidebar .header-discord-link::after { content: 'Discord'; }
+
+/* ── Navbar and footer in the homepage design ─────────────────────────── */
+/* Restyled with the --hp-* palette; items and behaviour are unchanged (see
+   docusaurus.config.js). The 1200px content width applies to standalone
+   pages only, so docs pages keep their wider layout. */
+.navbar {
+  background: color-mix(in srgb, var(--hp-bg) 88%, transparent);
+  border-bottom: 1px solid var(--hp-line-soft);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+html.plugin-pages .navbar__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.navbar__title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--hp-text);
+}
+
+.navbar__link {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--hp-text-2);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--hp-text);
+}
+
+.navbar .DocSearch-Button {
+  height: auto;
+  padding: 7px 12px;
+  border: 1px solid var(--hp-line);
+  border-radius: 8px;
+  background: var(--hp-surface);
+  color: var(--hp-muted);
+}
+
+@media (min-width: 997px) {
+  .navbar .DocSearch-Button {
+    min-width: 150px;
+  }
+}
+
+.navbar .DocSearch-Button:hover {
+  border-color: var(--hp-accent);
+  box-shadow: none;
+}
+
+.footer {
+  padding: 56px 0 40px;
+  background: var(--hp-surface);
+  border-top: 1px solid var(--hp-line-soft);
+  color: var(--hp-muted);
+}
+
+html.plugin-pages .footer .container {
+  max-width: 1200px !important;
+}
+
+/* Four columns: a brand cell (the logo mark and name, drawn on ::before) then
+   the Docs, Community and More link columns. */
+.footer__links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 32px;
+  margin: 0 0 44px;
+}
+
+.footer__links::before {
+  content: 'ZIO HTTP';
+  align-self: start;
+  min-height: 26px;
+  padding-left: 36px;
+  background: url('/img/zio-http-logo-mark.png') no-repeat left center / 26px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 26px;
+  letter-spacing: -0.02em;
+  color: var(--hp-text);
+}
+
+.footer .footer__col {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer__title {
+  margin-bottom: 12px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hp-muted);
+}
+
+.footer__item {
+  margin-bottom: 12px;
+}
+
+.footer__item:last-child {
+  margin-bottom: 0;
+}
+
+.footer__link-item {
+  font-size: 14px;
+  color: var(--hp-text-2);
+}
+
+.footer__link-item:hover {
+  color: var(--hp-text);
+  text-decoration: none;
+}
+
+.footer__link-item svg {
+  display: none;
+}
+
+.footer__bottom {
+  padding: 22px 0 0;
+  border-top: 1px solid var(--hp-line-soft);
+  font-size: 13px;
+  text-align: left;
+}
+
+.footer__copyright {
+  color: var(--hp-muted);
+}
+
+.footer__copyright a {
+  color: var(--hp-text-2);
+}
