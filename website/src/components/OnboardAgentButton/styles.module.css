@@ -12,3 +12,30 @@
   align-items: center;
   gap: 0.25rem;
 }
+
+/* On phones the label plus the four logos is wider than the screen, so the
+   logos give way: the button then stays on one line at the same height as the
+   other buttons. Wrapping is the fallback for very narrow screens. */
+.pill {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 480px) {
+  .logos {
+    display: none;
+  }
+
+  .pill {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 340px) {
+  .pill {
+    letter-spacing: -0.03em;
+  }
+}
