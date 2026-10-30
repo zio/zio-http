@@ -1,0 +1,47 @@
+/* ZIO HTTP — theme tokens (dark default, light via [data-theme="light"]) */
+:root, [data-theme="dark"] {
+  --zh-bg: #06080F;            /* page */
+  --zh-bg-deep: #03050A;       /* footer */
+  --zh-surface: #0B1020;       /* cards, header, code blocks */
+  --zh-surface-2: #080B16;     /* code tab bar */
+  --zh-accent-tint: #141B2E;   /* feature icon tile */
+  --zh-divider: #141A2A;
+  --zh-border: #1C2337;
+  --zh-border-strong: #2A3348; /* outline buttons, chips */
+  --zh-border-accent: #1E4A38;
+  --zh-text: #E8EAF0;
+  --zh-text-2: #C6CCDA;
+  --zh-text-3: #8A93A8;
+  --zh-accent: #3DDC97;        /* mint */
+  --zh-accent-hover: #6BE8B0;
+  --zh-on-accent: #0B1020;     /* text on accent buttons */
+  --zh-glow: rgba(61,220,151,0.18);
+  --zh-shadow: rgba(0,0,0,0.8);
+  --zh-code-keyword: #3DDC97;
+  --zh-code-type: #A78BFA;
+  --zh-code-string: #4FD1C5;   /* consider #FCD34D: teal sits close to mint */
+  --zh-code-comment: #7E88A0;
+}
+[data-theme="light"] {
+  --zh-bg: #FFFFFF;
+  --zh-bg-deep: #F3F5F8;
+  --zh-surface: #F5F7FA;
+  --zh-surface-2: #EEF1F5;
+  --zh-accent-tint: #E3F3EA;
+  --zh-divider: #E9ECF1;
+  --zh-border: #E3E6EC;
+  --zh-border-strong: #C9CED8;
+  --zh-border-accent: #A7DCC2;
+  --zh-text: #0B1020;
+  --zh-text-2: #3A4254;
+  --zh-text-3: #5A6376;
+  --zh-accent: #0B7A50;        /* deep mint, 5.4:1 on white */
+  --zh-accent-hover: #096843;
+  --zh-on-accent: #FFFFFF;
+  --zh-glow: rgba(11,122,80,0.12);
+  --zh-shadow: rgba(16,24,40,0.14);
+  --zh-code-keyword: #0B7A50;
+  --zh-code-type: #4C51BF;
+  --zh-code-string: #8A5A00;
+  --zh-code-comment: #6B7385;
+}
