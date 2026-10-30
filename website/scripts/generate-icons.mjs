@@ -16,19 +16,23 @@ const website = join(dirname(fileURLToPath(import.meta.url)), '..');
 const img = join(website, 'static', 'img');
 const chromium = process.env.CHROMIUM || 'chromium';
 
-const ARROWS = '#3DDC97';
+const MINT = '#3DDC97'; // --zh-accent, dark mode
+const DEEP_MINT = '#0B7A50'; // --zh-accent, light mode
 const TILE = '#0B1020';
 const paths =
   '<path d="M5 11.5H25"/><path d="M20.5 7L25 11.5L20.5 16"/><path d="M27 21.5H7"/><path d="M11.5 17L7 21.5L11.5 26"/>';
 
-const svg = (background) =>
+const svg = (background, arrows = MINT) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${background}` +
-  `<g fill="none" stroke="${ARROWS}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+  `<g fill="none" stroke="${arrows}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
 
-// The tile is the navbar logo in light mode and the favicon (the arrows alone
-// would vanish on a light browser tab); the mark is the dark-mode navbar logo.
+// The navbar logo is the bare arrows in the accent color of each mode, as in
+// the design: deep mint on white (`tile`, the light-mode file) and mint on navy
+// (`mark`, the dark-mode file). The favicon keeps a navy tile so it also reads
+// on a light browser tab.
 const tile = svg(`<rect width="32" height="32" rx="7" fill="${TILE}"/>`);
-const mark = svg('');
+const logoLight = svg('', DEEP_MINT);
+const logoDark = svg('');
 // iOS rounds the corners itself, so the home-screen icon is a full-bleed square.
 const square = svg(`<rect width="32" height="32" fill="${TILE}"/>`);
 
@@ -101,8 +105,8 @@ function ico(pngs) {
 const browser = await connect();
 try {
   const write = (name, data) => writeFileSync(join(img, name), data);
-  write('zio-http-logo-tile.png', await render(tile, 128));
-  write('zio-http-logo-mark.png', await render(mark, 128));
+  write('zio-http-logo-tile.png', await render(logoLight, 128));
+  write('zio-http-logo-mark.png', await render(logoDark, 128));
   write('favicon.png', await render(tile, 192));
   write('apple-touch-icon.png', await render(square, 180));
   const sizes = [];

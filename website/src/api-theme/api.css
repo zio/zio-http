@@ -26,7 +26,7 @@
   --zh-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --zh-text: #0b1020;
   --zh-background: #ffffff;
-  --zh-surface: #ffffff;
+  --zh-surface: #f5f7fa;
   --zh-emphasis-200: #e9ecf1;
   --zh-emphasis-300: #e3e6ec;
   --zh-hover-overlay: rgba(0, 0, 0, 0.05);
@@ -50,7 +50,7 @@
   --zh-primary: #3ddc97;
   --zh-text: #e8eaf0;
   --zh-background: #06080f;
-  --zh-surface: #06080f;
+  --zh-surface: #0b1020;
   --zh-emphasis-200: #141a2a;
   --zh-emphasis-300: #1c2337;
   --zh-hover-overlay: rgba(255, 255, 255, 0.05);

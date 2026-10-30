@@ -69,7 +69,7 @@ html:root {
   --ifm-background-surface-color: var(--zh-surface);
   --ifm-font-color-base: var(--zh-text);
   --ifm-heading-color: var(--zh-text);
-  --ifm-navbar-background-color: var(--zh-bg);
+  --ifm-navbar-background-color: var(--zh-surface);
   --ifm-card-background-color: var(--zh-surface);
   --ifm-footer-background-color: var(--zh-bg-deep);
   --ifm-color-emphasis-100: #f5f7fa;
