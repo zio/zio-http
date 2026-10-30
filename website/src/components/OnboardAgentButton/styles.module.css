@@ -6,25 +6,18 @@
   gap: 14px;
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: 14px;
-  background: var(--ifm-card-background-color, #fff);
-  color: var(--ifm-font-color-base);
+  border: 1px solid var(--zh-border);
+  border-radius: 10px;
+  background: var(--zh-surface);
+  color: var(--zh-text);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-[data-theme='dark'] .card {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 0.2s ease;
 }
 
 .card:hover {
-  border-color: color-mix(in srgb, var(--zh-accent) 40%, transparent);
+  border-color: var(--zh-accent);
 }
 
 .title {

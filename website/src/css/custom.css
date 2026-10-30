@@ -58,6 +58,9 @@ html:root {
   --ifm-color-primary-light: #0d8558;
   --ifm-color-primary-lighter: #0e8c5c;
   --ifm-color-primary-lightest: #10a46d;
+  --ifm-color-success: #0b7a50;
+  --ifm-color-success-dark: #0a6f49;
+  --ifm-color-success-darker: #096843;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-font-family-base: 'Inter Variable', system-ui, -apple-system,
@@ -79,7 +82,7 @@ html:root {
   --ifm-color-emphasis-500: #8a93a8;
   --ifm-color-emphasis-600: #5a6376;
   --ifm-color-emphasis-700: #3a4254;
-  --ifm-color-emphasis-800: #1b2233;
+  --ifm-color-emphasis-800: #0b1020;
   --ifm-color-emphasis-900: #0b1020;
 }
 
@@ -109,6 +112,9 @@ html[data-theme='dark']:root {
   --ifm-color-primary-light: #52e3a5;
   --ifm-color-primary-lighter: #6be8b0;
   --ifm-color-primary-lightest: #8df0c3;
+  --ifm-color-success: #3ddc97;
+  --ifm-color-success-dark: #2bd38b;
+  --ifm-color-success-darker: #25c982;
   --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.06);
 
   --ifm-color-emphasis-100: #0b1020;
@@ -120,6 +126,15 @@ html[data-theme='dark']:root {
   --ifm-color-emphasis-700: #c6ccda;
   --ifm-color-emphasis-800: #e8eaf0;
   --ifm-color-emphasis-900: #e8eaf0;
+}
+
+.button--primary:not(.button--outline) {
+  --ifm-button-color: var(--zh-on-accent);
+}
+
+.button--outline.button--primary:hover,
+.button--outline.button--primary:active {
+  color: var(--zh-on-accent);
 }
 
 .footer--dark {
@@ -257,28 +272,18 @@ html.homepage-snap .fp-section {
   margin: 0.85rem auto 0;
 }
 
-/* Theme-aware modern card: solid in light, glass in dark. */
+/* Modern card: the palette's surface and border in both modes. */
 .card-modern {
   position: relative;
   overflow: hidden;
   border-radius: 14px;
-  /* Light theme: solid card so it reads on the light section surface. */
-  background: var(--ifm-card-background-color, #fff);
-  border: 1px solid var(--ifm-color-emphasis-200);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: var(--zh-surface);
+  border: 1px solid var(--zh-border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--zh-shadow) 25%, transparent);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-}
-
-/* Dark theme: glass surface. Opaque fallback declared before backdrop-filter. */
-[data-theme='dark'] .card-modern {
-  background: rgba(30, 32, 48, 0.6);
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .card-modern::before {
@@ -333,33 +338,6 @@ html.homepage-snap .fp-section {
       border-color 0.2s ease;
   }
 }
-
-
-/* ── Ambient: single static page-wide wash (homepage main) ────────────── */
-/* One subtle green→teal gradient on the homepage <main>. It scrolls with the
-   content (not fixed, so it never swims relative to sections) and is a single
-   continuous fade (no per-section color seams). No orbs, no motion, no JS. */
-html.homepage-snap main {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--zh-accent) 6%, transparent),
-    color-mix(in srgb, var(--zh-accent-hover) 4%, transparent) 45%,
-    transparent 90%
-  );
-}
-
-html[data-theme='dark'].homepage-snap main {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--zh-accent) 10%, transparent),
-    color-mix(in srgb, var(--zh-accent-hover) 6%, transparent) 45%,
-    transparent 90%
-  );
-}
-
-
-
-
 
 
 /* Code blocks site-wide (docs and homepage) share one panel: the surface, a
@@ -553,3 +531,26 @@ html[data-theme='dark'].homepage-snap main {
 
 .navbar-sidebar .header-discord-link { display: flex; align-items: center; gap: 0.5rem; }
 .navbar-sidebar .header-discord-link::after { content: 'Discord'; }
+
+/* DocSearch muted text and button/keycap borders on the palette. */
+:root {
+  --docsearch-muted-color: var(--zh-text-3) !important;
+}
+
+.DocSearch-Button {
+  border: 1px solid var(--zh-border) !important;
+}
+
+.DocSearch-Button-Key,
+.DocSearch-Commands-Key {
+  border: 1px solid var(--zh-border-strong) !important;
+}
+
+/* Docusaurus hard-codes its "copied" check mark green; use the accent. */
+[class*='copyButtonSuccessIcon'] {
+  color: var(--zh-accent) !important;
+}
+
+.DocSearch-Button-Placeholder {
+  color: var(--zh-text-3) !important;
+}
