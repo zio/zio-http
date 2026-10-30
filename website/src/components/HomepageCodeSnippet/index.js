@@ -139,7 +139,7 @@ export default function HomepageCodeSnippet() {
           </p>
           <div>
             <Link
-              className="button button--outline button--lg"
+              className="button button--outline button--primary button--lg"
               to="/">
               Explore the Docs
             </Link>
