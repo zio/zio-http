@@ -45,7 +45,6 @@ export default function HomepageHero() {
                 <li key={label} className={styles.tag}>{label}</li>
               ))}
             </ul>
-            <OnboardAgentButton />
             <div className={styles.actions}>
               <Link
                 className="button button--primary button--lg"
@@ -73,6 +72,7 @@ export default function HomepageHero() {
               </div>
               <CodeBlock language="scala">{heroCode}</CodeBlock>
             </div>
+            <OnboardAgentButton />
           </div>
         </div>
 
