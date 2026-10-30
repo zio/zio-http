@@ -288,19 +288,19 @@ html[data-theme='dark'].homepage-snap main {
 
 
 
-/* Code blocks site-wide (docs and homepage) share the hero snippet's panel: a
-   hairline border, rounded corners, no shadow, and a darker title bar. The
-   token colors stay with the light/dark Prism theme. */
+/* Code blocks site-wide (docs and homepage) use the design's code panel: navy
+   surface, hairline border, rounded corners, no shadow and a title bar on the
+   same surface. Token colors come from codeTheme.js. */
 .theme-code-block {
-  border: 1px solid #2f3140;
-  border-radius: 8px;
+  border: 1px solid #1c2337;
+  border-radius: 12px;
   box-shadow: none;
 }
 
 .theme-code-block [class*='codeBlockTitle'] {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: #161b22 !important;
-  color: #8b949e;
+  border-bottom: 1px solid #1c2337;
+  background-color: #0b1020 !important;
+  color: #8a93a8;
 }
 
 /* No italics in any code block site-wide (Prism themes italicize comments and

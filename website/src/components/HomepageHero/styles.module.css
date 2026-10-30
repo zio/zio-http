@@ -151,12 +151,12 @@
   min-width: 0;
 }
 
-/* Same panel as the "ZIO HTTP in Action" code area. */
+/* The design's code panel, shared with every other code block (custom.css). */
 .codeCard {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background-color: #1e2030;
+  border: 1px solid #1c2337;
+  border-radius: 12px;
+  background-color: #0b1020;
 }
 
 .codeHeader {
@@ -165,24 +165,24 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: #161b22;
+  border-bottom: 1px solid #1c2337;
   font-size: 0.8rem;
 }
 
 .fileName {
-  color: #8b949e;
+  color: #8a93a8;
 }
 
 .language {
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--ifm-color-primary);
+  color: #b8e62a;
 }
 
 .codeCard :global(.theme-code-block) {
   margin: 0;
+  border: 0;
   border-radius: 0;
   box-shadow: none;
 }

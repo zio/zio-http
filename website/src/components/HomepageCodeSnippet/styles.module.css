@@ -54,10 +54,10 @@
 }
 
 .codePanel {
-  background-color: #1e2030;
-  border-radius: 8px;
+  background-color: #0b1020;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #1c2337;
   display: flex;
   flex-direction: column;
 }
@@ -66,8 +66,8 @@
   display: flex;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: #161b22;
+  border-bottom: 1px solid #1c2337;
+  background-color: #0b1020;
 }
 
 .tabBar::-webkit-scrollbar {
@@ -79,7 +79,7 @@
   padding: 0.75rem 1.25rem;
   border: none;
   background: transparent;
-  color: #8b949e;
+  color: #8a93a8;
   cursor: pointer;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -88,13 +88,13 @@
 }
 
 .tab:hover {
-  color: #e6edf3;
+  color: #e8eaf0;
 }
 
 .tabActive {
-  color: var(--ifm-color-primary);
+  color: #b8e62a;
   font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--ifm-color-primary);
+  box-shadow: inset 0 -2px 0 #b8e62a;
 }
 
 .codeArea {
