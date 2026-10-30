@@ -24,7 +24,7 @@
 }
 
 .card:hover {
-  border-color: rgba(129, 199, 132, 0.4);
+  border-color: color-mix(in srgb, var(--zh-accent) 40%, transparent);
 }
 
 .title {

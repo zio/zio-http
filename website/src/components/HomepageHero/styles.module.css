@@ -1,21 +1,7 @@
 /* The hero follows the site theme (light and dark) and uses the same fonts,
    accent, buttons and code-panel look as the sections below it. */
 .hero {
-  background: linear-gradient(
-    180deg,
-    rgba(129, 199, 132, 0.06),
-    rgba(38, 166, 154, 0.035) 70%,
-    transparent
-  );
-}
-
-[data-theme='dark'] .hero {
-  background: linear-gradient(
-    180deg,
-    rgba(129, 199, 132, 0.1),
-    rgba(38, 166, 154, 0.06) 70%,
-    transparent
-  );
+  background: var(--zh-bg);
 }
 
 .inner {
@@ -131,17 +117,17 @@
   gap: 12px;
 }
 
-/* Same outline-hover fix as the section buttons: Infima fills with the light
-   brand green and keeps white text, so use dark text on the fill. */
+/* Text on accent fills is --zh-on-accent (navy on mint, white on deep mint). */
 .actions :global(.button--outline:hover),
 .actions :global(.button--outline:active) {
   background-color: var(--ifm-color-primary);
   border-color: var(--ifm-color-primary);
-  color: #0d1117;
+  color: var(--zh-on-accent);
 }
 
-.actions :global(.button--primary:not(.button--outline)) {
-  color: #0d1117;
+.actions :global(.button--primary:not(.button--outline)),
+.actions :global(.button--primary:not(.button--outline):hover) {
+  color: var(--zh-on-accent);
 }
 
 .side {
@@ -151,12 +137,13 @@
   min-width: 0;
 }
 
-/* The design's code panel, shared with every other code block (custom.css). */
+/* The shared code panel (custom.css): surface, hairline border, title bar. */
 .codeCard {
   overflow: hidden;
-  border: 1px solid #1c2337;
+  border: 1px solid var(--zh-border);
   border-radius: 12px;
-  background-color: #0b1020;
+  background-color: var(--zh-surface);
+  box-shadow: 0 30px 80px -30px var(--zh-shadow);
 }
 
 .codeHeader {
@@ -165,12 +152,13 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid #1c2337;
+  border-bottom: 1px solid var(--zh-border);
+  background-color: var(--zh-surface-2);
   font-size: 0.8rem;
 }
 
 .fileName {
-  color: #8a93a8;
+  color: var(--zh-text-3);
 }
 
 .language {

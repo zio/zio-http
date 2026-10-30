@@ -21,14 +21,14 @@
 }
 
 :root {
-  --zh-primary: #81c784;
+  --zh-primary: #0b7a50;
   --zh-font-base: 'Inter Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --zh-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --zh-text: #1c1e21;
+  --zh-text: #0b1020;
   --zh-background: #ffffff;
   --zh-surface: #ffffff;
-  --zh-emphasis-200: #ebedf0;
-  --zh-emphasis-300: #dadde1;
+  --zh-emphasis-200: #e9ecf1;
+  --zh-emphasis-300: #e3e6ec;
   --zh-hover-overlay: rgba(0, 0, 0, 0.05);
   --zh-navbar-height: 3.75rem;
   --zh-navbar-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
@@ -45,23 +45,24 @@
   --focus-default: var(--zh-primary);
 }
 
-/* Dark mode: Infima's dark surfaces instead of Scaladoc's greys */
+/* Dark mode: the site's navy dark palette (--zh-* in src/css/custom.css) instead of Scaladoc's greys */
 :root.theme-dark {
-  --zh-text: #e3e3e3;
-  --zh-background: #1b1b1d;
-  --zh-surface: #242526;
-  --zh-emphasis-200: #444950;
-  --zh-emphasis-300: #606770;
+  --zh-primary: #3ddc97;
+  --zh-text: #e8eaf0;
+  --zh-background: #06080f;
+  --zh-surface: #06080f;
+  --zh-emphasis-200: #141a2a;
+  --zh-emphasis-300: #1c2337;
   --zh-hover-overlay: rgba(255, 255, 255, 0.05);
 
   --text-primary: var(--zh-text);
-  --text-secondary: #dadde1;
+  --text-secondary: #c6ccda;
   --border-default: var(--zh-emphasis-300);
   --background-default: var(--zh-background);
   --background-subtle: var(--zh-background);
   --background-main: var(--zh-background);
   --background-nav: var(--zh-background);
-  --background-neutral: var(--zh-surface);
+  --background-neutral: #0b1020;
 }
 
 /* Navbar: the surface colour with Infima's light shadow underneath, weight 500 links that turn green on hover */

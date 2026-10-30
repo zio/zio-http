@@ -48,8 +48,8 @@
   color: var(--ifm-color-primary);
   background: linear-gradient(
     135deg,
-    rgba(129, 199, 132, 0.22),
-    rgba(129, 199, 132, 0.06)
+    color-mix(in srgb, var(--zh-accent) 22%, transparent),
+    color-mix(in srgb, var(--zh-accent) 6%, transparent)
   );
   transition: transform 0.3s ease;
 }

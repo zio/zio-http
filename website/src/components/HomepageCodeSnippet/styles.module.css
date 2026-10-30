@@ -43,7 +43,7 @@
 .leftColumn :global(.button--outline:active) {
   background-color: var(--ifm-color-primary);
   border-color: var(--ifm-color-primary);
-  color: #0d1117;
+  color: var(--zh-on-accent);
 }
 
 .rightColumn {
@@ -54,10 +54,10 @@
 }
 
 .codePanel {
-  background-color: #0b1020;
-  border-radius: 12px;
+  background-color: var(--zh-surface);
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #1c2337;
+  border: 1px solid var(--zh-border);
   display: flex;
   flex-direction: column;
 }
@@ -66,8 +66,8 @@
   display: flex;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
-  border-bottom: 1px solid #1c2337;
-  background-color: #0b1020;
+  border-bottom: 1px solid var(--zh-border);
+  background-color: var(--zh-surface-2);
 }
 
 .tabBar::-webkit-scrollbar {
@@ -79,7 +79,7 @@
   padding: 0.75rem 1.25rem;
   border: none;
   background: transparent;
-  color: #8a93a8;
+  color: var(--zh-text-3);
   cursor: pointer;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -88,7 +88,7 @@
 }
 
 .tab:hover {
-  color: #e8eaf0;
+  color: var(--zh-text);
 }
 
 .tabActive {

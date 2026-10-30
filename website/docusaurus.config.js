@@ -346,9 +346,9 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} ZIO Maintainers · Licensed under the <a href="https://github.com/zio/zio-http/blob/main/LICENSE">Apache License 2.0</a> · Built with <a href="https://docusaurus.io/">Docusaurus</a>`,
       },
       prism: {
-        // The homepage design's code theme in both color modes (codeTheme.js).
-        theme: codeTheme,
-        darkTheme: codeTheme,
+        // Code colors of the handoff palette (codeTheme.js).
+        theme: codeTheme.light,
+        darkTheme: codeTheme.dark,
         additionalLanguages: ['java', 'scala'],
       },
       docs: {

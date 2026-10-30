@@ -16,7 +16,7 @@ const website = join(dirname(fileURLToPath(import.meta.url)), '..');
 const img = join(website, 'static', 'img');
 const chromium = process.env.CHROMIUM || 'chromium';
 
-const ARROWS = '#B8E62A';
+const ARROWS = '#3DDC97';
 const TILE = '#0B1020';
 const paths =
   '<path d="M5 11.5H25"/><path d="M20.5 7L25 11.5L20.5 16"/><path d="M27 21.5H7"/><path d="M11.5 17L7 21.5L11.5 26"/>';
