@@ -1,28 +1,10 @@
-/* The original pill with the agent logos, on the palette: text color and a
-   strong border that turn accent on hover. */
+/* The pill is a standard outline button (same look as "Star on GitHub"); this
+   only lays out the text and the agent logos. */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   align-self: flex-start;
-  padding: 0.875rem 1.75rem;
-  border: 2px solid var(--zh-border-strong);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--zh-text);
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5;
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.pill:hover {
-  border-color: var(--zh-accent);
-  color: var(--zh-accent);
 }
 
 .logos {

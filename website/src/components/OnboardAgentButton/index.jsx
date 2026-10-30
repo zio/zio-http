@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { ClaudeLogo, CodexLogo, CursorLogo, OpenCodeLogo } from './logos';
 import { PROMPT } from './prompt.mjs';
 import styles from './styles.module.css';
@@ -54,7 +55,7 @@ export default function OnboardAgentButton() {
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={styles.pill}
+      className={clsx('button button--outline button--primary button--lg', styles.pill)}
     >
       <span>{copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}</span>
       <span className={styles.logos} aria-hidden="true">
