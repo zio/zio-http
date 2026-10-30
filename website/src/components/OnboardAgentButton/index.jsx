@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ClaudeLogo, CodexLogo, CursorLogo, OpenCodeLogo } from './logos';
 import { PROMPT } from './prompt.mjs';
 import styles from './styles.module.css';
 
@@ -29,7 +30,7 @@ export async function copyPrompt(text) {
   }
 }
 
-// Hero card: copies the same setup prompt as the navbar button.
+// Hero pill: copies the same setup prompt as the navbar button.
 export default function OnboardAgentButton() {
   const [copied, setCopied] = useState(false);
   const timer = useRef(null);
@@ -53,13 +54,14 @@ export default function OnboardAgentButton() {
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={styles.card}
+      className={styles.pill}
     >
-      <span className={styles.title}>
-        {copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}
-      </span>
-      <span className={styles.arrow} aria-hidden="true">
-        &rarr;
+      <span>{copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}</span>
+      <span className={styles.logos} aria-hidden="true">
+        <ClaudeLogo />
+        <CodexLogo />
+        <CursorLogo />
+        <OpenCodeLogo />
       </span>
       <span className="sr-only">
         Works with Claude, Codex, Cursor, and OpenCode

@@ -1,31 +1,32 @@
-/* Hero card: the site's card surface, theme-aware. */
-.card {
-  display: flex;
+/* The original pill with the agent logos, on the palette: text color and a
+   strong border that turn accent on hover. */
+.pill {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  width: 100%;
-  padding: 14px 18px;
-  border: 1px solid var(--zh-border);
-  border-radius: 10px;
-  background: var(--zh-surface);
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.875rem 1.75rem;
+  border: 2px solid var(--zh-border-strong);
+  border-radius: 999px;
+  background: transparent;
   color: var(--zh-text);
   font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
-}
-
-.card:hover {
-  border-color: var(--zh-accent);
-}
-
-.title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.arrow {
-  font-size: 1.1rem;
-  color: var(--ifm-color-primary);
+.pill:hover {
+  border-color: var(--zh-accent);
+  color: var(--zh-accent);
+}
+
+.logos {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
