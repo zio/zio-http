@@ -1,5 +1,6 @@
-// Prism theme of the homepage design: the same navy panel and lime / purple /
-// teal token colors in light and dark mode. Used for `prism.theme` and
+// Prism theme of the homepage design: the same navy panel and green / purple /
+// teal token colors in light and dark mode. The green is the site's accent
+// (--ifm-color-primary), so code matches the rest of the page. Used for `prism.theme` and
 // `prism.darkTheme` in docusaurus.config.js.
 module.exports = {
   plain: {
@@ -9,7 +10,7 @@ module.exports = {
   styles: [
     {
       types: ['keyword', 'boolean', 'important'],
-      style: {color: '#B8E62A'},
+      style: {color: '#81C784'},
     },
     {
       types: ['class-name', 'builtin'],

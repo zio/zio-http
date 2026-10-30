@@ -177,7 +177,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: #b8e62a;
+  color: var(--ifm-color-primary);
 }
 
 .codeCard :global(.theme-code-block) {
