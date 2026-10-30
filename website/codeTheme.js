@@ -12,7 +12,7 @@ module.exports = {
       style: {color: '#B8E62A'},
     },
     {
-      types: ['class-name', 'builtin', 'namespace', 'constant', 'symbol'],
+      types: ['class-name', 'builtin'],
       style: {color: '#A78BFA'},
     },
     {

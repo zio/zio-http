@@ -19,5 +19,12 @@ export default function prismIncludeLanguages(PrismObject) {
   require('prismjs/components/prism-java');
   require('prismjs/components/prism-scala');
 
+  // Prism's Scala grammar only tags package names as types. The design colors
+  // every type or object name (Routes, Request, ZIOAppDefault, ZIO), so tag
+  // those too; all-caps names such as GET stay plain.
+  PrismObject.languages.insertBefore('scala', 'keyword', {
+    'class-name': /\b(?:ZIO|[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*)\b/,
+  });
+
   delete globalThis.Prism;
 }
