@@ -1,8 +1,7 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const codeTheme = require('./codeTheme');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -347,8 +346,9 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} ZIO Maintainers · Licensed under the <a href="https://github.com/zio/zio-http/blob/main/LICENSE">Apache License 2.0</a> · Built with <a href="https://docusaurus.io/">Docusaurus</a>`,
       },
       prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
+        // Code colors of the handoff palette (codeTheme.js).
+        theme: codeTheme.light,
+        darkTheme: codeTheme.dark,
         additionalLanguages: ['java', 'scala'],
       },
       docs: {

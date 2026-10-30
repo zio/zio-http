@@ -1,0 +1,12 @@
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.value {
+  font-weight: 700;
+  color: var(--ifm-heading-color);
+}

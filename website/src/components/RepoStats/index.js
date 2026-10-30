@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { repoStats } from './data';
+import styles from './styles.module.css';
 
 function formatStars(n) {
   if (n >= 1000) {
@@ -100,11 +101,10 @@ export default function RepoStats() {
   ];
 
   return (
-    <div className="mt-2 flex flex-wrap items-center justify-start gap-x-6 gap-y-1 text-sm text-zinc-300">
+    <div className={styles.stats}>
       {items.map((item) => (
         <span key={item.label}>
-          <span className="font-bold text-white">{item.value}</span>{' '}
-          {item.label}
+          <span className={styles.value}>{item.value}</span> {item.label}
         </span>
       ))}
     </div>

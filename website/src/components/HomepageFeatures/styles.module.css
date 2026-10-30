@@ -1,5 +1,5 @@
 .features {
-  background-color: var(--ifm-color-emphasis-100);
+  background-color: var(--zh-bg);
 }
 
 .wideContainer {
@@ -46,11 +46,7 @@
   height: 3rem;
   border-radius: 0.85rem;
   color: var(--ifm-color-primary);
-  background: linear-gradient(
-    135deg,
-    rgba(129, 199, 132, 0.22),
-    rgba(129, 199, 132, 0.06)
-  );
+  background: var(--zh-accent-tint);
   transition: transform 0.3s ease;
 }
 

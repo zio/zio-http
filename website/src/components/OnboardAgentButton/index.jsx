@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { ClaudeLogo, CodexLogo, CursorLogo, OpenCodeLogo } from './logos';
 import { PROMPT } from './prompt.mjs';
+import styles from './styles.module.css';
 
 export { PROMPT };
 
@@ -29,7 +31,8 @@ export async function copyPrompt(text) {
   }
 }
 
-export default function OnboardAgentButton({ tone = 'default' }) {
+// Hero pill: copies the same setup prompt as the navbar button.
+export default function OnboardAgentButton() {
   const [copied, setCopied] = useState(false);
   const timer = useRef(null);
 
@@ -46,21 +49,16 @@ export default function OnboardAgentButton({ tone = 'default' }) {
     timer.current = setTimeout(() => setCopied(false), 2000);
   }, []);
 
-  const toneClasses =
-    tone === 'onDark'
-      ? 'border-white bg-black/40 text-white backdrop-blur-sm hover:border-primary hover:text-primary'
-      : 'border-zinc-400 text-zinc-800 hover:border-primary hover:text-primary dark:border-zinc-600 dark:text-zinc-100';
-
   return (
     <button
       type="button"
       onClick={onClick}
       title="Copy the prompt to onboard your coding agent to ZIO HTTP"
       aria-label="Copy the ZIO HTTP agent onboarding prompt to the clipboard"
-      className={`flex items-center gap-2 rounded-full border-2 px-7 py-3.5 text-base font-semibold leading-normal transition-colors ${toneClasses}`}
+      className={clsx('button button--outline button--primary button--lg', styles.pill)}
     >
       <span>{copied ? 'Copied!' : 'Onboard your agent to ZIO HTTP'}</span>
-      <span className="flex items-center gap-1" aria-hidden="true">
+      <span className={styles.logos} aria-hidden="true">
         <ClaudeLogo />
         <CodexLogo />
         <CursorLogo />

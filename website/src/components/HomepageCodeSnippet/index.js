@@ -67,7 +67,7 @@ val routes =
 val app = routes
   @@ Middleware.timeout(10.seconds)
   @@ Middleware.requestLogging()
-  @@ Middleware.cors()
+  @@ Middleware.cors
 
 def run = Server.serve(app).provide(Server.default)`,
   },
@@ -139,7 +139,7 @@ export default function HomepageCodeSnippet() {
           </p>
           <div>
             <Link
-              className="button button--outline button--lg"
+              className="button button--outline button--primary button--lg"
               to="/">
               Explore the Docs
             </Link>
@@ -175,7 +175,7 @@ export default function HomepageCodeSnippet() {
               className={styles.codeArea}
               role="tabpanel"
               aria-labelledby={`tab-${activeTab}`}>
-              <CodeBlock key={activeTab} language="scala" showLineNumbers>
+              <CodeBlock key={activeTab} language="scala">
                 {TABS[activeTab].code.trim()}
               </CodeBlock>
             </div>

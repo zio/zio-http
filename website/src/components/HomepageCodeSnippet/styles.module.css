@@ -1,5 +1,5 @@
 .codeSnippetSection {
-  background-color: var(--ifm-color-emphasis-100);
+  background-color: var(--zh-bg);
   padding: 5rem 0;
   width: 100%;
 }
@@ -43,19 +43,21 @@
 .leftColumn :global(.button--outline:active) {
   background-color: var(--ifm-color-primary);
   border-color: var(--ifm-color-primary);
-  color: #0d1117;
+  color: var(--zh-on-accent);
 }
 
 .rightColumn {
   display: flex;
   flex-direction: column;
+  /* Let the grid track shrink so wide code scrolls inside its panel instead of stretching the page. */
+  min-width: 0;
 }
 
 .codePanel {
-  background-color: #1e2030;
+  background-color: var(--zh-surface);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--zh-border);
   display: flex;
   flex-direction: column;
 }
@@ -64,8 +66,8 @@
   display: flex;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: #161b22;
+  border-bottom: 1px solid var(--zh-border);
+  background-color: var(--zh-surface-2);
 }
 
 .tabBar::-webkit-scrollbar {
@@ -77,7 +79,7 @@
   padding: 0.75rem 1.25rem;
   border: none;
   background: transparent;
-  color: #8b949e;
+  color: var(--zh-text-3);
   cursor: pointer;
   font-size: 0.875rem;
   white-space: nowrap;
@@ -86,7 +88,7 @@
 }
 
 .tab:hover {
-  color: #e6edf3;
+  color: var(--zh-text);
 }
 
 .tabActive {

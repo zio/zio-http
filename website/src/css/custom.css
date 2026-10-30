@@ -26,33 +26,122 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
-:root {
-  --ifm-color-primary: #81c784;
-  --ifm-color-primary-dark: #7cb876;
-  --ifm-color-primary-darker: #76b068;
-  --ifm-color-primary-darkest: #6ba85a;
-  --ifm-color-primary-light: #8dd48f;
-  --ifm-color-primary-lighter: #98dfa0;
-  --ifm-color-primary-lightest: #a5d6a7;
+/* Palette from the ZIO HTTP handoff (theme-tokens.css): mint accent, navy dark
+   mode, white light mode. The --zh-* tokens are the source of truth and feed
+   Infima's variables, so the homepage, navbar, footer and docs share them. The
+   selectors are more specific than Infima's own `:root` and
+   `html[data-theme='dark']` blocks (the build merges equal selectors, which
+   would let the light block below win); the dark one is the most specific. */
+html:root {
+  --zh-bg: #ffffff;
+  --zh-bg-deep: #f3f5f8;
+  --zh-surface: #f5f7fa;
+  --zh-surface-2: #eef1f5;
+  --zh-accent-tint: #e3f3ea;
+  --zh-divider: #e9ecf1;
+  --zh-border: #e3e6ec;
+  --zh-border-strong: #c9ced8;
+  --zh-border-accent: #a7dcc2;
+  --zh-text: #0b1020;
+  --zh-text-2: #3a4254;
+  --zh-text-3: #5a6376;
+  --zh-accent: #0b7a50; /* deep mint, 5.4:1 on white */
+  --zh-accent-hover: #096843;
+  --zh-on-accent: #ffffff;
+  --zh-glow: rgba(11, 122, 80, 0.12);
+  --zh-shadow: rgba(16, 24, 40, 0.14);
+
+  --ifm-color-primary: #0b7a50;
+  --ifm-color-primary-dark: #0a6f49;
+  --ifm-color-primary-darker: #096843;
+  --ifm-color-primary-darkest: #07553a;
+  --ifm-color-primary-light: #0d8558;
+  --ifm-color-primary-lighter: #0e8c5c;
+  --ifm-color-primary-lightest: #10a46d;
+  --ifm-color-success: #0b7a50;
+  --ifm-color-success-dark: #0a6f49;
+  --ifm-color-success-darker: #096843;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-font-family-base: 'Inter Variable', system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono Variable', ui-monospace,
     SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ifm-background-color: var(--zh-bg);
+  --ifm-background-surface-color: var(--zh-surface);
+  --ifm-font-color-base: var(--zh-text);
+  --ifm-heading-color: var(--zh-text);
+  --ifm-navbar-background-color: var(--zh-surface);
+  --ifm-card-background-color: var(--zh-surface);
+  --ifm-footer-background-color: var(--zh-bg-deep);
+  --ifm-color-emphasis-100: #f5f7fa;
+  --ifm-color-emphasis-200: #e9ecf1;
+  --ifm-color-emphasis-300: #e3e6ec;
+  --ifm-color-emphasis-400: #c9ced8;
+  --ifm-color-emphasis-500: #8a93a8;
+  --ifm-color-emphasis-600: #5a6376;
+  --ifm-color-emphasis-700: #3a4254;
+  --ifm-color-emphasis-800: #0b1020;
+  --ifm-color-emphasis-900: #0b1020;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
-  --ifm-color-primary: #81c784;
-  --ifm-color-primary-dark: #7cb876;
-  --ifm-color-primary-darker: #76b068;
-  --ifm-color-primary-darkest: #6ba85a;
-  --ifm-color-primary-light: #8dd48f;
-  --ifm-color-primary-lighter: #98dfa0;
-  --ifm-color-primary-lightest: #a5d6a7;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+html[data-theme='dark']:root {
+  --zh-bg: #06080f;
+  --zh-bg-deep: #03050a;
+  --zh-surface: #0b1020;
+  --zh-surface-2: #080b16;
+  --zh-accent-tint: #141b2e;
+  --zh-divider: #141a2a;
+  --zh-border: #1c2337;
+  --zh-border-strong: #2a3348;
+  --zh-border-accent: #1e4a38;
+  --zh-text: #e8eaf0;
+  --zh-text-2: #c6ccda;
+  --zh-text-3: #8a93a8;
+  --zh-accent: #3ddc97; /* mint, 11.3:1 on #06080f */
+  --zh-accent-hover: #6be8b0;
+  --zh-on-accent: #0b1020;
+  --zh-glow: rgba(61, 220, 151, 0.18);
+  --zh-shadow: rgba(0, 0, 0, 0.8);
+
+  --ifm-color-primary: #3ddc97;
+  --ifm-color-primary-dark: #2bd38b;
+  --ifm-color-primary-darker: #25c982;
+  --ifm-color-primary-darkest: #1ea46a;
+  --ifm-color-primary-light: #52e3a5;
+  --ifm-color-primary-lighter: #6be8b0;
+  --ifm-color-primary-lightest: #8df0c3;
+  --ifm-color-success: #3ddc97;
+  --ifm-color-success-dark: #2bd38b;
+  --ifm-color-success-darker: #25c982;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.06);
+
+  --ifm-color-emphasis-100: #0b1020;
+  --ifm-color-emphasis-200: #141a2a;
+  --ifm-color-emphasis-300: #1c2337;
+  --ifm-color-emphasis-400: #2a3348;
+  --ifm-color-emphasis-500: #5a6376;
+  --ifm-color-emphasis-600: #8a93a8;
+  --ifm-color-emphasis-700: #c6ccda;
+  --ifm-color-emphasis-800: #e8eaf0;
+  --ifm-color-emphasis-900: #e8eaf0;
+}
+
+.button--primary:not(.button--outline) {
+  --ifm-button-color: var(--zh-on-accent);
+}
+
+.button--outline.button--primary:hover,
+.button--outline.button--primary:active {
+  color: var(--zh-on-accent);
+}
+
+.footer--dark {
+  --ifm-footer-background-color: var(--zh-bg-deep);
+  --ifm-footer-color: var(--zh-text-2);
+  --ifm-footer-title-color: var(--zh-text);
+  --ifm-footer-link-color: var(--zh-text-2);
 }
 
 @media (min-width: 1200px) {
@@ -126,8 +215,8 @@ html.homepage-snap .fp-section {
 
 /* ── Section system + modern card primitives ─────────────────────────── */
 :root {
-  --gradient-brand: linear-gradient(90deg, #81c784, #26a69a);
-  --brand-shadow: rgba(129, 199, 132, 0.18);
+  --gradient-brand: linear-gradient(90deg, var(--zh-accent), var(--zh-accent-hover));
+  --brand-shadow: var(--zh-glow);
 }
 
 .section-modern {
@@ -162,8 +251,8 @@ html.homepage-snap .fp-section {
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #2e7d32;
-  background: rgba(129, 199, 132, 0.16);
+  color: var(--zh-accent);
+  background: color-mix(in srgb, var(--zh-accent) 16%, transparent);
   padding: 0.28rem 0.85rem;
   border-radius: 999px;
 }
@@ -183,28 +272,18 @@ html.homepage-snap .fp-section {
   margin: 0.85rem auto 0;
 }
 
-/* Theme-aware modern card: solid in light, glass in dark. */
+/* Modern card: the palette's surface and border in both modes. */
 .card-modern {
   position: relative;
   overflow: hidden;
   border-radius: 14px;
-  /* Light theme: solid card so it reads on the light section surface. */
-  background: var(--ifm-card-background-color, #fff);
-  border: 1px solid var(--ifm-color-emphasis-200);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: var(--zh-surface);
+  border: 1px solid var(--zh-border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--zh-shadow) 25%, transparent);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-}
-
-/* Dark theme: glass surface. Opaque fallback declared before backdrop-filter. */
-[data-theme='dark'] .card-modern {
-  background: rgba(30, 32, 48, 0.6);
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .card-modern::before {
@@ -223,7 +302,7 @@ html.homepage-snap .fp-section {
   .card-modern:hover {
     transform: translateY(-4px);
     box-shadow: 0 14px 30px var(--brand-shadow);
-    border-color: rgba(129, 199, 132, 0.4);
+    border-color: color-mix(in srgb, var(--zh-accent) 40%, transparent);
   }
   .card-modern:hover::before {
     opacity: 1;
@@ -232,7 +311,7 @@ html.homepage-snap .fp-section {
 
 @media (prefers-reduced-motion: reduce) {
   .card-modern:hover {
-    border-color: rgba(129, 199, 132, 0.4);
+    border-color: color-mix(in srgb, var(--zh-accent) 40%, transparent);
   }
 }
 
@@ -261,32 +340,20 @@ html.homepage-snap .fp-section {
 }
 
 
-/* ── Ambient: single static page-wide wash (homepage main) ────────────── */
-/* One subtle green→teal gradient on the homepage <main>. It scrolls with the
-   content (not fixed, so it never swims relative to sections) and is a single
-   continuous fade (no per-section color seams). No orbs, no motion, no JS. */
-html.homepage-snap main {
-  background: linear-gradient(
-    180deg,
-    rgba(129, 199, 132, 0.06),
-    rgba(38, 166, 154, 0.035) 45%,
-    transparent 90%
-  );
+/* Code blocks site-wide (docs and homepage) share one panel: the surface, a
+   hairline border, rounded corners and a title bar on the second surface. Token
+   colors come from codeTheme.js (light and dark). */
+.theme-code-block {
+  border: 1px solid var(--zh-border);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
-html[data-theme='dark'].homepage-snap main {
-  background: linear-gradient(
-    180deg,
-    rgba(129, 199, 132, 0.1),
-    rgba(38, 166, 154, 0.06) 45%,
-    transparent 90%
-  );
+.theme-code-block [class*='codeBlockTitle'] {
+  border-bottom: 1px solid var(--zh-border);
+  background-color: var(--zh-surface-2) !important;
+  color: var(--zh-text-3);
 }
-
-
-
-
-
 
 /* No italics in any code block site-wide (Prism themes italicize comments and
    some keywords); applies to docs pages too, not just the homepage panel. */
@@ -302,7 +369,7 @@ html[data-theme='dark'].homepage-snap main {
 /* !important: @docsearch/css declares these on :root too and loads AFTER this
    file, so without it the DocSearch modal keeps its default blue accent. */
 :root {
-  --docsearch-primary-color: #2e7d32 !important;
+  --docsearch-primary-color: var(--zh-accent) !important;
   --docsearch-text-color: var(--ifm-font-color-base) !important;
   --docsearch-muted-color: var(--ifm-color-emphasis-600) !important;
   --docsearch-container-background: rgba(10, 12, 16, 0.55) !important;
@@ -316,7 +383,7 @@ html[data-theme='dark'].homepage-snap main {
 }
 
 [data-theme='dark'] {
-  --docsearch-primary-color: #4caf50 !important;
+  --docsearch-primary-color: var(--zh-accent) !important;
   --docsearch-modal-background: var(--ifm-background-surface-color) !important;
   --docsearch-searchbox-background: var(--ifm-background-color) !important;
   --docsearch-searchbox-focus-background: var(--ifm-background-surface-color) !important;
@@ -338,14 +405,14 @@ html[data-theme='dark'].homepage-snap main {
    page (.search-result-match) and the DocSearch modal (mark). */
 .search-result-match,
 .DocSearch-Hit mark {
-  background-color: rgba(129, 199, 132, 0.28) !important;
+  background-color: color-mix(in srgb, var(--zh-accent) 28%, transparent) !important;
   color: inherit !important;
   padding: 0 0.15em;
   border-radius: 3px;
 }
 [data-theme='dark'] .search-result-match,
 [data-theme='dark'] .DocSearch-Hit mark {
-  background-color: rgba(129, 199, 132, 0.34) !important;
+  background-color: color-mix(in srgb, var(--zh-accent) 34%, transparent) !important;
 }
 
 /* DocSearch v4 hardcodes #003dff for the active row, icons, and magnifier
@@ -359,13 +426,13 @@ html[data-theme='dark'].homepage-snap main {
   color: var(--docsearch-primary-color) !important;
 }
 .DocSearch-Hit[aria-selected='true'] a {
-  background-color: rgba(129, 199, 132, 0.2) !important;
+  background-color: color-mix(in srgb, var(--zh-accent) 20%, transparent) !important;
 }
 
 /* Remaining DocSearch v4 hardcoded blues: the magnifier label, the "Clear the
    query" button, and the hover/active hit tint. (The Algolia logo stays.) */
 :root {
-  --docsearch-hit-highlight-color: rgba(129, 199, 132, 0.2) !important;
+  --docsearch-hit-highlight-color: color-mix(in srgb, var(--zh-accent) 20%, transparent) !important;
 }
 .DocSearch-MagnifierLabel,
 .DocSearch-Clear {
@@ -378,13 +445,13 @@ html[data-theme='dark'].homepage-snap main {
 /* Keycaps: navbar "Ctrl K" button + modal footer hints (Navigate/Select/Close)
    default to indigo; tint them brand-green to match. */
 :root {
-  --docsearch-key-background: rgba(129, 199, 132, 0.16) !important;
-  --docsearch-key-color: #2e7d32 !important;
+  --docsearch-key-background: color-mix(in srgb, var(--zh-accent) 16%, transparent) !important;
+  --docsearch-key-color: var(--zh-accent) !important;
   --docsearch-key-shadow: none !important;
   --docsearch-key-pressed-shadow: none !important;
 }
 [data-theme='dark'] {
-  --docsearch-key-color: #a5d6a7 !important;
+  --docsearch-key-color: var(--zh-accent) !important;
 }
 .DocSearch-Commands-Key,
 .DocSearch-Button-Key {
@@ -394,7 +461,7 @@ html[data-theme='dark'].homepage-snap main {
 /* Modal footer hints: keycap bg still #f5f5fa, arrow SVGs are black-filled,
    and the command labels are indigo — bring them onto the theme. */
 .DocSearch-Commands-Key {
-  background: rgba(129, 199, 132, 0.16) !important;
+  background: color-mix(in srgb, var(--zh-accent) 16%, transparent) !important;
   box-shadow: none !important;
 }
 .DocSearch-Commands-Key svg,
@@ -464,3 +531,26 @@ html[data-theme='dark'].homepage-snap main {
 
 .navbar-sidebar .header-discord-link { display: flex; align-items: center; gap: 0.5rem; }
 .navbar-sidebar .header-discord-link::after { content: 'Discord'; }
+
+/* DocSearch muted text and button/keycap borders on the palette. */
+:root {
+  --docsearch-muted-color: var(--zh-text-3) !important;
+}
+
+.DocSearch-Button {
+  border: 1px solid var(--zh-border) !important;
+}
+
+.DocSearch-Button-Key,
+.DocSearch-Commands-Key {
+  border: 1px solid var(--zh-border-strong) !important;
+}
+
+/* Docusaurus hard-codes its "copied" check mark green; use the accent. */
+[class*='copyButtonSuccessIcon'] {
+  color: var(--zh-accent) !important;
+}
+
+.DocSearch-Button-Placeholder {
+  color: var(--zh-text-3) !important;
+}

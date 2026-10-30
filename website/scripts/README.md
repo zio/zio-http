@@ -1,30 +1,29 @@
 # Website image assets
 
-`website/assets/zio-http-logo.png` is the **master** artwork: the
-full-resolution 2048x2048 source, committed so the derived assets can always be
-regenerated. It sits outside `static/` so its 2.5MB is not copied into every
-site build.
-Every icon below is a downscaled crop of it. Don't edit the derived files by
-hand — change the generator and re-run it.
+`website/assets/zio-http-logo.svg` is the **master** artwork: the request and
+response arrows of the homepage design on a dark tile (the navbar logos use the bare arrows). Every icon below is
+rasterised from it by `scripts/generate-icons.mjs`. Don't edit the derived files
+by hand — change the generator and re-run it.
 
 | Asset | Size | Used for |
 | --- | --- | --- |
-| `../assets/zio-http-logo.png` | 2048x2048 | master artwork, not served to the browser |
+| `../assets/zio-http-logo.svg` | vector | master artwork, not served to the browser |
 | `favicon.png` | 192x192 | `favicon` in `docusaurus.config.js` |
 | `favicon.ico` | 16/32/48 | legacy browsers, bookmark bars |
 | `apple-touch-icon.png` | 180x180 | iOS home screen |
-| `zio-http-logo-tile.png` | 128x128 | navbar logo, light mode |
-| `zio-http-logo-mark.png` | 128x128 | navbar logo, dark mode (`srcDark`) |
+| `zio-http-logo-tile.png` | 128x128 | navbar logo, light mode (deep mint arrows) |
+| `zio-http-logo-mark.png` | 128x128 | navbar logo, dark mode (`srcDark`; mint arrows) |
 | `zio-http-social-card.jpg` | 1200x630 | `og:image` / `twitter:image` |
 
 ## Regenerating the icons
 
 ```bash
-pip install pillow
-python3 website/scripts/generate-icons.py
+node website/scripts/generate-icons.mjs
 ```
 
-The crop box and every output size live in `generate-icons.py`.
+It needs a Chromium or Chrome binary (`CHROMIUM=/path/to/chromium` to override)
+and no image library. The colours and every output size live in
+`generate-icons.mjs`.
 
 ## Regenerating the social card
 
