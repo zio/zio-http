@@ -30,6 +30,7 @@ import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelFuture, EventLoopGroup}
 import io.netty.handler.codec.PrematureChannelClosureException
+import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 import io.netty.util.concurrent.GenericFutureListener
@@ -153,9 +154,10 @@ final case class NettyClientDriver private[netty] (
       pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
       pipeline.addLast(Names.ClientInboundHandler, inboundHandler)
 
-      val headers = Conversions.headersToNetty(req.headers)
-      val config  = NettySocketProtocol
-        .clientBuilder(app.customConfig.getOrElse(webSocketConfig))
+      val appWebSocketConfig = app.customConfig.getOrElse(webSocketConfig)
+      val headers            = Conversions.headersToNetty(req.headers)
+      val config             = NettySocketProtocol
+        .clientBuilder(appWebSocketConfig)
         .customHeaders(headers)
         .webSocketUri(req.url.encode)
         .build()
@@ -165,6 +167,12 @@ final case class NettyClientDriver private[netty] (
       val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
       val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
+      appWebSocketConfig.compression.foreach { compression =>
+        pipeline.addLast(
+          Names.WebSocketCompressionHandler,
+          new WebSocketClientCompressionHandler(compression.maxAllocation),
+        )
+      }
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
       pipeline.addLast(Names.WebSocketHandler, webSocket)
 
