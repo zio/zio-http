@@ -34,6 +34,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.ssl.SslHandler
 import io.netty.handler.timeout.ReadTimeoutException
@@ -330,16 +331,17 @@ private[zio] final case class ServerInboundHandler(
         }
       }
     _                  <- ZIO.attempt {
-      ctx
-        .channel()
-        .pipeline()
-        .addLast(
-          new WebSocketServerProtocolHandler(
-            NettySocketProtocol
-              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
-              .build(),
-          ),
+      val webSocketConfig = webSocketApp.customConfig.getOrElse(config.webSocketConfig)
+      val pipeline        = ctx.channel().pipeline()
+
+      webSocketConfig.compression.foreach { compression =>
+        pipeline.addLast(
+          Names.WebSocketCompressionHandler,
+          new WebSocketServerCompressionHandler(compression.maxAllocation),
         )
+      }
+      pipeline
+        .addLast(new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(webSocketConfig).build()))
         .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
 
       val jReq = new DefaultFullHttpRequest(

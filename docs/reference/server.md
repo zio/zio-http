@@ -691,6 +691,7 @@ case class WebSocketConfig(
   sendCloseFrame: WebSocketConfig.CloseStatus = WebSocketConfig.CloseStatus.NormalClosure,
   dropPongFrames: Boolean = true,
   decoderConfig: SocketDecoder = SocketDecoder.default,
+  compression: Option[WebSocketConfig.Compression] = None,
 )
 ```
 
@@ -711,6 +712,12 @@ final case class SocketDecoder(
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
 )
+```
+
+- **compression**: Enables the permessage-deflate extension ([RFC 7692](https://datatracker.ietf.org/doc/html/rfc7692)). It is disabled by default. When it is set, the server accepts a client's offer to compress messages, and the client makes that offer. Messages are compressed only when both peers agree during the handshake. Each compressed connection keeps deflate state for its whole lifetime, so enabling it trades memory per connection for bandwidth. `maxAllocation` limits the size in bytes of a decompressed message. A small compressed message can inflate to a very large one, so set it to the largest message the application accepts (zero removes the limit):
+
+```scala
+WebSocketConfig.default.compression(WebSocketConfig.Compression(maxAllocation = 65536))
 ```
 
 ## Netty Configuration
