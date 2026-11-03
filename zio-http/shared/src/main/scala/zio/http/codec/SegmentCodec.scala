@@ -158,7 +158,9 @@ object SegmentCodec          {
       combiner: Combiner[A, B],
     ): SegmentCodec[combiner.Out]
   }
-  private[codec] object Combinable                 {
+  // Must stay accessible at use sites: Scala 3.10 will no longer resolve implicits from a
+  // companion object that is not visible there.
+  object Combinable                                {
 
     implicit val combinableString: Combinable[String, SegmentCodec[String]] =
       new Combinable[String, SegmentCodec[String]] {
