@@ -30,7 +30,18 @@ package object server {
     val empty: UIO[RoutesRef] = {
       implicit val trace: Trace = Trace.empty
       // Environment will be populated when we `install` the app
-      ZIO.runtime[Any].map(rt => new AtomicReference((Routes.empty, rt.mapEnvironment(_ => ZEnvironment.empty))))
+      ZIO.runtime[Any].map { rt =>
+        // Request handlers are forked from this runtime (see `NettyRuntime.run`), and its runtime
+        // flags are captured here, at layer-build time, then preserved by `NettyDriver.addApp`.
+        // The `Interruption` flag must be forced on: if the `Server` layer happens to be built in
+        // an uninterruptible region (e.g. from zio-test's `beforeAll`, which runs as an
+        // `acquireRelease` acquire), every handler would otherwise inherit `Interruption = off` and
+        // could never be interrupted. That silently defeats `NettyRuntime.closeListener`, which
+        // interrupts the handler when the connection closes, so an in-flight handler keeps the
+        // connection (and graceful shutdown) alive forever (#4240).
+        val flags = RuntimeFlags.enable(rt.runtimeFlags)(RuntimeFlag.Interruption)
+        new AtomicReference((Routes.empty, Runtime(ZEnvironment.empty, rt.fiberRefs, flags)))
+      }
     }
   }
 
