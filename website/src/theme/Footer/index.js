@@ -31,6 +31,7 @@ export default function FooterWrapper(props) {
                 buttonLabel="Ask the docs"
                 placeholder="Ask a question about the docs"
                 welcomeMessages={WELCOME_MESSAGES}
+                askOnSelect
               />
             );
           }}
