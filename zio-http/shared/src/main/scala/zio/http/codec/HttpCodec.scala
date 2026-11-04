@@ -333,6 +333,22 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
+
+  private[http] final def withPathCodec(newPathCodec: PathCodec[_]): HttpCodec[AtomTypes, Value] =
+    self match {
+      case path: HttpCodec.Path[_]                           =>
+        path.copy(pathCodec = newPathCodec.asInstanceOf[PathCodec[Value]])
+      case HttpCodec.Combine(left, right, combiner)          =>
+        HttpCodec.Combine(left.withPathCodec(newPathCodec), right.withPathCodec(newPathCodec), combiner)
+      case HttpCodec.TransformOrFail(api, f, g)              =>
+        HttpCodec.TransformOrFail(api.withPathCodec(newPathCodec), f, g)
+      case HttpCodec.Fallback(left, right, alternator, cond) =>
+        HttpCodec.Fallback(left.withPathCodec(newPathCodec), right.withPathCodec(newPathCodec), alternator, cond)
+      case HttpCodec.Annotated(codec, metadata)              =>
+        HttpCodec.Annotated(codec.withPathCodec(newPathCodec), metadata)
+      case other                                             =>
+        other
+    }
 }
 
 object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with QueryCodecs with StatusCodecs {

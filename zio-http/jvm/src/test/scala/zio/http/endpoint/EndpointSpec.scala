@@ -26,7 +26,7 @@ import zio.test._
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
-import zio.http.codec.{HttpCodec, HttpContentCodec}
+import zio.http.codec.{HttpCodec, HttpContentCodec, PathCodec}
 
 object EndpointSpec extends ZIOHttpSpec {
   final case class Data(name: String, age: Int)
@@ -69,6 +69,23 @@ object EndpointSpec extends ZIOHttpSpec {
       test("base path with trailing slash") {
         val ep = Endpoint(Method.GET / "users")
         assertTrue(ep.renderUrl("/v1/", ()) == Right("/v1/users"))
+      },
+    ),
+    suite("nest")(
+      test("nested endpoint route with empty path codec") {
+        val endpoint = Endpoint(Method.GET / PathCodec.empty).out[String]
+        val route    = endpoint.implementPurely(_ => "hello")
+        val nested   = ("api": PathCodec[Unit]) / route.toRoutes
+        testEndpoint(nested)("/api", "hello")
+      },
+      test("nested endpoint route with path and query parameters") {
+        val endpoint =
+          Endpoint(Method.GET / "users" / int("id"))
+            .query(HttpCodec.query[String]("greeting"))
+            .out[String]
+        val route    = endpoint.implementPurely { case (id, greeting) => s"$greeting $id" }
+        val nested   = ("api" / "v1") / route.toRoutes
+        testEndpoint(nested)("/api/v1/users/42?greeting=hi", "hi 42")
       },
     ),
   )

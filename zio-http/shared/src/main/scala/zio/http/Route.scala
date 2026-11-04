@@ -449,6 +449,11 @@ object Route                   {
   )(handler0: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] =
     Route.Handled(routePattern, handler((_: RoutePattern[_]) => handler0), Trace.empty)
 
+  private[http] def handledWithPattern[Params, Env](
+    routePattern: RoutePattern[Params],
+  )(f: RoutePattern[Params] => Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] =
+    Route.Handled(routePattern, handler(f), trace)
+
   def handled[Params, Env](rpm: RoutePattern[Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
 

@@ -406,6 +406,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     }
 
     def handlers(
+      endpoint0: Endpoint[PathInput, Input, Err, Output, Auth],
       config: CodecConfig,
     ): Chunk[(Handler[Env, Nothing, Request, Response], HttpCodec.Fallback.Condition)] = {
       def handleEncodingBodyErrorHandling(request: Request) =
@@ -430,7 +431,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         }
       }
 
-      self.alternatives.map { case (endpoint, condition) =>
+      endpoint0.alternatives.map { case (endpoint, condition) =>
         Handler.fromFunctionZIO { (request: zio.http.Request) =>
           val outputMediaTypes =
             request.headers
@@ -470,9 +471,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       handlers.nonEmptyOrElse(ifEmpty = noFound)(ZIO.identityFn)
     }
 
-    val handler =
+    Route.handledWithPattern(self.route) { routePattern =>
+      val endpoint0 =
+        if (routePattern.pathCodec == self.route.pathCodec) self
+        else self.copy(route = routePattern, input = self.input.withPathCodec(routePattern.pathCodec))
+
       Handler.fromZIO(CodecConfig.codecRef.get).flatMap { config =>
-        val hdlrs = handlers(config)
+        val hdlrs = handlers(endpoint0, config)
         hdlrs.tail
           .foldLeft(handlers2(hdlrs).head._1) { case (acc, (handler, condition)) =>
             acc.catchAllCause { cause =>
@@ -511,8 +516,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
             }
           }
       }
-
-    Route.handledIgnoreParams(self.route)(handler)
+    }
   }
 
   def implementHandlerScoped[Env, Env1](original: Handler[Env, Err, Input, Output])(implicit
