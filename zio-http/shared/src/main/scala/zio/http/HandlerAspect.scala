@@ -103,9 +103,19 @@ final case class HandlerAspect[-Env, +CtxOut](
           for {
             tuple <- protocol.incomingHandler
             (state, (request, ctxOut)) = tuple
-            either   <- Handler.fromZIO(handler(request)).either
-            response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-            response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+            exit     <- Handler.fromZIO(handler(request).exit)
+            response <- exit match {
+              case Exit.Success(response) =>
+                Handler.fromZIO(protocol.outgoingHandler((state, response)))
+              case Exit.Failure(cause)    =>
+                cause.failureOrCause match {
+                  case Left(response)     =>
+                    Handler.fromZIO(protocol.outgoingHandler((state, response))).flatMap(Handler.fail(_))
+                  case Right(defectCause) =>
+                    Handler.fromZIO(protocol.outgoingHandler((state, Response.fromCause(defectCause)))) *>
+                      Handler.failCause(defectCause)
+                }
+            }
           } yield response
         }
       }
@@ -124,9 +134,19 @@ final case class HandlerAspect[-Env, +CtxOut](
         for {
           tuple <- protocol.incomingHandler
           (state, (request, ctxOut)) = tuple
-          either   <- Handler.fromZIO(handler((ctxOut, request))).either
-          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+          exit     <- Handler.fromZIO(handler((ctxOut, request)).exit)
+          response <- exit match {
+            case Exit.Success(response) =>
+              Handler.fromZIO(protocol.outgoingHandler((state, response)))
+            case Exit.Failure(cause)    =>
+              cause.failureOrCause match {
+                case Left(response)     =>
+                  Handler.fromZIO(protocol.outgoingHandler((state, response))).flatMap(Handler.fail(_))
+                case Right(defectCause) =>
+                  Handler.fromZIO(protocol.outgoingHandler((state, Response.fromCause(defectCause)))) *>
+                    Handler.failCause(defectCause)
+              }
+          }
         } yield response
       }
     }
@@ -139,9 +159,19 @@ final case class HandlerAspect[-Env, +CtxOut](
         for {
           tuple <- protocol.incomingHandler
           (state, (request, ctxOut)) = tuple
-          either   <- Handler.fromZIO(handler(request)).either
-          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+          exit     <- Handler.fromZIO(handler(request).exit)
+          response <- exit match {
+            case Exit.Success(response) =>
+              Handler.fromZIO(protocol.outgoingHandler((state, response)))
+            case Exit.Failure(cause)    =>
+              cause.failureOrCause match {
+                case Left(response)     =>
+                  Handler.fromZIO(protocol.outgoingHandler((state, response))).flatMap(Handler.fail(_))
+                case Right(defectCause) =>
+                  Handler.fromZIO(protocol.outgoingHandler((state, Response.fromCause(defectCause)))) *>
+                    Handler.failCause(defectCause)
+              }
+          }
         } yield response
       }
     }

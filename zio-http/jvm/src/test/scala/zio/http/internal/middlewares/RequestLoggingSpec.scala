@@ -103,5 +103,27 @@ object RequestLoggingSpec extends ZIOHttpSpec with TestExtensions {
           ),
         )
       },
+      test("logs request resulting in an unrecovered defect without sandbox") {
+        val unsandboxedApp = Routes(
+          Method.GET / "defect" -> Handler.die(new Throwable("boom")),
+        )
+        for {
+          _       <- (unsandboxedApp @@ requestLogging())
+            .runZIO(Request.get(url = URL(Path.root / "defect")))
+            .ignore
+            .catchAllDefect(_ => ZIO.unit)
+          entries <- ZTestLogger.logOutput
+          requestServedEntry = entries.find(_.message() == "Http request served").get
+        } yield assertTrue(
+          requestServedEntry.annotations == Map(
+            "method"        -> "GET",
+            "duration_ms"   -> "0",
+            "url"           -> "/defect",
+            "response_size" -> "0",
+            "status_code"   -> "500",
+            "request_size"  -> "0",
+          ),
+        )
+      },
     )
 }
