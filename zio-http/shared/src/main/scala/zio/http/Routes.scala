@@ -388,6 +388,17 @@ object Routes extends RoutesCompanionVersionSpecific {
     empty @@ Middleware.serveDirectory(path, docRoot)
 
   /**
+   * Creates routes for serving static files from the directory `docRoot` at the
+   * url path `path`, using a custom `errorHandler` for file serving errors.
+   */
+  def serveDirectory(
+    path: Path,
+    docRoot: File,
+    errorHandler: Throwable => Handler[Any, Response, Request, Response],
+  )(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveDirectory(path, docRoot, errorHandler)
+
+  /**
    * Creates routes for serving static files at URL path `path` from resources
    * with the given `resourcePrefix`.
    *
@@ -410,6 +421,18 @@ object Routes extends RoutesCompanionVersionSpecific {
    */
   def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Routes[Any, Nothing] =
     empty @@ Middleware.serveResources(path, resourcePrefix)
+
+  /**
+   * Creates routes for serving static files at URL path `path` from resources
+   * with the given `resourcePrefix`, using a custom `errorHandler` for resource
+   * serving errors.
+   */
+  def serveResources(
+    path: Path,
+    resourcePrefix: String,
+    errorHandler: Throwable => Handler[Any, Response, Request, Response],
+  )(implicit trace: Trace): Routes[Any, Nothing] =
+    empty @@ Middleware.serveResources(path, resourcePrefix, errorHandler)
 
   private[http] final case class Tree[Env](tree: RoutePattern.Tree[Env]) { self =>
     final def ++[Env1 <: Env](that: Tree[Env1]): Tree[Env1] =

@@ -638,7 +638,11 @@ object Middleware extends HandlerAspects {
 
   }
 
-  private def toMiddleware[E](path: Path, staticServe: StaticServe[Any, E])(implicit trace: Trace): Middleware[Any] =
+  private def toMiddleware[E](
+    path: Path,
+    staticServe: StaticServe[Any, E],
+    errorHandler: Option[E => Handler[Any, Response, Request, Response]] = None,
+  )(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
 
       private def checkFishy(acc: Boolean, segment: String): Boolean = {
@@ -658,12 +662,13 @@ object Middleware extends HandlerAspects {
               if (isFishy) {
                 Handler.fromZIO(ZIO.logWarning(s"fishy request detected: ${request.path.encode}")) *> Handler.badRequest
               } else {
-                val segs   = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v) =>
+                val segs    = pattern.pathCodec.segments.collect { case SegmentCodec.Literal(v) =>
                   v
                 }
-                val unnest = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
-                val path   = request.path.unnest(unnest).addLeadingSlash
-                staticServe.run(path, request).sandbox
+                val unnest  = segs.foldLeft(Path.empty)(_ / _).addLeadingSlash
+                val path    = request.path.unnest(unnest).addLeadingSlash
+                val handler = staticServe.run(path, request)
+                errorHandler.fold(handler.sandbox)(eh => handler.catchAll(eh).sandbox)
               }
             },
         )
@@ -685,6 +690,18 @@ object Middleware extends HandlerAspects {
    */
   def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
+
+  /**
+   * Creates a middleware for serving static files from the directory `docRoot`
+   * at the url path `path`, using a custom `errorHandler` for file serving
+   * errors.
+   */
+  def serveDirectory(
+    path: Path,
+    docRoot: File,
+    errorHandler: Throwable => Handler[Any, Response, Request, Response],
+  )(implicit trace: Trace): Middleware[Any] =
+    toMiddleware(path, StaticServe.fromDirectory(docRoot), Some(errorHandler))
 
   /**
    * Creates a middleware for serving static files at URL path `path` from
@@ -709,6 +726,18 @@ object Middleware extends HandlerAspects {
    */
   def serveResources(path: Path, resourcePrefix: String = "public")(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromResource(resourcePrefix))
+
+  /**
+   * Creates a middleware for serving static files at URL path `path` from
+   * resources with the given `resourcePrefix`, using a custom `errorHandler`
+   * for resource serving errors.
+   */
+  def serveResources(
+    path: Path,
+    resourcePrefix: String,
+    errorHandler: Throwable => Handler[Any, Response, Request, Response],
+  )(implicit trace: Trace): Middleware[Any] =
+    toMiddleware(path, StaticServe.fromResource(resourcePrefix), Some(errorHandler))
 
   /**
    * Creates a middleware for managing the flash scope.

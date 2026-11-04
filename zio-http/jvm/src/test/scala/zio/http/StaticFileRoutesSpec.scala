@@ -63,6 +63,28 @@ object StaticFileRoutesSpec extends RoutesRunnableSpec {
           assertZIO(routes(request).map(_.status))(equalTo(Status.NotFound))
         }
       },
+      test("serve a non-existing file with custom errorHandler") {
+        createAndDeleteTempFile.flatMap { tempPath =>
+          val tempDir  = tempPath.getParent.toFile
+          val tempFile = tempPath.getFileName.toString
+          val path     = Path.empty / "assets"
+          val routes   =
+            Routes
+              .serveDirectory(
+                path,
+                tempDir,
+                err => Handler.succeed(Response.text(err.getMessage).status(Status.Teapot)),
+              )
+              .sandbox
+              .deploy
+          val request  = Request.get(URL(path / tempFile))
+          for {
+            response <- routes(request)
+            body     <- response.body.asString
+          } yield assert(response.status)(equalTo(Status.Teapot)) &&
+            assert(body)(containsString(tempFile))
+        }
+      },
     ),
     suite("serveResources")(
       test("serve an existing resource") {

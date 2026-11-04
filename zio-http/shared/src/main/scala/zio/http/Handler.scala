@@ -945,7 +945,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         ZIO.blocking {
           getFile.flatMap { file =>
             if (!file.exists()) {
-              ZIO.fail(new FileNotFoundException())
+              ZIO.fail(new FileNotFoundException(file.getAbsolutePath))
             } else if (file.isFile && !file.canRead) {
               ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
             } else if (!file.isFile) {
