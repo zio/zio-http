@@ -717,6 +717,12 @@ html.homepage-snap .fp-section {
     overscroll-behavior: contain;
   }
 
+  /* "Ask ..." button on selected text. The widget sets its own Tailwind font
+     stack on this button, so it would ignore the site font; use the site's. */
+  .zh-chat #bytebrain-ask-button {
+    font-family: var(--ifm-font-family-base) !important;
+  }
+
   /* overscroll-behavior only acts on scroll containers; the window never
      overflows (it is capped at the viewport height), so this just makes it one. */
   .zh-chat #container {
