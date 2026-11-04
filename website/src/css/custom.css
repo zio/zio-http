@@ -717,6 +717,12 @@ html.homepage-snap .fp-section {
     overscroll-behavior: contain;
   }
 
+  /* overscroll-behavior only acts on scroll containers; the window never
+     overflows (it is capped at the viewport height), so this just makes it one. */
+  .zh-chat #container {
+    overflow-y: auto;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .zh-chat button.fixed.bg-orange-400 {
       transition: none !important;
