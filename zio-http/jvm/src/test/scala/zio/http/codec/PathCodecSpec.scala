@@ -312,5 +312,24 @@ object PathCodecSpec extends ZIOHttpSpec {
           assertTrue(r1 != r3)
         },
       ),
+      suite("literal encoders for non-string types")(
+        test("supports Int, Long, Boolean, and UUID literals in PathCodec and RoutePattern") {
+          val id      = UUID.fromString("00000000-0000-0000-0000-000000000001")
+          val pattern = Method.GET / "api" / 1 / 9999999999L / true / id / int("item-id")
+
+          assertTrue(
+            pattern.pathCodec.render == s"/api/1/9999999999/true/$id/{item-id}",
+            pattern.pathCodec.decode(Path(s"/api/1/9999999999/true/$id/42")) == Right(42),
+          )
+        },
+        test("supports Int, Long, Boolean, and UUID literals in sub-segment ~ combinations") {
+          val id    = UUID.fromString("00000000-0000-0000-0000-000000000002")
+          val codec = PathCodec.empty / (string("prefix") ~ "_" ~ 42 ~ "_" ~ 100L ~ "_" ~ false ~ "_" ~ id)
+
+          assertTrue(
+            codec.decode(Path(s"/item_42_100_false_$id")) == Right("item"),
+          )
+        },
+      ),
     )
 }

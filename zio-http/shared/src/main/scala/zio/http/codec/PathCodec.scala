@@ -715,6 +715,8 @@ object PathCodec {
 
   def bool(name: String): PathCodec[Boolean] = Segment(SegmentCodec.bool(name))
 
+  implicit def boolPath(value: Boolean): PathCodec[Unit] = Segment(SegmentCodec.boolLiteral(value))
+
   /**
    * The empty / root path codec.
    */
@@ -722,9 +724,13 @@ object PathCodec {
 
   def int(name: String): PathCodec[Int] = Segment(SegmentCodec.int(name))
 
+  implicit def intPath(value: Int): PathCodec[Unit] = Segment(SegmentCodec.intLiteral(value))
+
   def literal(value: String): PathCodec[Unit] = apply(value)
 
-  def long(name: String): PathCodec[Long] = Segment(SegmentCodec.long(name))
+  def long(name: String): SegmentCodec[Long] = Segment(SegmentCodec.long(name))
+
+  implicit def longPath(value: Long): PathCodec[Unit] = Segment(SegmentCodec.longLiteral(value))
 
   implicit def path(value: String): PathCodec[Unit] = apply(value)
 
@@ -735,6 +741,8 @@ object PathCodec {
   def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing)
 
   def uuid(name: String): PathCodec[java.util.UUID] = Segment(SegmentCodec.uuid(name))
+
+  implicit def uuidPath(value: java.util.UUID): PathCodec[Unit] = Segment(SegmentCodec.uuidLiteral(value))
 
   private[http] final case class Fallback[A](left: PathCodec[Unit], right: PathCodec[Unit]) extends PathCodec[A]
 

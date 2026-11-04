@@ -64,8 +64,20 @@ sealed trait SegmentCodec[A] { self =>
   )(implicit combiner: Combiner[A, B], combinable: Combinable[B, SegmentCodec[B]]): SegmentCodec[combiner.Out] =
     combinable.combine(self, that)
 
+  final def ~(that: Boolean)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
+    self.~(SegmentCodec.boolLiteral(that))(combiner, Combinable.combinableLiteral)
+
+  final def ~(that: Int)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
+    self.~(SegmentCodec.intLiteral(that))(combiner, Combinable.combinableLiteral)
+
+  final def ~(that: Long)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
+    self.~(SegmentCodec.longLiteral(that))(combiner, Combinable.combinableLiteral)
+
   final def ~(that: String)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
     self.~(SegmentCodec.literal(that))(combiner, Combinable.combinableLiteral)
+
+  final def ~(that: java.util.UUID)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
+    self.~(SegmentCodec.uuidLiteral(that))(combiner, Combinable.combinableLiteral)
 
   // Returns number of segments matched, or -1 if not matched:
   def matches(segments: Chunk[String], index: Int): Int
@@ -326,20 +338,32 @@ object SegmentCodec          {
 
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
 
+  implicit def boolLiteral(value: Boolean): SegmentCodec[Unit] =
+    SegmentCodec.Literal(value.toString)
+
   val empty: SegmentCodec[Unit] = SegmentCodec.Empty
 
   def int(name: String): SegmentCodec[Int] = SegmentCodec.IntSeg(name)
+
+  implicit def intLiteral(value: Int): SegmentCodec[Unit] =
+    SegmentCodec.Literal(value.toString)
 
   implicit def literal(value: String): SegmentCodec[Unit] =
     SegmentCodec.Literal(value)
 
   def long(name: String): SegmentCodec[Long] = SegmentCodec.LongSeg(name)
 
+  implicit def longLiteral(value: Long): SegmentCodec[Unit] =
+    SegmentCodec.Literal(value.toString)
+
   def string(name: String): SegmentCodec[String] = SegmentCodec.Text(name)
 
   def trailing: SegmentCodec[Path] = SegmentCodec.Trailing
 
   def uuid(name: String): SegmentCodec[java.util.UUID] = SegmentCodec.UUID(name)
+
+  implicit def uuidLiteral(value: java.util.UUID): SegmentCodec[Unit] =
+    SegmentCodec.Literal(value.toString)
 
   private[http] case object Empty extends SegmentCodec[Unit] { self =>
 
