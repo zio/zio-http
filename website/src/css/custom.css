@@ -569,6 +569,12 @@ html.homepage-snap .fp-section {
        (the widget caps it at 100dvh minus this offset). No announcement bar
        on this site, so no phone-width adjustment is needed. */
     --bytebrain-offset-top: var(--ifm-navbar-height);
+    /* Inline code: a 15% tint of the site's primary colour on each bubble
+       (the widget default is neutral grey, its blue was the old look). The
+       primary colour switches with the theme, so one rule covers light and
+       dark; the text keeps the bubble's colour (inherit). */
+    --bytebrain-code-bg: color-mix(in srgb, var(--ifm-color-primary) 15%, var(--zh-surface-2));
+    --bytebrain-user-code-bg: color-mix(in srgb, var(--ifm-color-primary) 15%, var(--zh-accent-tint));
   }
 
   /* Launcher: round mint button pinned bottom-right. The label stays in the
