@@ -256,5 +256,40 @@ object RoutesSpec extends ZIOHttpSpec {
         )
       }
     },
+    test("nested trailing fallback wins over root trailing route after failed deeper literal match (#4336)") {
+      val specific     = Routes(
+        (Method.GET / "auth" / "2fa" / "status") ->
+          Handler.succeed(Response.text("status")),
+      )
+      val authFallback = Routes(
+        (Method.GET / "auth" / trailing) ->
+          Handler.succeed(Response.text("auth-fallback").status(Status.NotFound)),
+      )
+      val rootFallback = Routes(
+        (Method.GET / trailing) ->
+          Handler.succeed(Response.text("root-fallback")),
+      )
+      val routes       = specific ++ authFallback ++ rootFallback
+
+      for {
+        res1  <- routes.runZIO(Request.get("/auth/2fa/setup/form"))
+        body1 <- res1.body.asString
+        res2  <- routes.runZIO(Request.get("/auth/login/form"))
+        body2 <- res2.body.asString
+        res3  <- routes.runZIO(Request.get("/auth/2fa/status"))
+        body3 <- res3.body.asString
+        res4  <- routes.runZIO(Request.get("/other/path"))
+        body4 <- res4.body.asString
+      } yield assertTrue(
+        res1.status == Status.NotFound,
+        body1 == "auth-fallback",
+        res2.status == Status.NotFound,
+        body2 == "auth-fallback",
+        res3.status == Status.Ok,
+        body3 == "status",
+        res4.status == Status.Ok,
+        body4 == "root-fallback",
+      )
+    },
   )
 }

@@ -930,7 +930,6 @@ object PathCodec {
       }
 
       if (trySkipLiteralIdx.nonEmpty && result == null) {
-        trySkipLiteralIdx = trySkipLiteralIdx.reverse
         while (trySkipLiteralIdx.nonEmpty && result == null) {
           val skipIdx = trySkipLiteralIdx.head
           trySkipLiteralIdx = trySkipLiteralIdx.tail
