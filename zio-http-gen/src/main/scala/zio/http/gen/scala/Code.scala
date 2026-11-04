@@ -269,7 +269,11 @@ object Code {
   final case class QueryParamCode(name: String, queryType: CodecType)
   final case class HeadersCode(headers: List[HeaderCode])
   object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                                         }
-  final case class HeaderCode(name: String)
+  final case class HeaderCode(
+    name: String,
+    headerType: CodecType = CodecType.String,
+    required: Boolean = true,
+  )
   final case class InCode(
     inType: String,
     name: Option[String],

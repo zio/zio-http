@@ -14,8 +14,8 @@ import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
-import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
+import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -370,6 +370,72 @@ object EndpointGenSpec extends ZIOSpecDefault {
             enums = Nil,
           )
           assertTrue(scala.files.head == expected)
+        },
+        test("empty request and response with typed and optional headers") {
+          val openapiJson                   = """{
+            "openapi": "3.0.3",
+            "info": { "title": "Users API", "version": "1.0.0" },
+            "paths": {
+              "/api/v1/users": {
+                "get": {
+                  "parameters": [
+                    {
+                      "name": "X-Request-ID",
+                      "in": "header",
+                      "required": false,
+                      "schema": { "type": "string", "format": "uuid" }
+                    },
+                    {
+                      "name": "X-Retry-Count",
+                      "in": "header",
+                      "required": true,
+                      "schema": { "type": "integer", "format": "int32" }
+                    }
+                  ],
+                  "responses": { "200": { "description": "Success" } }
+                }
+              }
+            }
+          }"""
+          val openAPI                       = OpenAPI.fromJson(openapiJson).toOption.get
+          val scala                         = EndpointGen.fromOpenAPI(openAPI)
+          val requestIdHeader               = Code.HeaderCode("X-Request-ID", Code.CodecType.UUID, required = false)
+          val retryCountHeader              = Code.HeaderCode("X-Retry-Count", Code.CodecType.Int, required = true)
+          val expected                      = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set.empty,
+                    headersCode = Code.HeadersCode(List(requestIdHeader, retryCountHeader)),
+                    inCode = Code.InCode("Unit"),
+                    outCodes = List(Code.OutCode.json("Unit", Status.Ok)),
+                    errorsCode = Nil,
+                    authTypeCode = None,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          val (reqIdImports, reqIdRendered) = CodeGen.renderHeader(requestIdHeader)
+          val (retryCntImports, retryCntRendered) = CodeGen.renderHeader(retryCountHeader)
+          assertTrue(
+            scala.files.head == expected,
+            reqIdImports == List(Code.Import("java.util.UUID")),
+            reqIdRendered == """.header(HeaderCodec.name[UUID]("x-request-id").optional)""",
+            retryCntImports.isEmpty,
+            retryCntRendered == """.header(HeaderCodec.name[Int]("x-retry-count"))""",
+          )
         },
         test("empty request and response with accept and content-type headers and query parameters") {
           val endpoint = Endpoint(Method.GET / "api" / "v1" / "users")

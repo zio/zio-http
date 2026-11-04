@@ -426,7 +426,25 @@ final case class EndpointGen(config: Config) {
             else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
         }
     }
-    val headers             = params.collect { case p if p.in == "header" => Code.HeaderCode(p.name) }.toList
+    val headers             = params.collect {
+      case p if p.in == "header" =>
+        val required = p.required.getOrElse(false)
+        p.schema match {
+          case Some(ReferenceOr.Or(value))            =>
+            val qCodec = schemaToQueryParamCodec(value, openAPI, p.name)
+            Code.HeaderCode(p.name, qCodec.queryType, required)
+          case Some(ReferenceOr.Reference(ref, _, _)) =>
+            val baref  = ref.replaceFirst("^#/components/schemas/", "")
+            val schema = resolveSchemaRef(openAPI, baref)
+            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+            val hType  =
+              if (!config.generateSafeTypeAliases) qCodec.queryType
+              else CodecType.Aliased(qCodec.queryType, baref)
+            Code.HeaderCode(p.name, hType, required)
+          case None                                   =>
+            Code.HeaderCode(p.name, CodecType.String, required)
+        }
+    }.toList.sortBy(_.name)
     val (inImports, inType) =
       op.requestBody.flatMap {
         case OpenAPI.ReferenceOr.Reference(RequestBodyRef(key), _, _) => Some(Nil -> key)
