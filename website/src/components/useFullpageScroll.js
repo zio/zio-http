@@ -67,8 +67,12 @@ export default function useFullpageScroll(selector) {
       rafId = requestAnimationFrame(step);
     };
 
+    // Events inside the chat widget belong to the chat, not to section paging.
+    const inChat = (e) => Boolean(e.target.closest?.('.zh-chat'));
+
     const onWheel = (e) => {
       if (e.ctrlKey) return; // pinch-zoom
+      if (inChat(e)) return;
       const now = Date.now();
       if (now < lockUntil) {
         e.preventDefault();
@@ -99,6 +103,7 @@ export default function useFullpageScroll(selector) {
     };
 
     const onKeyDown = (e) => {
+      if (inChat(e)) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
         return;

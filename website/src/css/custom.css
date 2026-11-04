@@ -554,3 +554,179 @@ html.homepage-snap .fp-section {
 .DocSearch-Button-Placeholder {
   color: var(--zh-text-3) !important;
 }
+
+/* ── ByteBrain chat assistant ───────────────────────────────────────────────
+   The widget's Tailwind build ships utilities with `!important`, and for
+   important declarations an earlier cascade layer wins, so plain unlayered
+   rules lose. The components layer (declared before utilities) is where these
+   overrides take effect. Everything is scoped under .zh-chat (see
+   src/theme/Footer) and uses only the --zh-* tokens, which already switch
+   between light and dark, so no per-theme duplicates are needed. */
+@layer components {
+  .zh-chat {
+    font-family: var(--ifm-font-family-base);
+  }
+
+  /* Launcher: round mint button pinned bottom-right. The label stays in the
+     DOM for screen readers; the glyph is drawn by ::before. */
+  .zh-chat button.fixed.bg-orange-400 {
+    position: fixed !important;
+    background: var(--zh-accent) !important;
+    color: transparent !important;
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+    min-width: 3.5rem !important;
+    padding: 0 !important;
+    margin: 0 1.25rem 1.25rem 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 8px 24px var(--zh-shadow) !important;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease !important;
+  }
+
+  .zh-chat button.fixed.bg-orange-400::before {
+    content: '';
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    text-indent: 0 !important;
+    background-color: var(--zh-on-accent) !important;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-6 5V4a2 2 0 0 1 2-2z'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-6 5V4a2 2 0 0 1 2-2z'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  .zh-chat button.fixed.bg-orange-400:hover,
+  .zh-chat button.fixed.bg-orange-400:focus-visible {
+    background: var(--zh-accent-hover) !important;
+    transform: scale(1.06) !important;
+    box-shadow: 0 0 0 4px var(--zh-glow), 0 12px 30px var(--zh-shadow) !important;
+  }
+
+  .zh-chat button.fixed.bg-orange-400:focus-visible {
+    outline: 2px solid var(--zh-accent) !important;
+    outline-offset: 3px !important;
+  }
+
+  /* Window: the same surface, border and radius language as the homepage cards. */
+  .zh-chat .rounded-md.bg-gray-100 {
+    position: relative !important;
+    overflow: hidden !important;
+    background: var(--zh-surface) !important;
+    border: 1px solid var(--zh-border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 18px 50px var(--zh-shadow) !important;
+    color: var(--zh-text) !important;
+  }
+
+  .zh-chat .rounded-md.bg-gray-100::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--zh-accent);
+  }
+
+  .zh-chat h1 {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+    margin-bottom: 1rem !important;
+    color: var(--zh-text) !important;
+  }
+
+  /* Bot bubble: built from a header (bg-blue-600) and body parts (bg-blue-500).
+     Give both one neutral surface with a continuous accent stripe. */
+  .zh-chat .bg-blue-600,
+  .zh-chat .bg-blue-500 {
+    background: var(--zh-surface-2) !important;
+    color: var(--zh-text) !important;
+    border-left: 3px solid var(--zh-accent) !important;
+  }
+
+  .zh-chat .bg-blue-600 *:not(a),
+  .zh-chat .bg-blue-500 *:not(a) {
+    color: var(--zh-text) !important;
+  }
+
+  .zh-chat .bg-blue-600 a,
+  .zh-chat .bg-blue-500 a {
+    color: var(--zh-accent) !important;
+  }
+
+  .zh-chat .bg-blue-600 a:hover,
+  .zh-chat .bg-blue-500 a:hover {
+    color: var(--zh-accent-hover) !important;
+  }
+
+  /* User bubble: mint tint with an accent border. */
+  .zh-chat .bg-gray-300 {
+    background: var(--zh-accent-tint) !important;
+    border: 1px solid var(--zh-border-accent) !important;
+  }
+
+  .zh-chat .bg-gray-300,
+  .zh-chat .text-gray-600,
+  .zh-chat .bg-gray-300 * {
+    color: var(--zh-text) !important;
+  }
+
+  /* Send button. */
+  .zh-chat .bg-black {
+    background: var(--zh-accent) !important;
+    color: var(--zh-on-accent) !important;
+    border-radius: 999px !important;
+  }
+
+  .zh-chat .bg-black:hover {
+    background: var(--zh-accent-hover) !important;
+  }
+
+  /* Open animation: the widget toggles #container between hidden and block. */
+  @keyframes zh-chat-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .zh-chat #container.block {
+    transform-origin: bottom right;
+    animation: zh-chat-in 0.22s ease-out;
+  }
+
+  /* Keep wheel/touch scrolling inside the chat (also set by the widget itself). */
+  .zh-chat #container,
+  .zh-chat #scroller {
+    overscroll-behavior: contain;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zh-chat button.fixed.bg-orange-400 {
+      transition: none !important;
+    }
+    .zh-chat button.fixed.bg-orange-400:hover,
+    .zh-chat button.fixed.bg-orange-400:focus-visible {
+      transform: none !important;
+    }
+    .zh-chat #container.block {
+      animation: none;
+    }
+  }
+}
