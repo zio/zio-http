@@ -402,9 +402,10 @@ object CodeGen {
   }
 
   def renderQueryCode(queryCode: Code.QueryParamCode): (List[Code.Import], String) = queryCode match {
-    case Code.QueryParamCode(name, queryType) =>
+    case Code.QueryParamCode(name, queryType, required) =>
       val (imports, tpe) = renderQueryCodecType(queryType, name)
-      imports -> s""".query(HttpCodec.query[$tpe]("$name"))"""
+      val optionalSuffix = if (required) "" else ".optional"
+      imports -> s""".query(HttpCodec.query[$tpe]("$name")$optionalSuffix)"""
   }
 
   private def renderQueryCodecType(queryType: Code.CodecType, name: String): (List[Code.Import], String) =

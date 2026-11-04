@@ -266,7 +266,7 @@ object Code {
     case class SeqOf(elementType: CodecType, nonEmpty: Boolean)    extends CodecType
     case class SetOf(elementType: CodecType, nonEmpty: Boolean)    extends CodecType
   }
-  final case class QueryParamCode(name: String, queryType: CodecType)
+  final case class QueryParamCode(name: String, queryType: CodecType, required: Boolean = true)
   final case class HeadersCode(headers: List[HeaderCode])
   object HeadersCode     { val empty: HeadersCode = HeadersCode(Nil)                                         }
   final case class HeaderCode(name: String)

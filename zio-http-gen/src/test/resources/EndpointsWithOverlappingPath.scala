@@ -7,7 +7,7 @@ object Pets {
   import zio.http.endpoint._
   import zio.http.codec._
   val listPets = Endpoint(Method.GET / "pets")
-    .query(HttpCodec.query[Int]("limit"))
+    .query(HttpCodec.query[Int]("limit").optional)
     .in[Unit]
     .out[Pets](status = Status.Ok)
 

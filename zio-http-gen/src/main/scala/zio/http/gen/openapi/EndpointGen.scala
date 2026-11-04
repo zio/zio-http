@@ -410,18 +410,20 @@ final case class EndpointGen(config: Config) {
     // TODO: Resolve query and header parameters from components
     val queryParams         = params.collect {
       case p if p.in == "query" =>
+        val required = p.required.getOrElse(false)
         p.schema.get match {
           case ReferenceOr.Or(value)            =>
             schemaToQueryParamCodec(
               value,
               openAPI,
               p.name,
+              required,
             )
           // references are only possible in case of aliased primitives
           case ReferenceOr.Reference(ref, _, _) =>
             val baref  = ref.replaceFirst("^#/components/schemas/", "")
             val schema = resolveSchemaRef(openAPI, baref)
-            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name)
+            val qCodec = schemaToQueryParamCodec(schema, openAPI, p.name, required)
             if (!config.generateSafeTypeAliases) qCodec
             else qCodec.copy(queryType = CodecType.Aliased(qCodec.queryType, baref))
         }
@@ -709,23 +711,29 @@ final case class EndpointGen(config: Config) {
     schema: JsonSchema,
     openAPI: OpenAPI,
     name: String,
-  ): Code.QueryParamCode = schemaToQueryParamCodecHelper(schema, openAPI, name)
+    required: Boolean = true,
+  ): Code.QueryParamCode = schemaToQueryParamCodecHelper(schema, openAPI, name, required)
 
   @tailrec
   private def schemaToQueryParamCodecHelper(
     schema: JsonSchema,
     openAPI: OpenAPI,
     name: String,
+    required: Boolean,
   ): Code.QueryParamCode = schema match {
-    case JsonSchema.AnnotatedSchema(s, _) => schemaToQueryParamCodecHelper(s, openAPI, name)
-    case JsonSchema.RefSchema(ref) => schemaToQueryParamCodecHelper(resolveSchemaRef(openAPI, ref), openAPI, name)
-    case JsonSchema.Boolean        => Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean)
-    case s: JsonSchema.Integer     => Code.QueryParamCode(name = name, queryType = integerCodec(s.format))
-    case s: JsonSchema.String      => Code.QueryParamCode(name = name, queryType = stringCodec(s.format))
-    case _: JsonSchema.Number      => throw new Exception("Floating point query parameters are not supported")
-    case JsonSchema.OneOfSchema(_) => throw new Exception("Alternative query parameters are not supported")
-    case JsonSchema.AllOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
-    case JsonSchema.AnyOfSchema(_) => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.AnnotatedSchema(s, _) => schemaToQueryParamCodecHelper(s, openAPI, name, required)
+    case JsonSchema.RefSchema(ref)        =>
+      schemaToQueryParamCodecHelper(resolveSchemaRef(openAPI, ref), openAPI, name, required)
+    case JsonSchema.Boolean               =>
+      Code.QueryParamCode(name = name, queryType = Code.CodecType.Boolean, required = required)
+    case s: JsonSchema.Integer            =>
+      Code.QueryParamCode(name = name, queryType = integerCodec(s.format), required = required)
+    case s: JsonSchema.String             =>
+      Code.QueryParamCode(name = name, queryType = stringCodec(s.format), required = required)
+    case _: JsonSchema.Number             => throw new Exception("Floating point query parameters are not supported")
+    case JsonSchema.OneOfSchema(_)        => throw new Exception("Alternative query parameters are not supported")
+    case JsonSchema.AllOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
+    case JsonSchema.AnyOfSchema(_)        => throw new Exception("Query parameters must have exactly one schema")
     case JsonSchema.ArrayType(items, minItems, uniqueItems) =>
       val nonEmpty       = minItems.exists(_ > 0)
       val elementType    = items
@@ -734,7 +742,7 @@ final case class EndpointGen(config: Config) {
       val collectionType =
         if (uniqueItems) Code.CodecType.SetOf(elementType, nonEmpty)
         else Code.CodecType.SeqOf(elementType, nonEmpty)
-      Code.QueryParamCode(name = name, queryType = collectionType)
+      Code.QueryParamCode(name = name, queryType = collectionType, required = required)
     case JsonSchema.Object(_, _, _) => throw new Exception("Object query parameters are not supported")
     case JsonSchema.Enum(_) => throw new Exception("Enum query parameters are not supported")
     case JsonSchema.Null    => throw new Exception("Null query parameters are not supported")

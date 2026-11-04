@@ -8,7 +8,7 @@ object Species {
   import zio.http.endpoint._
   import zio.http.codec._
   val list_by_species = Endpoint(Method.GET / "api" / "v1" / "zoo" / "list" / string("species"))
-    .query(HttpCodec.query[Int]("max-age"))
+    .query(HttpCodec.query[Int]("max-age").optional)
     .in[Unit]
     .out[Chunk[Animal]](status = Status.Ok)
 

@@ -14,8 +14,8 @@ import zio.http.endpoint._
 import zio.http.endpoint.openapi.JsonSchema.SchemaStyle.{Compact, Inline}
 import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
 import zio.http.gen.model._
-import zio.http.gen.scala.Code
 import zio.http.gen.scala.Code.Collection.Opt
+import zio.http.gen.scala.{Code, CodeGen}
 
 object EndpointGenSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -502,8 +502,16 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
                     ),
                     queryParamsCode = Set(
-                      Code.QueryParamCode("tags", Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = false)),
-                      Code.QueryParamCode("ids", Code.CodecType.SeqOf(Code.CodecType.Int, nonEmpty = false)),
+                      Code.QueryParamCode(
+                        "tags",
+                        Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = false),
+                        required = false,
+                      ),
+                      Code.QueryParamCode(
+                        "ids",
+                        Code.CodecType.SeqOf(Code.CodecType.Int, nonEmpty = false),
+                        required = false,
+                      ),
                     ),
                     headersCode = Code.HeadersCode.empty,
                     inCode = Code.InCode("Unit"),
@@ -558,7 +566,11 @@ object EndpointGenSpec extends ZIOSpecDefault {
                       List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
                     ),
                     queryParamsCode = Set(
-                      Code.QueryParamCode("tags", Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = true)),
+                      Code.QueryParamCode(
+                        "tags",
+                        Code.CodecType.SeqOf(Code.CodecType.String, nonEmpty = true),
+                        required = false,
+                      ),
                     ),
                     headersCode = Code.HeadersCode.empty,
                     inCode = Code.InCode("Unit"),
@@ -573,6 +585,48 @@ object EndpointGenSpec extends ZIOSpecDefault {
             enums = Nil,
           )
           assertTrue(scala.files.head == expected)
+        },
+        test("empty request and response with optional and required query parameters") {
+          val endpoint           = Endpoint(Method.GET / "api" / "v1" / "users")
+            .query(HttpCodec.query[Int]("limit").optional)
+            .query(HttpCodec.query[String]("name"))
+          val openAPI            = OpenAPIGen.fromEndpoints(endpoint)
+          val scala              = EndpointGen.fromOpenAPI(openAPI)
+          val limitParam         = Code.QueryParamCode("limit", Code.CodecType.Int, required = false)
+          val nameParam          = Code.QueryParamCode("name", Code.CodecType.String, required = true)
+          val expected           = Code.File(
+            List("api", "v1", "Users.scala"),
+            pkgPath = List("api", "v1"),
+            imports = List(Code.Import.FromBase(path = "component._")),
+            objects = List(
+              Code.Object(
+                "Users",
+                Map(
+                  Code.Field("get") -> Code.EndpointCode(
+                    Method.GET,
+                    Code.PathPatternCode(segments =
+                      List(Code.PathSegmentCode("api"), Code.PathSegmentCode("v1"), Code.PathSegmentCode("users")),
+                    ),
+                    queryParamsCode = Set(limitParam, nameParam),
+                    headersCode = Code.HeadersCode.empty,
+                    inCode = Code.InCode("Unit"),
+                    outCodes = Nil,
+                    errorsCode = Nil,
+                    authTypeCode = None,
+                  ),
+                ),
+              ),
+            ),
+            caseClasses = Nil,
+            enums = Nil,
+          )
+          val (_, limitRendered) = CodeGen.renderQueryCode(limitParam)
+          val (_, nameRendered)  = CodeGen.renderQueryCode(nameParam)
+          assertTrue(
+            scala.files.head == expected,
+            limitRendered == """.query(HttpCodec.query[Int]("limit").optional)""",
+            nameRendered == """.query(HttpCodec.query[String]("name"))""",
+          )
         },
         test("request body and empty response") {
           val endpoint = Endpoint(Method.POST / "api" / "v1" / "users").in[User]
