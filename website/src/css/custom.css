@@ -656,12 +656,15 @@ html.homepage-snap .fp-section {
     z-index: 5;
   }
 
-  /* The site's Tailwind utilities set `.block { display: block !important }`,
-     which beat the widget's flex centering of the maximized window, so the
-     panel sat at the left edge. Re-assert flex here: this layer comes before
-     utilities, so its !important declarations win. */
+  /* Maximized window: full height, over the navbar, as on zio.dev. The site's
+     Tailwind utilities set `.block { display: block !important }`, which beat
+     the widget's flex centering and left the panel at the left edge, so flex is
+     re-asserted here. This layer comes before utilities, so its !important wins.
+     The navbar is z-index 200 (Infima fixed), so 1000 keeps the window above it. */
   .zh-chat #container.bytebrain-maximized.block {
     display: flex !important;
+    top: 0 !important;
+    z-index: 1000;
   }
 
   .zh-chat h1 {
