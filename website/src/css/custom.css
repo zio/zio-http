@@ -649,6 +649,13 @@ html.homepage-snap .fp-section {
     background: var(--zh-accent);
   }
 
+  /* The window body above is position: relative (the accent stripe), and it
+     paints over the widget's absolutely positioned resize handles, so the
+     handles never get the drag. Lift them above the body. */
+  .zh-chat .bytebrain-resize-handle {
+    z-index: 5;
+  }
+
   .zh-chat h1 {
     font-size: 1.35rem !important;
     font-weight: 700 !important;
