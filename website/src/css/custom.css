@@ -656,6 +656,14 @@ html.homepage-snap .fp-section {
     z-index: 5;
   }
 
+  /* The site's Tailwind utilities set `.block { display: block !important }`,
+     which beat the widget's flex centering of the maximized window, so the
+     panel sat at the left edge. Re-assert flex here: this layer comes before
+     utilities, so its !important declarations win. */
+  .zh-chat #container.bytebrain-maximized.block {
+    display: flex !important;
+  }
+
   .zh-chat h1 {
     font-size: 1.35rem !important;
     font-weight: 700 !important;
