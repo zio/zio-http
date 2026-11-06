@@ -35,7 +35,7 @@ import zio.http.template._
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    ev: Request <:< In,
+    in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
@@ -46,7 +46,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
-    ev: Request <:< In,
+    in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
     trace: Trace,
@@ -717,7 +717,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A]
 
   object IsRequest {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
