@@ -1,34 +1,99 @@
-name: Build and Deploy Website
+name: Deploy Website
 on:
   pull_request:
     types: [opened, synchronize, reopened]
   release:
     types: [published]
-  workflow_dispatch:  # Manual trigger for testing
+  workflow_dispatch:  # Manual deploy: Actions > Deploy Website > Run workflow, on main
+
+# The website is built here, in GitHub Actions, with the same steps as build.sh (sbt mdoc apiDocs, then yarn build in
+# website/). Netlify only hosts the finished files: the deploy job uploads the build artifact to the production site.
+# Netlify no longer builds ziohttp.com on its own, so nothing reaches production except a release or a manual run on main.
+permissions: {}
 
 jobs:
   build:
+    name: Build website
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    # Pull requests always get a build check. A manual run is refused unless it targets main.
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Node.js
+      - name: Git Checkout
+        uses: actions/checkout@v7
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: sbt
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24.22.1'
-          cache: 'yarn'
-          cache-dependency-path: website/yarn.lock
-      - name: Run build script
-        run: ./build.sh
-        shell: bash
+      - name: Install yarn
+        run: npm install -g yarn@1.22.22
+      - name: Install website dependencies
+        run: yarn install --cwd website --frozen-lockfile
+      - name: Generate documentation with mdoc and Scaladoc
+        run: sbt mdoc apiDocs
+      - name: Build website
+        run: yarn --cwd website build
+      - name: Upload website build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: website-build
+          path: ./website/build
+          overwrite: true
+          retention-days: 7
 
   deploy:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    name: Deploy website to Netlify
+    # Only a release or a manual run on main reaches production. Pull requests stop after the build check.
+    if: ${{ (github.event_name == 'release') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
     needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    # One production deploy at a time. A running upload is never cancelled half-way through.
+    concurrency:
+      group: deploy-website
+      cancel-in-progress: false
     steps:
-      - name: Trigger Netlify Deploy
-        run: |
-          curl -X POST -d {} "${{ secrets.NETLIFY_DEPLOY_WEBHOOK }}"
+      - name: Download website build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-build
+          path: website-build
+      - name: Deploy to Netlify production
+        id: netlify
+        uses: nwtgck/actions-netlify@v4.0
+        with:
+          publish-dir: ./website-build
+          production-deploy: true
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+          enable-github-deployment: false
+          deploy-message: 'Deploy ${{ github.ref_name }} ${{ github.sha }}'
         env:
-          NETLIFY_DEPLOY_WEBHOOK: ${{ secrets.NETLIFY_DEPLOY_WEBHOOK }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_PRODUCTION_SITE_ID }}
+      - name: Write run summary
+        if: ${{ always() }}
+        env:
+          OUTCOME: ${{ steps.netlify.outcome }}
+          DEPLOY_URL: ${{ steps.netlify.outputs.deploy-url }}
+        run: |
+          {
+            echo "### Website deploy"
+            echo ""
+            if [ "$OUTCOME" = "success" ]; then
+              echo "Deployed to production: $DEPLOY_URL"
+            else
+              echo "Deploy to Netlify failed. Build logs above; the Netlify dashboard has the upload details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
