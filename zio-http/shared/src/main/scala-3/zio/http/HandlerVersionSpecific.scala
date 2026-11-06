@@ -5,7 +5,7 @@ import zio.*
 trait HandlerVersionSpecific {
   private[http] class ApplyContextAspect[-Env, +Err, -In, +Out, Env0](self: Handler[Env, Err, In, Out]) {
     transparent inline def apply[Env1, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Ctx])(implicit
-      ev0: Request <:< In,
+      in: Handler.IsRequest[In1],
       ev: Env0 with Ctx <:< Env,
       out: Out <:< Response,
       err: Err <:< Response,
