@@ -1,5 +1,6 @@
-# Exit code 0 cancels the build. So a push to main no longer builds the site by itself. Build-hook builds
-# (the "Deploy Website" workflow) are not affected by this line, so they still build.
+# Netlify does not build the site. The "Deploy Website" workflow (.github/workflows/site.yml) builds it in GitHub Actions
+# and uploads the finished files. The ignore command skips every Git-triggered Netlify build (pushes to main and pull
+# requests), since exit code 0 cancels the build.
 [build]
   command = "./build.sh"
   publish = "website/build"
