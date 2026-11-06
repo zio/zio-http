@@ -649,20 +649,11 @@ html.homepage-snap .fp-section {
     background: var(--zh-accent);
   }
 
-  /* The window body above is position: relative (the accent stripe), and it
-     paints over the widget's absolutely positioned resize handles, so the
-     handles never get the drag. Lift them above the body. */
-  .zh-chat .bytebrain-resize-handle {
-    z-index: 5;
-  }
-
-  /* Maximized window: full height, over the navbar, as on zio.dev. The site's
-     Tailwind utilities set `.block { display: block !important }`, which beat
-     the widget's flex centering and left the panel at the left edge, so flex is
-     re-asserted here. This layer comes before utilities, so its !important wins.
-     The navbar is z-index 200 (Infima fixed), so 1000 keeps the window above it. */
-  .zh-chat #container.bytebrain-maximized.block {
-    display: flex !important;
+  /* Maximized window: full height, over the navbar, as on zio.dev. The widget
+     0.0.13 no longer uses the Tailwind `block` class on the container, so the
+     selector targets `.bytebrain-maximized` directly. The navbar is z-index 200
+     (Infima fixed), so 1000 keeps the window above it. */
+  .zh-chat #container.bytebrain-maximized {
     top: 0 !important;
     z-index: 1000;
   }

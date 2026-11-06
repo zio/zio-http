@@ -1239,10 +1239,10 @@
     "@babel/helper-string-parser" "^7.27.1"
     "@babel/helper-validator-identifier" "^7.27.1"
 
-"@bytebrain.ai/bytebrain-ui@0.0.12":
-  version "0.0.12"
-  resolved "https://registry.npmjs.org/@bytebrain.ai/bytebrain-ui/-/bytebrain-ui-0.0.12.tgz#56e60ed19feee58e4172889f1e4de0aae8398ec9"
-  integrity sha512-3nLT2kJc5kX6zZpbOu63qWmiWHHeA/vFKXoCXNebPMGq07CS/AKFtZIlyX06/hXdSTuN7N01uwfeNCeGRff+2w==
+"@bytebrain.ai/bytebrain-ui@0.0.13":
+  version "0.0.13"
+  resolved "https://registry.npmjs.org/@bytebrain.ai/bytebrain-ui/-/bytebrain-ui-0.0.13.tgz#bd7ab6a9b927541cf234ae94fbb2d7d93a6542ea"
+  integrity sha512-jZ8YEoyu9xwX/qk/cNoXA8BYE402M5m/JUj9NPpcNdR9VdfJS09NdWTkVBVFjn/5XE5jOYXVL7t6TkgJfMEk8g==
   dependencies:
     highlight.js "^11.9.0"
     path-browserify "^1.0.1"
