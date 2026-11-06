@@ -1,6 +1,9 @@
+# Exit code 0 cancels the build. So a push to main no longer builds the site by itself. Build-hook builds
+# (the "Deploy Website" workflow) are not affected by this line, so they still build.
 [build]
   command = "./build.sh"
   publish = "website/build"
+  ignore = "exit 0"
 
 [build.environment]
   NODE_VERSION = "24.22.1"
