@@ -507,5 +507,26 @@ object RouteSpec extends ZIOHttpSpec {
 
       assertTrue(Exit.succeed(Response.ok) == ok(request))
     },
+    test("Apply context HandlerAspect to handler with path parameters (#3141)") {
+      case class WebSession(id: Int)
+
+      def maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+        HandlerAspect.interceptIncomingHandler(
+          Handler.fromFunctionZIO[Request] { req =>
+            ZIO.succeed((req, Some(WebSession(42))))
+          },
+        )
+
+      val route = Method.GET / "base" / string("id") -> handler((id: String, _: Request) => {
+        withContext((session: Option[WebSession]) => {
+          ZIO.succeed(Response.text(s"$id:${session.map(_.id).getOrElse(0)}"))
+        })
+      }) @@ maybeWebSession
+
+      for {
+        response <- route.toRoutes.runZIO(Request.get(url"/base/1"))
+        body     <- response.body.asString
+      } yield assertTrue(response.status == Status.Ok, body == "1:42")
+    },
   )
 }

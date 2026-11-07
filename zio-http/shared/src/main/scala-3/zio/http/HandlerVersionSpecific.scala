@@ -10,14 +10,20 @@ trait HandlerVersionSpecific {
       out: Out <:< Response,
       err: Err <:< Response,
       trace: Trace,
-    ): Handler[Env0 with Env1, Response, Request, Response] =
-      aspect.applyHandlerContext {
-        Handler.scoped[Env0] {
-          handler { (ctx: Ctx, req: Request) =>
-            val handler: ZIO[Scope & Env, Response, Response] = self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
-            handler.provideSomeEnvironment[Scope & Env0](_.add(ctx).asInstanceOf[ZEnvironment[Scope & Env]])
+    ): Handler[Env0 with Env1, Response, In1, Response] =
+      Handler.fromFunctionHandler[In1] { in1 =>
+        val req = in.extractRequest(in1)
+        aspect
+          .applyHandlerContext {
+            Handler.scoped[Env0] {
+              handler { (ctx: Ctx, modifiedReq: Request) =>
+                val handler: ZIO[Scope & Env, Response, Response] =
+                  self.asInstanceOf[Handler[Env, Response, In1, Response]](in.updateRequest(in1, modifiedReq))
+                handler.provideSomeEnvironment[Scope & Env0](_.add(ctx).asInstanceOf[ZEnvironment[Scope & Env]])
+              }
+            }
           }
-        }
+          .contramap[In1](_ => req)
       }
   }
 
