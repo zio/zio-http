@@ -23,6 +23,10 @@ jobs:
     steps:
       - name: Git Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history with tags. The docs' @VERSION@ snippets read the latest release from git tags
+          # (zio-sbt-website); a shallow checkout has none and falls back to a 0.0.0+1-<sha>-SNAPSHOT version.
+          fetch-depth: 0
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
