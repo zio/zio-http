@@ -1,5 +1,7 @@
 package zio.http
 
+import java.nio.channels.ClosedChannelException
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
@@ -27,10 +29,16 @@ case class TestChannel(
     loop
   }
   def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit]              =
-    out.offer(in).unit
+    whenOpen(out.offer(in).unit)
   def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =
-    out.offerAll(in).unit
-  def shutdown(implicit trace: Trace): UIO[Unit]                                      =
+    whenOpen(out.offerAll(in).unit)
+
+  private def whenOpen[A](zio: => Task[A])(implicit trace: Trace): Task[A] =
+    promise.isDone.flatMap {
+      case true  => ZIO.fail(new ClosedChannelException)
+      case false => zio
+    }
+  def shutdown(implicit trace: Trace): UIO[Unit]                           =
     in.offer(ChannelEvent.Unregistered) *>
       out.offer(ChannelEvent.Unregistered) *>
       promise.succeed(()).unit
