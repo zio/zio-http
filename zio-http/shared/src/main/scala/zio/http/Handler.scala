@@ -38,12 +38,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
-  }
+  ): Handler[Env1, Response, In1, Response] =
+    Handler.fromFunctionHandler[In1] { in1 =>
+      val req = in.extractRequest(in1)
+      aspect
+        .applyHandler(
+          Handler.fromFunctionZIO[Request] { modifiedReq =>
+            self.asInstanceOf[Handler[R, Response, In1, Response]](in.updateRequest(in1, modifiedReq))
+          },
+        )
+        .contramap[In1](_ => req)
+    }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
     in: Handler.IsRequest[In1],
@@ -51,16 +56,21 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+  ): Handler[Env0, Response, In1, Response] =
+    Handler.fromFunctionHandler[In1] { in1 =>
+      val req = in.extractRequest(in1)
+      aspect
+        .applyHandlerContext {
+          Handler.scoped[Env0] {
+            handler { (ctx: Ctx, modifiedReq: Request) =>
+              val result: ZIO[Scope & Ctx, Response, Response] =
+                self
+                  .asInstanceOf[Handler[Ctx, Response, In1, Response]](in.updateRequest(in1, modifiedReq))
+              result.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+            }
+          }
         }
-      }
+        .contramap[In1](_ => req)
     }
 
   def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
@@ -717,10 +727,44 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A] {
+    def extractRequest(in: A): Request
+    def updateRequest(in: A, request: Request): A
+  }
 
-  object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  trait IsRequestLowPriority {
+    implicit def tuple2[A]: IsRequest[(A, Request)] =
+      new IsRequest[(A, Request)] {
+        override def extractRequest(in: (A, Request)): Request                        = in._2
+        override def updateRequest(in: (A, Request), request: Request): (A, Request) = (in._1, request)
+      }
+
+    implicit def tuple3[A, B]: IsRequest[(A, B, Request)] =
+      new IsRequest[(A, B, Request)] {
+        override def extractRequest(in: (A, B, Request)): Request                              = in._3
+        override def updateRequest(in: (A, B, Request), request: Request): (A, B, Request) = (in._1, in._2, request)
+      }
+
+    implicit def tuple4[A, B, C]: IsRequest[(A, B, C, Request)] =
+      new IsRequest[(A, B, C, Request)] {
+        override def extractRequest(in: (A, B, C, Request)): Request                                    = in._4
+        override def updateRequest(in: (A, B, C, Request), request: Request): (A, B, C, Request) =
+          (in._1, in._2, in._3, request)
+      }
+
+    implicit def tuple5[A, B, C, D]: IsRequest[(A, B, C, D, Request)] =
+      new IsRequest[(A, B, C, D, Request)] {
+        override def extractRequest(in: (A, B, C, D, Request)): Request                                       = in._5
+        override def updateRequest(in: (A, B, C, D, Request), request: Request): (A, B, C, D, Request) =
+          (in._1, in._2, in._3, in._4, request)
+      }
+  }
+
+  object IsRequest extends IsRequestLowPriority {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {
+      override def extractRequest(in: Request): Request                   = in
+      override def updateRequest(in: Request, request: Request): Request = request
+    }
   }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
