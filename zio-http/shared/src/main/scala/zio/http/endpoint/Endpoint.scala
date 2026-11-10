@@ -31,6 +31,7 @@ import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 import zio.http.internal.StringBuilderPool
+import zio.json.ast.Json
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -1060,6 +1061,17 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * A list of tags for this endpoint.
    */
   def tags: List[String] = documentation.tags
+
+  /**
+   * Adds extensions to the endpoint. They are used for documentation generation.
+   */
+  def ext(name: String, value: Json): Endpoint[PathInput, Input, Err, Output, Auth] =
+    copy(documentation = documentation.ext(name, value))
+
+  /**
+   * A map of extensions for this endpoint.
+   */
+  def extensions: Map[String, Json] = documentation.extensions
 
   /**
    * Transforms the input of this endpoint using the specified functions. This

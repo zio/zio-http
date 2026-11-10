@@ -4,6 +4,7 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
+import zio.json.EncoderOps
 import zio.json.ast.Json
 import zio.test._
 
@@ -245,6 +246,181 @@ object OpenAPISpec extends ZIOSpecDefault {
       assertTrue(List(a, b).distinct.size == 1) &&
       assertTrue(a != c) &&
       assertTrue(a != d)
+    },
+    test("info extensions") {
+      import OpenAPI._
+
+      val openApi  = OpenAPI.empty.copy(
+        info = OpenAPI.empty.info.copy(
+          extensions = OpenAPI.Extensions(
+            Map[String, Json](
+              ("foo", Json.Num(5)),
+              ("bar", Json.Bool(true)),
+              ("baz", Json.Str("five")),
+            ),
+          ),
+        ),
+      )
+      val json     = openApi.toJsonPretty
+      val expected = """{
+                       |  "openapi" : "3.1.0",
+                       |  "info" : {
+                       |    "title" : "",
+                       |    "version" : "",
+                       |    "x-foo": 5,
+                       |    "x-bar": true,
+                       |    "x-baz": "five"
+                       |  }
+                       |}""".stripMargin
+
+      assertTrue(toJsonAst(json) == toJsonAst(expected))
+    },
+    test("path extensions") {
+      import OpenAPI._
+
+      val openApi  = OpenAPI.empty.copy(
+        paths = ListMap(
+          (
+            Path.fromString("/hello").get,
+            PathItem.empty.copy(
+              extensions = OpenAPI.Extensions(
+                Map[String, Json](
+                  ("foo", Json.Num(5)),
+                  ("bar", Json.Bool(true)),
+                  ("baz", Json.Str("five")),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      val json     = openApi.toJsonPretty
+      val expected = """{
+                       |  "openapi" : "3.1.0",
+                       |  "info" : {
+                       |    "title" : "",
+                       |    "version" : ""
+                       |  },
+                       |  "paths" : {
+                       |    "/hello" : {
+                       |      "x-foo": 5,
+                       |      "x-bar": true,
+                       |      "x-baz": "five"
+                       |    }
+                       |  }
+                       |}""".stripMargin
+
+      assertTrue(toJsonAst(json) == toJsonAst(expected))
+    },
+    test("operation extensions") {
+      import OpenAPI._
+
+      val openApi  = OpenAPI.empty.copy(
+        paths = ListMap(
+          (
+            Path.fromString("/hello").get,
+            PathItem.empty.addGet(
+              Operation(
+                summary = None,
+                description = None,
+                externalDocs = None,
+                operationId = None,
+                requestBody = None,
+                extensions = OpenAPI.Extensions(
+                  Map[String, Json](
+                    ("foo", Json.Num(5)),
+                    ("bar", Json.Bool(true)),
+                    ("baz", Json.Str("five")),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      val json     = openApi.toJsonPretty
+      val expected = """{
+                       |  "openapi" : "3.1.0",
+                       |  "info" : {
+                       |    "title" : "",
+                       |    "version" : ""
+                       |  },
+                       |  "paths" : {
+                       |    "/hello" : {
+                       |      "get": {
+                       |        "x-foo": 5,
+                       |        "x-bar": true,
+                       |        "x-baz": "five"
+                       |      }
+                       |    }
+                       |  }
+                       |}""".stripMargin
+
+      assertTrue(toJsonAst(json) == toJsonAst(expected))
+    },
+    test("parameter extensions") {
+      import OpenAPI._
+
+      val openApi  = OpenAPI.empty.copy(
+        paths = ListMap(
+          (
+            Path.fromString("/hello").get,
+            PathItem.empty.addGet(
+              Operation(
+                summary = None,
+                description = None,
+                externalDocs = None,
+                operationId = None,
+                requestBody = None,
+                parameters = Set(
+                  ReferenceOr.Or(
+                    Parameter.pathParameter(
+                      name = "arg1",
+                      description = None,
+                      examples = Map.empty,
+                    ).copy(
+                      extensions = OpenAPI.Extensions(
+                        Map[String, Json](
+                          ("foo", Json.Num(5)),
+                          ("bar", Json.Bool(true)),
+                          ("baz", Json.Str("five")),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      val json     = openApi.toJsonPretty
+      val expected = """{
+                       |  "openapi" : "3.1.0",
+                       |  "info" : {
+                       |    "title" : "",
+                       |    "version" : ""
+                       |  },
+                       |  "paths" : {
+                       |    "/hello" : {
+                       |      "get": {
+                       |        "parameters" : [
+                       |          {
+                       |            "name" : "arg1",
+                       |            "in" : "path",
+                       |            "required" : true,
+                       |            "style" : "simple",
+                       |            "x-foo": 5,
+                       |            "x-bar": true,
+                       |            "x-baz": "five"
+                       |          }
+                       |        ]
+                       |      }
+                       |    }
+                       |  }
+                       |}""".stripMargin
+
+      assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
   )
 }

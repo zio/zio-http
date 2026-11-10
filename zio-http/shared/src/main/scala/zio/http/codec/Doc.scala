@@ -22,6 +22,8 @@ import zio.schema.Schema
 
 import zio.http.codec.Doc.Span.CodeStyle
 import zio.http.template
+import zio.http.endpoint.openapi.OpenAPI.Extensions
+import zio.json.ast.Json
 
 /**
  * A `Doc` models documentation for an endpoint or input.
@@ -70,6 +72,17 @@ sealed trait Doc { self =>
   def tags: List[String] = self match {
     case Tagged(_, tags) => tags
     case _               => Nil
+  }
+
+  def ext(name: String, value: Json): Doc =
+    self match {
+      case Extended(doc, exts) => Extended(doc, exts.updated(name, value))
+      case _                 => Extended(self, Map((name, value)))
+    }
+
+  def extensions: Map[String, Json] = self match {
+    case Extended(_, exts) => exts
+    case _                 => Map.empty
   }
 
   def toCommonMark: String = {
@@ -152,6 +165,9 @@ sealed trait Doc { self =>
         case Doc.Tagged(doc, _) =>
           render(doc, indent)
 
+        case Doc.Extended(doc, _) =>
+          render(doc, indent)
+
       }
     }
 
@@ -210,6 +226,8 @@ sealed trait Doc { self =>
       case Raw(_, docType)             =>
         throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
       case Tagged(doc, _)              =>
+        doc.toHtml
+      case Extended(doc, _)            =>
         doc.toHtml
     }
     html ++ (if (tags.nonEmpty) Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml else Html.Empty)
@@ -309,6 +327,9 @@ sealed trait Doc { self =>
 
         case Tagged(doc, _) =>
           renderHelpDoc(doc)
+
+        case Extended(doc, _) =>
+          renderHelpDoc(doc)
       }
 
     def renderSpan(span: Span): Unit = {
@@ -390,6 +411,7 @@ object Doc {
   final case class Sequence(left: Doc, right: Doc)                        extends Doc
   final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
   final case class Tagged(doc: Doc, tgs: List[String])                    extends Doc
+  final case class Extended(doc: Doc, exts: Map[String, Json])            extends Doc
   sealed trait ListingType
   object ListingType {
     case object Unordered extends ListingType
