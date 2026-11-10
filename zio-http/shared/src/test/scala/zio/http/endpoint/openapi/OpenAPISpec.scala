@@ -374,19 +374,21 @@ object OpenAPISpec extends ZIOSpecDefault {
                 requestBody = None,
                 parameters = Set(
                   ReferenceOr.Or(
-                    Parameter.pathParameter(
-                      name = "arg1",
-                      description = None,
-                      examples = Map.empty,
-                    ).copy(
-                      extensions = OpenAPI.Extensions(
-                        Map[String, Json](
-                          ("foo", Json.Num(5)),
-                          ("bar", Json.Bool(true)),
-                          ("baz", Json.Str("five")),
+                    Parameter
+                      .pathParameter(
+                        name = "arg1",
+                        description = None,
+                        examples = Map.empty,
+                      )
+                      .copy(
+                        extensions = OpenAPI.Extensions(
+                          Map[String, Json](
+                            ("foo", Json.Num(5)),
+                            ("bar", Json.Bool(true)),
+                            ("baz", Json.Str("five")),
+                          ),
                         ),
                       ),
-                    ),
                   ),
                 ),
               ),

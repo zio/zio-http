@@ -17,13 +17,13 @@
 package zio.http.codec
 
 import zio.Chunk
+import zio.json.ast.Json
 
 import zio.schema.Schema
 
 import zio.http.codec.Doc.Span.CodeStyle
-import zio.http.template
 import zio.http.endpoint.openapi.OpenAPI.Extensions
-import zio.json.ast.Json
+import zio.http.template
 
 /**
  * A `Doc` models documentation for an endpoint or input.
@@ -77,7 +77,7 @@ sealed trait Doc { self =>
   def ext(name: String, value: Json): Doc =
     self match {
       case Extended(doc, exts) => Extended(doc, exts.updated(name, value))
-      case _                 => Extended(self, Map((name, value)))
+      case _                   => Extended(self, Map((name, value)))
     }
 
   def extensions: Map[String, Json] = self match {

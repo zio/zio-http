@@ -20,6 +20,7 @@ import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import zio._
+import zio.json.ast.Json
 
 import zio.stream.ZStream
 
@@ -31,7 +32,6 @@ import zio.http.codec.HttpCodecError.EncodingResponseError
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 import zio.http.internal.StringBuilderPool
-import zio.json.ast.Json
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -1063,7 +1063,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   def tags: List[String] = documentation.tags
 
   /**
-   * Adds extensions to the endpoint. They are used for documentation generation.
+   * Adds extensions to the endpoint. They are used for documentation
+   * generation.
    */
   def ext(name: String, value: Json): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(documentation = documentation.ext(name, value))

@@ -5230,7 +5230,6 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
       },
-
       test("endpoint extensions") {
         val genericEndpoint = Endpoint(GET / "users").ext("foo", Json.Num(5))
         val generated       = OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint)
