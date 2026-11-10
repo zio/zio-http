@@ -23,6 +23,7 @@ import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.DecoderException
 import io.netty.handler.codec.http._
 
 /**
@@ -66,11 +67,29 @@ private[netty] final class ClientInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
-        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis, req.method)
-        onResponse.unsafe.done(Exit.succeed(resp))
+        if (response.decoderResult().isFailure) {
+          val cause   = response.decoderResult().cause()
+          val failure = if (cause ne null) cause else new DecoderException("HTTP decoding failed")
+          val exit    = Exit.fail(failure)
+          onResponse.unsafe.done(exit)
+          onComplete.unsafe.done(exit)
+          ctx.close(): Unit
+        } else {
+          val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
+          val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis, req.method)
+          onResponse.unsafe.done(Exit.succeed(resp))
+        }
       case content: HttpContent   =>
-        ctx.fireChannelRead(content): Unit
+        if (content.decoderResult().isFailure) {
+          val cause   = content.decoderResult().cause()
+          val failure = if (cause ne null) cause else new DecoderException("HTTP decoding failed")
+          val exit    = Exit.fail(failure)
+          onComplete.unsafe.done(exit)
+          ctx.fireExceptionCaught(failure): Unit
+          ctx.close(): Unit
+        } else {
+          ctx.fireChannelRead(content): Unit
+        }
 
       case err => throw new IllegalStateException(s"Client unexpected message type: $err")
     }

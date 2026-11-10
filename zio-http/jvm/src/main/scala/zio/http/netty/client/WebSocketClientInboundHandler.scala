@@ -24,6 +24,7 @@ import zio.http.internal.ChannelState
 import zio.http.netty.NettyResponse
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.DecoderException
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponseStatus}
 
@@ -37,18 +38,27 @@ private[netty] final class WebSocketClientInboundHandler(
     ctx.fireChannelActive(): Unit
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    msg.status match {
-      case HttpResponseStatus.SWITCHING_PROTOCOLS =>
-        onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))
-        ctx.fireChannelRead(msg.retain())
-      case status                                 =>
-        val exit = Exit.fail(
-          new WebSocketHandshakeException(
-            s"WebSocket upgrade failed: expected a '101 Switching Protocols' response but got '$status'",
-          ),
-        )
-        onResponse.unsafe.done(exit)
-        onComplete.unsafe.done(exit)
+    if (msg.decoderResult().isFailure) {
+      val cause   = msg.decoderResult().cause()
+      val failure = if (cause ne null) cause else new DecoderException("HTTP decoding failed")
+      val exit    = Exit.fail(failure)
+      onResponse.unsafe.done(exit)
+      onComplete.unsafe.done(exit)
+      ctx.close(): Unit
+    } else {
+      msg.status match {
+        case HttpResponseStatus.SWITCHING_PROTOCOLS =>
+          onResponse.unsafe.done(Exit.succeed(NettyResponse(msg)))
+          ctx.fireChannelRead(msg.retain())
+        case status                                 =>
+          val exit = Exit.fail(
+            new WebSocketHandshakeException(
+              s"WebSocket upgrade failed: expected a '101 Switching Protocols' response but got '$status'",
+            ),
+          )
+          onResponse.unsafe.done(exit)
+          onComplete.unsafe.done(exit)
+      }
     }
     ctx.pipeline().remove(ctx.name()): Unit
   }
