@@ -762,6 +762,10 @@ object OpenAPIGen {
           }
         case AuthType.Basic | AuthType.Bearer | AuthType.Digest =>
           List(SecurityRequirement(Map(authType.toString() -> Nil)))
+        case AuthType.Cookie(name)                              =>
+          // Sanitize for OpenAPI key regex `[A-Za-z0-9._-]+`; the real cookie name is preserved
+          // in `SecurityScheme.ApiKey.name`. Realistic cookie names need no rewrite.
+          List(SecurityRequirement(Map(name.replaceAll("[^A-Za-z0-9._-]", "_") -> Nil)))
         case custom: AuthType.Custom[_]                         =>
           val schemes = customAuthSchemes(custom.codec)
           List(SecurityRequirement(schemes.map { case (name, _) => name -> Nil }.toMap))
@@ -1068,6 +1072,19 @@ object OpenAPIGen {
                     scheme = authType.toString(),
                     bearerFormat = None,
                     description = None,
+                  ),
+                ),
+            )
+          case AuthType.Cookie(name)                              =>
+            // Components-map key must match OpenAPI's `[A-Za-z0-9._-]+`; the real cookie name
+            // is preserved in `SecurityScheme.ApiKey.name`. Realistic cookie names need no rewrite.
+            ListMap(
+              OpenAPI.Key.fromString(name.replaceAll("[^A-Za-z0-9._-]", "_")).get ->
+                ReferenceOr.Or[SecurityScheme.ApiKey](
+                  SecurityScheme.ApiKey(
+                    description = None,
+                    name = name,
+                    in = SecurityScheme.ApiKey.In.Cookie,
                   ),
                 ),
             )
