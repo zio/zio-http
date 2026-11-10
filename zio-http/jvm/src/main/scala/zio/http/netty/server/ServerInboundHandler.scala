@@ -94,12 +94,17 @@ private[zio] final case class ServerInboundHandler(
             )
             releaseRequest()
           } else {
-            val req  = makeZioRequest(ctx, jReq)
-            val exit = handler(req)
+            val req        = makeZioRequest(ctx, jReq)
+            val exit       = handler(req)
+            // Captured here, on the event loop, while this request's reader is the one in the pipeline. Looking it up when the
+            // response completes would be a race: on a keep-alive connection the next request may have installed its own reader
+            // by then, and discarding its body would break a request that did nothing wrong.
+            val bodyReader = unfinishedBodyReader(ctx)
+            val done       = () => { releaseRequest(); discardRemainingRequestBody(bodyReader) }
             if (attemptImmediateWrite(ctx, req.method, exit)) {
-              releaseRequest()
+              done()
             } else {
-              writeResponse(ctx, runtime, exit, req)(releaseRequest)
+              writeResponse(ctx, runtime, exit, req)(done)
             }
           }
         } finally {
@@ -136,6 +141,24 @@ private[zio] final case class ServerInboundHandler(
             super.exceptionCaught(ctx, t)
         }
     }
+
+  private def unfinishedBodyReader(ctx: ChannelHandlerContext): AsyncBodyReader =
+    ctx.pipeline().get(Names.HttpContentHandler) match {
+      case reader: AsyncBodyReader => reader
+      case _                       => null
+    }
+
+  /**
+   * A response has been written; if the body of the request it answers was
+   * never consumed, or only consumed in part, this connection has stopped
+   * reading and would silently drop whatever the client sends next. Reading is
+   * driven by the consumer of the body, and there is no consumer any more.
+   *
+   * A reader that has seen the last chunk has already removed itself and
+   * ignores this.
+   */
+  private def discardRemainingRequestBody(bodyReader: AsyncBodyReader): Unit =
+    if (bodyReader ne null) bodyReader.discardRemainingBody(config.maxDiscardedRequestBodySize)
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
     val handler = new ServerAsyncBodyHandler(config.requestBodyPreConnectBufferSize)
