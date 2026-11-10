@@ -504,7 +504,7 @@ final case class EndpointGen(config: Config) {
                             enums = obj.enums ++ code.enums,
                           )
                         }
-                        Nil                               -> s"$method.${Inline.ResponseBodyType}"
+                        code.imports                      -> s"$method.${Inline.ResponseBodyType}"
                     }
                   case OpenAPI.ReferenceOr.Reference(SchemaRef(ref), _, _) => Nil -> ref
                   case other => throw new Exception(s"Unexpected response body schema: $other")
@@ -552,7 +552,7 @@ final case class EndpointGen(config: Config) {
                             enums = obj.enums ++ code.enums,
                           )
                         }
-                        Nil                               -> s"$method.${Inline.ResponseBodyType}"
+                        code.imports                      -> s"$method.${Inline.ResponseBodyType}"
                     }
                   case OpenAPI.ReferenceOr.Reference(SchemaRef(ref), _, _) => Nil -> ref
                   case other => throw new Exception(s"Unexpected response body schema: $other")
