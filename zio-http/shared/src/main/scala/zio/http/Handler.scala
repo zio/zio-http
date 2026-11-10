@@ -20,6 +20,7 @@ import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
@@ -35,31 +36,39 @@ import zio.http.template._
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
-    in: Handler.IsRequest[In1],
+    in: Handler.IsRequest[In @uncheckedVariance],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
+  ): Handler[Env1, Response, in.Input, Response] = {
+    implicit val trace: Trace = Trace.empty
+    Handler.scoped[Env1] {
+      Handler.fromFunctionZIO[in.Input] { input =>
+        aspect.applyHandler {
+          self.contramap[Request](request => in.replace(input, request)).map(out).mapError(err)
+        }(in.request(input))
+      }
+    }
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
-    in: Handler.IsRequest[In1],
+    in: Handler.IsRequest[In @uncheckedVariance],
     out: Out <:< Response,
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
-        }
+  ): Handler[Env0, Response, in.Input, Response] =
+    Handler.scoped[Env0] {
+      Handler.fromFunctionZIO[in.Input] { input =>
+        aspect.applyHandlerContext {
+          Handler.scoped[Env0] {
+            handler { (ctx: Ctx, req: Request) =>
+              self(in.replace(input, req))
+                .map(out)
+                .mapError(err)
+                .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+            }
+          }
+        }(in.request(input))
       }
     }
 
@@ -717,10 +726,36 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A] {
+    type Input <: A
+    def request(input: Input): Request
+    def replace(input: Input, request: Request): A
+  }
 
-  object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  object IsRequest extends IsRequestLowPriority {
+    type Aux[A, I <: A] = IsRequest[A] { type Input = I }
+
+    implicit val request: Aux[Request, Request] = new IsRequest[Request] {
+      type Input = Request
+      def request(input: Request): Request                   = input
+      def replace(input: Request, request: Request): Request = request
+    }
+  }
+
+  private[http] trait IsRequestLowPriority {
+    implicit def acceptsRequest[A >: Request]: IsRequest.Aux[A, Request] = new IsRequest[A] {
+      type Input = Request
+      def request(input: Request): Request             = input
+      def replace(input: Request, request: Request): A = request
+    }
+
+    implicit def tuple[Params, In <: Product](implicit
+      combiner: zio.http.codec.Combiner.WithOut[Params, Request, In],
+    ): IsRequest.Aux[In, In] = new IsRequest[In] {
+      type Input = In
+      def request(input: In): Request              = combiner.separate(input)._2
+      def replace(input: In, request: Request): In = combiner.combine(combiner.separate(input)._1, request)
+    }
   }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
