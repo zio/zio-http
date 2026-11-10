@@ -1239,15 +1239,16 @@
     "@babel/helper-string-parser" "^7.27.1"
     "@babel/helper-validator-identifier" "^7.27.1"
 
-"@bytebrain.ai/bytebrain-ui@0.0.13":
-  version "0.0.13"
-  resolved "https://registry.npmjs.org/@bytebrain.ai/bytebrain-ui/-/bytebrain-ui-0.0.13.tgz#bd7ab6a9b927541cf234ae94fbb2d7d93a6542ea"
-  integrity sha512-jZ8YEoyu9xwX/qk/cNoXA8BYE402M5m/JUj9NPpcNdR9VdfJS09NdWTkVBVFjn/5XE5jOYXVL7t6TkgJfMEk8g==
+"@bytebrain.ai/bytebrain-ui@0.0.14":
+  version "0.0.14"
+  resolved "https://registry.npmjs.org/@bytebrain.ai/bytebrain-ui/-/bytebrain-ui-0.0.14.tgz#ec224a8db33249e222e3013df48b61bf805a275f"
+  integrity sha512-QLfWyqaCyZYN5wY+kLFEMYvRpJyK6WnOi956B7SVUvSF9+rdaUZvDnSr3rar6Nr4o0+NwsTpaeApI/jko/O0vA==
   dependencies:
     highlight.js "^11.9.0"
     path-browserify "^1.0.1"
     process "^0.11.10"
     react-markdown "^9.0.0"
+    remark-gfm "^4.0.1"
 
 "@colors/colors@1.5.0":
   version "1.5.0"
@@ -8500,7 +8501,7 @@ remark-frontmatter@^5.0.0:
     micromark-extension-frontmatter "^2.0.0"
     unified "^11.0.0"
 
-remark-gfm@^4.0.0:
+remark-gfm@^4.0.0, remark-gfm@^4.0.1:
   version "4.0.1"
   resolved "https://registry.npmjs.org/remark-gfm/-/remark-gfm-4.0.1.tgz#33227b2a74397670d357bf05c098eaf8513f0d6b"
   integrity sha512-1quofZ2RQ9EWdeN34S79+KExV1764+wCUGop5CPL1WGdD0ocPpu91lzPGbwWMECpEpd42kJGQwzRfyov9j4yNg==
