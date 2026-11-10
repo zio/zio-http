@@ -14,6 +14,31 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1")
       },
+      test("HandlerAspect preserves path parameters and context (#3141)") {
+        val aspect = HandlerAspect.interceptIncomingHandler(handler((req: Request) => (req, 7)))
+        val routes = Routes(
+          Method.GET / "base" / string("1") -> handler { (a: String, _: Request) =>
+            withContext((i: Int) => Response.text(s"$a $i"))
+          } @@ aspect,
+        )
+        for {
+          response <- routes.runZIO(Request.get(url"/base/hello"))
+          body     <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, body == "hello 7")
+      },
+      test("HandlerAspect preserves multiple path parameters and request updates") {
+        val aspect = HandlerAspect.updateRequest(_.withBody(Body.fromString("updated"))) ++
+          HandlerAspect.updateResponse(_.status(Status.Accepted))
+        val routes = Routes(
+          Method.GET / string("name") / int("age") -> handler { (name: String, age: Int, req: Request) =>
+            req.body.asString.orDie.map(body => Response.text(s"$name $age $body"))
+          } @@ aspect,
+        )
+        for {
+          response <- routes.runZIO(Request.get(url"/Alice/42"))
+          body     <- response.body.asString
+        } yield assertTrue(response.status == Status.Accepted, body == "Alice 42 updated")
+      },
       // format: off
       test("HandlerAspect with context can eliminate environment type partially") {
         val handlerAspect = HandlerAspect.interceptIncomingHandler(handler((req: Request) => (req, req.headers.size)))
