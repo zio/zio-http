@@ -38,12 +38,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
-  }
+    trace: Trace,
+  ): Handler[Env1, Response, In1, Response] =
+    Handler.fromFunctionHandler[In1] { in1 =>
+      aspect
+        .applyHandler(
+          Handler.fromFunctionZIO[Request] { req =>
+            self.asInstanceOf[Handler[R, Response, In1, Response]](in.setRequest(in1, req))
+          },
+        )
+        .contramap[In1](in.getRequest)
+    }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
     in: Handler.IsRequest[In1],
@@ -51,16 +56,20 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+  ): Handler[Env0, Response, In1, Response] =
+    Handler.fromFunctionHandler[In1] { in1 =>
+      aspect
+        .applyHandlerContext {
+          Handler.scoped[Env0] {
+            handler { (ctx: Ctx, req: Request) =>
+              val h: ZIO[Scope & Ctx, Response, Response] =
+                self
+                  .asInstanceOf[Handler[Ctx, Response, In1, Response]](in.setRequest(in1, req))
+              h.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
+            }
+          }
         }
-      }
+        .contramap[In1](in.getRequest)
     }
 
   def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
@@ -717,10 +726,36 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
+  sealed trait IsRequest[A] {
+    def getRequest(a: A): Request
+    def setRequest(a: A, req: Request): A
+  }
 
   object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {
+      override def getRequest(a: Request): Request               = a
+      override def setRequest(a: Request, req: Request): Request = req
+    }
+
+    implicit def tuple2[A]: IsRequest[(A, Request)] = new IsRequest[(A, Request)] {
+      override def getRequest(a: (A, Request)): Request                    = a._2
+      override def setRequest(a: (A, Request), req: Request): (A, Request) = (a._1, req)
+    }
+
+    implicit def tuple3[A, B]: IsRequest[(A, B, Request)] = new IsRequest[(A, B, Request)] {
+      override def getRequest(a: (A, B, Request)): Request                       = a._3
+      override def setRequest(a: (A, B, Request), req: Request): (A, B, Request) = (a._1, a._2, req)
+    }
+
+    implicit def tuple4[A, B, C]: IsRequest[(A, B, C, Request)] = new IsRequest[(A, B, C, Request)] {
+      override def getRequest(a: (A, B, C, Request)): Request                          = a._4
+      override def setRequest(a: (A, B, C, Request), req: Request): (A, B, C, Request) = (a._1, a._2, a._3, req)
+    }
+
+    implicit def tuple5[A, B, C, D]: IsRequest[(A, B, C, D, Request)] = new IsRequest[(A, B, C, D, Request)] {
+      override def getRequest(a: (A, B, C, D, Request)): Request                             = a._5
+      override def setRequest(a: (A, B, C, D, Request), req: Request): (A, B, C, D, Request) = (a._1, a._2, a._3, a._4, req)
+    }
   }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
