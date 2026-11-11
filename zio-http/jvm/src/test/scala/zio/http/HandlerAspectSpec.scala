@@ -45,6 +45,25 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           bodyString <- response.body.asString
         } yield assertTrue(bodyString == "1 test")
       },
+      test("HandlerAspect with context works on handlers with path parameters without ClassCastException (#3141)") {
+        final case class WebSession(id: Int)
+        val maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request] { req =>
+              ZIO.succeed((req, Some(WebSession(42))))
+            }
+          )
+        val route = Method.GET / "base" / string("id") -> handler((a: String, _: Request) =>
+          withContext((c: Option[WebSession]) =>
+            ZIO.succeed(Response.text(s"$a:${c.map(_.id).getOrElse(-1)}"))
+          )
+        ) @@ maybeWebSession
+
+        for {
+          response   <- ZIO.scoped(Routes(route).toHandler.apply(Request.get(URL.decode("/base/1").toOption.get)))
+          bodyString <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok && bodyString == "1:42")
+      },
       // format: on
     )
 }
