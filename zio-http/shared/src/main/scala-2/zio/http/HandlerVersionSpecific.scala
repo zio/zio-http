@@ -10,16 +10,17 @@ trait HandlerVersionSpecific {
       out: Out <:< Response,
       err: Err <:< Response,
       trace: Trace,
-    ): Handler[Env0 with Env1, Response, Request, Response] =
-      aspect.applyHandlerContext {
-        Handler.scoped[Env0] {
-          handler { (ctx: Ctx, req: Request) =>
-            val handler: ZIO[Scope & Env, Response, Response] =
-              self.asInstanceOf[Handler[Env, Response, Request, Response]](req)
-            handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx).asInstanceOf[ZEnvironment[Scope & Env]])
-          }
-        }
-      }
+    ): Handler[Env0 with Env1, Response, In, Response] = {
+      val isRequest = in.asInstanceOf[Handler.IsRequest[In]]
+      Handler.applyAspectToHandler[Env0 with Env1, In, Ctx](
+        aspect,
+        isRequest,
+        (input: In, ctx: Ctx) =>
+          self
+            .asInstanceOf[Handler[Env, Response, In, Response]](input)
+            .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx).asInstanceOf[ZEnvironment[Scope & Env]]),
+      )
+    }
   }
 
 }

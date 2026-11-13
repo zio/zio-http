@@ -38,11 +38,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-  ): Handler[Env1, Response, Request, Response] = {
-    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
-      handler.asInstanceOf[Handler[R, Response, Request, Response]]
-
-    aspect.applyHandler(convert(self))
+  ): Handler[Env1, Response, In, Response] = {
+    implicit val trace: Trace = Trace.empty
+    val isRequest             = in.asInstanceOf[Handler.IsRequest[In]]
+    Handler.applyAspectToHandler[Env1, In, Unit](
+      aspect,
+      isRequest,
+      (input: In, _: Unit) => self.asInstanceOf[Handler[Env1, Response, In, Response]](input),
+    )
   }
 
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
@@ -51,17 +54,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     err: Err <:< Response,
     trace: Trace,
     tag: Tag[Ctx],
-  ): Handler[Env0, Response, Request, Response] =
-    aspect.applyHandlerContext {
-      Handler.scoped[Env0] {
-        handler { (ctx: Ctx, req: Request) =>
-          val handler: ZIO[Scope & Ctx, Response, Response] =
-            self
-              .asInstanceOf[Handler[Ctx, Response, Request, Response]](req)
-          handler.provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx))
-        }
-      }
-    }
+  ): Handler[Env0, Response, In, Response] = {
+    val isRequest = in.asInstanceOf[Handler.IsRequest[In]]
+    Handler.applyAspectToHandler[Env0, In, Ctx](
+      aspect,
+      isRequest,
+      (input: In, ctx: Ctx) =>
+        self
+          .asInstanceOf[Handler[Ctx, Response, In, Response]](input)
+          .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx)),
+    )
+  }
 
   def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
     new ApplyContextAspect(self)
@@ -717,11 +720,72 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
-  sealed trait IsRequest[-A]
-
-  object IsRequest {
-    implicit val request: IsRequest[Request] = new IsRequest[Request] {}
+  /**
+   * Typeclass that describes how to extract the [[zio.http.Request]] from a
+   * handler input, and how to replace it with a transformed request. Besides
+   * `Request` itself, any tuple whose rightmost element is (or contains) a
+   * `Request` is supported, which is how path parameters are passed to route
+   * handlers.
+   */
+  sealed trait IsRequest[A] {
+    def request(a: A): Request
+    def withRequest(a: A, request: Request): A
   }
+
+  object IsRequest extends IsRequestLowPriority {
+    implicit val request: IsRequest[Request] = new IsRequest[Request] {
+      def request(a: Request): Request                       = a
+      def withRequest(a: Request, request: Request): Request = request
+    }
+  }
+
+  private[http] trait IsRequestLowPriority extends IsRequestLowestPriority {
+    implicit def tuple[L, R](implicit ev: IsRequest[R]): IsRequest[(L, R)] =
+      new IsRequest[(L, R)] {
+        def request(a: (L, R)): Request                      = ev.request(a._2)
+        def withRequest(a: (L, R), request: Request): (L, R) = (a._1, ev.withRequest(a._2, request))
+      }
+  }
+
+  private[http] trait IsRequestLowestPriority {
+    implicit def default[A]: IsRequest[A] = new IsRequest[A] {
+      def request(a: A): Request             = a match {
+        case r: Request      => r
+        case (_, r: Request) => r
+        case _               => Request.get(URL.root)
+      }
+      def withRequest(a: A, req: Request): A = a match {
+        case _: Request      => req.asInstanceOf[A]
+        case (l, _: Request) => (l, req).asInstanceOf[A]
+        case _               => a
+      }
+    }
+  }
+
+  /**
+   * Applies a [[zio.http.HandlerAspect]] to a handler whose input may contain
+   * more than just the request (e.g. path parameters tupled with the request).
+   * The request is extracted from the input to run the aspect, and the
+   * (possibly transformed) request is put back before the handler is invoked
+   * with the original input.
+   */
+  private[http] def applyAspectToHandler[Env, In, Ctx](
+    aspect: HandlerAspect[Env, Ctx],
+    isRequest: IsRequest[In],
+    run: (In, Ctx) => ZIO[Scope & Env, Response, Response],
+  )(implicit trace: Trace): Handler[Env, Response, In, Response] =
+    Handler.scoped[Env] {
+      handler { (input: In) =>
+        val request = isRequest.request(input)
+        for {
+          tuple <- aspect.protocol.incomingHandler(request)
+          (state, (request0, ctx)) = tuple
+          either   <- run(isRequest.withRequest(input, request0), ctx).either
+          response <- aspect.protocol.outgoingHandler((state, either.merge))
+          response <- if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response)
+        } yield response
+      }
+    }
 
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
