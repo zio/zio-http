@@ -330,17 +330,11 @@ private[zio] final case class ServerInboundHandler(
         }
       }
     _                  <- ZIO.attempt {
-      ctx
-        .channel()
-        .pipeline()
-        .addLast(
-          new WebSocketServerProtocolHandler(
-            NettySocketProtocol
-              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
-              .build(),
-          ),
-        )
-        .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
+      val webSocketConfig = webSocketApp.customConfig.getOrElse(config.webSocketConfig)
+      val pipeline        = ctx.channel().pipeline()
+      pipeline.addLast(new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(webSocketConfig).build()))
+      NettySocketProtocol.addFrameAggregator(pipeline, webSocketConfig)
+      pipeline.addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
 
       val jReq = new DefaultFullHttpRequest(
         Conversions.versionToNetty(request.version),
