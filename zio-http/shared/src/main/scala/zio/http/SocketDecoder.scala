@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
@@ -28,7 +30,9 @@ final case class SocketDecoder(
   allowExtensions: Boolean = false,
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
+  @unroll
   aggregateFragments: Boolean = true,
+  @unroll
   maxMessageLength: Int = 1048576,
 ) { self =>
 
