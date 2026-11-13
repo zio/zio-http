@@ -38,11 +38,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
     err: Err <:< Response,
-    trace: Trace,
   ): Handler[Env1, Response, In, Response] = {
-    val isRequest = in.asInstanceOf[Handler.IsRequest[In]]
-    Handler.applyAspectToHandler[Env1, In, Unit](aspect, isRequest, (input: In, _: Unit) =>
-      self.asInstanceOf[Handler[Env1, Response, In, Response]](input),
+    implicit val trace: Trace = Trace.empty
+    val isRequest             = in.asInstanceOf[Handler.IsRequest[In]]
+    Handler.applyAspectToHandler[Env1, In, Unit](
+      aspect,
+      isRequest,
+      (input: In, _: Unit) => self.asInstanceOf[Handler[Env1, Response, In, Response]](input),
     )
   }
 
@@ -54,10 +56,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     tag: Tag[Ctx],
   ): Handler[Env0, Response, In, Response] = {
     val isRequest = in.asInstanceOf[Handler.IsRequest[In]]
-    Handler.applyAspectToHandler[Env0, In, Ctx](aspect, isRequest, (input: In, ctx: Ctx) =>
-      self
-        .asInstanceOf[Handler[Ctx, Response, In, Response]](input)
-        .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx)),
+    Handler.applyAspectToHandler[Env0, In, Ctx](
+      aspect,
+      isRequest,
+      (input: In, ctx: Ctx) =>
+        self
+          .asInstanceOf[Handler[Ctx, Response, In, Response]](input)
+          .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx)),
     )
   }
 
@@ -729,7 +734,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   object IsRequest extends IsRequestLowPriority {
     implicit val request: IsRequest[Request] = new IsRequest[Request] {
-      def request(a: Request): Request                      = a
+      def request(a: Request): Request                       = a
       def withRequest(a: Request, request: Request): Request = request
     }
   }
@@ -744,10 +749,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   /**
    * Applies a [[zio.http.HandlerAspect]] to a handler whose input may contain
-   * more than just the request (e.g. path parameters tupled with the
-   * request). The request is extracted from the input to run the aspect, and
-   * the (possibly transformed) request is put back before the handler is
-   * invoked with the original input.
+   * more than just the request (e.g. path parameters tupled with the request).
+   * The request is extracted from the input to run the aspect, and the
+   * (possibly transformed) request is put back before the handler is invoked
+   * with the original input.
    */
   private[http] def applyAspectToHandler[Env, In, Ctx](
     aspect: HandlerAspect[Env, Ctx],
@@ -758,11 +763,11 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       handler { (input: In) =>
         val request = isRequest.request(input)
         for {
-          tuple                    <- aspect.protocol.incomingHandler(request)
+          tuple <- aspect.protocol.incomingHandler(request)
           (state, (request0, ctx)) = tuple
-          either                   <- run(isRequest.withRequest(input, request0), ctx).either
-          response                 <- aspect.protocol.outgoingHandler((state, either.merge))
-          response                 <- if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response)
+          either   <- run(isRequest.withRequest(input, request0), ctx).either
+          response <- aspect.protocol.outgoingHandler((state, either.merge))
+          response <- if (either.isLeft) ZIO.fail(response) else ZIO.succeed(response)
         } yield response
       }
     }

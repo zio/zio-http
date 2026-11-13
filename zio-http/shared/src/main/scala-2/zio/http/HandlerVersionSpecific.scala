@@ -12,10 +12,13 @@ trait HandlerVersionSpecific {
       trace: Trace,
     ): Handler[Env0 with Env1, Response, In, Response] = {
       val isRequest = in.asInstanceOf[Handler.IsRequest[In]]
-      Handler.applyAspectToHandler[Env0 with Env1, In, Ctx](aspect, isRequest, (input: In, ctx: Ctx) =>
-        self
-          .asInstanceOf[Handler[Env, Response, In, Response]](input)
-          .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx).asInstanceOf[ZEnvironment[Scope & Env]]),
+      Handler.applyAspectToHandler[Env0 with Env1, In, Ctx](
+        aspect,
+        isRequest,
+        (input: In, ctx: Ctx) =>
+          self
+            .asInstanceOf[Handler[Env, Response, In, Response]](input)
+            .provideSomeEnvironment[Scope & Env0](_.add[Ctx](ctx).asInstanceOf[ZEnvironment[Scope & Env]]),
       )
     }
   }
