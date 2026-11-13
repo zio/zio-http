@@ -46,5 +46,33 @@ object HandlerAspectSpec extends ZIOSpecDefault {
         } yield assertTrue(bodyString == "1 test")
       },
       // format: on
+      test("HandlerAspect with context works on a route with path parameters (#3141)") {
+        case class WebSession(id: Int)
+        val maybeWebSession: HandlerAspect[Any, Option[WebSession]] =
+          HandlerAspect.interceptIncomingHandler(
+            Handler.fromFunctionZIO[Request](req => ZIO.succeed((req, Option(WebSession(1))))),
+          )
+        val route = Method.GET / "base" / string("id") -> handler { (id: String, req: Request) =>
+          withContext((session: Option[WebSession]) =>
+            ZIO.succeed(Response.text(s"$id:${session.map(_.id).getOrElse(-1)}:${req.method.name}")),
+          )
+        } @@ maybeWebSession
+        for {
+          response   <- ZIO.scoped(route.toHandler.run(url = URL.root / "base" / "42"))
+          bodyString <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, bodyString == "42:1:GET")
+      },
+      test("HandlerAspect without context works on a route with path parameters (#3141)") {
+        val aspect = HandlerAspect.interceptIncomingHandler(
+          Handler.fromFunction[Request](req => (req, ())),
+        )
+        val route = Method.GET / "base" / string("id") / int("num") -> handler { (id: String, num: Int, req: Request) =>
+          Response.text(s"$id:$num:${req.method.name}")
+        } @@ aspect
+        for {
+          response   <- ZIO.scoped(route.toHandler.run(url = URL.root / "base" / "42" / "7"))
+          bodyString <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, bodyString == "42:7:GET")
+      },
     )
 }
