@@ -14,7 +14,7 @@ object Shading {
 
   def shadingSettings() = if (shadingEnabled) {
     Seq(
-      shadedModules ++= netty.map(_.module).toSet,
+      shadedModules ++= (netty :+ `netty-pkitesting`).map(_.module).toSet,
       shadingRules += ShadingRule.rename("io.netty.**", "zio.http.shaded.netty.@1"),
       validNamespaces ++= Set("zio", "org"),
     )

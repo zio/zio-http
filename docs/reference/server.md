@@ -118,6 +118,16 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 ```
 
+### Generating a Self-Signed Certificate
+
+For tests and local development, `SSLConfig.generate` makes the server use a generated self-signed certificate. It relies on Netty's test-only `netty-pkitesting` module (and BouncyCastle), which zio-http declares as an optional dependency, so add it to your build yourself (`zio-http-testkit` already brings it):
+
+```scala
+libraryDependencies += "io.netty" % "netty-pkitesting" % "<netty version used by zio-http>" % Test
+```
+
+Without it, TLS connections fail with an error asking for this dependency. Do not use `SSLConfig.generate` in production.
+
 ## Configuring SSL via JKS
 
 Server SSL can be configured to with a JKS Keystore for standard SSL or, additionally, with an `jks` truststore.

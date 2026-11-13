@@ -17,7 +17,8 @@
 package zio.http.netty.server
 
 import java.io.{FileInputStream, InputStream}
-import java.security.KeyStore
+import java.security.cert.X509Certificate
+import java.security.{KeyStore, PrivateKey}
 import java.util
 import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
@@ -39,6 +40,29 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 }
 import io.netty.handler.ssl.{ClientAuth => NettyClientAuth, _}
 import io.netty.pkitesting.CertificateBuilder
+
+// Kept out of `SSLUtil` so the optional `netty-pkitesting` classes are only loaded when `SSLConfig.generate` is used.
+private[netty] object SelfSignedCertificate {
+
+  def generate(): (PrivateKey, X509Certificate) =
+    try {
+      val selfSigned = new CertificateBuilder()
+        .subject("CN=localhost")
+        .addSanDnsName("localhost")
+        .setIsCertificateAuthority(true)
+        .rsa2048()
+        .buildSelfSigned()
+      (selfSigned.getKeyPair.getPrivate, selfSigned.getCertificate)
+    } catch {
+      case e: NoClassDefFoundError =>
+        throw new IllegalStateException(
+          "SSLConfig.generate requires io.netty:netty-pkitesting on the classpath, which zio-http does not bring transitively. " +
+            "Add \"io.netty\" % \"netty-pkitesting\" to your dependencies, or use a certificate from a file, resource or key store instead.",
+          e,
+        )
+    }
+}
+
 private[netty] object SSLUtil {
 
   implicit class SslContextBuilderOps(self: SslContextBuilder) {
@@ -89,11 +113,9 @@ private[netty] object SSLUtil {
 
   def sslConfigToSslContext(sslConfig: SSLConfig): SslContext = sslConfig.data match {
     case SSLConfig.Data.Generate =>
-      val selfSigned = new CertificateBuilder()
-        .rsa2048()
-        .buildSelfSigned()
+      val (privateKey, certificate) = SelfSignedCertificate.generate()
       SslContextBuilder
-        .forServer(selfSigned.getKeyPair.getPrivate, selfSigned.getCertificate)
+        .forServer(privateKey, certificate)
         .buildWithDefaultOptions(sslConfig)
 
     case SSLConfig.Data.FromFile(certPath, keyPath, trustCertCollectionPath) =>

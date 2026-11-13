@@ -219,6 +219,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
+      `netty-pkitesting` % Optional,
     ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
@@ -498,6 +499,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
       `zio`,
       "dev.zio" %% "zio-test" % ZioVersion,
       `zio-test-sbt`,
+      `netty-pkitesting`,
     ),
   )
   .dependsOn(zioHttpJVM)
