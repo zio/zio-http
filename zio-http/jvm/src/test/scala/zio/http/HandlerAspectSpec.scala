@@ -52,13 +52,13 @@ object HandlerAspectSpec extends ZIOSpecDefault {
           HandlerAspect.interceptIncomingHandler(
             Handler.fromFunctionZIO[Request](req => ZIO.succeed((req, Option(WebSession(1))))),
           )
-        val route = Method.GET / "base" / string("id") -> handler { (id: String, req: Request) =>
+        val route = Method.GET / "base" / string("id") -> (handler { (id: String, req: Request) =>
           withContext((session: Option[WebSession]) =>
             ZIO.succeed(Response.text(s"$id:${session.map(_.id).getOrElse(-1)}:${req.method.name}")),
           )
-        } @@ maybeWebSession
+        } @@ maybeWebSession)
         for {
-          response   <- ZIO.scoped(route.toHandler.run(url = URL.root / "base" / "42"))
+          response   <- ZIO.scoped(route.toHandler.runZIO(Request.get(URL.root / "base" / "42")))
           bodyString <- response.body.asString
         } yield assertTrue(response.status == Status.Ok, bodyString == "42:1:GET")
       },
@@ -66,11 +66,12 @@ object HandlerAspectSpec extends ZIOSpecDefault {
         val aspect = HandlerAspect.interceptIncomingHandler(
           Handler.fromFunction[Request](req => (req, ())),
         )
-        val route = Method.GET / "base" / string("id") / int("num") -> handler { (id: String, num: Int, req: Request) =>
-          Response.text(s"$id:$num:${req.method.name}")
-        } @@ aspect
+        val route  =
+          Method.GET / "base" / string("id") / int("num") -> (handler { (id: String, num: Int, req: Request) =>
+            Response.text(s"$id:$num:${req.method.name}")
+          } @@ aspect)
         for {
-          response   <- ZIO.scoped(route.toHandler.run(url = URL.root / "base" / "42" / "7"))
+          response   <- ZIO.scoped(route.toHandler.runZIO(Request.get(URL.root / "base" / "42" / "7")))
           bodyString <- response.body.asString
         } yield assertTrue(response.status == Status.Ok, bodyString == "42:7:GET")
       },
