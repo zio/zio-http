@@ -739,12 +739,27 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
-  private[http] trait IsRequestLowPriority {
+  private[http] trait IsRequestLowPriority extends IsRequestLowestPriority {
     implicit def tuple[L, R](implicit ev: IsRequest[R]): IsRequest[(L, R)] =
       new IsRequest[(L, R)] {
         def request(a: (L, R)): Request                      = ev.request(a._2)
         def withRequest(a: (L, R), request: Request): (L, R) = (a._1, ev.withRequest(a._2, request))
       }
+  }
+
+  private[http] trait IsRequestLowestPriority {
+    implicit def default[A]: IsRequest[A] = new IsRequest[A] {
+      def request(a: A): Request             = a match {
+        case r: Request      => r
+        case (_, r: Request) => r
+        case _               => Request.get(URL.root)
+      }
+      def withRequest(a: A, req: Request): A = a match {
+        case _: Request      => req.asInstanceOf[A]
+        case (l, _: Request) => (l, req).asInstanceOf[A]
+        case _               => a
+      }
+    }
   }
 
   /**
