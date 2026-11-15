@@ -28,10 +28,12 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion,
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-x86_64",
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
-      "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
       "com.aayushatharva.brotli4j" % "brotli4j" % "1.24.0" % "provided",
     )
+
+  // Test-only Netty module (pulls in BouncyCastle), needed only by `SSLConfig.generate`.
+  val `netty-pkitesting` = "io.netty" % "netty-pkitesting" % NettyVersion
 
   val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.1.12"
 
