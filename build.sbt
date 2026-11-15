@@ -197,7 +197,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies += unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.2.0"),
   )
   .settings(
     libraryDependencies ++= {
@@ -514,6 +514,7 @@ lazy val docs = project
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
+    scalacOptions -= "-Werror", // the Scala 3 spelling of the above
     projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,

@@ -16,12 +16,12 @@
 
 package zio.http
 
-import scala.annotation.unroll
-
 import zio.Config
 import zio.Config.Secret
 
 import zio.http.SSLConfig._
+
+import com.lihaoyi.unroll
 
 sealed trait ClientAuth
 
