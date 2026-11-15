@@ -26,13 +26,30 @@ import zio.stream.ZStream
 
 import zio.http.Body
 import zio.http.Body._
-import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, UnsafeAsync}
+import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufStreamBody, UnsafeAsync}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 
 private[netty] object NettyBodyWriter {
+
+  // Zero-copy: each element is claimed and its ByteBuf handed to Netty AS-IS (Netty releases it after the write) in
+  // ONE synchronous step — no interruption point between claim and hand-off. The flush future of a chunk's last
+  // buffer is awaited before the next pull (backpressure, like StreamBody).
+  private def writeByteBufs[A](body: ByteBufStreamBody[A], ctx: ChannelHandlerContext)(implicit
+    trace: Trace,
+  ): Task[Unit] =
+    body.stream.runForeachChunk { as =>
+      NettyFutureExecutor.executed {
+        val bufs = as.flatMap(a => Chunk.fromIterable(body.claim(a)))
+        if (bufs.isEmpty) ctx.newSucceededFuture()
+        else {
+          bufs.init.foreach(buf => ctx.write(new DefaultHttpContent(buf)))
+          ctx.writeAndFlush(new DefaultHttpContent(bufs.last))
+        }
+      }
+    }.zipRight(NettyFutureExecutor.executed(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)))
 
   @tailrec
   def writeAndFlush(
@@ -64,6 +81,8 @@ private[netty] object NettyBodyWriter {
         val stream = body.asStream
         val s      = StreamBody(stream, None, contentType = body.contentType)
         NettyBodyWriter.writeAndFlush(s, None, ctx)
+      case body: ByteBufStreamBody[_]      =>
+        Some(writeByteBufs(body, ctx))
       case AsyncBody(async, _, _, _)       =>
         async(
           new UnsafeAsync {

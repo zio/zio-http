@@ -60,6 +60,29 @@ object NettyBody {
     }
   }
 
+  /**
+   * A body streamed as Netty `ByteBuf`s that the server/client writes to the
+   * channel AS-IS — no copy into a byte array, no re-wrapping. Each claimed
+   * buffer becomes one HTTP chunk (chunked transfer encoding).
+   *
+   * The stream emits plain values (`A`, e.g. tickets into a producer-owned
+   * registry), NOT buffers: the writer calls `claim` for each element in the
+   * same synchronous step that hands the buffer to Netty, so there is no
+   * interruption point between taking ownership of a buffer and writing it.
+   * `claim` returns the buffer at most once (None if it was already released by
+   * its producer); a claimed buffer is released by Netty after the socket write
+   * (or on write failure). Elements never claimed — the stream was interrupted
+   * or failed — stay owned by the producer, which must release them.
+   *
+   * Reading this body in-process (`asStream`/`asChunk`, e.g. in tests) claims
+   * each buffer, copies it to the heap and releases it.
+   */
+  def fromByteBufStream[A](
+    stream: ZStream[Any, Throwable, A],
+    contentTypeHeader: Option[Header.ContentType] = None,
+  )(claim: A => Option[ByteBuf]): Body =
+    ByteBufStreamBody(stream, claim, contentTypeHeader.map(Body.ContentType.fromHeader))
+
   def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
@@ -89,6 +112,39 @@ object NettyBody {
     override def knownContentLength: Option[Long] = Some(asciiString.length().toLong)
 
     override def materializedContent: Option[Chunk[Byte]] = Some(Chunk.fromArray(asciiString.toByteArray))
+  }
+
+  private[zio] final case class ByteBufStreamBody[A](
+    stream: ZStream[Any, Throwable, A],
+    claim: A => Option[ByteBuf],
+    override val contentType: Option[Body.ContentType] = None,
+  ) extends Body {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
+
+    // Claim, copy out and release each buffer in one synchronous step, so no claimed buffer is left unreleased.
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      stream.mapChunks(_.flatMap { a =>
+        claim(a).fold(Chunk.empty[Byte]) { buf =>
+          val bytes = Chunk.fromArray(ByteBufUtil.getBytes(buf))
+          buf.release()
+          bytes
+        }
+      })
+
+    override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
+
+    override def knownContentLength: Option[Long] = None
+
+    override def toString: String = s"ByteBufStreamBody($stream)"
+
+    override def contentType(newContentType: Body.ContentType): Body = copy(contentType = Some(newContentType))
+
+    override def materializedContent: Option[Chunk[Byte]] = None
   }
 
   private[zio] final case class AsyncBody(
