@@ -30,6 +30,7 @@ final case class WebSocketConfig(
   sendCloseFrame: WebSocketConfig.CloseStatus = WebSocketConfig.CloseStatus.NormalClosure,
   dropPongFrames: Boolean = true,
   decoderConfig: SocketDecoder = SocketDecoder.default,
+  compression: Option[WebSocketConfig.Compression] = None,
 ) { self =>
 
   /**
@@ -42,6 +43,13 @@ final case class WebSocketConfig(
    * Close frame to send, when close frame was not sent manually.
    */
   def closeStatus(status: WebSocketConfig.CloseStatus): WebSocketConfig = self.copy(sendCloseFrame = status)
+
+  /**
+   * Offers or accepts the permessage-deflate extension (RFC 7692) during the
+   * handshake. Messages are compressed only when both peers agree to it.
+   */
+  def compression(compression: WebSocketConfig.Compression): WebSocketConfig =
+    self.copy(compression = Some(compression))
 
   def decoderConfig(socketDecoder: SocketDecoder): WebSocketConfig = self.copy(decoderConfig = socketDecoder)
 
@@ -80,6 +88,17 @@ object WebSocketConfig {
    * Creates an default decoder configuration.
    */
   def default: WebSocketConfig = WebSocketConfig()
+
+  /**
+   * permessage-deflate settings.
+   *
+   * @param maxAllocation
+   *   The maximum size in bytes of a decompressed message. A peer can send a
+   *   small compressed message that inflates to a much larger one, so this
+   *   should match the largest message the application accepts. Zero removes
+   *   the limit.
+   */
+  final case class Compression(maxAllocation: Int)
 
   sealed trait CloseStatus
 

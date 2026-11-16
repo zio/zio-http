@@ -40,7 +40,7 @@ private[netty] object NettySocketProtocol {
       .dropPongFrames(webSocketConfig.dropPongFrames)
       .maxFramePayloadLength(decoderConfig.maxFramePayloadLength)
       .allowMaskMismatch(decoderConfig.allowMaskMismatch)
-      .allowExtensions(decoderConfig.allowExtensions)
+      .allowExtensions(allowExtensions(webSocketConfig))
       .withUTF8Validator(decoderConfig.withUTF8Validator)
   }
 
@@ -55,7 +55,11 @@ private[netty] object NettySocketProtocol {
       .handleCloseFrames(webSocketConfig.handleCloseFrames)
       .sendCloseFrame(closeStatusToNetty(webSocketConfig.sendCloseFrame))
       .dropPongFrames(webSocketConfig.dropPongFrames)
-      .decoderConfig(socketDecoderToNetty(webSocketConfig.decoderConfig))
+      .decoderConfig(socketDecoderToNetty(webSocketConfig.decoderConfig, allowExtensions(webSocketConfig)))
+
+  // Compressed frames set the RSV1 bit, which the decoder rejects unless extensions are allowed.
+  private def allowExtensions(webSocketConfig: WebSocketConfig): Boolean =
+    webSocketConfig.decoderConfig.allowExtensions || webSocketConfig.compression.isDefined
 
   private def closeStatusToNetty(closeStatus: WebSocketConfig.CloseStatus): WebSocketCloseStatus =
     closeStatus match {
@@ -77,13 +81,14 @@ private[netty] object NettySocketProtocol {
       case WebSocketConfig.CloseStatus.Custom(code, message) => new WebSocketCloseStatus(code, message)
     }
 
-  private def socketDecoderToNetty(socketDecoder: SocketDecoder): WebSocketDecoderConfig = WebSocketDecoderConfig
-    .newBuilder()
-    .maxFramePayloadLength(socketDecoder.maxFramePayloadLength)
-    .expectMaskedFrames(socketDecoder.expectMaskedFrames)
-    .allowMaskMismatch(socketDecoder.allowMaskMismatch)
-    .allowExtensions(socketDecoder.allowExtensions)
-    .closeOnProtocolViolation(socketDecoder.closeOnProtocolViolation)
-    .withUTF8Validator(socketDecoder.withUTF8Validator)
-    .build()
+  private def socketDecoderToNetty(socketDecoder: SocketDecoder, allowExtensions: Boolean): WebSocketDecoderConfig =
+    WebSocketDecoderConfig
+      .newBuilder()
+      .maxFramePayloadLength(socketDecoder.maxFramePayloadLength)
+      .expectMaskedFrames(socketDecoder.expectMaskedFrames)
+      .allowMaskMismatch(socketDecoder.allowMaskMismatch)
+      .allowExtensions(allowExtensions)
+      .closeOnProtocolViolation(socketDecoder.closeOnProtocolViolation)
+      .withUTF8Validator(socketDecoder.withUTF8Validator)
+      .build()
 }

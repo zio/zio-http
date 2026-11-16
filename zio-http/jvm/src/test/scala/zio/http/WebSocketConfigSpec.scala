@@ -59,7 +59,103 @@ object WebSocketConfigSpec extends RoutesRunnableSpec {
         }
       } yield res
     },
+    suite("compression")(
+      test("negotiates permessage-deflate when both peers enable it") {
+        for {
+          url      <- DynamicServer.wsURL
+          id       <- DynamicServer.deploy(echo.withConfig(compressed(maxAllocation = 0)).toRoutes)
+          received <- Promise.make[Nothing, String]
+          response <- ZIO.scoped {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case UserEventTriggered(UserEvent.HandshakeComplete) =>
+                  channel.send(Read(WebSocketFrame.text(largeMessage)))
+                case Read(WebSocketFrame.Text(text))                 =>
+                  received.succeed(text).unit
+                case _                                               => ZIO.unit
+              }
+            }
+              .withConfig(compressed(maxAllocation = 0))
+              .connect(url, Headers(DynamicServer.APP_ID, id))
+              .zipLeft(received.await)
+          }
+          echoed   <- received.await
+        } yield assertTrue(
+          response.rawHeader("sec-websocket-extensions").exists(_.startsWith("permessage-deflate")),
+          echoed == largeMessage,
+        )
+      },
+      test("a server without compression declines the extension") {
+        for {
+          url      <- DynamicServer.wsURL
+          id       <- DynamicServer.deploy(echo.toRoutes)
+          received <- Promise.make[Nothing, String]
+          response <- ZIO.scoped {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case UserEventTriggered(UserEvent.HandshakeComplete) =>
+                  channel.send(Read(WebSocketFrame.text(largeMessage)))
+                case Read(WebSocketFrame.Text(text))                 =>
+                  received.succeed(text).unit
+                case _                                               => ZIO.unit
+              }
+            }
+              .withConfig(compressed(maxAllocation = 0))
+              .connect(url, Headers(DynamicServer.APP_ID, id))
+              .zipLeft(received.await)
+          }
+          echoed   <- received.await
+        } yield assertTrue(
+          response.rawHeader("sec-websocket-extensions").isEmpty,
+          echoed == largeMessage,
+        )
+      },
+      test("closes the connection when a message inflates beyond maxAllocation") {
+        for {
+          url            <- DynamicServer.wsURL
+          serverReceived <- Ref.make(false)
+          id             <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Read(WebSocketFrame.Text(_)) => serverReceived.set(true)
+                case _                            => ZIO.unit
+              }
+            }
+              .withConfig(compressed(maxAllocation = 1024))
+              .toRoutes
+          }
+          closed         <- Promise.make[Nothing, Unit]
+          _              <- ZIO.scoped {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case UserEventTriggered(UserEvent.HandshakeComplete) =>
+                  channel.send(Read(WebSocketFrame.text(largeMessage)))
+                case ChannelEvent.Unregistered                       =>
+                  closed.succeed(()).unit
+                case _                                               => ZIO.unit
+              }
+            }
+              .withConfig(compressed(maxAllocation = 0))
+              .connect(url, Headers(DynamicServer.APP_ID, id))
+              .zipLeft(closed.await)
+          }
+          received       <- serverReceived.get
+        } yield assertTrue(!received)
+      },
+    ),
   )
+
+  private val largeMessage = "a" * 10000
+
+  private def compressed(maxAllocation: Int): WebSocketConfig =
+    WebSocketConfig.default.compression(WebSocketConfig.Compression(maxAllocation))
+
+  private val echo = Handler.webSocket { channel =>
+    channel.receiveAll {
+      case Read(WebSocketFrame.Text(text)) => channel.send(Read(WebSocketFrame.text(text)))
+      case _                               => ZIO.unit
+    }
+  }
 
   def clientWithCloseFrames =
     ZLayer.succeed(

@@ -28,6 +28,7 @@ package object netty {
     val HttpKeepAliveHandler           = "HTTP_KEEPALIVE"
     val FlowControlHandler             = "FLOW_CONTROL_HANDLER"
     val WebSocketHandler               = "WEB_SOCKET_HANDLER"
+    val WebSocketCompressionHandler    = "WEB_SOCKET_COMPRESSION_HANDLER"
     val SSLHandler                     = "SSL_HANDLER"
     val HttpClientCodec                = "HTTP_CLIENT_CODEC"
     val HttpServerExpectContinue       = "HTTP_SERVER_EXPECT_CONTINUE"
