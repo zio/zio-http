@@ -189,7 +189,7 @@ write("logo/zio-http-logo-mono-white.svg", lockup("#FFFFFF", "#FFFFFF", pad_em=X
 FONTFACE = (f"@font-face{{font-family:'Inter Tight';src:url('file://{SANS}') format('truetype');font-weight:100 900}}"
             f"@font-face{{font-family:'JetBrains Mono';src:url('file://{MONO}') format('truetype');font-weight:100 800}}"
             f"@font-face{{font-family:'Inter';src:url('file://{SITE}') format('truetype');font-weight:100 900}}"
-            '[style*="JetBrains Mono"]{font-variant-ligatures:none}')
+            '[style*="JetBrains Mono"]{font-variant-ligatures:none;font-feature-settings:"calt" 0,"liga" 0}')
 
 
 def shoot(html, w, h, out, scale=1):
@@ -307,10 +307,10 @@ for n, name in enumerate(order):
 
 
 # ---------------------------------------------------------------- brand-sheet.html: every board, subset fonts embedded
-def woff2(path, text):
+def woff2(path, text, features=("*",)):
     opts = subset.Options()
     opts.flavor = "woff2"
-    opts.layout_features = ["*"]
+    opts.layout_features = list(features)
     opts.name_IDs = ["*"]
     font = TTFont(path)
     sub = subset.Subsetter(opts)
@@ -326,16 +326,19 @@ import html as _html  # noqa: E402
 
 all_text = _html.unescape(" ".join(texts))
 faces = "".join(
-    f"@font-face{{font-family:'{fam}';src:url(data:font/woff2;base64,{woff2(path, all_text)}) format('woff2');"
+    f"@font-face{{font-family:'{fam}';src:url(data:font/woff2;base64,{woff2(path, all_text, feats)}) format('woff2');"
     f"font-weight:{wr};font-display:block}}"
-    for fam, path, wr in [("Inter Tight", SANS, "100 900"), ("JetBrains Mono", MONO, "100 800"), ("Inter", SITE, "100 900")])
+    for fam, path, wr, feats in [("Inter Tight", SANS, "100 900", ("*",)),
+                                 # Code ligatures stay out of the embedded mono font: -> must read as two characters.
+                                 ("JetBrains Mono", MONO, "100 800", ("kern", "mark", "mkmk", "ccmp", "locl")),
+                                 ("Inter", SITE, "100 900", ("*",))])
 symbols = defs_of(read_board(order[0]))
 write("brand-sheet.html",
       '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
       '<meta name="viewport" content="width=device-width, initial-scale=1"><title>ZIO HTTP brand sheet</title>'
       f'<style>{faces}body{{margin:0;padding:48px 24px;background:#E9ECF1;color:#0B1020;'
       "font-family:'Inter Tight',sans-serif}}"
-      '[style*="JetBrains Mono"]{font-variant-ligatures:none}</style></head><body>'
+      '[style*="JetBrains Mono"]{font-variant-ligatures:none;font-feature-settings:"calt" 0,"liga" 0}</style></head><body>'
       + symbols + "".join(sections) + "</body></html>\n")
 
 shutil.rmtree(TMP, ignore_errors=True)
