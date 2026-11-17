@@ -21,6 +21,9 @@
   --zh-code-type: #A78BFA;
   --zh-code-string: #4FD1C5;   /* consider #FCD34D: teal sits close to mint */
   --zh-code-comment: #7E88A0;
+  --zh-font-sans: "Inter Tight", Inter, system-ui, sans-serif;     /* wordmark, headings, brand material */
+  --zh-font-mono: "JetBrains Mono", ui-monospace, monospace;      /* code and labels, ligatures off */
+  --zh-font-site: Inter, system-ui, sans-serif;                  /* site content below the hero */
 }
 [data-theme="light"] {
   --zh-bg: #FFFFFF;
@@ -43,5 +46,5 @@
   --zh-code-keyword: #0B7A50;
   --zh-code-type: #4C51BF;
   --zh-code-string: #8A5A00;
-  --zh-code-comment: #6B7385;
+  --zh-code-comment: #646C7E;   /* 4.9:1 on --zh-surface (#6B7385 was 4.4:1) */
 }
