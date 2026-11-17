@@ -153,10 +153,9 @@ final case class NettyClientDriver private[netty] (
       pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
       pipeline.addLast(Names.ClientInboundHandler, inboundHandler)
 
-      val headers         = Conversions.headersToNetty(req.headers)
-      val effectiveConfig = app.customConfig.getOrElse(webSocketConfig)
-      val config          = NettySocketProtocol
-        .clientBuilder(effectiveConfig)
+      val headers = Conversions.headersToNetty(req.headers)
+      val config  = NettySocketProtocol
+        .clientBuilder(app.customConfig.getOrElse(webSocketConfig))
         .customHeaders(headers)
         .webSocketUri(req.url.encode)
         .build()
@@ -167,7 +166,7 @@ final case class NettyClientDriver private[netty] (
       val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
-      NettySocketProtocol.addFrameAggregator(pipeline, effectiveConfig)
+      NettySocketProtocol.addFrameAggregator(pipeline, app.customConfig.getOrElse(webSocketConfig))
       pipeline.addLast(Names.WebSocketHandler, webSocket)
 
       pipeline.fireChannelRegistered()

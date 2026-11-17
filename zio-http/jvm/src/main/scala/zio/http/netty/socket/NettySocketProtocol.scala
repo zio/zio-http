@@ -38,14 +38,14 @@ private[netty] object NettySocketProtocol {
    * single frame, if enabled in the given config. Must be added after the
    * WebSocket protocol handler and before the WebSocket application handler.
    */
-  def addFrameAggregator(pipeline: ChannelPipeline, webSocketConfig: WebSocketConfig): Unit = {
+  def addFrameAggregator(pipeline: ChannelPipeline, webSocketConfig: WebSocketConfig): ChannelPipeline = {
     val decoderConfig = webSocketConfig.decoderConfig
-    if (decoderConfig.aggregateFragments) {
-      val _ = pipeline.addLast(
+    if (decoderConfig.aggregateFragments)
+      pipeline.addLast(
         Names.WebSocketFrameAggregator,
         new FrameAggregator(decoderConfig.maxMessageLength, decoderConfig.closeOnProtocolViolation),
       )
-    }
+    else pipeline
   }
 
   /**
