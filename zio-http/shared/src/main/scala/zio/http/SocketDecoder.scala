@@ -49,8 +49,8 @@ final case class SocketDecoder(
   /**
    * The maximum size in bytes of an aggregated message. If a fragmented message
    * exceeds this size, the connection is closed with status 1009 (message too
-   * big). Only relevant if [[aggregateFragments]] is enabled. Unfragmented
-   * frames are limited by [[maxFramePayloadLength]] instead.
+   * big). Only relevant if `aggregateFragments` is enabled. Unfragmented
+   * frames are limited by `maxFramePayloadLength` instead.
    */
   def maxMessageLength(length: Int): SocketDecoder = self.copy(maxMessageLength = length)
 
