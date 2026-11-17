@@ -245,6 +245,39 @@ object ClientSpec extends RoutesRunnableSpec {
 
       assertZIO(test)(isTrue)
     } @@ timeout(15.seconds),                                  // Reproducer for #2383 - connection pool exhaustion
+    test("fail fast when response headers exceed maxHeaderSize (batched)") {
+      import io.netty.handler.codec.http.TooLongHttpHeaderException
+
+      val bigHeader = "x" * 9000
+      val app       = Handler.ok.addHeader("X-Big", bigHeader).toRoutes
+      val res       = app.deploy(Request()).exit
+      assertZIO(res)(fails(isSubtype[TooLongHttpHeaderException](anything)))
+    } @@ timeout(5.seconds),
+    test("fail fast when response headers exceed maxHeaderSize (non-batched)") {
+      import io.netty.handler.codec.http.TooLongHttpHeaderException
+
+      val bigHeader = "x" * 9000
+      val app       = Handler.ok.addHeader("X-Big", bigHeader).toRoutes
+      val res       = app.deployAndRequest(c => ZIO.scoped(c(Request()))).runZIO(()).exit
+      assertZIO(res)(fails(isSubtype[TooLongHttpHeaderException](anything)))
+    } @@ timeout(5.seconds),
+    test("recovers and allows subsequent requests after header size failure") {
+      import io.netty.handler.codec.http.TooLongHttpHeaderException
+
+      val bigHeader = "x" * 9000
+      val app       = Routes(
+        Method.GET / "large" -> handler(Response.ok.addHeader("X-Big", bigHeader)),
+        Method.GET / "small" -> handler(Response.text("ok")),
+      )
+      for {
+        failRes <- app.deploy(Request(url = URL.root / "large")).exit
+        isExpectedFailure: Boolean = failRes match {
+          case Exit.Failure(cause) => cause.failures.exists(_.isInstanceOf[TooLongHttpHeaderException])
+          case _                   => false
+        }
+        okRes <- app.deploy(Request(url = URL.root / "small")).flatMap(_.body.asString)
+      } yield assertTrue(isExpectedFailure, okRes == "ok")
+    } @@ timeout(10.seconds),
   )
 
   override def spec = {

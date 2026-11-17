@@ -77,6 +77,7 @@ private[netty] final class ClientResponseStreamHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     onComplete.unsafe.done(Exit.fail(cause))
+    super.exceptionCaught(ctx, cause)
   }
 
   override def channelInactive(ctx: ChannelHandlerContext): Unit = {
