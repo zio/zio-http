@@ -165,17 +165,28 @@ final case class TestClient(
     app: WebSocketApp[Env1],
   )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] = {
     for {
-      env                   <- ZIO.environment[Env1]
+      env    <- ZIO.environment[Env1]
+      result <- socketChannel(version, url, headers, app.customConfig)
+      (response, channel) = result
+      _ <- app.provideEnvironment(env).handler.runZIO(channel).forkDaemon
+    } yield response
+  }
+
+  override def socketChannel(
+    version: Version,
+    url: URL,
+    headers: Headers,
+    config: Option[WebSocketConfig],
+  )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Scope, Throwable, (Response, WebSocketChannel)] =
+    for {
       currentSocketBehavior <- serverSocketBehavior.get
       in                    <- Queue.unbounded[WebSocketChannelEvent]
       out                   <- Queue.unbounded[WebSocketChannelEvent]
       promise               <- Promise.make[Nothing, Unit]
-      testChannelClient     <- TestChannel.make(in, out, promise)
-      testChannelServer     <- TestChannel.make(out, in, promise)
-      _                     <- currentSocketBehavior.handler.runZIO(testChannelClient).forkDaemon
-      _                     <- app.provideEnvironment(env).handler.runZIO(testChannelServer).forkDaemon
-    } yield Response.status(Status.SwitchingProtocols)
-  }
+      serverChannel         <- TestChannel.make(in, out, promise)
+      clientChannel         <- TestChannel.make(out, in, promise)
+      _                     <- currentSocketBehavior.handler.runZIO(serverChannel).forkDaemon
+    } yield (Response.status(Status.SwitchingProtocols), clientChannel)
 
   def installSocketApp[Env1](
     app: WebSocketApp[Any],
