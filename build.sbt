@@ -521,6 +521,29 @@ lazy val docs = project
     projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
+    readmeBanner                               := {
+      val base = "https://raw.githubusercontent.com/zio/zio-http/main/brand/logo"
+      // <picture> swaps the banner with GitHub's theme: the light banner's near-black wordmark would
+      // be invisible on GitHub's dark canvas. The PNGs are 1200 x 300 drawn at 2x, so they stay
+      // sharp at any width GitHub gives them.
+      s"""|
+          |<picture>
+          |  <source media="(prefers-color-scheme: dark)" srcset="$base/readme-banner-dark.png">
+          |  <img alt="ZIO HTTP: type-safe, purely functional HTTP for Scala" src="$base/readme-banner-light.png" width="1200">
+          |</picture>
+          |""".stripMargin
+    },
+    // The banner already carries the name, so the plugin's "# ZIO HTTP" heading under it would show
+    // the name twice. Run the plugin's generator, then drop that one heading; the image's alt text
+    // gives the page its accessible name. CI's README check runs this task too.
+    generateReadme                             := {
+      generateReadme.value
+      val readme  = (ThisBuild / baseDirectory).value / "README.md"
+      val heading = s"\n# ${projectName.value}\n"
+      val text    = IO.read(readme)
+      val at      = text.indexOf(heading)
+      if (at >= 0) IO.write(readme, text.substring(0, at) + text.substring(at + heading.length))
+    },
     // The API reference served at /api on the website: one unified Scaladoc for every published
     // library module (the JVM side of zio-http, since JVM and JS share the public API). A new
     // published module must be added here too. The sbt-zio-http-grpc plugin is Scala 2.12 only.

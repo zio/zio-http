@@ -2,7 +2,10 @@
 [//]: # (So please do not edit it manually. Instead, change "docs/index.md" file or sbt setting keys)
 [//]: # (e.g. "readmeDocumentation" and "readmeSupport".)
 
-# ZIO HTTP
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/readme-banner-dark.png">
+  <img alt="ZIO HTTP: type-safe, purely functional HTTP for Scala" src="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/readme-banner-light.png" width="1200">
+</picture>
 
 ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers. Powered by ZIO and [Netty](https://netty.io/), it is the de facto solution for writing highly scalable and performant web applications in idiomatic Scala.
 
