@@ -1,0 +1,123 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-17T05:49:15Z"
+  },
+  "title": "ZIO HTTP Brand Sheet",
+  "launch": {
+    "view": "canvas",
+    "page": "brand"
+  },
+  "pages": [
+    {
+      "id": "brand",
+      "name": "Brand sheet"
+    }
+  ],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1480,
+      "h": 2510,
+      "title": "0 · Overview",
+      "page": "brand"
+    },
+    "Brand1Logo.dc.html": {
+      "x": 0,
+      "y": 2630,
+      "w": 1480,
+      "h": 3810,
+      "title": "1 · Logo",
+      "page": "brand"
+    },
+    "Brand2Icons.dc.html": {
+      "x": 0,
+      "y": 6560,
+      "w": 1480,
+      "h": 2780,
+      "title": "2 · Icon and favicon",
+      "page": "brand"
+    },
+    "Brand3Colour.dc.html": {
+      "x": 0,
+      "y": 9460,
+      "w": 1480,
+      "h": 4930,
+      "title": "3 · Colour",
+      "page": "brand"
+    },
+    "Brand4Type.dc.html": {
+      "x": 0,
+      "y": 14510,
+      "w": 1480,
+      "h": 3810,
+      "title": "4 · Typography",
+      "page": "brand"
+    },
+    "Brand5Voice.dc.html": {
+      "x": 0,
+      "y": 18440,
+      "w": 1480,
+      "h": 3390,
+      "title": "5 · Voice and tone",
+      "page": "brand"
+    },
+    "Brand6Imagery.dc.html": {
+      "x": 0,
+      "y": 21950,
+      "w": 1480,
+      "h": 3000,
+      "title": "6 · Visual and imagery style",
+      "page": "brand"
+    },
+    "Brand7Hero.dc.html": {
+      "x": 0,
+      "y": 25070,
+      "w": 1480,
+      "h": 3620,
+      "title": "7 · Hero banner",
+      "page": "brand"
+    },
+    "Brand8Social.dc.html": {
+      "x": 0,
+      "y": 28810,
+      "w": 1480,
+      "h": 3960,
+      "title": "8 · Social cards",
+      "page": "brand"
+    },
+    "Brand9Browser.dc.html": {
+      "x": 0,
+      "y": 32890,
+      "w": 1480,
+      "h": 2620,
+      "title": "9 · In the browser",
+      "page": "brand"
+    },
+    "Brand10Assets.dc.html": {
+      "x": 0,
+      "y": 35630,
+      "w": 1480,
+      "h": 3720,
+      "title": "10 · Assets and tokens",
+      "page": "brand"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Brand1Logo.dc.html",
+    "Brand2Icons.dc.html",
+    "Brand3Colour.dc.html",
+    "Brand4Type.dc.html",
+    "Brand5Voice.dc.html",
+    "Brand6Imagery.dc.html",
+    "Brand7Hero.dc.html",
+    "Brand8Social.dc.html",
+    "Brand9Browser.dc.html",
+    "Brand10Assets.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}
