@@ -3,17 +3,15 @@
 [//]: # (e.g. "readmeDocumentation" and "readmeSupport".)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/readme-banner-dark.png">
-  <img alt="ZIO HTTP: type-safe, purely functional HTTP for Scala" src="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/readme-banner-light.png" width="1200">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/zio-http-logo-on-dark.svg">
+  <img alt="ZIO HTTP" src="https://raw.githubusercontent.com/zio/zio-http/main/brand/logo/zio-http-logo.svg" width="520">
 </picture>
 
 ZIO HTTP is a next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers. Powered by ZIO and [Netty](https://netty.io/), it is the de facto solution for writing highly scalable and performant web applications in idiomatic Scala.
 
 ZIO HTTP is designed in terms of **HTTP as function**, where both server and client are a function from a request to a response, with a focus on type safety, composability, and testability.
 
-[![Production Ready](https://img.shields.io/badge/Project%20Stage-Production%20Ready-brightgreen.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-http/workflows/Continuous%20Integration/badge.svg) [![Maven Central Version](https://img.shields.io/maven-central/v/dev.zio/zio-http_3)
-](https://repo1.maven.org/maven2/dev/zio/zio-http_3/) ![Maven metadata URL](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Fdev%2Fzio%2Fzio-http_3%2Fmaven-metadata.xml)
-[![javadoc](https://javadoc.io/badge2/dev.zio/zio-http_3/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-http_3) [![ZIO HTTP](https://img.shields.io/github/stars/zio/zio-http?style=social)](https://github.com/zio/zio-http)
+[![Production Ready](https://img.shields.io/badge/Project%20Stage-Production%20Ready-brightgreen.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-http/workflows/Continuous%20Integration/badge.svg) [![Sonatype Releases](https://img.shields.io/maven-central/v/dev.zio/zio-http_3.svg?label=Sonatype%20Release)](https://central.sonatype.com/artifact/dev.zio/zio-http_3) [![Sonatype Snapshots](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Fdev%2Fzio%2Fzio-http_3%2Fmaven-metadata.xml&label=Sonatype%20Snapshot)](https://central.sonatype.com/repository/maven-snapshots/dev/zio/zio-http_3/) [![javadoc](https://javadoc.io/badge2/dev.zio/zio-http_3/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-http_3) [![ZIO HTTP](https://img.shields.io/github/stars/zio/zio-http?style=social)](https://github.com/zio/zio-http)
 
 Some of the key features of ZIO HTTP are:
 
@@ -48,7 +46,7 @@ Some of the key features of ZIO HTTP are:
 Setup via `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-http" % "3.3.2"
+libraryDependencies += "dev.zio" %% "zio-http" % "3.11.6"
 ```
 
 **NOTES ON VERSIONING:**
