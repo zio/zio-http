@@ -232,6 +232,23 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       .flatMap(bodyDecoder.decode)
 
   /**
+   * Connects to a WebSocket server and returns the [[WebSocketChannel]] of the
+   * connection, so it can be used directly from the calling fiber, unlike
+   * [[socket]], which runs a [[WebSocketApp]] in a separate fiber. The
+   * connection stays open until it is closed by either side or the scope is
+   * closed. Incoming events are buffered until they are received.
+   */
+  def socketChannel(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err, WebSocketChannel] =
+    Promise.make[Nothing, WebSocketChannel].flatMap { channelPromise =>
+      driver.socket(
+        Version.Default,
+        url,
+        headers,
+        Handler.webSocket(channel => channelPromise.succeed(channel) *> channel.awaitShutdown),
+      ) *> channelPromise.await
+    }
+
+  /**
    * Executes an HTTP request and transforms the response into a `ZStream` using
    * the provided function
    */
@@ -357,6 +374,9 @@ object ZClient extends ZClientPlatformSpecific {
 
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
+
+  def socketChannel(implicit trace: Trace): ZIO[Client & Scope, Throwable, WebSocketChannel] =
+    ZIO.serviceWithZIO[Client](_.socketChannel)
 
   trait BodyDecoder[-Env, +Err, +Out] { self =>
     def decode(response: Response)(implicit trace: Trace): ZIO[Env, Err, Out]
