@@ -42,9 +42,9 @@ trait ClientDriver {
 
   /**
    * Performs a WebSocket handshake on the given connection and returns the
-   * [[WebSocketChannel]] of the connection.
+   * `WebSocketChannel` of the connection.
    *
-   * The default implementation is based on [[requestOnChannel]] and only exists
+   * The default implementation is based on `requestOnChannel` and only exists
    * for binary compatibility with drivers that don't implement this method.
    */
   def requestWebSocketOnChannel(

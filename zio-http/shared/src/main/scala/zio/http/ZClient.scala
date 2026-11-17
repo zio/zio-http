@@ -232,11 +232,11 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       .flatMap(bodyDecoder.decode)
 
   /**
-   * Connects to a WebSocket server and returns the [[WebSocketChannel]] of the
+   * Connects to a WebSocket server and returns the `WebSocketChannel` of the
    * connection, so it can be used directly from the calling fiber, unlike
-   * [[socket]], which runs a [[WebSocketApp]] in a separate fiber. The
-   * connection stays open until it is closed by either side or the scope is
-   * closed. Incoming events are buffered until they are received.
+   * `socket`, which runs a `WebSocketApp` in a separate fiber. The connection
+   * stays open until it is closed by either side or the scope is closed.
+   * Incoming events are buffered until they are received.
    */
   def socketChannel(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err, WebSocketChannel] =
     driver.socketChannel(Version.Default, url, headers, None).map(_._2)
@@ -577,11 +577,11 @@ object ZClient extends ZClientPlatformSpecific {
 
     /**
      * Connects to a WebSocket server and returns the handshake response along
-     * with the [[WebSocketChannel]] of the connection, which stays open until
+     * with the `WebSocketChannel` of the connection, which stays open until
      * either side closes it or the scope is closed. `config` overrides the
      * client's WebSocket configuration.
      *
-     * The default implementation is based on [[socket]] and only exists for
+     * The default implementation is based on `socket` and only exists for
      * binary compatibility with drivers that don't implement this method.
      */
     def socketChannel(
