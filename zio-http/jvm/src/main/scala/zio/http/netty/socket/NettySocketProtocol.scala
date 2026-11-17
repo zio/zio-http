@@ -22,15 +22,7 @@ import zio.http.netty.Names
 import zio.http.{SocketDecoder, WebSocketConfig}
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, ChannelPipeline}
-import io.netty.handler.codec.http.websocketx.{
-  CloseWebSocketFrame,
-  WebSocketClientProtocolConfig,
-  WebSocketCloseStatus,
-  WebSocketDecoderConfig,
-  WebSocketFrame,
-  WebSocketFrameAggregator,
-  WebSocketServerProtocolConfig,
-}
+import io.netty.handler.codec.http.websocketx._
 private[netty] object NettySocketProtocol {
 
   /**
