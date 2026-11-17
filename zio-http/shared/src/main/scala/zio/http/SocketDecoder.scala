@@ -32,7 +32,6 @@ final case class SocketDecoder(
   withUTF8Validator: Boolean = true,
   @unroll
   aggregateFragments: Boolean = true,
-  @unroll
   maxMessageLength: Int = 1048576,
 ) { self =>
 
