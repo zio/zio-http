@@ -520,7 +520,8 @@ lazy val docs = project
     scalacOptions -= "-Xfatal-warnings",
     projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
-    projectStage                               := ProjectStage.Development,
+    projectStage                               := ProjectStage.ProductionReady,
+    badgeArtifactId                            := s"${mainModuleName.value}_3",
     readmeBanner                               := {
       val logoBase = "https://raw.githubusercontent.com/zio/zio-http/main/brand/logo"
       // <picture> lets GitHub swap the lockup per theme: the wordmark is near-black ink, which
