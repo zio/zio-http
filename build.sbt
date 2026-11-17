@@ -522,14 +522,13 @@ lazy val docs = project
     mainModuleName                             := (zioHttpJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
     readmeBanner                               := {
-      val base = "https://raw.githubusercontent.com/zio/zio-http/main/brand/logo"
-      // <picture> swaps the banner with GitHub's theme: the light banner's near-black wordmark would
-      // be invisible on GitHub's dark canvas. The PNGs are 1200 x 300 drawn at 2x, so they stay
-      // sharp at any width GitHub gives them.
+      val logoBase = "https://raw.githubusercontent.com/zio/zio-http/main/brand/logo"
+      // <picture> lets GitHub swap the lockup per theme: the wordmark is near-black ink, which
+      // would be invisible on GitHub's dark canvas without the on-dark variant.
       s"""|
           |<picture>
-          |  <source media="(prefers-color-scheme: dark)" srcset="$base/readme-banner-dark.png">
-          |  <img alt="ZIO HTTP: type-safe, purely functional HTTP for Scala" src="$base/readme-banner-light.png" width="1200">
+          |  <source media="(prefers-color-scheme: dark)" srcset="$logoBase/zio-http-logo-on-dark.svg">
+          |  <img alt="ZIO HTTP" src="$logoBase/zio-http-logo.svg" width="520">
           |</picture>
           |""".stripMargin
     },
