@@ -1,6 +1,6 @@
 addSbtPlugin("ch.epfl.scala"       % "sbt-scalafix"              % "0.14.9")
 addSbtPlugin("org.scalameta"       % "sbt-scalafmt"              % "2.6.2")
-addSbtPlugin("pl.project13.scala"  % "sbt-jmh"                   % "0.4.8")
+addSbtPlugin("com.github.sbt"      % "sbt-jmh"                   % "0.4.9")
 addSbtPlugin("com.timushev.sbt"    % "sbt-updates"               % "0.7.1")
 addSbtPlugin("io.spray"            % "sbt-revolver"              % "0.10.0")
 addSbtPlugin("com.github.sbt"      % "sbt-github-actions"        % "0.32.2")
