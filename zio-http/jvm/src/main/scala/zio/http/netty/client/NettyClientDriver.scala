@@ -54,9 +54,13 @@ final case class NettyClientDriver private[netty] (
     @unroll
     bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] =
-    if (location.scheme.isWebSocket)
-      requestWebsocket(channel, req, onResponse, onComplete, createSocketApp, webSocketConfig)
-    else
+    if (location.scheme.isWebSocket) {
+      val app = createSocketApp()
+      requestWebsocket(channel, req, onResponse, onComplete, app.customConfig.getOrElse(webSocketConfig)).flatMap {
+        case (channelInterface, webSocketChannel) =>
+          app.handler.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped.as(channelInterface)
+      }
+    } else
       requestHttp(channel, req, onResponse, onComplete, enableKeepAlive, bodyReadTimeoutMillis)
 
   private def requestHttp(
@@ -129,23 +133,30 @@ final case class NettyClientDriver private[netty] (
         }
       }
 
+  override def requestWebSocketOnChannel(
+    channel: Channel,
+    location: URL.Location.Absolute,
+    req: Request,
+    onResponse: Promise[Throwable, Response],
+    onComplete: Promise[Throwable, ChannelState],
+    webSocketConfig: WebSocketConfig,
+  )(implicit trace: Trace): ZIO[Scope, Throwable, (ChannelInterface, WebSocketChannel)] =
+    requestWebsocket(channel, req, onResponse, onComplete, webSocketConfig)
+
   private def requestWebsocket(
     channel: Channel,
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
-  )(implicit trace: Trace): RIO[Scope, ChannelInterface] = {
+  )(implicit trace: Trace): UIO[(ChannelInterface, WebSocketChannel)] = {
     for {
       queue              <- Queue.unbounded[WebSocketChannelEvent]
       handshakeCompleted <- Promise.make[Nothing, Boolean]
-      nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
-      webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
-      app              = createSocketApp()
-      _ <- app.handler.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
     } yield {
-      val pipeline = channel.pipeline()
+      val nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
+      val webSocketChannel = WebSocketChannel.make(nettyChannel, queue, handshakeCompleted)
+      val pipeline         = channel.pipeline()
 
       val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
       val inboundHandler       = new WebSocketClientInboundHandler(onResponse, onComplete)
@@ -155,7 +166,7 @@ final case class NettyClientDriver private[netty] (
 
       val headers = Conversions.headersToNetty(req.headers)
       val config  = NettySocketProtocol
-        .clientBuilder(app.customConfig.getOrElse(webSocketConfig))
+        .clientBuilder(webSocketConfig)
         .customHeaders(headers)
         .webSocketUri(req.url.encode)
         .build()
@@ -171,7 +182,7 @@ final case class NettyClientDriver private[netty] (
       pipeline.fireChannelRegistered()
       pipeline.fireChannelActive()
 
-      new ChannelInterface {
+      val channelInterface = new ChannelInterface {
         override def resetChannel: ZIO[Any, Throwable, ChannelState] =
           // channel becomes invalid - reuse of websocket channels not supported currently
           Exit.succeed(ChannelState.Invalid)
@@ -179,6 +190,8 @@ final case class NettyClientDriver private[netty] (
         override def interrupt: ZIO[Any, Throwable, Unit] =
           NettyFutureExecutor.executed(channel.disconnect())
       }
+
+      (channelInterface, webSocketChannel)
     }
   }
 
