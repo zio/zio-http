@@ -232,6 +232,16 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       .flatMap(bodyDecoder.decode)
 
   /**
+   * Connects to a WebSocket server and returns the `WebSocketChannel` of the
+   * connection, so it can be used directly from the calling fiber, unlike
+   * `socket`, which runs a `WebSocketApp` in a separate fiber. The connection
+   * stays open until it is closed by either side or the scope is closed.
+   * Incoming events are buffered until they are received.
+   */
+  def socketChannel(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err, WebSocketChannel] =
+    driver.socketChannel(Version.Default, url, headers, None).map(_._2)
+
+  /**
    * Executes an HTTP request and transforms the response into a `ZStream` using
    * the provided function
    */
@@ -358,6 +368,9 @@ object ZClient extends ZClientPlatformSpecific {
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
 
+  def socketChannel(implicit trace: Trace): ZIO[Client & Scope, Throwable, WebSocketChannel] =
+    ZIO.serviceWithZIO[Client](_.socketChannel)
+
   trait BodyDecoder[-Env, +Err, +Out] { self =>
     def decode(response: Response)(implicit trace: Trace): ZIO[Env, Err, Out]
 
@@ -440,6 +453,14 @@ object ZClient extends ZClientPlatformSpecific {
           ev: Any =:= Scope,
         ): ZIO[Env1 & Any, Err, Response] =
           ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
+
+        override def socketChannel(
+          version: Version,
+          url: URL,
+          headers: Headers,
+          config: Option[WebSocketConfig],
+        )(implicit trace: Trace, ev: Any =:= Scope): ZIO[Env, Err, (Response, WebSocketChannel)] =
+          ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
       }
 
     final def mapError[Err2](f: Err => Err2): Driver[Env, ReqEnv, Err2] =
@@ -462,6 +483,14 @@ object ZClient extends ZClientPlatformSpecific {
           app: WebSocketApp[Env1],
         )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err2, Response] =
           self.socket(version, url, headers, app).mapError(f)
+
+        override def socketChannel(
+          version: Version,
+          url: URL,
+          headers: Headers,
+          config: Option[WebSocketConfig],
+        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err2, (Response, WebSocketChannel)] =
+          self.socketChannel(version, url, headers, config).mapError(f)
       }
 
     final def refineOrDie[Err2](
@@ -486,6 +515,14 @@ object ZClient extends ZClientPlatformSpecific {
           app: WebSocketApp[Env1],
         )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err2, Response] =
           self.socket(version, url, headers, app).refineOrDie(pf)
+
+        override def socketChannel(
+          version: Version,
+          url: URL,
+          headers: Headers,
+          config: Option[WebSocketConfig],
+        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err2, (Response, WebSocketChannel)] =
+          self.socketChannel(version, url, headers, config).refineOrDie(pf)
       }
 
     def request(
@@ -521,6 +558,14 @@ object ZClient extends ZClientPlatformSpecific {
           app: WebSocketApp[Env2],
         )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env2 & ReqEnv, Err1, Response] =
           self.socket(version, url, headers, app).retry(policy)
+
+        override def socketChannel(
+          version: Version,
+          url: URL,
+          headers: Headers,
+          config: Option[WebSocketConfig],
+        )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err1, (Response, WebSocketChannel)] =
+          self.socketChannel(version, url, headers, config).retry(policy)
       }
 
     def socket[Env1 <: Env](
@@ -529,6 +574,30 @@ object ZClient extends ZClientPlatformSpecific {
       headers: Headers,
       app: WebSocketApp[Env1],
     )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err, Response]
+
+    /**
+     * Connects to a WebSocket server and returns the handshake response along
+     * with the `WebSocketChannel` of the connection, which stays open until
+     * either side closes it or the scope is closed. `config` overrides the
+     * client's WebSocket configuration.
+     *
+     * The default implementation is based on `socket` and only exists for
+     * binary compatibility with drivers that don't implement this method.
+     */
+    def socketChannel(
+      version: Version,
+      url: URL,
+      headers: Headers,
+      config: Option[WebSocketConfig],
+    )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env & ReqEnv, Err, (Response, WebSocketChannel)] =
+      Promise.make[Nothing, WebSocketChannel].flatMap { channelPromise =>
+        val app = WebSocketApp(
+          Handler
+            .fromFunctionZIO[WebSocketChannel](channel => channelPromise.succeed(channel) *> channel.awaitShutdown),
+          config,
+        )
+        socket[Env](version, url, headers, app).flatMap(response => channelPromise.await.map((response, _)))
+      }
 
   }
 
@@ -636,7 +705,7 @@ object ZClient extends ZClientPlatformSpecific {
           config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
         else config
 
-      requestAsync(request, cfg, () => WebSocketApp.unit, None)
+      requestAsync(request, cfg, None, None)
     }
 
     def socket[Env1](
@@ -646,25 +715,39 @@ object ZClient extends ZClientPlatformSpecific {
       app: WebSocketApp[Env1],
     )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] =
       for {
-        env          <- ZIO.environment[Env1]
-        webSocketUrl <- url.scheme match {
+        env    <- ZIO.environment[Env1]
+        result <- socketChannel(version, url, headers, app.customConfig)
+        (response, channel) = result
+        _ <- app.provideEnvironment(env).handler.runZIO(channel).ignoreLogged.interruptible.forkScoped
+      } yield response
+
+    override def socketChannel(
+      version: Version,
+      url: URL,
+      headers: Headers,
+      customConfig: Option[WebSocketConfig],
+    )(implicit trace: Trace, ev: Scope =:= Scope): ZIO[Scope, Throwable, (Response, WebSocketChannel)] =
+      for {
+        webSocketUrl   <- url.scheme match {
           case Some(Scheme.HTTP) | Some(Scheme.WS) | None => ZIO.succeed(url.scheme(Scheme.WS))
           case Some(Scheme.WSS) | Some(Scheme.HTTPS)      => ZIO.succeed(url.scheme(Scheme.WSS))
           case _ => ZIO.fail(new IllegalArgumentException("URL's scheme MUST be WS(S) or HTTP(S)"))
         }
-        scope        <- ZIO.scope
-        res          <- requestAsync(
+        scope          <- ZIO.scope
+        channelPromise <- Promise.make[Nothing, WebSocketChannel]
+        response       <- requestAsync(
           Request(version = version, method = Method.GET, url = webSocketUrl, headers = headers),
-          config,
-          () => app.provideEnvironment(env),
+          customConfig.fold(config)(c => config.webSocketConfig(c)),
+          Some(channelPromise),
           Some(scope),
         )
-      } yield res
+        channel        <- channelPromise.await
+      } yield (response, channel)
 
     private def requestAsync(
       request: Request,
       clientConfig: Config,
-      createSocketApp: () => WebSocketApp[Any],
+      onWebSocketChannel: Option[Promise[Nothing, WebSocketChannel]],
       outerScope: Option[Scope],
     )(implicit
       trace: Trace,
@@ -699,20 +782,33 @@ object ZClient extends ZClientPlatformSpecific {
                     .zipLeft(connectionAcquired.set(true))
                     .tapErrorCause(cause => onResponse.failCause(cause))
                     .map(_.asInstanceOf[driver.Connection])
-                  channelInterface <-
-                    driver
-                      .requestOnChannel(
+                  channelInterface <- (onWebSocketChannel match {
+                    case Some(channelPromise) =>
+                      driver
+                        .requestWebSocketOnChannel(
+                          connection,
+                          location,
+                          request,
+                          onResponse,
+                          onComplete,
+                          clientConfig.webSocketConfig,
+                        )
+                        .flatMap { case (channelInterface, channel) =>
+                          channelPromise.succeed(channel).as(channelInterface)
+                        }
+                    case None                 =>
+                      driver.requestOnChannel(
                         connection,
                         location,
                         request,
                         onResponse,
                         onComplete,
                         connectionPool.enableKeepAlive,
-                        createSocketApp,
+                        () => WebSocketApp.unit,
                         clientConfig.webSocketConfig,
                         clientConfig.bodyReadTimeout.map(_.toMillis),
                       )
-                      .tapErrorCause(cause => onResponse.failCause(cause))
+                  }).tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
                       if (exit.isInterrupted) {

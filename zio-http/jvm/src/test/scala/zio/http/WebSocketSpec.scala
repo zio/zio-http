@@ -293,6 +293,56 @@ object WebSocketSpec extends RoutesRunnableSpec {
           size == 0,
         )
       },
+      test("socketChannel returns a channel that can be used from the calling fiber") {
+        for {
+          url    <- DynamicServer.wsURL
+          id     <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Read(WebSocketFrame.Text(text)) => channel.send(Read(WebSocketFrame.text(text.toUpperCase)))
+                case _                               => ZIO.unit
+              }
+            }.toRoutes
+          }
+          result <- ZIO.scoped {
+            for {
+              channel <- connectChannel(url, id)
+              _       <- channel.send(Read(WebSocketFrame.text("foo")))
+              reply   <- channel.receive.repeatUntil {
+                case Read(WebSocketFrame.Text(_)) => true
+                case _                            => false
+              }
+            } yield reply
+          }
+        } yield assertTrue(result == Read(WebSocketFrame.text("FOO")))
+      },
+      test("socketChannel closes the connection when the scope is closed") {
+        for {
+          url    <- DynamicServer.wsURL
+          closed <- Promise.make[Nothing, Unit]
+          id     <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Unregistered => closed.succeed(())
+                case _            => ZIO.unit
+              }
+            }.toRoutes
+          }
+          _      <- ZIO.scoped {
+            connectChannel(url, id)
+          }
+          _      <- closed.await
+        } yield assertCompletes
+      },
+      test("socketChannel fails if the server does not return a 101 Switching Protocols response") {
+        for {
+          url    <- DynamicServer.httpURL
+          id     <- DynamicServer.deploy(Handler.badRequest.toRoutes)
+          result <- ZIO.scoped {
+            connectChannel(url, id).either
+          }
+        } yield assertTrue(result.isLeft)
+      },
       test("client socket fails if the server does not return a 101 Switching Protocols response") {
         for {
           url    <- DynamicServer.httpURL
@@ -325,6 +375,13 @@ object WebSocketSpec extends RoutesRunnableSpec {
         case _                                     => ZIO.unit
       }
     }
+
+  private def connectChannel(url: String, id: String): ZIO[Client & Scope, Throwable, WebSocketChannel] =
+    ZIO
+      .fromEither(URL.decode(url))
+      .flatMap(url =>
+        ZIO.serviceWithZIO[Client](_.url(url).addHeaders(Headers(DynamicServer.APP_ID, id)).socketChannel),
+      )
 
   private val withStreamingEnabled =
     suite("request streaming enabled")(

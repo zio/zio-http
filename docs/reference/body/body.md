@@ -195,6 +195,38 @@ val streamHttpData1: Body = Body.fromStream(ZStream.fromChunk(chunk), contentLen
 Otherwise, we can use `Body.fromStreamChunked`, which is useful for streams with an unknown content length. Assume we have a service that generates a response to a request in chunks; we can stream the response to the client while we don't know the exact length of the response. Therefore, the `transfer-encoding` header will be set to `chunked` in the response:
 
 
+#### From Stream of Netty `ByteBuf`s (JVM only)
+
+When the data to send already lives in Netty `ByteBuf`s (for example off-heap memory produced by a native library), `NettyBody.fromByteBufStream` writes each buffer to the channel as-is. Every buffer becomes one HTTP chunk, so the `transfer-encoding` header is set to `chunked`.
+
+This avoids the JVM heap copies of `Body.fromStreamChunked`. A byte stream has to bring off-heap data onto the heap as a `Chunk[Byte]`, the writer copies each chunk into an array, and Netty copies that heap buffer into a direct buffer before the socket write. With `fromByteBufStream`, a direct (off-heap) buffer goes to the socket without any JVM copy; the only copy left is the kernel's. A heap `ByteBuf` is still copied to a direct buffer by Netty, so the saving applies to direct buffers:
+
+```scala
+object NettyBody {
+  def fromByteBufStream[A](
+    stream: ZStream[Any, Throwable, A],
+    contentTypeHeader: Option[Header.ContentType] = None,
+  )(claim: A => Option[ByteBuf]): Body = ???
+}
+```
+
+The stream emits plain values (for example tickets into a registry owned by the producer), not the buffers themselves. The writer calls `claim` for each value in the same synchronous step that hands the buffer to Netty, so no interruption can happen between taking ownership of a buffer and writing it. Netty releases a claimed buffer after it is written. Buffers that are never claimed, because the stream was interrupted or failed, stay owned by the producer, which must release them. `claim` must return a given buffer at most once, and `None` if the producer has already released it:
+
+```scala mdoc:compile-only
+import java.util.concurrent.ConcurrentHashMap
+import io.netty.buffer.{ByteBuf, Unpooled}
+import zio.http.netty.NettyBody
+
+val buffers = new ConcurrentHashMap[Int, ByteBuf]()
+buffers.put(0, Unpooled.copiedBuffer("hello, ".getBytes(Charsets.Http)))
+buffers.put(1, Unpooled.copiedBuffer("world".getBytes(Charsets.Http)))
+
+val byteBufBody: Body =
+  NettyBody.fromByteBufStream(ZStream(0, 1))(i => Option(buffers.remove(i)))
+```
+
+Reading such a body in-process (`asStream`, `asChunk`, `asString`) claims each buffer, copies it to the heap and releases it.
+
 #### From Stream of Values with ZIO Schema Binary Codec
 
 To create a `Body` that encodes a stream of values of type `A`, we can use `Body.fromStream` with a `BinaryCodec`:

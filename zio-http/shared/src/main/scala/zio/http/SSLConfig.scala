@@ -215,12 +215,20 @@ object SSLConfig {
   def fromJavaxNetSslKeyStoreResource(keyManagerResource: String, keyManagerPassword: Secret): SSLConfig =
     fromJavaxNetSslKeyStoreResource(keyManagerResource, Some(keyManagerPassword))
 
+  /**
+   * Generates a self-signed certificate at runtime, for testing and development
+   * only. Requires `"io.netty" % "netty-pkitesting"` on the classpath: zio-http
+   * declares it as an optional dependency, so it has to be added explicitly
+   * (`zio-http-testkit` brings it).
+   */
   def generate: SSLConfig =
     generate(HttpBehaviour.Redirect, None)
 
+  /** Like `generate`, and needs the same `netty-pkitesting` dependency. */
   def generate(clientAuth: ClientAuth): SSLConfig =
     generate(HttpBehaviour.Redirect, Some(clientAuth))
 
+  /** Like `generate`, and needs the same `netty-pkitesting` dependency. */
   def generate(behaviour: HttpBehaviour, clientAuth: Option[ClientAuth] = None): SSLConfig =
     new SSLConfig(behaviour, Data.Generate, Provider.JDK, clientAuth)
 
@@ -244,7 +252,8 @@ object SSLConfig {
 
     /**
      * A new public/private key pair will be generated and self-signed. Useful
-     * for testing/developer mode.
+     * for testing/developer mode. Requires `io.netty:netty-pkitesting` on the
+     * classpath (see `SSLConfig.generate`).
      */
     case object Generate extends Data
 
