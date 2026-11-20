@@ -50,6 +50,7 @@ Testing HTTP applications is fundamentally different from testing pure functions
 Add this dependency to your `build.sbt`:
 
 ```scala
+// Test utilities for ZIO HTTP apps (test scope)
 libraryDependencies += "dev.zio" %% "zio-http-testkit" % "@VERSION@" % Test
 ```
 

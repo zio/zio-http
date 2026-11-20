@@ -201,6 +201,7 @@ The `issue` method takes a `username` and generates a JWT token. It uses the sta
 To implement the `JwtTokenService`, we can use the `jwt-core` library:
 
 ```sbt
+// JWT encoding and decoding
 libraryDependencies += "com.github.jwt-scala" %% "jwt-core" % @JWT_CORE_VERSION@
 ```
 

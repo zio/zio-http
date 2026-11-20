@@ -35,11 +35,14 @@ ZIO HTTP solves this by treating routes as **pure, testable functions** that you
 To follow this guide, add these test dependencies to your `build.sbt`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test,
-  "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test,
-  "dev.zio" %% "zio-http-testkit" % "@VERSION@"      % Test,
-)
+// ZIO Test: the test library (test scope)
+libraryDependencies += "dev.zio" %% "zio-test"         % "@ZIO_VERSION@"  % Test
+
+// ZIO Test sbt integration (test scope)
+libraryDependencies += "dev.zio" %% "zio-test-sbt"     % "@ZIO_VERSION@"  % Test
+
+// Test utilities for ZIO HTTP apps (test scope)
+libraryDependencies += "dev.zio" %% "zio-http-testkit" % "@VERSION@"      % Test
 testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 ```
 

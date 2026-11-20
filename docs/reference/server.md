@@ -123,6 +123,7 @@ printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 For tests and local development, `SSLConfig.generate` makes the server use a generated self-signed certificate. It relies on Netty's test-only `netty-pkitesting` module (and BouncyCastle), which zio-http declares as an optional dependency, so add it to your build yourself (`zio-http-testkit` already brings it):
 
 ```scala
+// Test certificates for TLS tests (test scope)
 libraryDependencies += "io.netty" % "netty-pkitesting" % "<netty version used by zio-http>" % Test
 ```
 
@@ -333,8 +334,11 @@ Server
 For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
 
 ```scala
+// ZIO Config core
 libraryDependencies += "dev.zio" %% "zio-config"          % "<version>"
+// Automatic derivation of config descriptors
 libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>"
+// HOCON and JSON config sources
 libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>"
 ```
 
@@ -769,6 +773,7 @@ On linux-x86_64 platforms if you decide to use URING channel type then you can d
 
 In SBT you will need to explicitly add the io uiring package to your project's dependencies:
 ```
+// io_uring transport for Netty on Linux
 libraryDependencies += "io.netty" % "netty-transport-native-io_uring" % "x.x.x"
 ```
 

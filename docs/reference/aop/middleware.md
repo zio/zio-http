@@ -264,10 +264,11 @@ In the following example, we are going to serve two HTTP apps. One app is a back
 In this example we used the Prometheus connector, so we need to add the following dependencies to the `build.sbt` file:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-metrics-connectors"            % "2.3.1",
-  "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
-)
+// ZIO Metrics connectors core
+libraryDependencies += "dev.zio" %% "zio-metrics-connectors"            % "2.3.1"
+
+// Prometheus connector for ZIO Metrics
+libraryDependencies += "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.3.1"
 ```
 
 To integrate with other metrics systems, please refer to the [ZIO Metrics Connectors](https://zio.dev/zio-metrics-connectors/) documentation.

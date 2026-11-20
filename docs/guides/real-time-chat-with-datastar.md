@@ -27,6 +27,7 @@ A fully functional chat application where:
 Add the Datastar SDK dependency to your project:
 
 ```scala
+// Datastar SDK for ZIO HTTP
 libraryDependencies += "dev.zio" %% "zio-http-datastar-sdk" % "@VERSION@"
 ```
 
