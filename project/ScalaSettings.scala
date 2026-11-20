@@ -47,7 +47,10 @@ trait ScalaSettings {
     "-opt:l:inline",
   )
 
-  val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent", "-source:3.3")
+  // `-opt` enables the Scala 3 JVM bytecode optimizer. Cross-entity inlining additionally
+  // requires `-opt-inline:<patterns>` and is intentionally left off for now.
+  val scala3Settings: Seq[String] =
+    Seq("-Xignore-scala2-macros", "-noindent", "-source:3.3", "-opt")
 
   val scala213Settings: Seq[String] = baseSettings ++ Seq(
     "-Xlint:nonlocal-return",    // A return statement used an exception for flow control.
