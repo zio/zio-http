@@ -46,6 +46,8 @@ private[netty] abstract class AsyncBodyReader(
   // before the consumer connects. `ArrayBuilder#knownSize` is unreliable on
   // Scala 2.12, so we count bytes ourselves.
   private var bufferedBytes: Int              = 0
+  // Budget left for throwing away an unconsumed request body; see discardRemainingBody.
+  private var discardableBytes: Long          = 0L
   private var previousAutoRead: Boolean       = false
   private var readingDone: Boolean            = false
   private var ctx: ChannelHandlerContext      = _
@@ -89,6 +91,59 @@ private[netty] abstract class AsyncBodyReader(
     }
   }
 
+  /**
+   * Reads and throws away whatever is left of the request body, so that the
+   * connection can be used for the next request.
+   *
+   * Called when a response has been written while this reader is still in the
+   * pipeline, which means the body was never consumed or was only consumed in
+   * part. Reading stops in that situation - `handlerAdded` disables `autoRead`
+   * and the only calls to `ctx.read()` come from a consumer asking for the next
+   * chunk - so without this the connection stays open but is never read from
+   * again, and the next request the client sends over it is silently dropped.
+   *
+   * HTTP/1.1 gives a server no way to ask a client to stop sending, so the only
+   * two correct options once a response has been sent early are to read the
+   * rest and discard it, or to close the connection. This discards up to
+   * `maxDiscardedBytes`, and beyond that closes the connection with a
+   * [[LingeringClose]], so that the response still arrives in full.
+   *
+   * Only a body that nobody reads on any more is taken over: one that was never
+   * asked for, or one streamed to a consumer that stopped pulling. A consumer
+   * that reads on by itself - a response body written from this request body,
+   * for one - may still be at work, and does not leave the connection unread
+   * anyway.
+   *
+   * Must be called after the response has been handed to the channel. The
+   * switch to discarding is made on the event loop, behind the writes of that
+   * response, so that a close cannot overtake them.
+   *
+   * A client that goes quiet half way holds on to the connection exactly as an
+   * idle keep-alive connection would: until `Server.Config.idleTimeout`, if one
+   * is set. The server's body reader has no read timeout of its own.
+   */
+  private[zio] def discardRemainingBody(maxDiscardedBytes: Long): Unit =
+    onEventLoop(startDiscarding(maxDiscardedBytes))
+
+  private def startDiscarding(maxDiscardedBytes: Long): Unit =
+    self.synchronized {
+      val readingStalled = state match {
+        case State.Buffering | State.Direct(_: UnsafeAsync.Streaming) => true
+        case _                                                        => false
+      }
+      if (readingStalled && !readingDone && ctx.channel().isOpen) {
+        buffer.clear()
+        bufferedBytes = 0
+        discardableBytes = maxDiscardedBytes
+        state = State.Discarding
+        ctx.read(): Unit
+      }
+    }
+
+  private def onEventLoop(task: => Unit): Unit =
+    if (ctx.executor().inEventLoop()) task
+    else ctx.executor().execute(() => task)
+
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     previousAutoRead = ctx.channel().config().isAutoRead
     ctx.channel().config().setAutoRead(false)
@@ -110,7 +165,8 @@ private[netty] abstract class AsyncBodyReader(
 
     self.synchronized {
       val isLast  = msg.isInstanceOf[LastHttpContent]
-      val content = ByteBufUtil.getBytes(msg.content())
+      // A discarded chunk is only ever counted, so its bytes are copied out of the ByteBuf lazily.
+      def content = ByteBufUtil.getBytes(msg.content())
 
       // Cancel timeout task since we received data
       if (isLast) {
@@ -121,12 +177,23 @@ private[netty] abstract class AsyncBodyReader(
 
       val readMore =
         state match {
+          case State.Discarding                                           =>
+            // The consumer is gone; read on until the body ends so that the connection stays usable,
+            // and give up on the connection if the client turns out to be sending more than we are
+            // willing to throw away. A body that has arrived in full leaves the connection clean,
+            // however large it was.
+            discardableBytes -= msg.content().readableBytes()
+            if (discardableBytes < 0 && !isLast) {
+              LingeringClose(ctx.channel())
+              false
+            } else !isLast
           case State.Buffering                                            =>
             // `connect` method hasn't been called yet, add all incoming content to the buffer.
             // Cap the pre-connect buffer to avoid unbounded heap growth when a fast producer
             // outpaces a slow-to-start consumer (see issue #3173).
-            buffer0.addAll(content)
-            bufferedBytes += content.length
+            val bytes = content
+            buffer0.addAll(bytes)
+            bufferedBytes += bytes.length
             bufferedBytes < maxPreConnectBufferSize
           case State.Direct(callback) if isLast && buffer0.knownSize == 0 =>
             // Buffer is empty, we can just use the array directly
@@ -197,6 +264,7 @@ private[netty] abstract class AsyncBodyReader(
       cancelTimeoutTask()
       state match {
         case State.Buffering        =>
+        case State.Discarding       =>
         case State.Direct(callback) =>
           callback.fail(cause)
       }
@@ -210,6 +278,7 @@ private[netty] abstract class AsyncBodyReader(
 
       state match {
         case State.Buffering                        =>
+        case State.Discarding                       =>
         case State.Direct(callback) if !readingDone =>
           // Step 4: Premature channel closure detection
           // This is the core issue from #2383 - server sent headers but closed before body completed
@@ -243,6 +312,13 @@ private[netty] object AsyncBodyReader {
     case object Buffering extends State
 
     final case class Direct(callback: UnsafeAsync) extends State
+
+    /**
+     * The consumer is gone and whatever is left of the body is read and thrown
+     * away, so that the connection is left in a state where the next request on
+     * it can be read.
+     */
+    case object Discarding extends State
   }
 
   // For Scala 2.12. In Scala 2.13+, the methods directly implemented on ArrayBuilder[Byte] are selected over syntax.
