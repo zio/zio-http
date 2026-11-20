@@ -840,6 +840,7 @@ printSource("zio-http-example/src/main/scala/example/endpoint/BooksEndpointExamp
 With ZIO HTTP, we can generate endpoints from an OpenAPI specification. To do this, first, we need to add the following line to the `build.sbt` file:
 
 ```scala
+// Generators for ZIO HTTP types (test scope)
 libraryDependencies += "dev.zio" %% "zio-http-gen" % "@VERSION@"
 ```
 
@@ -902,6 +903,7 @@ The ZIO CLI is a ZIO library that provides a way to build command-line applicati
 To do this, first, we need to add the following line to the `build.sbt` file:
 
 ```scala
+// ZIO HTTP command-line tools
 libraryDependencies += "dev.zio" %% "zio-http-cli" % "@VERSION@"
 ```
 

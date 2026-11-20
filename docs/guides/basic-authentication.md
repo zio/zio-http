@@ -34,10 +34,11 @@ When the server receives a request with this header, it decodes the credentials 
 First, add the necessary dependencies to our `build.sbt`:
 
 ```scala 
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"      % "@ZIO_VERSION@",
-  "dev.zio" %% "zio-http" % "@VERSION@",
-)
+// ZIO core
+libraryDependencies += "dev.zio" %% "zio"      % "@ZIO_VERSION@"
+
+// ZIO HTTP: HTTP server and client (JVM)
+libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 
 ## Implementing Basic Authentication

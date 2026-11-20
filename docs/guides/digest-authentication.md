@@ -134,11 +134,14 @@ ZIO HTTP does not provide built-in Digest Authentication support but offers an e
 First, add the necessary dependencies to your `build.sbt`:
 
 ```scala 
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio"        % "@ZIO_VERSION@"
-  "dev.zio" %% "zio-http"   % "@VERSION@",
-  "dev.zio" %% "zio-schema" % "@ZIO_SCHEMA_VERSION@",
-)
+// ZIO core
+libraryDependencies += "dev.zio" %% "zio"        % "@ZIO_VERSION@"
+
+// ZIO HTTP: HTTP server and client (JVM)
+libraryDependencies += "dev.zio" %% "zio-http"   % "@VERSION@"
+
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema" % "@ZIO_SCHEMA_VERSION@"
 ```
 
 ### Implementation Overview

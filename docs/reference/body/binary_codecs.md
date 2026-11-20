@@ -63,9 +63,13 @@ object Book {
 Based on what format we want, we can add one of the following codecs to our `build.sbt` file:
 
 ```scala
+// JSON codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@ZIO_SCHEMA_VERSION@"
+// Protobuf codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@ZIO_SCHEMA_VERSION@"
+// Avro codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "@ZIO_SCHEMA_VERSION@"
+// Thrift codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "@ZIO_SCHEMA_VERSION@"
 ```
 
