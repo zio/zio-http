@@ -218,6 +218,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
+      `zstd-jni`,
       `scala-compat-collection`,
       // The shaded artifact renames the `netty-pkitesting` classes, so it has to bundle them: sbt-shading only bundles
       // dependencies of the `compile` configuration, which excludes `Optional` ones.
