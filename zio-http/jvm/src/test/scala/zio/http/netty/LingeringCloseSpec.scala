@@ -30,6 +30,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 /**
  * Exercised on an embedded channel, which makes it possible to have the decoder
@@ -82,6 +83,43 @@ object LingeringCloseSpec extends ZIOHttpSpec {
         channel.runPendingTasks()
 
         assertTrue(dispatcher.requests.toList == List("/too-large"), !channel.isOpen)
+      },
+      test("reading the discarded input keeps the read timeout from closing the connection") {
+        val channel = new EmbeddedChannel()
+        channel.freezeTime()
+        channel.pipeline().addLast(new ReadTimeoutHandler(1000, TimeUnit.MILLISECONDS))
+        channel.pipeline().addLast(Names.HttpRequestDecoder, new HttpRequestDecoder())
+        channel.pipeline().addLast(new StuckWrites)
+
+        LingeringClose(channel)
+
+        def receive(): Unit = {
+          channel.writeInbound(Unpooled.wrappedBuffer(Array.fill[Byte](256)('x'.toByte)))
+          channel.runPendingTasks()
+        }
+
+        // The client keeps sending: every read must reset the read timeout, even though
+        // the input is discarded and the response is still waiting to be taken in.
+        receive()
+        channel.advanceTimeBy(500, TimeUnit.MILLISECONDS)
+        channel.runPendingTasks()
+        receive()
+        channel.advanceTimeBy(500, TimeUnit.MILLISECONDS)
+        channel.runPendingTasks()
+        receive()
+        channel.advanceTimeBy(500, TimeUnit.MILLISECONDS)
+        channel.runPendingTasks()
+        receive()
+        channel.advanceTimeBy(500, TimeUnit.MILLISECONDS)
+        channel.runPendingTasks()
+
+        val openWhileSending = channel.isOpen
+
+        // Once the client goes quiet, the connection is closed within the idle timeout.
+        channel.advanceTimeBy(1100, TimeUnit.MILLISECONDS)
+        channel.runPendingTasks()
+
+        assertTrue(openWhileSending, !channel.isOpen)
       },
       test("closes a connection whose response is never taken in, once its time is up") {
         val channel = new EmbeddedChannel()

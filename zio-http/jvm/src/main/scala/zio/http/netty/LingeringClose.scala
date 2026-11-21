@@ -22,6 +22,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.channel.socket.DuplexChannel
+import io.netty.handler.ssl.SslHandler
 import io.netty.util.ReferenceCountUtil
 
 /**
@@ -38,8 +39,10 @@ import io.netty.util.ReferenceCountUtil
  * connection is dispatched any more - not even one the decoder had already
  * buffered - since its response could never be sent. Once everything written so
  * far has reached the socket, the output is shut down, which tells the client
- * the response is complete. The connection is closed when the client closes its
- * end in turn, [[LingerAfterResponseMillis]] after the response is out, or
+ * the response is complete. Over TLS this is a `close_notify` rather than a
+ * bare TCP half-close, so that the client does not see the session cut short.
+ * The connection is closed when the client closes its end in turn,
+ * [[LingerAfterResponseMillis]] after the response is out, or
  * [[MaxLingerMillis]] after this began, whichever comes first.
  */
 private[netty] object LingeringClose {
@@ -62,11 +65,19 @@ private[netty] object LingeringClose {
   def apply(channel: Channel): Unit = {
     val pipeline = channel.pipeline()
     if (pipeline.get(DiscardInput) eq null) {
-      // Raw input, so that it is not decoded at all ...
-      pipeline.addFirst(DiscardInput, DiscardInbound)
-      // ... and whatever the decoder had buffered already, so that nothing past it sees another request.
-      if (pipeline.get(Names.HttpRequestDecoder) ne null)
+      val decoder = pipeline.get(Names.HttpRequestDecoder)
+      if (decoder ne null) {
+        // Input, so that it is not decoded at all. After the TLS handler, so that
+        // its records are decoded and a close_notify from the client is seen, and
+        // after the read timeout, so that input that keeps arriving keeps the
+        // connection from being closed as idle ...
+        pipeline.addBefore(Names.HttpRequestDecoder, DiscardInput, DiscardInbound)
+        // ... and after the decoder, whatever it had buffered already, so that
+        // nothing past it sees another request.
         pipeline.addAfter(Names.HttpRequestDecoder, DiscardDecoded, DiscardInbound)
+      } else {
+        pipeline.addFirst(DiscardInput, DiscardInbound)
+      }
       channel.config().setAutoRead(true)
       channel.read()
       closeAfter(channel, MaxLingerMillis)
@@ -75,12 +86,24 @@ private[netty] object LingeringClose {
         .writeAndFlush(Unpooled.EMPTY_BUFFER)
         .addListener(new ChannelFutureListener {
           override def operationComplete(written: ChannelFuture): Unit =
-            channel match {
-              case duplex: DuplexChannel if written.isSuccess && duplex.isActive =>
-                duplex.shutdownOutput()
+            if (written.isSuccess && channel.isActive) {
+              val sslHandler = pipeline.get(classOf[SslHandler])
+              if (sslHandler ne null) {
+                // Tell the client the response is complete in TLS terms, without
+                // closing the channel: its inbound side is still needed to read
+                // the rest of the request, until the linger time is up.
+                sslHandler.closeOutbound(): Unit
                 closeAfter(channel, LingerAfterResponseMillis)
-              case _                                                             =>
-                channel.close(): Unit
+              } else
+                channel match {
+                  case duplex: DuplexChannel =>
+                    duplex.shutdownOutput()
+                    closeAfter(channel, LingerAfterResponseMillis)
+                  case _                     =>
+                    channel.close(): Unit
+                }
+            } else {
+              channel.close(): Unit
             }
         }): Unit
     }

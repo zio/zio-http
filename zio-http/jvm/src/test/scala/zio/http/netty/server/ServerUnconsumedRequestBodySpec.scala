@@ -200,6 +200,22 @@ object ServerUnconsumedRequestBodySpec extends ZIOHttpSpec {
           )
         } yield assertTrue(exchange.response.isAnswered("400"), exchange.reused.isAnswered("200"))
       },
+      test("a body whose remainder arrives after the response is discarded before the next request") {
+        val prefixSize = 512
+        for {
+          port     <- startServer(_.body.asStream.take(1).runDrain.orDie, Server.Config.default)
+          socket   <- connect(port, receiveBufferSize = None)
+          _        <- sendHead(socket, "POST /reject HTTP/1.1", bodySize)
+          // Only a prefix of the body: the handler takes one byte of it and answers,
+          // while the rest is still unsent.
+          _        <- sendBody(socket, prefixSize)
+          response <- readResponse(socket, pauseBetweenReads = None)
+          // The remainder arrives only after the response, when the reader is already discarding.
+          _        <- sendBody(socket, bodySize - prefixSize)
+          _        <- sendHead(socket, "GET /ping HTTP/1.1", contentLength = 0)
+          reused   <- readResponse(socket, pauseBetweenReads = None)
+        } yield assertTrue(response.isAnswered("400"), reused.isAnswered("200"))
+      },
       test("a handler that consumes the whole body leaves the connection usable") {
         for {
           exchange <- scenario(
