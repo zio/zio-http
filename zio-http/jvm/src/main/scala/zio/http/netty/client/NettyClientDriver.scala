@@ -177,6 +177,7 @@ final case class NettyClientDriver private[netty] (
       val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, handshakeCompleted, Some(onComplete))
 
       pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
+      NettySocketProtocol.addFrameAggregator(pipeline, webSocketConfig)
       pipeline.addLast(Names.WebSocketHandler, webSocket)
 
       pipeline.fireChannelRegistered()

@@ -724,8 +724,12 @@ final case class SocketDecoder(
   allowExtensions: Boolean = false,
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
+  aggregateFragments: Boolean = true,
+  maxMessageLength: Int = 1048576,
 )
 ```
+
+By default, fragmented WebSocket messages (a non-final text or binary frame followed by continuation frames) are aggregated into a single, final `WebSocketFrame.Text` or `WebSocketFrame.Binary` frame before they reach the application. `maxMessageLength` limits the size in bytes of such an aggregated message; if a peer exceeds it, the connection is closed with status 1009 (message too big). Unfragmented frames are limited by `maxFramePayloadLength` instead. Aggregation can be disabled with `aggregateFragments = false`, in which case the application receives the individual fragments. Be aware that the text of a non-final `WebSocketFrame.Text` fragment may then be broken, because a fragment boundary may fall in the middle of a multi-byte UTF-8 character.
 
 ## Netty Configuration
 

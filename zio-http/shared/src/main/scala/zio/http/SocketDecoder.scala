@@ -16,6 +16,8 @@
 
 package zio.http
 
+import scala.annotation.unroll
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
@@ -28,7 +30,29 @@ final case class SocketDecoder(
   allowExtensions: Boolean = false,
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
+  @unroll
+  aggregateFragments: Boolean = true,
+  maxMessageLength: Int = 1048576,
 ) { self =>
+
+  /**
+   * Whether fragmented messages (a text or binary frame that is not final,
+   * followed by continuation frames) are aggregated into a single, final
+   * [[WebSocketFrame.Text]] or [[WebSocketFrame.Binary]] frame before they are
+   * passed to the application. When disabled, the individual fragments are
+   * passed on as they are received. Note that in that case, the text of a
+   * non-final [[WebSocketFrame.Text]] frame may be broken, because a fragment
+   * boundary may occur in the middle of a multi-byte UTF-8 sequence.
+   */
+  def aggregateFragments(enable: Boolean): SocketDecoder = self.copy(aggregateFragments = enable)
+
+  /**
+   * The maximum size in bytes of an aggregated message. If a fragmented message
+   * exceeds this size, the connection is closed with status 1009 (message too
+   * big). Only relevant if `aggregateFragments` is enabled. Unfragmented frames
+   * are limited by `maxFramePayloadLength` instead.
+   */
+  def maxMessageLength(length: Int): SocketDecoder = self.copy(maxMessageLength = length)
 
   def extensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 

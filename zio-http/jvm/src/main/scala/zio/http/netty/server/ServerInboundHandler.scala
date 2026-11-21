@@ -20,6 +20,7 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
+import scala.util.chaining._
 import scala.util.control.NonFatal
 
 import zio._
@@ -330,16 +331,18 @@ private[zio] final case class ServerInboundHandler(
         }
       }
     _                  <- ZIO.attempt {
+      val webSocketConfig = webSocketApp.customConfig.getOrElse(config.webSocketConfig)
       ctx
         .channel()
         .pipeline()
         .addLast(
           new WebSocketServerProtocolHandler(
             NettySocketProtocol
-              .serverBuilder(webSocketApp.customConfig.getOrElse(config.webSocketConfig))
+              .serverBuilder(webSocketConfig)
               .build(),
           ),
         )
+        .pipe(NettySocketProtocol.addFrameAggregator(_, webSocketConfig))
         .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, handshakeCompleted, None))
 
       val jReq = new DefaultFullHttpRequest(
