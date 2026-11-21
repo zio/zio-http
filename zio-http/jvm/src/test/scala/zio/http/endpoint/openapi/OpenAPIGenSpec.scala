@@ -314,6 +314,10 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
     Endpoint(GET / "withCookieAuth")
       .auth(AuthType.Custom(HttpCodec.headerAs[String]("cookie")))
 
+  private val endpointWithTypedCookieAuth =
+    Endpoint(GET / "withTypedCookieAuth")
+      .auth(AuthType.Cookie("myAppAuthCookie"))
+
   private val endpointWithOrAuth =
     Endpoint(GET / "withOrAuth")
       .auth(AuthType.Bearer | AuthType.Custom(HttpCodec.headerAs[String]("x-Api-Token")))
@@ -5082,6 +5086,48 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  "security": [
                              |    {
                              |      "cookie": []
+                             |    }
+                             |  ]
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("typed AuthType.Cookie to OpenAPI") {
+        val generated    = OpenAPIGen.fromEndpoints("Typed Cookie Auth", "1.0", endpointWithTypedCookieAuth)
+        val json         = toJsonAst(generated)
+        val expectedJson = """{
+                             |  "openapi": "3.1.0",
+                             |  "info": {
+                             |    "title": "Typed Cookie Auth",
+                             |    "version": "1.0"
+                             |  },
+                             |  "paths": {
+                             |    "/withTypedCookieAuth": {
+                             |      "get": {
+                             |        "responses": {
+                             |          "404": {
+                             |            "description": "Not Found\n\n"
+                             |          }
+                             |        },
+                             |        "security": [
+                             |          {
+                             |            "myAppAuthCookie": []
+                             |          }
+                             |        ]
+                             |      }
+                             |    }
+                             |  },
+                             |  "components": {
+                             |    "securitySchemes": {
+                             |      "myAppAuthCookie": {
+                             |        "type": "apiKey",
+                             |        "name": "myAppAuthCookie",
+                             |        "in": "cookie"
+                             |      }
+                             |    }
+                             |  },
+                             |  "security": [
+                             |    {
+                             |      "myAppAuthCookie": []
                              |    }
                              |  ]
                              |}""".stripMargin
