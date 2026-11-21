@@ -20,6 +20,7 @@ import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import zio._
+import zio.json.ast.Json
 
 import zio.stream.ZStream
 
@@ -1060,6 +1061,18 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * A list of tags for this endpoint.
    */
   def tags: List[String] = documentation.tags
+
+  /**
+   * Adds extensions to the endpoint. They are used for documentation
+   * generation.
+   */
+  def ext(name: String, value: Json): Endpoint[PathInput, Input, Err, Output, Auth] =
+    copy(documentation = documentation.ext(name, value))
+
+  /**
+   * A map of extensions for this endpoint.
+   */
+  def extensions: Map[String, Json] = documentation.extensions
 
   /**
    * Transforms the input of this endpoint using the specified functions. This
