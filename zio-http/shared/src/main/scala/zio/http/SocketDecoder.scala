@@ -16,9 +16,9 @@
 
 package zio.http
 
-import scala.annotation.unroll
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import com.lihaoyi.unroll
 
 /**
  * Frame decoder configuration
