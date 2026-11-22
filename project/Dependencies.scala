@@ -5,6 +5,9 @@ object Dependencies {
   val NettyVersion                 = "4.2.21.Final"
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.27"
+  // zio-test 2.1.27 overflows the stack when a ZTestLogger.LogEntry is printed (zio/zio#11297).
+  // Keep the test libraries on 2.1.26 while the runtime is on 2.1.27.
+  val ZioTestVersion               = "2.1.26"
   val ZioCliVersion                = "0.8.2"
   val ZioJsonVersion               = "1.1.3"
   val ZioSchemaVersion             = "1.9.2"
@@ -52,7 +55,7 @@ object Dependencies {
   val `zio-schema-avro`     = "dev.zio" %% "zio-schema-avro"     % ZioSchemaVersion
   val `zio-schema-thrift`   = "dev.zio" %% "zio-schema-thrift"   % ZioSchemaVersion
   val `zio-schema-msg-pack` = "dev.zio" %% "zio-schema-msg-pack" % ZioSchemaVersion
-  val `zio-test`            = "dev.zio" %% "zio-test"            % ZioVersion % "test"
-  val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioVersion % "test"
+  val `zio-test`            = "dev.zio" %% "zio-test"            % ZioTestVersion % "test"
+  val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioTestVersion % "test"
 
 }
