@@ -36,6 +36,8 @@ import zio.http.Status
 import zio.http.codec.Doc
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 
+import com.lihaoyi.unroll
+
 /**
  * This is the root document object of the OpenAPI document.
  *
@@ -383,9 +385,10 @@ object OpenAPI {
     license: Option[License],
     version: String,
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   )
-  object Info {
+  object Info extends InfoCompatibility {
     implicit val schema: Schema[Info] = extensionSchema(
       DeriveSchema.gen[Info],
       _.extensions,
@@ -406,10 +409,6 @@ object OpenAPI {
    */
   final case class Contact(name: Option[String], url: Option[URI], email: Option[String])
 
-  object Contact {
-    implicit val schema: Schema[Contact] = DeriveSchema.gen[Contact]
-  }
-
   /**
    * License information for the exposed API.
    *
@@ -419,10 +418,6 @@ object OpenAPI {
    *   A URL to the license used for the API.
    */
   final case class License(name: String, url: Option[URI])
-
-  object License {
-    implicit val schema: Schema[License] = DeriveSchema.gen[License]
-  }
 
   /**
    * An object representing a Server.
@@ -628,6 +623,7 @@ object OpenAPI {
     servers: List[Server] = List.empty,
     parameters: Set[ReferenceOr[Parameter]] = Set.empty,
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   ) {
     def addGet(operation: Operation): PathItem     = copy(get = Some(operation))
@@ -745,9 +741,10 @@ object OpenAPI {
     security: List[SecurityRequirement] = List.empty,
     servers: List[Server] = List.empty,
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   )
-  object Operation {
+  object Operation extends OperationCompatibility {
     implicit val schema: Schema[Operation] = extensionSchema(
       DeriveSchema.gen[Operation],
       _.extensions,
@@ -771,6 +768,7 @@ object OpenAPI {
     style: Option[String],
     content: Option[(String, MediaType)],
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   ) {
     override def equals(obj: Any): Boolean = obj match {
@@ -832,6 +830,7 @@ object OpenAPI {
       required: Boolean = false,
       allowReserved: Boolean = false,
       style: QueryStyle = Style.Form,
+      @unroll
       extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
@@ -875,6 +874,7 @@ object OpenAPI {
       definition: Option[ReferenceOr[JsonSchema]] = None,
       explode: Boolean = false,
       examples: Map[String, ReferenceOr[Example]],
+      @unroll
       extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
@@ -913,6 +913,7 @@ object OpenAPI {
       style: PathStyle = Style.Simple,
       explode: Boolean = false,
       examples: Map[String, ReferenceOr[Example]],
+      @unroll
       extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
@@ -1151,6 +1152,7 @@ object OpenAPI {
     content: Map[String, MediaType] = Map.empty,
     links: Map[String, ReferenceOr[Link]] = Map.empty,
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   )
 
@@ -1322,9 +1324,10 @@ object OpenAPI {
     description: Option[Doc],
     externalDocs: Option[ExternalDoc],
     @transientField
+    @unroll
     extensions: Extensions = Extensions.empty,
   )
-  object Tag {
+  object Tag extends TagCompatibility {
 
     implicit val schema: Schema[Tag] = extensionSchema(
       DeriveSchema.gen[Tag],
