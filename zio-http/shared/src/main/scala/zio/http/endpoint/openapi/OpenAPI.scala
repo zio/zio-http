@@ -26,7 +26,7 @@ import zio.Chunk
 import zio.json.ast._
 
 import zio.schema._
-import zio.schema.annotation.{caseName, discriminatorName, fieldName, noDiscriminator}
+import zio.schema.annotation._
 import zio.schema.codec.JsonCodec
 import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.json._
@@ -34,6 +34,8 @@ import zio.schema.codec.json._
 import zio.http.Status
 import zio.http.codec.Doc
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
+
+import com.lihaoyi.unroll
 
 /**
  * This is the root document object of the OpenAPI document.
@@ -140,6 +142,7 @@ final case class OpenAPI(
               description = Some(docI + docJ).filter(!_.isEmpty),
               servers = i.servers ++ j.servers,
               parameters = i.parameters ++ j.parameters,
+              extensions = i.extensions ++ j.extensions,
             )
           }
           (path, pathItem)
@@ -196,6 +199,7 @@ object OpenAPI {
       contact = None,
       license = None,
       version = "",
+      extensions = Extensions.empty,
     ),
     servers = List.empty,
     paths = ListMap.empty,
@@ -204,6 +208,41 @@ object OpenAPI {
     tags = List.empty,
     externalDocs = None,
   )
+
+  private def extensionSchema[A](
+    rawSchema: Schema[A],
+    getExtensions: A => Extensions,
+    build: (A, Extensions) => A,
+  ): Schema[A] = {
+    lazy val encoder = JsonCodec.jsonEncoder(
+      JsonCodec.Configuration(
+        explicitEmptyCollections = ExplicitConfig(encoding = false),
+        explicitNulls = ExplicitConfig(encoding = false),
+      ),
+    )(rawSchema)
+    lazy val decoder = JsonCodec.jsonDecoder(rawSchema)
+
+    Schema[Json].transformOrFail[A](
+      {
+        case Json.Obj(fields) =>
+          val (ext, rest) = fields.partition(_._1.startsWith("x-"))
+          val exts        = ext.foldLeft[Map[String, Json]](Map.empty) { case (acc, (k, v)) =>
+            acc.updated(k.stripPrefix("x-"), v)
+          }
+          decoder.fromJsonAST(Json.Obj(rest)).map(v => build(v, Extensions(exts)))
+        case _                => Left("Expected an object")
+      },
+      a =>
+        encoder.toJsonAST(a).map {
+          case Json.Obj(fields) =>
+            val exts = getExtensions(a).underlying.toList.sortBy(_._1).collect { case (k, v) =>
+              s"x-$k" -> v
+            }
+            Json.Obj(fields ++ Chunk.fromIterable(exts))
+          case other            => other
+        },
+    )
+  }
 
   implicit def statusSchema: Schema[Status] =
     zio.schema
@@ -334,6 +373,8 @@ object OpenAPI {
    * @param version
    *   The version of the OpenAPI document (which is distinct from the OpenAPI
    *   Specification version or the API implementation version).
+   * @param extensions
+   *   Extensions to the info section.
    */
   final case class Info(
     title: String,
@@ -342,7 +383,17 @@ object OpenAPI {
     contact: Option[Contact],
     license: Option[License],
     version: String,
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
   )
+  object Info extends InfoCompatibility {
+    implicit val schema: Schema[Info] = extensionSchema(
+      DeriveSchema.gen[Info],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
+  }
 
   /**
    * Contact information for the exposed API.
@@ -552,6 +603,8 @@ object OpenAPI {
    *   level, but cannot be removed there. The Set can use the Reference Object
    *   to link to parameters that are defined at the OpenAPI Object’s
    *   components/parameters.
+   * @param extensions
+   *   Extensions to the path item.
    */
   @nowarn("msg=possible missing interpolator")
   final case class PathItem(
@@ -568,6 +621,9 @@ object OpenAPI {
     trace: Option[Operation],
     servers: List[Server] = List.empty,
     parameters: Set[ReferenceOr[Parameter]] = Set.empty,
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
   ) {
     def addGet(operation: Operation): PathItem     = copy(get = Some(operation))
     def addPut(operation: Operation): PathItem     = copy(put = Some(operation))
@@ -591,8 +647,11 @@ object OpenAPI {
   }
 
   object PathItem {
-    implicit val schema: Schema[PathItem] =
-      DeriveSchema.gen[PathItem]
+    implicit val schema: Schema[PathItem] = extensionSchema(
+      DeriveSchema.gen[PathItem],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
 
     val empty: PathItem = PathItem(
       ref = None,
@@ -664,6 +723,8 @@ object OpenAPI {
    *   An alternative server List to service this operation. If an alternative
    *   server object is specified at the Path Item Object or Root level, it will
    *   be overridden by this value.
+   * @param extensions
+   *   Extensions to the operation.
    */
   final case class Operation(
     tags: List[String] = List.empty,
@@ -678,7 +739,17 @@ object OpenAPI {
     deprecated: Option[Boolean] = None,
     security: List[SecurityRequirement] = List.empty,
     servers: List[Server] = List.empty,
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
   )
+  object Operation extends OperationCompatibility {
+    implicit val schema: Schema[Operation] = extensionSchema(
+      DeriveSchema.gen[Operation],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
+  }
 
   /**
    * Describes a single operation parameter.
@@ -695,6 +766,9 @@ object OpenAPI {
     allowReserved: Option[Boolean],
     style: Option[String],
     content: Option[(String, MediaType)],
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
   ) {
     override def equals(obj: Any): Boolean = obj match {
       case p: Parameter if name == p.name && in == p.in => true
@@ -706,8 +780,11 @@ object OpenAPI {
 
   object Parameter {
 
-    implicit val schema: Schema[Parameter] =
-      DeriveSchema.gen[Parameter]
+    implicit val schema: Schema[Parameter] = extensionSchema(
+      DeriveSchema.gen[Parameter],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
 
     final case class Content(key: String, mediaType: MediaType)
 
@@ -752,6 +829,8 @@ object OpenAPI {
       required: Boolean = false,
       allowReserved: Boolean = false,
       style: QueryStyle = Style.Form,
+      @unroll
+      extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
       "query",
@@ -769,6 +848,7 @@ object OpenAPI {
         case Style.DeepObject     => "deepObject"
       }),
       None,
+      extensions,
     )
 
     /**
@@ -793,6 +873,8 @@ object OpenAPI {
       definition: Option[ReferenceOr[JsonSchema]] = None,
       explode: Boolean = false,
       examples: Map[String, ReferenceOr[Example]],
+      @unroll
+      extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
       "header",
@@ -805,6 +887,7 @@ object OpenAPI {
       allowReserved = None,
       style = Some("simple"),
       None,
+      extensions,
     )
 
     /**
@@ -829,6 +912,8 @@ object OpenAPI {
       style: PathStyle = Style.Simple,
       explode: Boolean = false,
       examples: Map[String, ReferenceOr[Example]],
+      @unroll
+      extensions: Extensions = Extensions.empty,
     ): Parameter = Parameter(
       name,
       "path",
@@ -845,6 +930,7 @@ object OpenAPI {
         case Style.Simple => "simple"
       }),
       None,
+      extensions,
     )
 
     /**
@@ -1064,11 +1150,18 @@ object OpenAPI {
     headers: Map[String, ReferenceOr[Header]] = Map.empty,
     content: Map[String, MediaType] = Map.empty,
     links: Map[String, ReferenceOr[Link]] = Map.empty,
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
   )
 
   object Response {
-    implicit val schema: Schema[Response] =
-      DeriveSchema.gen[Response]
+
+    implicit val schema: Schema[Response] = extensionSchema(
+      DeriveSchema.gen[Response],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
   }
 
   /**
@@ -1225,7 +1318,22 @@ object OpenAPI {
    * @param externalDocs
    *   Additional external documentation for this tag.
    */
-  final case class Tag(name: String, description: Option[Doc], externalDocs: Option[ExternalDoc])
+  final case class Tag(
+    name: String,
+    description: Option[Doc],
+    externalDocs: Option[ExternalDoc],
+    @transientField
+    @unroll
+    extensions: Extensions = Extensions.empty,
+  )
+  object Tag extends TagCompatibility {
+
+    implicit val schema: Schema[Tag] = extensionSchema(
+      DeriveSchema.gen[Tag],
+      _.extensions,
+      (i, e) => i.copy(extensions = e),
+    )
+  }
 
   /**
    * A simple object to allow referencing other components in the specification,
@@ -1527,5 +1635,13 @@ object OpenAPI {
      *   schemes.
      */
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
+  }
+
+  final case class Extensions(underlying: Map[String, Json]) {
+    def ++(other: Extensions): Extensions = Extensions(underlying ++ other.underlying)
+  }
+
+  object Extensions {
+    val empty = Extensions(Map.empty)
   }
 }

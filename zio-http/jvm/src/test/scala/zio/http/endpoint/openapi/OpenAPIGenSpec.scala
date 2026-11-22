@@ -324,6 +324,20 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
   def toJsonAst(api: OpenAPI): Json =
     toJsonAst(api.toJson)
 
+  private def jsonField(json: Json, path: String*): Option[Json] =
+    path.foldLeft[Option[Json]](Some(json)) {
+      case (Some(Json.Obj(fields)), key) => fields.collectFirst { case (k, v) if k == key => v }
+      case _                             => None
+    }
+
+  private def assertTagsAndExtensions(generated: OpenAPI): TestResult = {
+    val json = toJsonAst(generated)
+    assertTrue(
+      jsonField(json, "paths", "/users", "get", "tags").contains(Json.Arr(Chunk(Json.Str("t")))),
+      jsonField(json, "paths", "/users", "get", "x-foo").contains(Json.Num(5)),
+    )
+  }
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("OpenAPIGenSpec")(
       test("root endpoint to OpenAPI") {
@@ -5229,6 +5243,37 @@ object OpenAPIGenSpec extends ZIOSpecDefault {
                              |  ]
                              |}""".stripMargin
         assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("endpoint extensions") {
+        val genericEndpoint = Endpoint(GET / "users").ext("foo", Json.Num(5))
+        val generated       = OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint)
+        val json            = toJsonAst(generated)
+        val expectedJson    = """{
+                             |  "openapi" : "3.1.0",
+                             |  "info" : {
+                             |    "title" : "Generic Endpoint",
+                             |    "version" : "1.0"
+                             |  },
+                             |  "paths" : {
+                             |    "/users" : {
+                             |      "description" : "",
+                             |      "get" : {
+                             |        "description" : "",
+                             |        "x-foo" : 5
+                             |      }
+                             |    }
+                             |  },
+                             |  "components" : {}
+                             |}""".stripMargin
+        assertTrue(json == toJsonAst(expectedJson))
+      },
+      test("tag then extension keeps both tags and extensions") {
+        val genericEndpoint = Endpoint(GET / "users").tag("t").ext("foo", Json.Num(5))
+        assertTagsAndExtensions(OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint))
+      },
+      test("extension then tag keeps both tags and extensions") {
+        val genericEndpoint = Endpoint(GET / "users").ext("foo", Json.Num(5)).tag("t")
+        assertTagsAndExtensions(OpenAPIGen.fromEndpoints("Generic Endpoint", "1.0", genericEndpoint))
       },
     )
 

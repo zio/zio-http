@@ -17,10 +17,12 @@
 package zio.http.codec
 
 import zio.Chunk
+import zio.json.ast.Json
 
 import zio.schema.Schema
 
 import zio.http.codec.Doc.Span.CodeStyle
+import zio.http.endpoint.openapi.OpenAPI.Extensions
 import zio.http.template
 
 /**
@@ -44,6 +46,7 @@ sealed trait Doc { self =>
       case Doc.Sequence(left, right) => left.isEmpty && right.isEmpty
       case Doc.Listing(xs, _)        => xs.forall(_.isEmpty)
       case Doc.Raw(value, _)         => value.isEmpty
+      case Doc.Extended(doc, exts)   => doc.isEmpty && exts.isEmpty
       case _                         => false
     }
 
@@ -68,8 +71,39 @@ sealed trait Doc { self =>
   def tag(tag: String, tags: String*): Doc = self.tag(tag +: tags)
 
   def tags: List[String] = self match {
-    case Tagged(_, tags) => tags
-    case _               => Nil
+    // `Extended` only wraps a doc, so unwrapping it cannot duplicate tags.
+    case Extended(doc, _)  =>
+      doc.tags
+    // A `Tagged` node owns its tags; nested tags are only appended when they are
+    // not already present, so wrappers that both carry the same tag (for
+    // example after repeated `.tag`/`.ext` calls) do not duplicate it. We
+    // deliberately do not recurse into `Sequence`: `+` hoists all tags into a
+    // single outer `Tagged(Sequence(...), ...)`, so recursing there would
+    // report the same tags twice.
+    case Tagged(doc, tags) =>
+      doc.tags.filterNot(tags.contains) ++ tags
+    case _                 =>
+      Nil
+  }
+
+  /**
+   * Adds an extension to this documentation.
+   *
+   * The name is the bare extension name, without the OpenAPI `x-` prefix:
+   * `ext("foo", value)` is emitted as `x-foo`. Passing a name that already
+   * includes the prefix produces `x-x-foo`.
+   */
+  def ext(name: String, value: Json): Doc =
+    self match {
+      case Extended(doc, exts) => Extended(doc, exts.updated(name, value))
+      case _                   => Extended(self, Map((name, value)))
+    }
+
+  def extensions: Map[String, Json] = self match {
+    case Extended(doc, exts)   => doc.extensions ++ exts
+    case Tagged(doc, _)        => doc.extensions
+    case Sequence(left, right) => left.extensions ++ right.extensions
+    case _                     => Map.empty
   }
 
   def toCommonMark: String = {
@@ -152,6 +186,9 @@ sealed trait Doc { self =>
         case Doc.Tagged(doc, _) =>
           render(doc, indent)
 
+        case Doc.Extended(doc, _) =>
+          render(doc, indent)
+
       }
     }
 
@@ -210,6 +247,8 @@ sealed trait Doc { self =>
       case Raw(_, docType)             =>
         throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
       case Tagged(doc, _)              =>
+        doc.toHtml
+      case Extended(doc, _)            =>
         doc.toHtml
     }
     html ++ (if (tags.nonEmpty) Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml else Html.Empty)
@@ -309,6 +348,9 @@ sealed trait Doc { self =>
 
         case Tagged(doc, _) =>
           renderHelpDoc(doc)
+
+        case Extended(doc, _) =>
+          renderHelpDoc(doc)
       }
 
     def renderSpan(span: Span): Unit = {
@@ -390,6 +432,7 @@ object Doc {
   final case class Sequence(left: Doc, right: Doc)                        extends Doc
   final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
   final case class Tagged(doc: Doc, tgs: List[String])                    extends Doc
+  final case class Extended(doc: Doc, exts: Map[String, Json])            extends Doc
   sealed trait ListingType
   object ListingType {
     case object Unordered extends ListingType

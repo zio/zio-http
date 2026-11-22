@@ -196,7 +196,6 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(Shading.shadingSettings())
   .settings(
     autoCompilerPlugins := true,
-    libraryDependencies += unroll,
     addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.2.0"),
   )
   .settings(
@@ -209,6 +208,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
     },
   )
   .jvmSettings(
+    libraryDependencies += unroll,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       `zio`,

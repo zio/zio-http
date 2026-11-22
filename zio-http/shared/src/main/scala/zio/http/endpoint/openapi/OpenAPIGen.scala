@@ -811,6 +811,7 @@ object OpenAPIGen {
         callbacks = Map.empty,
         security = getSecurity(endpoint),
         servers = Nil,
+        extensions = OpenAPI.Extensions(endpoint.extensions),
       )
     }
 
@@ -890,6 +891,7 @@ object OpenAPIGen {
                 )
               },
               required = mc.required && !StringSchemaCodec.isOptional(field.schema),
+              extensions = docs.fold(OpenAPI.Extensions.empty)(d => OpenAPI.Extensions(d.extensions)),
             ),
           )
 
@@ -1113,6 +1115,7 @@ object OpenAPIGen {
         contact = None,
         license = None,
         version = "",
+        extensions = OpenAPI.Extensions.empty,
       ),
       servers = Nil,
       paths = ListMap(path.toSeq.sortBy(_._1.name): _*),
