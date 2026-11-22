@@ -29,6 +29,7 @@ npx skills add zio/zio-skills --skill zio-http-knowledge
 To use ZIO HTTP, we should add the following dependencies in our project:
 
 ```scala
+// ZIO HTTP: HTTP server and client (JVM)
 libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 

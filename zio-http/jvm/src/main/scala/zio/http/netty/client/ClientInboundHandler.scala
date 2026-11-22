@@ -23,7 +23,9 @@ import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.DecoderException
 import io.netty.handler.codec.http._
+import io.netty.util.ReferenceCountUtil
 
 /**
  * Handles HTTP response
@@ -66,14 +68,43 @@ private[netty] final class ClientInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
-        val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis, req.method)
-        onResponse.unsafe.done(Exit.succeed(resp))
+        // Netty reports maxHeaderSize / maxInitialLineLength violations as a
+        // message with a failed DecoderResult (BAD_MESSAGE) rather than by
+        // throwing through the pipeline. Failing the promises here prevents
+        // the hang from #4375; closing poisons the connection so the pool
+        // does not reuse it. HttpResponse headers are not refcounted.
+        if (response.decoderResult().isFailure) {
+          val exit = Exit.fail(decoderFailure(response))
+          onResponse.unsafe.done(exit)
+          onComplete.unsafe.done(exit)
+          ctx.close(): Unit
+        } else {
+          val keepAlive = enableKeepAlive && HttpUtil.isKeepAlive(response)
+          val resp      = NettyResponse.make(ctx, response, onComplete, keepAlive, bodyReadTimeoutMillis, req.method)
+          onResponse.unsafe.done(Exit.succeed(resp))
+        }
       case content: HttpContent   =>
-        ctx.fireChannelRead(content): Unit
+        // Covers maxChunkSize / trailer decode failures on the same path.
+        // The message is consumed here (never forwarded), so release it to
+        // avoid leaking the ByteBuf, then propagate the failure downstream
+        // so streaming body readers fail fast instead of hanging.
+        if (content.decoderResult().isFailure) {
+          val failure = decoderFailure(content)
+          onComplete.unsafe.done(Exit.fail(failure))
+          ReferenceCountUtil.release(content)
+          ctx.fireExceptionCaught(failure): Unit
+          ctx.close(): Unit
+        } else {
+          ctx.fireChannelRead(content): Unit
+        }
 
       case err => throw new IllegalStateException(s"Client unexpected message type: $err")
     }
+  }
+
+  private def decoderFailure(msg: HttpObject): Throwable = {
+    val cause = msg.decoderResult().cause()
+    if (cause ne null) cause else new DecoderException("HTTP decoding failed")
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {

@@ -16,13 +16,13 @@
 
 package zio.http
 
-import scala.annotation.unroll
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.internal.ChannelState
+
+import com.lihaoyi.unroll
 
 trait ClientDriver {
   type Connection
@@ -39,6 +39,29 @@ trait ClientDriver {
     @unroll
     bodyReadTimeoutMillis: Option[Long] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
+
+  /**
+   * Performs a WebSocket handshake on the given connection and returns the
+   * `WebSocketChannel` of the connection.
+   *
+   * The default implementation is based on `requestOnChannel` and only exists
+   * for binary compatibility with drivers that don't implement this method.
+   */
+  def requestWebSocketOnChannel(
+    connection: Connection,
+    location: URL.Location.Absolute,
+    req: Request,
+    onResponse: Promise[Throwable, Response],
+    onComplete: Promise[Throwable, ChannelState],
+    webSocketConfig: WebSocketConfig,
+  )(implicit trace: Trace): ZIO[Scope, Throwable, (ChannelInterface, WebSocketChannel)] =
+    Promise.make[Nothing, WebSocketChannel].flatMap { channelPromise =>
+      val app = WebSocketApp(
+        Handler.fromFunctionZIO[WebSocketChannel](channel => channelPromise.succeed(channel) *> channel.awaitShutdown),
+      )
+      requestOnChannel(connection, location, req, onResponse, onComplete, false, () => app, webSocketConfig)
+        .flatMap(channelInterface => channelPromise.await.map((channelInterface, _)))
+    }
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,

@@ -218,6 +218,27 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
 In the above example, we defined a WebSocket client that connects to a mirror server and sends and receives messages. When the connection is established, it receives the `UserEvent.HandshakeComplete` event and then it sends a "foo" message to the server. Consequently, the server sends a "foo" message, and the client responds with a "bar" message. Finally, the server sends a "bar" message, and the client closes the connection.
 
+Instead of passing a `WebSocketApp`, which runs in a separate fiber, we can also obtain the `WebSocketChannel` of the connection with `Client#socketChannel` and use it directly. The connection stays open until either side closes it or the scope is closed:
+
+```scala mdoc:compile-only
+import zio._
+import zio.http._
+import zio.http.ChannelEvent._
+
+val reply: ZIO[Client, Throwable, WebSocketChannelEvent] =
+  ZIO.scoped {
+    for {
+      url     <- ZIO.fromEither(URL.decode("ws://ws.vi-server.org/mirror"))
+      channel <- ZIO.serviceWithZIO[Client](_.url(url).socketChannel)
+      _       <- channel.send(Read(WebSocketFrame.text("foo")))
+      reply   <- channel.receive.repeatUntil {
+        case Read(WebSocketFrame.Text(_)) => true
+        case _                            => false
+      }
+    } yield reply
+  }
+```
+
 ## Configuring Headers
 
 As the `ZClient` extends the `HeaderOps` trait, we have access to all operations that can be performed on headers inside the client.

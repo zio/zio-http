@@ -2,14 +2,17 @@ import sbt.*
 
 object Dependencies {
   val JwtCoreVersion               = "11.0.4"
-  val NettyVersion                 = "4.2.20.Final"
+  val NettyVersion                 = "4.2.21.Final"
   val ScalaCompatCollectionVersion = "2.14.0"
-  val ZioVersion                   = "2.1.26"
+  val ZioVersion                   = "2.1.27"
+  // zio-test 2.1.27 overflows the stack when a ZTestLogger.LogEntry is printed (zio/zio#11297).
+  // Keep the test libraries on 2.1.26 while the runtime is on 2.1.27.
+  val ZioTestVersion               = "2.1.26"
   val ZioCliVersion                = "0.8.2"
-  val ZioJsonVersion               = "1.0.0"
-  val ZioSchemaVersion             = "1.8.7"
+  val ZioJsonVersion               = "1.1.3"
+  val ZioSchemaVersion             = "1.9.2"
   val SttpVersion                  = "3.3.18"
-  val ZioConfigVersion             = "4.0.8"
+  val ZioConfigVersion             = "4.1.2"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
@@ -28,12 +31,16 @@ object Dependencies {
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion,
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-x86_64",
       "io.netty" % "netty-transport-native-kqueue"   % NettyVersion classifier "osx-aarch_64",
-      "io.netty" % "netty-pkitesting"                % NettyVersion,
       "io.netty" % "netty-transport-native-io_uring" % NettyVersion % "provided" classifier "linux-x86_64",
       "com.aayushatharva.brotli4j" % "brotli4j" % "1.24.0" % "provided",
     )
 
-  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.1.12"
+  // Test-only Netty module (pulls in BouncyCastle), needed only by `SSLConfig.generate`.
+  val `netty-pkitesting` = "io.netty" % "netty-pkitesting" % NettyVersion
+
+  // Pinned to 0.2.0: 0.3.0's `unroll-plugin` is cross-published per full Scala version and has no
+  // build for Scala 3.9.0.
+  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.2.0"
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
@@ -48,7 +55,7 @@ object Dependencies {
   val `zio-schema-avro`     = "dev.zio" %% "zio-schema-avro"     % ZioSchemaVersion
   val `zio-schema-thrift`   = "dev.zio" %% "zio-schema-thrift"   % ZioSchemaVersion
   val `zio-schema-msg-pack` = "dev.zio" %% "zio-schema-msg-pack" % ZioSchemaVersion
-  val `zio-test`            = "dev.zio" %% "zio-test"            % ZioVersion % "test"
-  val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioVersion % "test"
+  val `zio-test`            = "dev.zio" %% "zio-test"            % ZioTestVersion % "test"
+  val `zio-test-sbt`        = "dev.zio" %% "zio-test-sbt"        % ZioTestVersion % "test"
 
 }

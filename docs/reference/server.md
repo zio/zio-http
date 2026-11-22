@@ -118,6 +118,17 @@ import utils._
 printSource("zio-http-example/src/main/scala/example/HttpsHelloWorld.scala")
 ```
 
+### Generating a Self-Signed Certificate
+
+For tests and local development, `SSLConfig.generate` makes the server use a generated self-signed certificate. It relies on Netty's test-only `netty-pkitesting` module (and BouncyCastle), which zio-http declares as an optional dependency, so add it to your build yourself (`zio-http-testkit` already brings it):
+
+```scala
+// Test certificates for TLS tests (test scope)
+libraryDependencies += "io.netty" % "netty-pkitesting" % "<netty version used by zio-http>" % Test
+```
+
+Without it, TLS connections fail with an error asking for this dependency. Do not use `SSLConfig.generate` in production.
+
 ## Configuring SSL via JKS
 
 Server SSL can be configured to with a JKS Keystore for standard SSL or, additionally, with an `jks` truststore.
@@ -323,8 +334,11 @@ Server
 For example, to load the server configuration from the hocon file, we should add the `zio-config-typesafe` dependency to our `build.sbt` file:
 
 ```scala
+// ZIO Config core
 libraryDependencies += "dev.zio" %% "zio-config"          % "<version>"
+// Automatic derivation of config descriptors
 libraryDependencies += "dev.zio" %% "zio-config-magnolia" % "<version>"
+// HOCON and JSON config sources
 libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "<version>"
 ```
 
@@ -710,8 +724,12 @@ final case class SocketDecoder(
   allowExtensions: Boolean = false,
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
+  aggregateFragments: Boolean = true,
+  maxMessageLength: Int = 1048576,
 )
 ```
+
+By default, fragmented WebSocket messages (a non-final text or binary frame followed by continuation frames) are aggregated into a single, final `WebSocketFrame.Text` or `WebSocketFrame.Binary` frame before they reach the application. `maxMessageLength` limits the size in bytes of such an aggregated message; if a peer exceeds it, the connection is closed with status 1009 (message too big). Unfragmented frames are limited by `maxFramePayloadLength` instead. Aggregation can be disabled with `aggregateFragments = false`, in which case the application receives the individual fragments. Be aware that the text of a non-final `WebSocketFrame.Text` fragment may then be broken, because a fragment boundary may fall in the middle of a multi-byte UTF-8 character.
 
 ## Netty Configuration
 
@@ -759,6 +777,7 @@ On linux-x86_64 platforms if you decide to use URING channel type then you can d
 
 In SBT you will need to explicitly add the io uiring package to your project's dependencies:
 ```
+// io_uring transport for Netty on Linux
 libraryDependencies += "io.netty" % "netty-transport-native-io_uring" % "x.x.x"
 ```
 

@@ -18,15 +18,45 @@ package zio.http.netty.socket
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.netty.Names
 import zio.http.{SocketDecoder, WebSocketConfig}
 
-import io.netty.handler.codec.http.websocketx.{
-  WebSocketClientProtocolConfig,
-  WebSocketCloseStatus,
-  WebSocketDecoderConfig,
-  WebSocketServerProtocolConfig,
-}
+import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, ChannelPipeline}
+import io.netty.handler.codec.http.websocketx._
 private[netty] object NettySocketProtocol {
+
+  /**
+   * Adds a handler to the pipeline that aggregates fragmented messages into a
+   * single frame, if enabled in the given config. Must be added after the
+   * WebSocket protocol handler and before the WebSocket application handler.
+   */
+  def addFrameAggregator(pipeline: ChannelPipeline, webSocketConfig: WebSocketConfig): ChannelPipeline = {
+    val decoderConfig = webSocketConfig.decoderConfig
+    if (decoderConfig.aggregateFragments)
+      pipeline.addLast(
+        Names.WebSocketFrameAggregator,
+        new FrameAggregator(decoderConfig.maxMessageLength, decoderConfig.closeOnProtocolViolation),
+      )
+    else pipeline
+  }
+
+  /**
+   * Netty's aggregator only fires a `TooLongFrameException` for oversized
+   * messages and keeps the connection open. Like Netty's frame decoder does for
+   * oversized frames, we additionally close the connection with status 1009
+   * (message too big) if `closeOnProtocolViolation` is enabled.
+   */
+  private final class FrameAggregator(maxMessageLength: Int, closeOnProtocolViolation: Boolean)
+      extends WebSocketFrameAggregator(maxMessageLength) {
+    override protected def handleOversizedMessage(ctx: ChannelHandlerContext, oversized: WebSocketFrame): Unit = {
+      if (closeOnProtocolViolation && ctx.channel().isActive) {
+        val _ = ctx
+          .writeAndFlush(new CloseWebSocketFrame(WebSocketCloseStatus.MESSAGE_TOO_BIG))
+          .addListener(ChannelFutureListener.CLOSE)
+      }
+      super.handleOversizedMessage(ctx, oversized)
+    }
+  }
 
   def clientBuilder(webSocketConfig: WebSocketConfig): WebSocketClientProtocolConfig.Builder = {
     import webSocketConfig.decoderConfig

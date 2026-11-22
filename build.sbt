@@ -197,7 +197,7 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
   .settings(
     autoCompilerPlugins := true,
     libraryDependencies += unroll,
-    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12"),
+    addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.2.0"),
   )
   .settings(
     libraryDependencies ++= {
@@ -219,6 +219,9 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
+      // The shaded artifact renames the `netty-pkitesting` classes, so it has to bundle them: sbt-shading only bundles
+      // dependencies of the `compile` configuration, which excludes `Optional` ones.
+      if (Shading.shadingEnabled) `netty-pkitesting` else `netty-pkitesting` % Optional,
     ) ++ netty,
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
@@ -288,8 +291,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.13.33",
-      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.13.33",
+      "com.softwaremill.sttp.tapir"   %% "tapir-http4s-server" % "1.14.1",
+      "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.14.1",
       "com.softwaremill.sttp.client3" %% "core"                % "3.11.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
       "org.slf4j"                      % "slf4j-api"           % "2.0.20",
@@ -361,8 +364,8 @@ lazy val zioHttpMetrics = (project in file("zio-http-metrics"))
     stdSettings("zio-http-metrics"),
     publishSetting(true),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.8",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.8",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.6.0",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.6.0",
       `zio-test`,
       `zio-test-sbt`,
     ),
@@ -387,8 +390,8 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
       `zio-config`,
       `zio-config-magnolia`,
       `zio-config-typesafe`,
-      "dev.zio" %% "zio-metrics-connectors"            % "2.5.8",
-      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.8",
+      "dev.zio" %% "zio-metrics-connectors"            % "2.6.0",
+      "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.6.0",
     ),
   )
   .dependsOn(zioHttpJVM, zioHttpCli, zioHttpGen, zioHttpDatastarSdk)
@@ -498,6 +501,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
       `zio`,
       "dev.zio" %% "zio-test" % ZioVersion,
       `zio-test-sbt`,
+      `netty-pkitesting`,
     ),
   )
   .dependsOn(zioHttpJVM)
@@ -514,9 +518,22 @@ lazy val docs = project
     moduleName                                 := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
+    scalacOptions -= "-Werror", // the Scala 3 spelling of the above
     projectName                                := "ZIO HTTP",
     mainModuleName                             := (zioHttpJVM / moduleName).value,
-    projectStage                               := ProjectStage.Development,
+    projectStage                               := ProjectStage.ProductionReady,
+    badgeArtifactId                            := s"${mainModuleName.value}_3",
+    readmeBanner                               := {
+      val logoBase = "https://raw.githubusercontent.com/zio/zio-http/main/brand/logo"
+      // <picture> lets GitHub swap the lockup per theme: the wordmark is near-black ink, which
+      // would be invisible on GitHub's dark canvas without the on-dark variant.
+      s"""|
+          |<picture>
+          |  <source media="(prefers-color-scheme: dark)" srcset="$logoBase/zio-http-logo-on-dark.svg">
+          |  <img alt="ZIO HTTP" src="$logoBase/zio-http-logo.svg" width="520">
+          |</picture>
+          |""".stripMargin
+    },
     // The API reference served at /api on the website: one unified Scaladoc for every published
     // library module (the JVM side of zio-http, since JVM and JS share the public API). A new
     // published module must be added here too. The sbt-zio-http-grpc plugin is Scala 2.12 only.

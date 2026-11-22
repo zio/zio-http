@@ -72,9 +72,12 @@ As we mentioned earlier, by default, ZIO loads configurations from environment v
 ZIO Config also provides more advanced `ConfigProvider`s such as HOCON, JSON, YAML, and XML. Based on the configuration format, we need to add one of the following dependencies to our project:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "@ZIO_CONFIG_VERSION@" // HOCON
-libraryDependencies += "dev.zio" %% "zio-config-yaml"     % "@ZIO_CONFIG_VERSION@" // YAML and JSON
-libraryDependencies += "dev.zio" %% "zio-config-xml"      % "@ZIO_CONFIG_VERSION@" // XML
+// HOCON
+libraryDependencies += "dev.zio" %% "zio-config-typesafe" % "@ZIO_CONFIG_VERSION@"
+// YAML and JSON
+libraryDependencies += "dev.zio" %% "zio-config-yaml"     % "@ZIO_CONFIG_VERSION@"
+// XML
+libraryDependencies += "dev.zio" %% "zio-config-xml"      % "@ZIO_CONFIG_VERSION@"
 ```
 
 Assuming we have an `application.conf` file inside the `resources` directory with the following content:

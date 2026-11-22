@@ -221,6 +221,128 @@ object WebSocketSpec extends RoutesRunnableSpec {
           assertTrue(result == "immediate")
         }
       },
+      test("fragmented text message split inside a multi-byte character is aggregated") {
+        val emoji = "\uD83D\uDE00".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        for {
+          url    <- DynamicServer.wsURL
+          frames <- Queue.unbounded[WebSocketFrame]
+          id     <- DynamicServer.deploy(collectingServer(frames).toRoutes)
+          frame  <- ZIO.scoped {
+            sendingClient(
+              WebSocketFrame.Text("a", isFinal = false),
+              WebSocketFrame.Continuation(Chunk.fromArray(emoji.take(2)), isFinal = false),
+              WebSocketFrame.Continuation(Chunk.fromArray(emoji.drop(2) ++ "b".getBytes), isFinal = true),
+            ).connect(url, Headers(DynamicServer.APP_ID, id)) *> frames.take
+          }
+        } yield assertTrue(
+          frame match {
+            case WebSocketFrame.Text(text) => text == "a\uD83D\uDE00b"
+            case _                         => false
+          },
+          frame.isFinal,
+        )
+      },
+      test("fragments are passed on individually if aggregation is disabled") {
+        val config = WebSocketConfig.default.decoderConfig(SocketDecoder.default.aggregateFragments(false))
+        for {
+          url    <- DynamicServer.wsURL
+          frames <- Queue.unbounded[WebSocketFrame]
+          id     <- DynamicServer.deploy(collectingServer(frames).withConfig(config).toRoutes)
+          result <- ZIO.scoped {
+            sendingClient(
+              WebSocketFrame.Text("a", isFinal = false),
+              WebSocketFrame.Continuation(Chunk.fromArray("b".getBytes), isFinal = true),
+            ).connect(url, Headers(DynamicServer.APP_ID, id)) *> frames.take.zip(frames.take)
+          }
+          (first, second) = result
+        } yield assertTrue(
+          first == WebSocketFrame.Text("a"),
+          !first.isFinal,
+          second == WebSocketFrame.Continuation(Chunk.fromArray("b".getBytes)),
+          second.isFinal,
+        )
+      },
+      test("connection is closed with status 1009 if an aggregated message is too big") {
+        val serverConfig = WebSocketConfig.default.decoderConfig(SocketDecoder.default.maxMessageLength(8))
+        val clientConfig = WebSocketConfig.default.copy(handleCloseFrames = false)
+        for {
+          url    <- DynamicServer.wsURL
+          frames <- Queue.unbounded[WebSocketFrame]
+          id     <- DynamicServer.deploy(collectingServer(frames).withConfig(serverConfig).toRoutes)
+          close  <- Promise.make[Nothing, WebSocketFrame]
+          _      <- ZIO.scoped {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case UserEventTriggered(HandshakeComplete) =>
+                  channel.send(Read(WebSocketFrame.Text("12345", isFinal = false))) *>
+                    channel.send(Read(WebSocketFrame.Continuation(Chunk.fromArray("6789".getBytes), isFinal = true)))
+                case Read(frame: WebSocketFrame.Close)     =>
+                  close.succeed(frame)
+                case _                                     =>
+                  ZIO.unit
+              }
+            }.withConfig(clientConfig).connect(url, Headers(DynamicServer.APP_ID, id)) *> close.await
+          }
+          frame  <- close.await
+          size   <- frames.size
+        } yield assertTrue(
+          frame match {
+            case WebSocketFrame.Close(status, _) => status == 1009
+            case _                               => false
+          },
+          size == 0,
+        )
+      },
+      test("socketChannel returns a channel that can be used from the calling fiber") {
+        for {
+          url    <- DynamicServer.wsURL
+          id     <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Read(WebSocketFrame.Text(text)) => channel.send(Read(WebSocketFrame.text(text.toUpperCase)))
+                case _                               => ZIO.unit
+              }
+            }.toRoutes
+          }
+          result <- ZIO.scoped {
+            for {
+              channel <- connectChannel(url, id)
+              _       <- channel.send(Read(WebSocketFrame.text("foo")))
+              reply   <- channel.receive.repeatUntil {
+                case Read(WebSocketFrame.Text(_)) => true
+                case _                            => false
+              }
+            } yield reply
+          }
+        } yield assertTrue(result == Read(WebSocketFrame.text("FOO")))
+      },
+      test("socketChannel closes the connection when the scope is closed") {
+        for {
+          url    <- DynamicServer.wsURL
+          closed <- Promise.make[Nothing, Unit]
+          id     <- DynamicServer.deploy {
+            Handler.webSocket { channel =>
+              channel.receiveAll {
+                case Unregistered => closed.succeed(())
+                case _            => ZIO.unit
+              }
+            }.toRoutes
+          }
+          _      <- ZIO.scoped {
+            connectChannel(url, id)
+          }
+          _      <- closed.await
+        } yield assertCompletes
+      },
+      test("socketChannel fails if the server does not return a 101 Switching Protocols response") {
+        for {
+          url    <- DynamicServer.httpURL
+          id     <- DynamicServer.deploy(Handler.badRequest.toRoutes)
+          result <- ZIO.scoped {
+            connectChannel(url, id).either
+          }
+        } yield assertTrue(result.isLeft)
+      },
       test("client socket fails if the server does not return a 101 Switching Protocols response") {
         for {
           url    <- DynamicServer.httpURL
@@ -237,6 +359,29 @@ object WebSocketSpec extends RoutesRunnableSpec {
         )
       },
     )
+
+  private def collectingServer(frames: Queue[WebSocketFrame]): WebSocketApp[Any] =
+    Handler.webSocket { channel =>
+      channel.receiveAll {
+        case Read(frame) => frames.offer(frame)
+        case _           => ZIO.unit
+      }
+    }
+
+  private def sendingClient(toSend: WebSocketFrame*): WebSocketApp[Any] =
+    Handler.webSocket { channel =>
+      channel.receiveAll {
+        case UserEventTriggered(HandshakeComplete) => ZIO.foreachDiscard(toSend)(frame => channel.send(Read(frame)))
+        case _                                     => ZIO.unit
+      }
+    }
+
+  private def connectChannel(url: String, id: String): ZIO[Client & Scope, Throwable, WebSocketChannel] =
+    ZIO
+      .fromEither(URL.decode(url))
+      .flatMap(url =>
+        ZIO.serviceWithZIO[Client](_.url(url).addHeaders(Headers(DynamicServer.APP_ID, id)).socketChannel),
+      )
 
   private val withStreamingEnabled =
     suite("request streaming enabled")(

@@ -23,7 +23,9 @@ To follow along with this guide, you will need the following tools and libraries
 Please add the following dependency to your build.sbt file:
 
 ```scala
+// WebAuthn server core, from Yubico
 libraryDependencies += "com.yubico" % "webauthn-server-core"        % "2.7.0"
+// WebAuthn attestation support, from Yubico
 libraryDependencies += "com.yubico" % "webauthn-server-attestation" % "2.7.0"
 ```
 
