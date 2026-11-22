@@ -275,6 +275,42 @@ object OpenAPISpec extends ZIOSpecDefault {
 
       assertTrue(toJsonAst(json) == toJsonAst(expected))
     },
+    test("extensions decode from JSON") {
+      import OpenAPI._
+
+      val json    =
+        """{
+          |  "openapi" : "3.1.0",
+          |  "info" : {
+          |    "title" : "",
+          |    "version" : "",
+          |    "x-foo": 5,
+          |    "x-bar": true,
+          |    "x-baz": "five"
+          |  }
+          |}""".stripMargin
+      val decoded = OpenAPI.fromJson(json)
+
+      assertTrue(
+        decoded.map(_.info.extensions) == Right(
+          Extensions(
+            Map[String, Json](
+              ("foo", Json.Num(5)),
+              ("bar", Json.Bool(true)),
+              ("baz", Json.Str("five")),
+            ),
+          ),
+        ),
+      )
+    },
+    test("extensions survive a JSON round-trip") {
+      import OpenAPI._
+
+      val extensions = Extensions(Map[String, Json](("foo", Json.Num(5)), ("bar", Json.Bool(true))))
+      val openApi    = OpenAPI.empty.copy(info = OpenAPI.empty.info.copy(extensions = extensions))
+
+      assertTrue(OpenAPI.fromJson(openApi.toJsonPretty).map(_.info.extensions) == Right(extensions))
+    },
     test("path extensions") {
       import OpenAPI._
 

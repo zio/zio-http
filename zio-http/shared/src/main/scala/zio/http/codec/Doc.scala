@@ -46,6 +46,7 @@ sealed trait Doc { self =>
       case Doc.Sequence(left, right) => left.isEmpty && right.isEmpty
       case Doc.Listing(xs, _)        => xs.forall(_.isEmpty)
       case Doc.Raw(value, _)         => value.isEmpty
+      case Doc.Extended(doc, exts)   => doc.isEmpty && exts.isEmpty
       case _                         => false
     }
 
@@ -70,10 +71,28 @@ sealed trait Doc { self =>
   def tag(tag: String, tags: String*): Doc = self.tag(tag +: tags)
 
   def tags: List[String] = self match {
-    case Tagged(_, tags) => tags
-    case _               => Nil
+    // `Extended` only wraps a doc, so unwrapping it cannot duplicate tags.
+    case Extended(doc, _)  =>
+      doc.tags
+    // A `Tagged` node owns its tags; nested tags are only appended when they are
+    // not already present, so wrappers that both carry the same tag (for
+    // example after repeated `.tag`/`.ext` calls) do not duplicate it. We
+    // deliberately do not recurse into `Sequence`: `+` hoists all tags into a
+    // single outer `Tagged(Sequence(...), ...)`, so recursing there would
+    // report the same tags twice.
+    case Tagged(doc, tags) =>
+      doc.tags.filterNot(tags.contains) ++ tags
+    case _                 =>
+      Nil
   }
 
+  /**
+   * Adds an extension to this documentation.
+   *
+   * The name is the bare extension name, without the OpenAPI `x-` prefix:
+   * `ext("foo", value)` is emitted as `x-foo`. Passing a name that already
+   * includes the prefix produces `x-x-foo`.
+   */
   def ext(name: String, value: Json): Doc =
     self match {
       case Extended(doc, exts) => Extended(doc, exts.updated(name, value))
@@ -81,8 +100,10 @@ sealed trait Doc { self =>
     }
 
   def extensions: Map[String, Json] = self match {
-    case Extended(_, exts) => exts
-    case _                 => Map.empty
+    case Extended(doc, exts)   => doc.extensions ++ exts
+    case Tagged(doc, _)        => doc.extensions
+    case Sequence(left, right) => left.extensions ++ right.extensions
+    case _                     => Map.empty
   }
 
   def toCommonMark: String = {

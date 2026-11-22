@@ -23,7 +23,6 @@ import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
 
 import zio.Chunk
-import zio.internal.FastList.ListExtensionMethods
 import zio.json.ast._
 
 import zio.schema._

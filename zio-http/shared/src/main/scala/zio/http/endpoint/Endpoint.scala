@@ -1065,6 +1065,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Adds extensions to the endpoint. They are used for documentation
    * generation.
+   *
+   * The name is the bare extension name, without the OpenAPI `x-` prefix:
+   * `ext("foo", value)` is emitted as `x-foo`. Passing a name that already
+   * includes the prefix produces `x-x-foo`.
    */
   def ext(name: String, value: Json): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(documentation = documentation.ext(name, value))
