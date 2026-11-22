@@ -5,7 +5,7 @@ import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, 
 
 object JmhBenchmarkWorkflow {
 
-  val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
+  val jmhPlugin                = s"""addSbtPlugin("com.github.sbt" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
   val files                    = FileTreeView.default.list(
     Seq(Glob("zio-http-benchmarks/src/main/scala-2.13/**"), Glob("zio-http-benchmarks/src/main/scala/**")),

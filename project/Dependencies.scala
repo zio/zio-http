@@ -6,10 +6,10 @@ object Dependencies {
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.26"
   val ZioCliVersion                = "0.8.2"
-  val ZioJsonVersion               = "1.0.0"
-  val ZioSchemaVersion             = "1.8.7"
+  val ZioJsonVersion               = "1.1.3"
+  val ZioSchemaVersion             = "1.9.2"
   val SttpVersion                  = "3.3.18"
-  val ZioConfigVersion             = "4.0.8"
+  val ZioConfigVersion             = "4.1.2"
 
   val `jwt-core`                = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `jwt-zio-json`            = "com.github.jwt-scala"   %% "jwt-zio-json"            % JwtCoreVersion
@@ -35,7 +35,9 @@ object Dependencies {
   // Test-only Netty module (pulls in BouncyCastle), needed only by `SSLConfig.generate`.
   val `netty-pkitesting` = "io.netty" % "netty-pkitesting" % NettyVersion
 
-  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.1.12"
+  // Pinned to 0.2.0: 0.3.0's `unroll-plugin` is cross-published per full Scala version and has no
+  // build for Scala 3.9.0.
+  val unroll = "com.lihaoyi" %% "unroll-annotation" % "0.2.0"
 
   val zio                   = "dev.zio" %% "zio"                 % ZioVersion
   val `zio-cli`             = "dev.zio" %% "zio-cli"             % ZioCliVersion
