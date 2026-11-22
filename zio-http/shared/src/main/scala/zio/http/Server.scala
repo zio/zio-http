@@ -78,6 +78,8 @@ object Server extends ServerPlatformSpecific {
     generateHeadRoutes: Boolean = false,
     @unroll
     requestBodyPreConnectBufferSize: Int = 64 * 1024,
+    @unroll
+    maxDiscardedRequestBodySize: Long = 1024 * 1024,
   ) { self =>
 
     /**
@@ -218,6 +220,28 @@ object Server extends ServerPlatformSpecific {
     }
 
     /**
+     * How much of an unconsumed request body the server is willing to read and
+     * throw away in order to keep a connection usable.
+     *
+     * When a handler answers a request without reading its body to the end -
+     * because it rejected the request before decoding, because no route
+     * matched, or because it simply ignored the body - the remainder of that
+     * body is still on its way. HTTP/1.1 offers no way to tell the client to
+     * stop, so the server either reads the rest and discards it, or closes the
+     * connection. Bodies up to this size are discarded and the connection is
+     * reused. Anything larger closes the connection instead, but only once the
+     * response has been sent: no further request on it is handled, and input is
+     * read and thrown away until the client closes its end - for at most 5
+     * seconds after the response is out, and 30 seconds in all. A client that
+     * stops sending half way through a body that is being discarded is only cut
+     * off by `idleTimeout`.
+     */
+    def maxDiscardedRequestBodySize(size: Long): Config = {
+      require(size >= 0, "maxDiscardedRequestBodySize must be >= 0")
+      self.copy(maxDiscardedRequestBodySize = size)
+    }
+
+    /**
      * Sets the maximum number of connection requests that will be queued before
      * being rejected
      */
@@ -255,7 +279,10 @@ object Server extends ServerPlatformSpecific {
         zio.Config.boolean("tcp-nodelay").withDefault(Config.default.tcpNoDelay) ++
         zio.Config
           .int("request-body-pre-connect-buffer-size")
-          .withDefault(Config.default.requestBodyPreConnectBufferSize)
+          .withDefault(Config.default.requestBodyPreConnectBufferSize) ++
+        zio.Config
+          .long("max-discarded-request-body-size")
+          .withDefault(Config.default.maxDiscardedRequestBodySize)
 
     }.map {
       case (
@@ -276,6 +303,7 @@ object Server extends ServerPlatformSpecific {
             soBacklog,
             tcpNoDelay,
             requestBodyPreConnectBufferSize,
+            maxDiscardedRequestBodySize,
           ) =>
         default.copy(
           sslConfig = sslConfig,
@@ -294,6 +322,7 @@ object Server extends ServerPlatformSpecific {
           soBacklog = soBacklog,
           tcpNoDelay = tcpNoDelay,
           requestBodyPreConnectBufferSize = requestBodyPreConnectBufferSize,
+          maxDiscardedRequestBodySize = maxDiscardedRequestBodySize,
         )
     }
 
@@ -315,6 +344,7 @@ object Server extends ServerPlatformSpecific {
       soBacklog = 100,
       tcpNoDelay = true,
       requestBodyPreConnectBufferSize = 64 * 1024,
+      maxDiscardedRequestBodySize = 1024 * 1024,
     )
 
     final case class ResponseCompressionConfig(
