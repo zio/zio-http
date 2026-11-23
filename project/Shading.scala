@@ -12,11 +12,24 @@ object Shading {
     val `publish.shaded` = "publish.shaded"
   }
 
+  // `zio-http/js/src/main/scala/com/lihaoyi/unroll.scala` is a Scala.js-only stub for the
+  // JVM-only `unroll-annotation` artifact (see #4388). It is compiled into the zio-http JS
+  // classes, so it ends up in the shaded JS jar. The namespace check only accepts the
+  // `validNamespaces` prefixes (`zio`, `org`) plus explicitly listed entries, hence these.
+  private val scalaJsUnrollStubEntries = Set(
+    "com/",
+    "com/lihaoyi/",
+    "com/lihaoyi/unroll.class",
+    "com/lihaoyi/unroll.sjsir",
+    "com/lihaoyi/unroll.tasty",
+  )
+
   def shadingSettings() = if (shadingEnabled) {
     Seq(
       shadedModules ++= (netty :+ `netty-pkitesting`).map(_.module).toSet,
       shadingRules += ShadingRule.rename("io.netty.**", "zio.http.shaded.netty.@1"),
       validNamespaces ++= Set("zio", "org"),
+      validEntries ++= scalaJsUnrollStubEntries,
     )
   } else Nil
 
