@@ -908,20 +908,22 @@ object OpenAPI {
    *   identify an operation, therefore, it is RECOMMENDED to follow common
    *   programming naming conventions.
    * @param parameters
-   *   A List of parameters that are applicable for this operation. If a
+   *   A Set of parameters that are applicable for this operation. If a
    *   parameter is already defined at the Path Item, the new definition will
-   *   override it but can never remove it. The list MUST NOT include duplicated
+   *   override it but can never remove it. The set MUST NOT include duplicated
    *   parameters. A unique parameter is defined by a combination of a name and
-   *   location. The list can use the Reference Object to link to parameters
-   *   that are defined at the OpenAPI Object’s components/parameters.
+   *   location; `Parameter` equality compares only `name` and `in`, so the set
+   *   holds at most one parameter per name and location. The set can use the
+   *   Reference Object to link to parameters that are defined at the OpenAPI
+   *   Object’s components/parameters.
    * @param requestBody
    *   The request body applicable for this operation. The requestBody is only
    *   supported in HTTP methods where the HTTP 1.1 specification [RFC7231] has
    *   explicitly defined semantics for request bodies. In other cases where the
    *   HTTP spec is vague, requestBody SHALL be ignored by consumers.
    * @param responses
-   *   The List of possible responses as they are returned from executing this
-   *   operation.
+   *   The possible responses as they are returned from executing this
+   *   operation, keyed by status code or `default`.
    * @param callbacks
    *   A map of possible out-of band callbacks related to the parent operation.
    *   The key is a unique identifier for the Callback Object. Each value in the
@@ -936,14 +938,15 @@ object OpenAPI {
    *   objects that can be used. Only one of the security requirement objects
    *   need to be satisfied to authorize a request. To make security optional,
    *   an empty security requirement ({}) can be included in the array. This
-   *   definition overrides any declared top-level security. To remove a
-   *   top-level security declaration, an empty List can be used.
+   *   definition overrides any declared top-level security. An empty List is
+   *   left out of the JSON, so the operation then has no `security` field.
    * @param servers
    *   An alternative server List to service this operation. If an alternative
    *   server object is specified at the Path Item Object or Root level, it will
    *   be overridden by this value.
    * @param extensions
-   *   Extensions to the operation.
+   *   Extensions to the operation, written as `x-` fields of the Operation
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Operation(
     tags: List[String] = List.empty,
@@ -962,7 +965,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Operation`, with its schema. */
   object Operation extends OperationCompatibility {
+
+    /**
+     * The schema of `Operation`. It reads each `x-` field into `extensions`,
+     * and writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Operation] = extensionSchema(
       DeriveSchema.gen[Operation],
       _.extensions,
@@ -971,7 +981,23 @@ object OpenAPI {
   }
 
   /**
-   * Describes a single operation parameter.
+   * Describes a single operation parameter (the Parameter Object). Two
+   * parameters are equal when they have the same `name` and `in`: `equals` and
+   * `hashCode` ignore the other fields.
+   *
+   * @param name
+   *   The name of the parameter. Parameter names are case sensitive.
+   * @param in
+   *   The location of the parameter. The Parameter Object allows `query`,
+   *   `header`, `path` and `cookie`.
+   * @param style
+   *   How the parameter value is serialized, such as `form` or `simple`.
+   * @param content
+   *   A media type and the `MediaType` that describes the parameter, instead of
+   *   `schema`.
+   * @param extensions
+   *   Extensions to the parameter, written as `x-` fields of the Parameter
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Parameter(
     name: String,
@@ -997,38 +1023,74 @@ object OpenAPI {
     override def hashCode(): Int = (name, in).hashCode
   }
 
+  /**
+   * The companion of `Parameter`, with its schema, the parameter styles, and
+   * one constructor for each parameter location.
+   */
   object Parameter {
 
+    /**
+     * The schema of `Parameter`. It reads each `x-` field into `extensions`,
+     * and writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Parameter] = extensionSchema(
       DeriveSchema.gen[Parameter],
       _.extensions,
       (i, e) => i.copy(extensions = e),
     )
 
+    /**
+     * A media type name and its `MediaType`. `Parameter.content` holds the same
+     * data as a `(String, MediaType)` tuple instead.
+     */
     final case class Content(key: String, mediaType: MediaType)
 
+    /**
+     * A style that `pathParameter` accepts: `Style.Matrix`, `Style.Label` or
+     * `Style.Simple`.
+     */
     sealed trait PathStyle
+
+    /**
+     * A style that `queryParameter` accepts: `Style.Form`,
+     * `Style.SpaceDelimited`, `Style.PipeDelimited` or `Style.DeepObject`.
+     */
     sealed trait QueryStyle
 
+    /**
+     * The parameter styles of the Parameter Object, written in its `style`
+     * field.
+     */
     object Style {
+
+      /** The `matrix` path style. */
       case object Matrix extends PathStyle
 
+      /** The `label` path style. */
       case object Label extends PathStyle
 
+      /** The `form` query style, the default of `queryParameter`. */
       case object Form extends QueryStyle
 
+      /** The `simple` path style, the default of `pathParameter`. */
       case object Simple extends PathStyle
 
+      /** The `spaceDelimited` query style. */
       case object SpaceDelimited extends QueryStyle
 
+      /** The `pipeDelimited` query style. */
       case object PipeDelimited extends QueryStyle
 
+      /** The `deepObject` query style. */
       case object DeepObject extends QueryStyle
     }
 
     /**
      * Parameters that are appended to the URL. For example, in /items?id=###,
      * the query parameter is id.
+     *
+     * The parameter written to JSON has `explode`, `required` and `deprecated`
+     * only when they are true, and always has `allowReserved` and `style`.
      *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
@@ -1074,6 +1136,9 @@ object OpenAPI {
      * Custom headers that are expected as part of the request. Note that
      * [RFC7230] states header names are case insensitive.
      *
+     * The parameter has the `simple` style. The JSON has `required`,
+     * `deprecated` and `explode` only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -1115,6 +1180,9 @@ object OpenAPI {
      * of the API. For example, in /items/{itemId}, the path parameter is
      * itemId.
      *
+     * The parameter is always required. The JSON has `deprecated` and `explode`
+     * only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -1155,6 +1223,9 @@ object OpenAPI {
     /**
      * Used to pass a specific cookie value to the API.
      *
+     * The parameter has the `form` style. The JSON has `required`, `deprecated`
+     * and `explode` only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -1188,6 +1259,10 @@ object OpenAPI {
     )
   }
 
+  /**
+   * Describes a header of a response or of a multipart encoding (the Header
+   * Object). A flag that is `None` is left out of the JSON.
+   */
   final case class Header(
     description: Option[Doc],
     required: Option[Boolean] = None,
@@ -1196,7 +1271,13 @@ object OpenAPI {
     schema: Option[JsonSchema],
   )
 
+  /** The companion of `Header`, with its schema and a constructor. */
   object Header {
+
+    /**
+     * Creates a `Header` from plain flags. A flag that is `false` becomes
+     * `None`, so it is left out of the JSON.
+     */
     def apply(
       description: Option[Doc],
       required: Boolean,
@@ -1210,6 +1291,8 @@ object OpenAPI {
       if (allowEmptyValue) Some(allowEmptyValue) else None,
       schema,
     )
+
+    /** The schema of `Header`, derived from its fields. */
     implicit val schema: Schema[Header] =
       DeriveSchema.gen[Header]
   }
@@ -1221,11 +1304,12 @@ object OpenAPI {
    *   A brief description of the request body. This could contain examples of
    *   use.
    * @param content
-   *   The content of the request body. The key is a media type or [media type
-   *   range]appendix-D) and the value describes it. For requests that match
-   *   multiple keys, only the most specific key is applicable.
+   *   The content of the request body. The key is a media type or media type
+   *   range and the value describes it. For requests that match multiple keys,
+   *   only the most specific key is applicable.
    * @param required
-   *   Determines if the request body is required in the request.
+   *   Determines if the request body is required in the request. The JSON has
+   *   this field also when it is false.
    */
   final case class RequestBody(
     description: Option[Doc] = None,
@@ -1233,7 +1317,10 @@ object OpenAPI {
     required: Boolean = false,
   )
 
+  /** The companion of `RequestBody`, with its schema. */
   object RequestBody {
+
+    /** The schema of `RequestBody`, derived from its fields. */
     implicit val schema: Schema[RequestBody] =
       DeriveSchema.gen[RequestBody]
   }
@@ -1261,7 +1348,10 @@ object OpenAPI {
     encoding: Map[String, Encoding] = Map.empty,
   )
 
+  /** The companion of `MediaType`, with its schema. */
   object MediaType {
+
+    /** The schema of `MediaType`, derived from its fields. */
     implicit val schema: Schema[MediaType] =
       DeriveSchema.gen[MediaType]
   }
@@ -1269,7 +1359,9 @@ object OpenAPI {
   /**
    * A single encoding definition applied to a single schema property.
    *
-   * TODO: default values (https://spec.openapis.org/oas/v3.0.3#encoding-object)
+   * `headers` defaults to an empty map, `style` to `form` and `allowReserved`
+   * to false; `explode` has no default. The JSON always has `style`, `explode`
+   * and `allowReserved`.
    *
    * @param contentType
    *   The Content-Type for encoding a specific property.
@@ -1300,7 +1392,10 @@ object OpenAPI {
     allowReserved: Boolean = false,
   )
 
+  /** The companion of `Encoding`, with its schema. */
   object Encoding {
+
+    /** The schema of `Encoding`, derived from its fields. */
     implicit val schema: Schema[Encoding] =
       DeriveSchema.gen[Encoding]
   }
@@ -1313,16 +1408,34 @@ object OpenAPI {
    */
   type Responses = Map[StatusOrDefault, ReferenceOr[Response]]
 
+  /**
+   * A key of the responses map of an operation: one HTTP status (`StatusValue`)
+   * or `Default`, the response for the status codes that have no entry of their
+   * own.
+   */
   sealed trait StatusOrDefault extends Product with Serializable {
+
+    /**
+     * The key as written in JSON: the status code, such as `200`, or `default`.
+     */
     def text: String
   }
 
+  /** The two kinds of `StatusOrDefault`: `StatusValue` and `Default`. */
   object StatusOrDefault {
+
+    /** A response key for one HTTP status. */
     case class StatusValue(status: Status) extends StatusOrDefault {
       override def text: String = status.text
     }
 
+    /** The companion of `StatusValue`, with its schema. */
     object StatusValue {
+
+      /**
+       * The schema of `StatusValue`: the status code as a JSON string, such as
+       * `"200"`.
+       */
       implicit val schema: Schema[StatusValue] =
         zio.schema
           .Schema[Status]
@@ -1331,7 +1444,14 @@ object OpenAPI {
             p => Right(p.status),
           )
     }
+
+    /** The `default` response key, for the status codes with no own entry. */
     case object Default extends StatusOrDefault {
+
+      /**
+       * The schema of `Default`: the JSON string `"default"`. Decoding another
+       * string fails with `Invalid default status`.
+       */
       implicit val schema: Schema[Default.type] =
         zio.schema
           .Schema[String]
@@ -1356,13 +1476,16 @@ object OpenAPI {
    *   "Content-Type", it SHALL be ignored.
    * @param content
    *   A map containing descriptions of potential response payloads. The key is
-   *   a media type or [media type range]appendix-D) and the value describes it.
-   *   For responses that match multiple keys, only the most specific key is
+   *   a media type or media type range and the value describes it. For
+   *   responses that match multiple keys, only the most specific key is
    *   applicable.
    * @param links
    *   A map of operations links that can be followed from the response. The key
    *   of the map is a short name for the link, following the naming constraints
    *   of the names for Component Objects.
+   * @param extensions
+   *   Extensions to the response, written as `x-` fields of the Response
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Response(
     description: Option[Doc] = None,
@@ -1374,8 +1497,13 @@ object OpenAPI {
     extensions: Extensions = Extensions.empty,
   )
 
+  /** The companion of `Response`, with its schema. */
   object Response {
 
+    /**
+     * The schema of `Response`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Response] = extensionSchema(
       DeriveSchema.gen[Response],
       _.extensions,
