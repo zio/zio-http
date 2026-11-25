@@ -377,6 +377,13 @@ sealed trait JsonSchema extends Product with Serializable { self =>
  */
 object JsonSchema {
 
+  /**
+   * The `Schema` that reads and writes a [[JsonSchema]] as JSON Schema
+   * keywords. Decoding throws a `java.lang.IllegalArgumentException` (`Can't
+   * convert ...`) instead of returning a `Left` for a `type` list, such as the
+   * `["string","null"]` that `nullable(true)` writes, and for an unknown
+   * `type`, such as `"foo"`.
+   */
   implicit val schema: Schema[JsonSchema] =
     SerializableJsonSchema.schema.transform[JsonSchema](JsonSchema.fromSerializableSchema, _.toSerializableSchema)
 
@@ -389,6 +396,12 @@ object JsonSchema {
       .toOption
       .get
 
+  /**
+   * Returns the schema of a `TextCodec`: a one-value string `Enum` for a
+   * constant, a `String` for text, an `Integer` in `int32` or `int64` for an
+   * `Int` or a `Long`, `Boolean`, or a `String` in the `uuid` format for a
+   * UUID.
+   */
   def fromTextCodec(codec: TextCodec[_]): JsonSchema =
     codec match {
       case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
@@ -535,6 +548,13 @@ object JsonSchema {
     }
   }
 
+  /**
+   * Returns the schema of a path segment codec: `Boolean`, an `Integer` in
+   * `int32` or `int64`, a `String`, or a `String` in the `uuid` format. A
+   * literal, empty, trailing or combined segment throws a
+   * `java.lang.IllegalArgumentException`, such as
+   * `Literal segment is not supported.`.
+   */
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {
       case SegmentCodec.BoolSeg(_)        => JsonSchema.Boolean
@@ -558,6 +578,12 @@ object JsonSchema {
    *   instances.
    */
   case class JsonSchemaRoot(root: JsonSchema, children: Map[java.lang.String, JsonSchema]) {
+
+    /**
+     * Returns the serializable form of this document: the root schema with
+     * `\$schema` set to `https://json-schema.org/draft/2020-12/schema` and the
+     * children under `\$defs`.
+     */
     def toSerializableSchema: SerializableJsonSchema = {
       root.toSerializableSchema.copy(
         schema = Some("https://json-schema.org/draft/2020-12/schema"),
@@ -565,6 +591,11 @@ object JsonSchema {
       )
     }
 
+    /**
+     * Encodes this document as JSON. With `None` the JSON is compact; with
+     * `Some(n)` it is pretty-printed with two spaces per level, starting at
+     * nesting level `n`. Fields that are not set are left out.
+     */
     def encodeJson(indent: Option[Int] = None): CharSequence =
       JsonCodec
         .jsonEncoder(
@@ -592,7 +623,15 @@ object JsonSchema {
     def toJsonPretty: java.lang.String = encodeJson(Some(0)).toString
   }
 
+  /** Holds the `Schema` of [[JsonSchemaRoot]]. */
   object JsonSchemaRoot {
+
+    /**
+     * The `Schema` that reads and writes a [[JsonSchemaRoot]], with the
+     * children under `\$defs`. Decoding throws a
+     * `java.lang.IllegalArgumentException` for a `type` list, such as the one
+     * that an optional field writes.
+     */
     implicit val schema: Schema[JsonSchemaRoot] =
       SerializableJsonSchema.schema
         .transform[JsonSchemaRoot](JsonSchemaRoot.fromSerializableSchema, _.toSerializableSchema)
@@ -605,12 +644,14 @@ object JsonSchema {
   }
 
   /**
-   * Builds a JSON Schema document from the given ZIO `Schema`
+   * Builds a JSON Schema document from the given ZIO `Schema`.
    *
    * @param schema
    *   The schema to convert into a JSON Schema document.
    * @return
-   *   A [[JsonSchemaRoot]] representing a valid JSON Schema document.
+   *   A [[JsonSchemaRoot]] whose root refers to named records and enums with
+   *   `\$ref` links such as `#/\$defs/Address`, and whose children hold their
+   *   schemas, keyed by type name.
    */
   def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
     val s = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.JsonSchema, SchemaStyle.Compact))
@@ -620,6 +661,10 @@ object JsonSchema {
     )
   }
 
+  /**
+   * Same as `fromZSchemaMultiple` with `SchemaSpec.OpenAPI` and the style
+   * `refType`.
+   */
   @deprecated("use fromZSchemaMultiple", "3.8")
   def fromZSchemaMulti(
     schema: Schema[_],
@@ -627,6 +672,16 @@ object JsonSchema {
     seen: Set[java.lang.String] = Set.empty,
   ): JsonSchemas = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.OpenAPI, refType), seen)
 
+  /**
+   * Converts a ZIO `Schema` to a [[JsonSchemas]]: the root schema, the
+   * reference name of the root type, and the schemas of the named records and
+   * enums it refers to, keyed by reference name. A root type whose reference
+   * name is in `seen` gives a `RefSchema` and no children. With
+   * `SchemaStyle.Inline` there are no children and no root reference, although
+   * nested records in the root are still written as `\$ref` links. A
+   * `Schema.Fail` throws a `java.lang.IllegalArgumentException` (`Fail schema
+   * is not supported.`).
+   */
   def fromZSchemaMultiple(
     schema: Schema[_],
     refType: SchemaRef,
@@ -840,10 +895,21 @@ object JsonSchema {
     annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
+  /**
+   * Same as `fromZSchema` with `SchemaSpec.OpenAPI` and the style `refType`.
+   */
   @deprecated("use SchemaRef instead of SchemaStyle", "3.8")
   def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
     fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, refType))
 
+  /**
+   * Converts a ZIO `Schema` to a [[JsonSchema]]. With `SchemaStyle.Inline` the
+   * schemas of nested records and enums are written in place; with `Compact` or
+   * `Reference` a named record or enum, the root included, becomes a
+   * `RefSchema`, such as `{"\$ref":"#/components/schemas/Customer"}`. An
+   * `Option` becomes a nullable schema. A `Schema.Fail` throws a
+   * `java.lang.IllegalArgumentException` (`Fail schema is not supported.`).
+   */
   def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
     if (refType.style == SchemaStyle.Inline) {
       val result = fromZSchemaMultiple(schema, refType.compact)
@@ -1089,10 +1155,20 @@ object JsonSchema {
     }
   }
 
+  /**
+   * How `fromZSchema` and `fromZSchemaMultiple` handle named records and enums:
+   * write them in place (`Inline`), or refer to them by a name built from the
+   * full type path (`Reference`) or from the type name (`Compact`).
+   */
   sealed trait SchemaStyle extends Product with Serializable
+
+  /** The `SchemaStyle` cases. */
   object SchemaStyle {
 
-    /** Generates inline json schema */
+    /**
+     * Generates inline json schema: `fromZSchema` writes the schemas of nested
+     * records and enums in place instead of as `\$ref` links.
+     */
     case object Inline extends SchemaStyle
 
     /**
@@ -1111,24 +1187,43 @@ object JsonSchema {
     case object Compact extends SchemaStyle
   }
 
+  /**
+   * The kind of document that schema references point into, which sets their
+   * prefix: `#/components/schemas/` for `OpenAPI` and `#/\$defs/` for
+   * `JsonSchema`.
+   */
   sealed trait SchemaSpec extends Product with Serializable { private[openapi] def path: java.lang.String }
+
+  /** The `SchemaSpec` cases. */
   object SchemaSpec {
 
     /**
-     * Generates schema references for an Open API document
+     * Generates schema references for an Open API document, under
+     * `#/components/schemas/`.
      */
     case object OpenAPI extends SchemaSpec { override def path: java.lang.String = "#/components/schemas/" }
 
     /**
-     * Generates schema references for an JSON Schema document
+     * Generates schema references for a JSON Schema document, under
+     * `#/\$defs/`.
      */
     case object JsonSchema extends SchemaSpec { override def path: java.lang.String = "#/$defs/" }
   }
 
+  /**
+   * The target document and the style that `fromZSchema` and
+   * `fromZSchemaMultiple` use for named records and enums.
+   */
   final case class SchemaRef(spec: SchemaSpec, style: SchemaStyle) {
-    def inline: SchemaRef    = copy(style = SchemaStyle.Inline)
+
+    /** Returns a copy with the style `SchemaStyle.Inline`. */
+    def inline: SchemaRef = copy(style = SchemaStyle.Inline)
+
+    /** Returns a copy with the style `SchemaStyle.Reference`. */
     def reference: SchemaRef = copy(style = SchemaStyle.Reference)
-    def compact: SchemaRef   = copy(style = SchemaStyle.Compact)
+
+    /** Returns a copy with the style `SchemaStyle.Compact`. */
+    def compact: SchemaRef = copy(style = SchemaStyle.Compact)
   }
 
   private def deprecated(schema: Schema[_]): Boolean =
@@ -1172,16 +1267,19 @@ object JsonSchema {
 
   /**
    * Adds a discriminator property to a JsonSchema. This is used when generating
-   * OpenAPI schemas for sealed traits with @discriminatorName annotation. Each
+   * OpenAPI and JSON Schema documents for sealed traits with a
+   * `discriminatorName` annotation and no `noDiscriminator` annotation. Each
    * case class schema needs to include the discriminator property as a required
-   * field with an enum value.
+   * field with an enum value. A schema that is not an object is wrapped in an
+   * `allOf` with an object that holds the property.
    *
    * @param schema
    *   The original case schema
    * @param discriminatorPropertyName
-   *   The name of the discriminator property (from @discriminatorName)
+   *   The name of the discriminator property (from `discriminatorName`)
    * @param caseNameValue
-   *   The value of the discriminator for this case (from @caseName or default)
+   *   The value of the discriminator for this case (from `caseName`, or the
+   *   case id)
    * @return
    *   A new JsonSchema with the discriminator property added
    */
