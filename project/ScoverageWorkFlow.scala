@@ -1,4 +1,4 @@
-import BuildHelper.{Scala213, ScoverageVersion}
+import BuildHelper.{coursierSetup, Scala213, ScoverageVersion}
 import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, WorkflowStep}
 
 object ScoverageWorkFlow {
@@ -17,7 +17,7 @@ object ScoverageWorkFlow {
         javas = List(JavaSpec.temurin("17")),
         steps = List(
           WorkflowStep.Use(UseRef.Public("actions", "checkout", "v4"), Map("fetch-depth" -> "0")),
-          WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
+          coursierSetup,
           WorkflowStep.Run(
             commands = List(s"sed -i -e '$$a${scoveragePlugin}' project/plugins.sbt"),
             id = Some("add_plugin"),

@@ -1,0 +1,17 @@
+# sbt repository configuration used in CI (see SBT_OPTS in build.sbt).
+#
+# Maven Central rate-limits the parallel CI matrix (HTTP 429), so resolve through
+# Google's Maven Central mirror first. Keep Maven Central as a fallback for
+# artifacts the mirror does not serve, and keep Sonatype snapshots so the
+# `Resolver.sonatypeCentralSnapshots` resolver overridden by
+# -Dsbt.override.build.repos=true is still available.
+#
+# The fallback uses repo.maven.apache.org rather than `maven-central` (which
+# aliases repo1.maven.org) because coursier/setup-action mirrors repo1 to the
+# Google mirror for later steps; using repo1 here would turn the fallback back
+# into the mirror.
+[repositories]
+  local
+  google-maven-central: https://maven-central.storage-download.googleapis.com/maven2/
+  maven-central-fallback: https://repo.maven.apache.org/maven2/
+  sonatype-central-snapshots: https://central.sonatype.com/repository/maven-snapshots/
