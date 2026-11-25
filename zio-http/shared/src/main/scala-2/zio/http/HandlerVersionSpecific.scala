@@ -2,6 +2,9 @@ package zio.http
 
 import zio._
 
+/**
+ * Scala-version-specific parts of the [[Handler]] companion object.
+ */
 trait HandlerVersionSpecific {
   private[http] class ApplyContextAspect[-Env, +Err, -In, +Out, Env0](private val self: Handler[Env, Err, In, Out]) {
     def apply[Env1, Ctx: Tag, In1 <: In](aspect: HandlerAspect[Env1, Ctx])(implicit

@@ -8,13 +8,16 @@ import zio.{Trace, ZIO}
 
 import zio.stream.ZStream
 
+/**
+ * Platform-specific constructors of [[Handler]], mixed into its companion object.
+ */
 trait HandlerPlatformSpecific {
   self: Handler.type =>
 
   /**
-   * Creates a handler from a resource path. For file:// resources, Range
-   * requests are fully supported. For jar:// resources, Range requests are not
-   * supported (returns Accept-Ranges: none).
+   * Creates a handler that serves the classpath resource at `path`, found with the class loader of zio-http. A resource in a directory (a `file:` URL) is served like `fromFile`, with `Range` support. A resource in a jar (a `jar:` URL) is served without `Range` support: the response has `Accept-Ranges: none`. The handler fails with a `java.io.FileNotFoundException` when the resource does not exist.
+   *
+   * On Scala.js, this method has no `charset` parameter and throws an `UnsupportedOperationException` when it is called.
    */
   def fromResource(path: String, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
@@ -87,7 +90,7 @@ trait HandlerPlatformSpecific {
   }
 
   /**
-   * Attempts to retrieve files from the classpath.
+   * Creates a handler that succeeds with the URL of the classpath resource at `path`, or fails with an `IllegalArgumentException` when the resource does not exist.
    */
   def getResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, java.net.URL] =
     Handler
@@ -98,7 +101,7 @@ trait HandlerPlatformSpecific {
       }
 
   /**
-   * Attempts to retrieve files from the classpath.
+   * Creates a handler that succeeds with a `java.io.File` made from the path of the classpath resource at `path`. For a resource inside a jar, the returned file does not exist on the file system.
    */
   def getResourceAsFile(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, File] =
     getResource(path).map(url => new File(url.getPath))

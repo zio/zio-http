@@ -32,8 +32,30 @@ import zio.http.Header.HeaderType
 import zio.http.internal.{HeaderGetters, HeaderModifier}
 import zio.http.template._
 
+/**
+ * A `Handler[R, Err, In, Out]` is a function from an input of type `In` to an effect that needs an environment `R` and a `Scope`, and fails with `Err` or succeeds with `Out`. A handler that takes a [[Request]] and returns a [[Response]] answers HTTP requests: give it to a [[RoutePattern]] with `->` to build a [[Route]], or turn it into [[Routes]] with `toRoutes`.
+ *
+ * Build handlers with the constructors of the companion object (`Handler.fromFunction`, `Handler.fromZIO`, `Handler.ok`, `Handler.text`, ...) or with the `handler` function of the `zio.http` package, and change them with `map`, `contramap`, `flatMap`, `catchAll` and the other operators. Constructors such as `succeed`, `fromZIO` and `fromResponse` evaluate their by-name argument each time the handler runs.
+ *
+ * {{{
+ * import zio._
+ *
+ * val greet: Handler[Any, Nothing, Request, Response] =
+ *   Handler.fromFunction[Request] { request =>
+ *     Response.text("Hello from " + request.url.path.encode)
+ *   }
+ *
+ * val response: ZIO[Scope, Nothing, Response] =
+ *   greet(Request.get(URL(Path("/hello"))))
+ * }}}
+ *
+ * @see [[https://zio.dev/zio-http/reference/handler/ Request Handler]]
+ */
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
+  /**
+   * Applies a [[HandlerAspect]] that provides no context (`Unit`) to this request handler. The aspect runs its incoming transformations before this handler and its outgoing transformations on the response or error response.
+   */
   def @@[Env1 <: R, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
@@ -45,6 +67,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     aspect.applyHandler(convert(self))
   }
 
+  /**
+   * Applies a [[HandlerAspect]] that produces a context of type `Ctx`, and provides that context to this handler as a service of its environment. The result no longer needs `Ctx`.
+   */
   def @@[Env0, Ctx <: R, In1 <: In](aspect: HandlerAspect[Env0, Ctx])(implicit
     in: Handler.IsRequest[In1],
     out: Out <:< Response,
@@ -63,11 +88,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       }
     }
 
+  /**
+   * Starts applying a context-providing [[HandlerAspect]] while keeping `Env0` as the environment that is still required: `handler.@@[Env0](aspect)` provides the aspect's context and leaves `Env0` for later.
+   */
   def @@[Env0]: ApplyContextAspect[R, Err, In, Out, Env0] =
     new ApplyContextAspect(self)
 
   /**
-   * Alias for flatmap
+   * Alias for `flatMap`.
    */
   final def >>=[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     f: Out => Handler[R1, Err1, In1, Out1],
@@ -91,20 +119,23 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self compose that
 
   /**
-   * Runs self but if it fails, runs other, ignoring the result from self.
+   * Runs this handler and, if it fails with an error, runs `that` handler on the same input instead. A defect of this handler is not recovered: it stays a defect. Alias for `orElse`.
    */
   final def <>[R1 <: R, Err1, In1 <: In, Out1 >: Out](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     self.orElse(that)
 
+  /**
+   * Alias for `zip`.
+   */
   final def <*>[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, (Out, Out1)] =
     self.zip(that)
 
   /**
-   * Alias for zipLeft
+   * Alias for `zipLeft`.
    */
   final def <*[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
@@ -112,7 +143,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.zipLeft(that)
 
   /**
-   * Alias for zipRight
+   * Alias for `zipRight`.
    */
   final def *>[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
@@ -151,34 +182,52 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   def apply(in: In): ZIO[Scope & R, Err, Out]
 
   /**
-   * Makes the handler resolve with a constant value
+   * Returns a handler that succeeds with `out` whenever this handler succeeds.
    */
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
 
+  /**
+   * Changes the environment type to `R2`, given evidence that `R2` is a subtype of `R`. The handler is not changed.
+   */
   final def asEnvType[R2](implicit ev: R2 <:< R): Handler[R2, Err, In, Out] =
     self.asInstanceOf[Handler[R2, Err, In, Out]]
 
+  /**
+   * Changes the error type to `Err2`, given evidence that `Err` is a subtype of `Err2`. The handler is not changed.
+   */
   final def asErrorType[Err2](implicit ev: Err <:< Err2): Handler[R, Err2, In, Out] =
     self.asInstanceOf[Handler[R, Err2, In, Out]]
 
+  /**
+   * Changes the input type to `In2`, given evidence that `In2` is a subtype of `In`. The handler is not changed.
+   */
   final def asInType[In2](implicit ev: In2 <:< In): Handler[R, Err, In2, Out] =
     self.asInstanceOf[Handler[R, Err, In2, Out]]
 
+  /**
+   * Changes the output type to `Out2`, given evidence that `Out` is a subtype of `Out2`. The handler is not changed.
+   */
   final def asOutType[Out2](implicit ev: Out <:< Out2): Handler[R, Err, In, Out2] =
     self.asInstanceOf[Handler[R, Err, In, Out2]]
 
+  /**
+   * Returns a handler that succeeds with the body of the response that this handler produces.
+   */
   final def body(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Body] =
     self.map(_.body)
 
   /**
-   * Catches all the exceptions that the handler can fail with
+   * Recovers from every error of this handler by running the handler that `f` returns for the error, on the same input. Defects and interruption are not recovered.
    */
   final def catchAll[R1 <: R, Err1, In1 <: In, Out1 >: Out](f: Err => Handler[R1, Err1, In1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
     self.foldHandler(f, Handler.succeed(_))
 
+  /**
+   * Recovers from every failure of this handler, including defects and interruption, by running the handler that `f` returns for the [[zio.Cause]], on the same input.
+   */
   final def catchAllCause[R1 <: R, Err1, In1 <: In, Out1 >: Out](f: Cause[Err] => Handler[R1, Err1, In1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
@@ -234,8 +283,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that.andThen(self)
 
   /**
-   * Transforms the input of the handler before passing it on to the current
-   * Handler
+   * Returns a handler that transforms its input with `f` before passing it to this handler.
    */
   final def contramap[In1](f: In1 => In): Handler[R, Err, In1, Out] =
     new Handler[R, Err, In1, Out] {
@@ -244,7 +292,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Transforms the input of the handler before giving it effectfully
+   * Returns a handler that transforms its input with the effect `f` before passing it to this handler. A failure of `f` is a failure of the handler.
    */
   final def contramapZIO[R1 <: R, Err1 >: Err, In1](f: In1 => ZIO[R1, Err1, In])(implicit
     trace: Trace,
@@ -255,26 +303,25 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Transforms the input of the handler before passing it on to the current
-   * Handler
+   * Returns a builder that takes a function `f: In1 => Handler[..., Any, In]`: the resulting handler runs the handler that `f` returns for its input, and passes that handler's output to this handler.
    */
   final def contraFlatMap[In1]: Handler.ContraFlatMap[R, Err, In, Out, In1] =
     new Handler.ContraFlatMap(self)
 
   /**
-   * Delays production of output B for the specified duration of time
+   * When this handler succeeds, waits `duration` before producing its output. Failures are not delayed. Alias for `delayAfter`.
    */
   final def delay(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out] =
     self.delayAfter(duration)
 
   /**
-   * Delays production of output B for the specified duration of time
+   * When this handler succeeds, waits `duration` before producing its output. Failures are not delayed.
    */
   final def delayAfter(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out] =
     self.mapZIO(out => ZIO.succeed(out).delay(duration))
 
   /**
-   * Delays consumption of input A for the specified duration of time
+   * Waits for `duration` before passing the input to this handler.
    */
   final def delayBefore(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out] =
     self.contramapZIO(in => ZIO.succeed(in).delay(duration))
@@ -297,7 +344,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.flatMap(identity(_))
 
   /**
-   * Creates a new handler from another
+   * Returns a handler that runs this handler, then runs the handler that `f` returns for its output, on the same input.
    */
   final def flatMap[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     f: Out => Handler[R1, Err1, In1, Out1],
@@ -307,6 +354,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       f(_),
     )
 
+  /**
+   * Returns a handler that runs `onFailure` with the full [[zio.Cause]] when this handler fails (including defects and interruption), or `onSuccess` with the output when it succeeds. The chosen handler runs on the same input.
+   */
   final def foldCauseHandler[R1 <: R, Err1, In1 <: In, Out1](
     onFailure: Cause[Err] => Handler[R1, Err1, In1, Out1],
     onSuccess: Out => Handler[R1, Err1, In1, Out1],
@@ -320,8 +370,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Folds over the handler by taking in two functions one for success and one
-   * for failure respectively.
+   * Returns a handler that runs `onFailure` with the error when this handler fails with an error, or `onSuccess` with the output when it succeeds. The chosen handler runs on the same input. Defects and interruption are passed on unchanged.
    */
   final def foldHandler[R1 <: R, Err1, In1 <: In, Out1](
     onFailure: Err => Handler[R1, Err1, In1, Out1],
@@ -332,9 +381,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       onSuccess,
     )
 
+  /**
+   * Returns a handler that succeeds with the headers of the response that this handler produces.
+   */
   final def headers(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Headers] =
     self.map(_.headers)
 
+  /**
+   * Returns a handler that succeeds with the header of type `headerType` from the response that this handler produces, or `None` when the response has no such header or it does not parse.
+   */
   final def header(headerType: HeaderType)(implicit
     ev: Out <:< Response,
     trace: Trace,
@@ -371,7 +426,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self >>> Handler.fromFunctionZIO(f)
 
   /**
-   * Transforms the failure of the handler effectfully
+   * Handles an error of this handler with the effect `f`: when `f` succeeds, its value becomes the output of the handler, and when `f` fails, its error becomes the new error.
    */
   final def mapErrorZIO[R1 <: R, Err1, Out1 >: Out](f: Err => ZIO[R1, Err1, Out1])(implicit
     trace: Trace,
@@ -379,8 +434,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed(_))
 
   /**
-   * Transforms all failures of the handler effectfully except pure
-   * interruption.
+   * Handles every failure of this handler except pure interruption with the effect `f`, which receives the full [[zio.Cause]]: when `f` succeeds, its value becomes the output of the handler, and when `f` fails, its error becomes the new error.
    */
   final def mapErrorCauseZIO[R1 <: R, Err1, Out1 >: Out](
     f: Cause[Err] => ZIO[R1, Err1, Out1],
@@ -404,6 +458,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def narrow[In1](implicit ev: In1 <:< In): Handler[R, Err, In1, Out] =
     self.asInstanceOf[Handler[R, Err, In1, Out]]
 
+  /**
+   * Returns a handler that runs `f` with the [[zio.Exit]] of this handler, whether it succeeds or fails, and then returns the original result. A failure of `f` becomes the failure of the handler.
+   */
   final def onExit[R1 <: R, Err1 >: Err](f: Exit[Err, Out] => ZIO[R1, Err1, Any])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In, Out] =
@@ -413,8 +470,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Executes this handler, skipping the error but returning optionally the
-   * success.
+   * Returns a handler that succeeds with `Some` of the output, or with `None` when this handler fails with an error. Defects are not caught.
    */
   final def option(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Option[Out]] =
     self.foldHandler(_ => Handler.succeed(None), out => Handler.succeed(Some(out)))
@@ -436,14 +492,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     orDieWith(ev1)
 
   /**
-   * Keeps none of the errors, and terminates the handler with them, using the
-   * specified function to convert the `E` into a `Throwable`.
+   * Turns every error of this handler into a defect, using `f` to convert the error into a `Throwable`.
    */
   final def orDieWith(f: Err => Throwable)(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Out] =
     self.foldHandler(err => Handler.die(f(err)), Handler.succeed(_))
 
   /**
-   * Named alias for `<>`
+   * Runs this handler and, if it fails with an error, runs `that` handler on the same input instead. A defect of this handler is not recovered: it stays a defect.
    */
   final def orElse[R1 <: R, Err1, In1 <: In, Out1 >: Out](
     that: Handler[R1, Err1, In1, Out1],
@@ -517,7 +572,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Performs a race between two handlers
+   * Runs this handler and `that` handler on the same input and returns the result of the first one to complete, whether it succeeds or fails. A handler that has already completed when called (such as `Handler.succeed` or `Handler.fail`) wins without a race.
    */
   final def race[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Handler[R1, Err1, In1, Out1],
@@ -542,8 +597,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     refineOrDieWith(pf)(ev1)
 
   /**
-   * Keeps some of the errors, and terminates the handler with the rest, using
-   * the specified function to convert the `E` into a `Throwable`.
+   * Keeps the errors for which `pf` is defined, mapped by `pf`, and turns the rest into defects, using `f` to convert them into a `Throwable`.
    */
   final def refineOrDieWith[Err1](
     pf: PartialFunction[Err, Err1],
@@ -553,6 +607,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       Handler.succeed(_),
     )
 
+  /**
+   * Runs this request handler on a [[Request]] built from `method`, `path`, `headers` and `body`. The request URL is relative (it has no scheme or host).
+   */
   final def run(
     method: Method = Method.GET,
     path: Path = Path.root,
@@ -561,9 +618,15 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit ev: Request <:< In): ZIO[Scope & R, Err, Out] =
     self(ev(Request(method = method, url = URL.root.path(path), headers = headers, body = body)))
 
+  /**
+   * Runs this handler on `in`. Same as `apply`.
+   */
   final def runZIO(in: In): ZIO[Scope & R, Err, Out] =
     self(in)
 
+  /**
+   * Converts every failure of this handler except pure interruption, including defects, into a [[Response]] in the error channel, using `Response.fromCause` and the current [[ErrorResponseConfig]]. A failure that is not already a `Response` is logged at the error level.
+   */
   final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCauseZIO { cause =>
       logUnhandledError(cause) *>
@@ -579,6 +642,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       case _                 => ZIO.logErrorCause("Unhandled exception in request handler", cause)
     }
 
+  /**
+   * Returns a handler that succeeds with the status of the response that this handler produces.
+   */
   final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
 
@@ -599,6 +665,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Returns a handler that runs `f` with the [[zio.Cause]] when this handler fails, then fails with the same cause. A failure of `f` replaces the original failure.
+   */
   final def tapErrorCauseZIO[R1 <: R, Err1 >: Err](
     f: Cause[Err] => ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out] =
@@ -620,6 +689,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, f)
 
+  /**
+   * Returns a handler that succeeds with `Some` of the output, or with `None` when this handler does not complete within `duration`. A handler that times out is interrupted.
+   */
   def timeout(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Option[Out]] =
     Handler.scoped[R] {
       Handler
@@ -628,6 +700,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Returns a handler that succeeds with `out` when this handler does not complete within `duration`. A handler that times out is interrupted.
+   */
   def timeoutFail[Out1 >: Out](out: Out1)(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     Handler.scoped[R] {
       Handler
@@ -638,10 +713,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Converts the request handler into an HTTP application. Note that the
-   * handler of the HTTP application is not identical to this handler, because
-   * the handler has been appropriately sandboxed, turning all possible failures
-   * into well-formed HTTP responses.
+   * Converts this request handler into [[Routes]] with a single route that matches every method and path. When the routes run, a defect of the handler becomes a 500 response, through the same error handling as any other route.
    */
   def toRoutes(implicit in: Request <:< In, out: Out <:< Response, trace: Trace): Routes[R, Err] = {
     val handler: Handler[R, Err, Request, Response] =
@@ -659,7 +731,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     unrefineWith(pf)(err => err)
 
   /**
-   * Takes some defects and converts them into failures.
+   * Converts defects whose class is `Err1` (or a subclass) into errors of type `Err1`.
    */
   final def unrefineTo[Err1 >: Err: ClassTag](implicit trace: Trace): Handler[R, Err1, In, Out] = {
     val pf: PartialFunction[Throwable, Err1] = { case err: Err1 =>
@@ -669,8 +741,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   }
 
   /**
-   * Takes some defects and converts them into failures, using the specified
-   * function to convert the `E` into an `E1`.
+   * Converts the defects for which `pf` is defined into errors, and maps the existing errors with `f`.
    */
   final def unrefineWith[Err1](
     pf: PartialFunction[Throwable, Err1],
@@ -682,7 +753,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Unwraps a Handler that returns a ZIO of Http
+   * Returns a handler that runs the [[zio.ZIO]] effect that this handler produces, and succeeds with its result.
    */
   final def unwrapZIO[R1 <: R, Err1 >: Err, Out1](implicit
     ev: Out <:< ZIO[R1, Err1, Out1],
@@ -691,23 +762,29 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.flatMap(out => Handler.fromZIO(ev(out)))
 
   /**
-   * Widens the type of the output
+   * Changes the error type to `Err1` and the output type to `Out1`, given evidence that they are supertypes of `Err` and `Out`. The handler is not changed.
    */
   def widen[Err1, Out1](implicit ev1: Err <:< Err1, ev2: Out <:< Out1): Handler[R, Err1, In, Out1] =
     self.asInstanceOf[Handler[R, Err1, In, Out1]]
 
+  /**
+   * Returns a handler that runs this handler and then `that` handler on the same input, and succeeds with both outputs as a tuple.
+   */
   final def zip[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, (Out, Out1)] =
     self.flatMap(out => that.map(out1 => (out, out1)))
 
+  /**
+   * Returns a handler that runs this handler and then `that` handler on the same input, and succeeds with the output of this handler.
+   */
   final def zipLeft[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out] =
     self.flatMap(out => that.as(out))
 
   /**
-   * Combines the two apps and returns the result of the one on the right
+   * Returns a handler that runs this handler and then `that` handler on the same input, and succeeds with the output of `that` handler.
    */
   final def zipRight[R1 <: R, Err1 >: Err, In1 <: In, Out1](
     that: Handler[R1, Err1, In1, Out1],
@@ -715,16 +792,33 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.flatMap(_ => that)
 }
 
+/**
+ * Constructors for [[Handler]] values, from constant responses (`ok`, `text`, `html`, `status`, `error`) to functions (`fromFunction`, `fromFunctionZIO`), effects (`fromZIO`), files and streams.
+ *
+ * @see [[https://zio.dev/zio-http/reference/handler/ Request Handler]]
+ */
 object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
 
   private val errorMediaTypes = List(MediaType.text.html, MediaType.application.json, MediaType.text.plain)
 
+  /**
+   * Evidence that the input type of a handler is [[Request]]. Only `Request` has an instance. The `@@` operators of [[Handler]] require it.
+   */
   sealed trait IsRequest[-A]
 
+  /**
+   * Holds the only instance of [[Handler.IsRequest]].
+   */
   object IsRequest {
+    /**
+     * The instance for [[Request]].
+     */
     implicit val request: IsRequest[Request] = new IsRequest[Request] {}
   }
 
+  /**
+   * Returns a handler that reads the body of `request` into a `Chunk[Byte]`. It fails with an `Exception` whose message is "Too large input" once the bytes read reach `limit`, so a body of exactly `limit` bytes fails too. The input of the handler is ignored.
+   */
   def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
       request.body.asStream.chunks
@@ -736,8 +830,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     )
 
   /**
-   * Attempts to create a Handler that succeeds with the provided value,
-   * capturing all exceptions on it's way.
+   * Creates a handler that evaluates `out` each time it runs and succeeds with the value, or fails with the exception when the evaluation throws a non-fatal exception.
    */
   def attempt[Out](out: => Out): Handler[Any, Throwable, Any, Out] =
     fromExit {
@@ -748,13 +841,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
 
   /**
-   * Creates a handler which always responds with a 400 status code.
+   * A handler that always responds with status 400 Bad Request and an empty body.
    */
   val badRequest: Handler[Any, Nothing, Any, Response] =
     error(Status.BadRequest)
 
   /**
-   * Creates a handler which always responds with a 400 status code.
+   * Creates a handler that always responds with status 400 Bad Request and `message`, like `error(Status.BadRequest, message)`.
    */
   def badRequest(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.BadRequest, message)
@@ -777,7 +870,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     die(new RuntimeException(message))
 
   /**
-   * Creates a handler with an error and the default error message.
+   * Creates a handler that always responds with the error status `status` and an empty body.
    */
   def error(status: => Status.Error): Handler[Any, Nothing, Any, Response] =
     fromResponse(Response.error(status))
@@ -796,14 +889,9 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(status, message, Routes.empty)
 
   /**
-   * Creates a handler with an error and the specified error message. The error
-   * message will be returned as HTML, JSON or plain text depending on the
-   * `Accept` header of the request, defaulting to
-   * [[ErrorResponseConfig.errorFormat]]. If
-   * [[ErrorResponseConfig.withErrorBody]] is `false`, the error message will
-   * not be included in the response. If the error message should always be
-   * included in the response, use `Handler.fromResponse(Response.error(status,
-   * message))`
+   * Creates a handler with an error and the specified error message. The error message will be returned as HTML, JSON or plain text depending on the `Accept` header of the request, defaulting to [[ErrorResponseConfig.errorFormat]]. If [[ErrorResponseConfig.withErrorBody]] is `false`, the error message will not be included in the response. If the error message should always be included in the response, use `Handler.fromResponse(Response.error(status, message))`
+   *
+   * In `Mode.Dev`, when the message is included and the chosen format is HTML, a 404 Not Found response lists the route patterns of `routes` in an HTML page instead, unless `routes` is empty.
    */
   def error(status: => Status.Error, message: => String, routes: Routes[_, _]): Handler[Any, Nothing, Any, Response] =
     (fromResponse(Response.status(status)) @@ Middleware.interceptHandlerStateful(
@@ -843,14 +931,20 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }).asInstanceOf[Handler[Any, Nothing, Any, Response]]
 
   /**
-   * Creates a Handler that always fails
+   * Creates a handler that always fails with `err`.
    */
   def fail[Err](err: => Err): Handler[Any, Err, Any, Nothing] =
     fromExit(Exit.fail(err))
 
+  /**
+   * Creates a handler that always fails with `cause`.
+   */
   def failCause[Err](cause: => Cause[Err]): Handler[Any, Err, Any, Nothing] =
     fromExit(Exit.failCause(cause))
 
+  /**
+   * Creates a handler that runs `handlers` one after another on the same input until one succeeds. A failure for which `isRecoverable` is false stops the search and becomes the failure of the handler. By default, every failure except a defect is recoverable.
+   */
   def firstSuccessOf[R, Err, In, Out](
     handlers: NonEmptyChunk[Handler[R, Err, In, Out]],
     isRecoverable: Cause[Err] => Boolean = (cause: Cause[Err]) => !cause.isDie,
@@ -866,33 +960,38 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
 
   /**
-   * Creates a handler that responds with 403 - Forbidden status code
+   * Creates a handler that always responds with status 403 Forbidden and an empty body.
    */
   def forbidden: Handler[Any, Nothing, Any, Response] =
     error(Status.Forbidden)
 
   /**
-   * Creates a handler that responds with 403 - Forbidden status code
+   * Creates a handler that always responds with status 403 Forbidden and `message`, like `error(Status.Forbidden, message)`.
    */
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.Forbidden, message)
 
+  /**
+   * Creates a handler from any value that has a [[ToHandler]] instance, such as a [[Response]], a [[zio.ZIO]] effect or a function. Same as the `handler` function of the `zio.http` package.
+   */
   def from[H](handler: => H)(implicit h: ToHandler[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
 
   /**
-   * Creates a handler which always responds the provided data and a 200 status
-   * code
+   * Creates a handler that always responds with status 200 OK and `body`.
    */
   def fromBody(body: => Body): Handler[Any, Nothing, Any, Response] =
     fromResponse(Response(body = body))
 
   /**
-   * Lifts an `Either` into a `Handler` alue.
+   * Creates a handler that fails with the `Left` value or succeeds with the `Right` value of `either`.
    */
   def fromEither[Err, Out](either: => Either[Err, Out]): Handler[Any, Err, Any, Out] =
     fromExit(Exit.fromEither(either))
 
+  /**
+   * Creates a handler that completes with `exit`, evaluated each time the handler runs. A non-fatal exception thrown while evaluating `exit` becomes a defect.
+   */
   def fromExit[Err, Out](exit: => Exit[Err, Out]): Handler[Any, Err, Any, Out] =
     new Handler[Any, Err, Any, Out] {
       override def apply(in: Any): ZIO[Any, Err, Out] =
@@ -903,24 +1002,36 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
 
   /**
-   * Creates a Handler from a pure function
+   * Creates a handler from a pure function of the input. The type parameter is the input type, and the function comes in a second argument list: `Handler.fromFunction[Request](request => Response.text(request.method.name))`. An exception thrown by the function becomes a defect.
    */
   def fromFunction[In]: FromFunction[In] = new FromFunction[In](())
 
+  /**
+   * Creates a handler from a function that returns another handler for the input, and runs that handler on the same input.
+   */
   def fromFunctionHandler[In]: FromFunctionHandler[In] = new FromFunctionHandler[In](())
 
   /**
-   * Creates a Handler from an pure function from A to Either[E,B]
+   * Creates a handler from a function that returns an `Either`: a `Left` is a failure and a `Right` is the output.
    */
   def fromFunctionEither[In]: FromFunctionEither[In] = new FromFunctionEither[In](())
 
   /**
-   * Creates a Handler from an pure function from A to HExit[R,E,B]
+   * Creates a handler from a function that returns a [[zio.Exit]], which is the result of the handler.
    */
   def fromFunctionExit[In]: FromFunctionExit[In] = new FromFunctionExit[In](())
 
   /**
-   * Creates a Handler from an effectful pure function
+   * Creates a handler from a function that returns a [[zio.ZIO]] effect, which the handler runs.
+   *
+   * {{{
+   * import zio._
+   *
+   * val userName: Handler[Any, Nothing, Request, Response] =
+   *   Handler.fromFunctionZIO[Request] { request =>
+   *     ZIO.succeed(Response.text(request.url.queryParam("name").getOrElse("guest")))
+   *   }
+   * }}}
    */
   def fromFunctionZIO[In]: FromFunctionZIO[In] = new FromFunctionZIO[In](())
 
@@ -934,11 +1045,19 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
   }
 
+  /**
+   * Creates a handler that serves the file `makeFile`, evaluated each time the handler runs. Same as `fromFileZIO` with `ZIO.attempt(makeFile)`.
+   */
   def fromFile[R](makeFile: => File, charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Request, Response] =
     fromFileZIO(ZIO.attempt(makeFile), charset)
 
+  /**
+   * Creates a handler that serves the file returned by `getFile`, which runs on each request. The response has the headers `Accept-Ranges: bytes`, a weak `ETag`, `Last-Modified`, and a `Content-Type` found from the file extension, with `charset` for text types. `Range` requests (with `If-Range`) get a 206 Partial Content or 416 Range Not Satisfiable response.
+   *
+   * The handler fails with a `java.io.FileNotFoundException` when the file does not exist, a `java.nio.file.AccessDeniedException` when it can't be read, and a `java.nio.file.NotDirectoryException` when it is a directory.
+   */
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Request, Response] = {
@@ -1203,7 +1322,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }.flatten
 
   /**
-   * Converts a ZIO to a Handler type
+   * Creates a handler that runs the effect `zio`, evaluated each time the handler runs, and ignores its input.
    */
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
@@ -1228,26 +1347,32 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       override def apply(in: A): ZIO[Any, Nothing, A] = Exit.succeed(in)
     }
 
+  /**
+   * Creates a handler that always responds with status 500 Internal Server Error and an empty body.
+   */
   def internalServerError: Handler[Any, Nothing, Any, Response] =
     error(Status.InternalServerError)
 
+  /**
+   * Creates a handler that always responds with status 500 Internal Server Error and `message`, like `error(Status.InternalServerError, message)`.
+   */
   def internalServerError(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.InternalServerError, message)
 
   /**
-   * Creates a handler which always responds with a 405 status code.
+   * Creates a handler that always responds with status 405 Method Not Allowed and an empty body.
    */
   def methodNotAllowed: Handler[Any, Nothing, Any, Response] =
     error(Status.MethodNotAllowed)
 
   /**
-   * Creates a handler which always responds with a 405 status code.
+   * Creates a handler that always responds with status 405 Method Not Allowed and `message`, like `error(Status.MethodNotAllowed, message)`.
    */
   def methodNotAllowed(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.MethodNotAllowed, message)
 
   /**
-   * Creates a handler that fails with a NotFound exception.
+   * A handler that responds with status 404 Not Found and the encoded request path as the message, like `error(Status.NotFound, path)`.
    */
   val notFound: Handler[Any, Nothing, Request, Response] =
     Handler
@@ -1255,9 +1380,15 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
         error(Status.NotFound, request.url.path.encode)
       }
 
+  /**
+   * Creates a handler that always responds with status 404 Not Found and `message`, like `error(Status.NotFound, message)`.
+   */
   def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.NotFound, message)
 
+  /**
+   * Creates a handler that responds with status 404 Not Found and the encoded request path as the message. The `routes` argument is not used: the result is the same as the `notFound` value.
+   */
   def notFound(routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
     Handler
       .fromFunctionHandler[Request] { request =>
@@ -1265,61 +1396,61 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
 
   /**
-   * Creates a handler which always responds with a 200 status code.
+   * A handler that always responds with status 200 OK and an empty body.
    */
   val ok: Handler[Any, Nothing, Any, Response] =
     status(Status.Ok)
 
   /**
-   * Creates a builder that can be used to create a handler that projects some
-   * component from its input. This is useful when created nested or monadic
-   * handlers, which require the input to all handlers be unified. By created
-   * extractors, the "smaller" handlers can extract what they need from the
-   * input to the "biggest" handler.
+   * Creates a builder for a handler that projects a part of its input with a function `A => B`. It helps when handlers that take smaller inputs are combined into one handler with a larger input.
    */
   def param[A]: ParamExtractorBuilder[A] =
     new ParamExtractorBuilder[A](())
 
   /**
-   * Creates a handler which always responds with the same value.
+   * Creates a handler that always succeeds with `response`, evaluated each time the handler runs.
    */
   def fromResponse(response: => Response): Handler[Any, Nothing, Any, Response] =
     succeed(response)
 
   /**
-   * Converts a ZIO to a handler type
+   * Creates a handler that runs `getResponse` on each call and succeeds with the response it produces.
    */
   def fromResponseZIO[R, Err](getResponse: ZIO[R, Err, Response]): Handler[R, Err, Any, Response] =
     fromZIO(getResponse)
 
+  /**
+   * Turns a handler that needs `Scope with R` into one that needs only `R`. A handler always runs with a `Scope` (see `apply`), and the scoped resources use that scope.
+   */
   def scoped[R]: ScopedPartiallyApplied[R] =
     scopedPartiallyApplied.asInstanceOf[ScopedPartiallyApplied[R]]
 
+  /**
+   * Creates a handler that succeeds with the current ZIO stack trace.
+   */
   def stackTrace(implicit trace: Trace): Handler[Any, Nothing, Any, StackTrace] =
     fromZIO(ZIO.stackTrace)
 
   /**
-   * Creates a handler which always responds with the same status code and empty
-   * data.
+   * Creates a handler that always responds with the status `code` and an empty body.
    */
   def status(code: => Status): Handler[Any, Nothing, Any, Response] =
     succeed(Response(code))
 
   /**
-   * Creates a Handler that always returns the same response and never fails.
+   * Creates a handler that always succeeds with `out`, evaluated each time the handler runs.
    */
   def succeed[Out](out: => Out): Handler[Any, Nothing, Any, Out] =
     fromExit(Exit.succeed(out))
 
   /**
-   * Creates a handler which responds with an Html page using the built-in
-   * template.
+   * Creates a handler that responds with an HTML page made of the built-in template, with `heading` as the title and heading, and `view` as the content.
    */
   def template(heading: => CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
     fromResponse(Response.html(Template.container(heading)(view)))
 
   /**
-   * Creates a handler which always responds with the same plain text.
+   * Creates a handler that always responds with status 200 OK and `text` as a `text/plain` body.
    */
   def text(text: => CharSequence): Handler[Any, Nothing, Any, Response] =
     fromResponse(Response.text(text))
@@ -1337,17 +1468,23 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   val tooLarge: Handler[Any, Nothing, Any, Response] =
     Handler.status(Status.RequestEntityTooLarge)
 
+  /**
+   * A handler that always succeeds with `()`.
+   */
   val unit: Handler[Any, Nothing, Any, Unit] =
     fromExit(Exit.unit)
 
   /**
-   * Constructs a handler from a function that uses a web socket.
+   * Creates a [[WebSocketApp]] from a function that uses the [[WebSocketChannel]] of the connection.
    */
   final def webSocket[Env](
     f: WebSocketChannel => ZIO[Env, Throwable, Any],
   ): WebSocketApp[Env] =
     WebSocketApp(Handler.fromFunctionZIO(f))
 
+  /**
+   * Operations on request handlers (`Handler[R, Err, Request, Response]`) that change the incoming request or the response.
+   */
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {
 
@@ -1380,47 +1517,52 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     def url(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
 
     /**
-     * Updates the current Headers with new one, using the provided update
-     * function passed.
+     * Updates the headers of the response produced by the handler with `update`.
      */
     def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 
+  /**
+   * Operations on handlers that produce a [[Response]], to read parts of the response.
+   */
   final implicit class ResponseOutputSyntax[-R, +Err, -In](val self: Handler[R, Err, In, Response]) extends AnyVal {
 
     /**
-     * Extracts body
+     * Returns a handler that succeeds with the body of the response.
      */
     def body(implicit trace: Trace): Handler[R, Err, In, Body] =
       self.map(_.body)
 
     /**
-     * Extracts content-length from the response if available
+     * Returns a handler that succeeds with the `Content-Length` header of the response, or `None` when the response has none.
      */
     def contentLength(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentLength]] =
       self.map(_.header(Header.ContentLength))
 
     /**
-     * Extracts the value of ContentType header
+     * Returns a handler that succeeds with the `Content-Type` header of the response, or `None` when the response has none.
      */
     def contentType(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentType]] =
       header(Header.ContentType)
 
     /**
-     * Extracts the `Headers` from the type `B` if possible
+     * Returns a handler that succeeds with the headers of the response.
      */
     def headers(implicit trace: Trace): Handler[R, Err, In, Headers] =
       self.map(_.headers)
 
     /**
-     * Extracts the value of the provided header name.
+     * Returns a handler that succeeds with the header of type `headerType` from the response, or `None` when the response has no such header or it does not parse.
      */
     def header(headerType: HeaderType)(implicit
       trace: Trace,
     ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
       self.map(_.header(headerType))
 
+    /**
+     * Returns a handler that succeeds with the header of type `headerType` from the response, or `None` when the response has no such header. It fails with the parse error message when the header does not parse.
+     */
     def headerOrFail(
       headerType: HeaderType,
     )(implicit trace: Trace, ev: Err <:< String): Handler[R, String, In, Option[headerType.HeaderValue]] =
@@ -1434,24 +1576,39 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
           }
         }
 
+    /**
+     * Returns a handler that succeeds with the unparsed value of the header `name` from the response, or `None` when the response has no such header.
+     */
     def rawHeader(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
       self.map(_.rawHeader(name))
 
     /**
-     * Extracts `Status` from the type `B` is possible.
+     * Returns a handler that succeeds with the status of the response.
      */
     def status(implicit trace: Trace): Handler[R, Err, In, Status] =
       self.map(_.status)
   }
 
+  /**
+   * Builder returned by `Handler#contraFlatMap`.
+   */
   final class ContraFlatMap[-R, +Err, -In, +Out, In1](val self: Handler[R, Err, In, Out]) extends AnyVal {
+    /**
+     * Returns a handler that runs the handler that `f` returns for its input, and passes that handler's output to the original handler.
+     */
     def apply[R1 <: R, Err1 >: Err](f: In1 => Handler[R1, Err1, Any, In])(implicit
       trace: Trace,
     ): Handler[R1, Err1, In1, Out] =
       fromFunctionHandler(f) >>> self
   }
 
+  /**
+   * Builder returned by `Handler.fromFunction`.
+   */
   final class FromFunction[In](val self: Unit) extends AnyVal {
+    /**
+     * Creates a handler that applies `f` to its input. A non-fatal exception thrown by `f` becomes a defect.
+     */
     def apply[Out](f: In => Out): Handler[Any, Nothing, In, Out] =
       new Handler[Any, Nothing, In, Out] {
         override def apply(in: In): ZIO[Any, Nothing, Out] =
@@ -1463,7 +1620,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
   }
 
+  /**
+   * Builder returned by `Handler.fromFunctionHandler`.
+   */
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
+    /**
+     * Creates a handler that runs the handler that `f` returns for its input, on the same input. A non-fatal exception thrown by `f` becomes a defect.
+     */
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[Scope & R, Err, Out] =
@@ -1474,7 +1637,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
   }
 
+  /**
+   * Builder returned by `Handler.fromFunctionEither`.
+   */
   final class FromFunctionEither[In](val self: Unit) extends AnyVal {
+    /**
+     * Creates a handler that fails with the `Left` value or succeeds with the `Right` value that `f` returns. A non-fatal exception thrown by `f` becomes a defect.
+     */
     def apply[R, Err, Out](f: In => Either[Err, Out]): Handler[Any, Err, In, Out] =
       new Handler[Any, Err, In, Out] {
         override def apply(in: In): ZIO[Any, Err, Out] =
@@ -1486,7 +1655,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
   }
 
+  /**
+   * Builder returned by `Handler.fromFunctionExit`.
+   */
   final class FromFunctionExit[In](val self: Unit) extends AnyVal {
+    /**
+     * Creates a handler that completes with the [[zio.Exit]] that `f` returns. A non-fatal exception thrown by `f` becomes a defect.
+     */
     def apply[R, Err, Out](f: In => Exit[Err, Out]): Handler[Any, Err, In, Out] =
       new Handler[Any, Err, In, Out] {
         override def apply(in: In): ZIO[Any, Err, Out] =
@@ -1498,7 +1673,13 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
   }
 
+  /**
+   * Builder returned by `Handler.fromFunctionZIO`.
+   */
   final class FromFunctionZIO[In](val self: Unit) extends AnyVal {
+    /**
+     * Creates a handler that runs the effect that `f` returns. A non-fatal exception thrown by `f` becomes a defect.
+     */
     def apply[R, Err, Out](f: In => ZIO[R, Err, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
@@ -1509,12 +1690,24 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
   }
 
+  /**
+   * Builder returned by `Handler.param`.
+   */
   final class ParamExtractorBuilder[A](val unit: Unit) extends AnyVal {
+    /**
+     * Creates a handler that succeeds with `project` applied to its input.
+     */
     def apply[B](project: A => B): Handler[Any, Nothing, A, B] =
       Handler.identity[B].contramap[A](project)
   }
 
+  /**
+   * Builder returned by `Handler.scoped`.
+   */
   final class ScopedPartiallyApplied[R](private val dummy: Boolean = true) extends AnyVal {
+    /**
+     * Returns `handler` with `Scope` removed from its environment type.
+     */
     def apply[Err, In, Out](handler: Handler[Scope with R, Err, In, Out])(implicit
       trace: Trace,
     ): Handler[R, Err, In, Out] =
