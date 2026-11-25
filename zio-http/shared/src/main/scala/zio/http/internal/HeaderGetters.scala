@@ -98,9 +98,17 @@ trait HeaderGetters { self =>
   final def headerOrElse[T](default: => T)(implicit schema: Schema[T]): T =
     header[T].getOrElse(default)
 
+  /**
+   * Like `header[T](name)`, as an effect that fails with the
+   * [[zio.http.codec.HttpCodecError.HeaderError]].
+   */
   final def headerZIO[T](name: String)(implicit schema: Schema[T]): IO[HttpCodecError.HeaderError, T] =
     ZIO.fromEither(header[T](name))
 
+  /**
+   * Returns the parsed values of all headers whose name matches the type,
+   * ignoring case; values that do not parse are skipped.
+   */
   final def headers(headerType: HeaderType): Chunk[headerType.HeaderValue] =
     Chunk.fromIterator(
       headers.iterator
@@ -126,9 +134,10 @@ trait HeaderGetters { self =>
    */
   def headers: Headers
 
-  /** Gets the raw unparsed header value */
+  /** Gets the raw unparsed value of the first header with this name. */
   final def rawHeader(name: CharSequence): Option[String] = headers.get(name)
 
+  /** Returns the raw values of all headers with this name, ignoring case. */
   def rawHeaders(name: CharSequence): Chunk[String] =
     Chunk.fromIterator(
       headers.iterator
@@ -136,7 +145,7 @@ trait HeaderGetters { self =>
         .map(_.renderedValue),
     )
 
-  /** Gets the raw unparsed header value */
+  /** Gets the raw unparsed value of the first header with the type's name. */
   final def rawHeader(headerType: HeaderType): Option[String] =
     rawHeader(headerType.name)
 }

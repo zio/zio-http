@@ -25,22 +25,29 @@ import zio.http._
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,
- * a new instance of the same type is returned. So or eg:
- * `request.addHeader("A", "B")` should return a new `Request` and similarly
- * `headers.add("A", "B")` should return a new `Headers` instance.
+ * a new instance of the same type is returned. For example,
+ * `request.addHeader("A", "B")` returns a new `Request` and
+ * `headers.addHeader(header)` returns a new `Headers`.
  *
  * NOTE: Add methods here that modify the current headers and returns an
  * instance of the same type.
  */
 trait HeaderModifier[+A] { self =>
+
+  /** Returns a copy with `header` added after the existing headers. */
   final def addHeader(header: Header): A =
     addHeaders(Headers(header))
 
   protected def addHeader(name: CharSequence, value: CharSequence): A =
     addHeaders(Headers.apply(name, value))
 
+  /** Returns a copy with `headers` added after the existing headers. */
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
 
+  /**
+   * Returns a copy with the name and value pairs added as headers after the
+   * existing headers.
+   */
   final def addHeaders(headers: Iterable[(CharSequence, CharSequence)]): A =
     addHeaders(Headers.fromIterable(headers.map { case (k, v) => Header.Custom(k, v) }))
 
@@ -63,13 +70,20 @@ trait HeaderModifier[+A] { self =>
   final def addHeader[T](value: T)(implicit schema: Schema[T]): A =
     updateHeaders(StringSchemaCodec.headerFromSchema(schema, ErrorConstructor.header, null).encode(value, _))
 
+  /** Returns a copy without the headers named like the type, ignoring case. */
   final def removeHeader(headerType: HeaderType): A = removeHeader(headerType.name)
 
+  /** Returns a copy without the headers with this name, ignoring case. */
   final def removeHeader(name: String): A = removeHeaders(Set(name))
 
+  /**
+   * Returns a copy without the headers whose name is in `headers`, ignoring
+   * case.
+   */
   final def removeHeaders(headers: Set[String]): A =
     updateHeaders(orig => Headers(orig.filterNot(h => headers.exists(h.headerName.equalsIgnoreCase))))
 
+  /** Returns a copy whose headers are replaced by `headers`. */
   final def setHeaders(headers: Headers): A = self.updateHeaders(_ => headers)
 
   /**

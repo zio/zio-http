@@ -24,8 +24,10 @@ import zio.http._
 import zio.http.codec.{HttpCodecError, TextCodec}
 import zio.http.internal.QueryGetters.emptyValue
 
+/** Operators that read the query parameters. */
 trait QueryGetters[+A] { self: QueryOps[A] =>
 
+  /** Returns the query parameters. */
   def queryParameters: QueryParams
 
   /**
@@ -91,14 +93,17 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
       case e: HttpCodecError.QueryParamError => Left(e)
     }
 
+  /** Returns the result of `query[T](key)`, or `default` when it fails. */
   def queryOrElse[T](key: String, default: => T)(implicit schema: Schema[T]): T =
     query[T](key).getOrElse(default)
 
+  /** Returns the result of `query[T]`, or `default` when it fails. */
   def queryOrElse[T](default: => T)(implicit schema: Schema[T]): T =
     query[T].getOrElse(default)
 
   /**
-   * Retrieves all typed query parameter values having the specified name as ZIO
+   * Like `query[T](key)`, as an effect that fails with the
+   * [[zio.http.codec.HttpCodecError.QueryParamError]].
    */
   def queryZIO[T](key: String)(implicit schema: Schema[T]): IO[HttpCodecError.QueryParamError, T] =
     ZIO.fromEither(query[T](key))
@@ -167,6 +172,7 @@ trait QueryGetters[+A] { self: QueryOps[A] =>
 
 }
 
+/** Companion of [[QueryGetters]]. */
 object QueryGetters {
   private[http] val emptyValue = Some("")
 }

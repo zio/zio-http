@@ -18,7 +18,16 @@ package zio.http.internal
 
 import zio.http.Status
 
+/**
+ * Whether a client connection can serve another request after a response:
+ * `Reusable` stays in the pool, `Invalid` is removed from it.
+ */
 sealed trait ChannelState { self =>
+
+  /**
+   * Returns `Reusable` when both states are `Reusable`, and `Invalid`
+   * otherwise.
+   */
   def &&(other: ChannelState): ChannelState =
     (self, other) match {
       case (ChannelState.Reusable, ChannelState.Reusable) => ChannelState.Reusable
@@ -26,10 +35,19 @@ sealed trait ChannelState { self =>
     }
 }
 
+/** Companion of [[ChannelState]]. */
 object ChannelState {
-  case object Invalid  extends ChannelState
+
+  /** The connection is removed from the pool. */
+  case object Invalid extends ChannelState
+
+  /** The connection can serve another request. */
   case object Reusable extends ChannelState
 
+  /**
+   * Returns `Invalid` for [[Status.SwitchingProtocols]] and `Reusable` for
+   * every other status.
+   */
   def forStatus(status: Status): ChannelState =
     if (status == Status.SwitchingProtocols) Invalid else Reusable
 }

@@ -22,6 +22,7 @@ import zio.schema.Schema
 
 import zio.http.QueryParams
 
+/** Operators that return a copy with changed query parameters. */
 trait QueryModifier[+A] { self: QueryOps[A] with A =>
 
   /**
@@ -39,6 +40,7 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
     if (value.isBlank) addQueryParam(key)
     else addQueryParams(key, Chunk.single(value))
 
+  /** Adds the key with no values. */
   def addQueryParam(key: String): A =
     addQueryParams(key, Chunk.empty)
 
@@ -48,9 +50,14 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
   def addQueryParams(key: String, value: Chunk[String]): A =
     updateQueryParams(params => params ++ QueryParams(key -> value))
 
+  /** Adds the parameters parsed from a query string such as `a=1&b=2`. */
   def addQueryParams(values: String): A =
     updateQueryParams(params => params ++ QueryParams.decode(values))
 
+  /**
+   * Adds the key and value pairs; pairs with the same key become one entry with
+   * their values in order.
+   */
   def addQueryParams(queryParams: Iterable[(String, String)]): A =
     updateQueryParams(params =>
       params ++ QueryParams(queryParams.groupBy(_._1).map { case (k, v) =>
@@ -58,9 +65,14 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
       }),
     )
 
+  /** Adds `value`, encoded with its schema, under `key`. */
   def addQueryParam[T](key: String, value: T)(implicit schema: Schema[T]): A =
     updateQueryParams(StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, key).encode(value, _))
 
+  /**
+   * Adds the fields of `value` as query parameters named by field, encoded with
+   * its schema.
+   */
   def addQueryParam[T](value: T)(implicit schema: Schema[T]): A =
     updateQueryParams(StringSchemaCodec.queryFromSchema(schema, ErrorConstructor.query, null).encode(value, _))
 
@@ -80,17 +92,25 @@ trait QueryModifier[+A] { self: QueryOps[A] with A =>
     QueryParams.fromEntries(params.seq.filterNot { entry => keysToRemove.contains(entry.getKey) }: _*)
   }
 
+  /** Replaces all query parameters with `values`. */
   def setQueryParams(values: QueryParams): A =
     updateQueryParams(_ => values)
 
+  /** Replaces all query parameters with those parsed from a query string. */
   def setQueryParams(values: String): A =
     updateQueryParams(_ => QueryParams.decode(values))
 
+  /** Replaces all query parameters with the entries of the map. */
   def setQueryParams(queryParams: Map[String, Chunk[String]]): A =
     updateQueryParams(_ => QueryParams(queryParams))
 
+  /** Replaces all query parameters with the given entries. */
   def setQueryParams(queryParams: (String, Chunk[String])*): A =
     updateQueryParams(_ => QueryParams(queryParams: _*))
 
+  /**
+   * Returns a copy whose query parameters are the result of applying `f` to the
+   * current ones.
+   */
   def updateQueryParams(f: QueryParams => QueryParams): A
 }
