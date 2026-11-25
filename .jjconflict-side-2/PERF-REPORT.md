@@ -13,6 +13,8 @@ All numbers are process-level measurements from an in-process harness of real `H
 | 3 | `perf(server-loom): shared scheduler for idle deadlines` | per-conn idle-timer VT → 1 shared `ScheduledThreadPoolExecutor` | VTs/conn **3 → 2**; idle-timer VTs 500 → 0 |
 | 4 | `perf(server-loom): write response DATA directly, remove per-conn writer VT` | DATA written under `writeLock` from the handler VT; writer VT + queue drain deleted | VTs/conn **2 → 1** |
 | 5 | `perf(server-loom): request/header deadlines on shared scheduler` | `startRequestTimer`/`scheduleTimeoutRst` schedule on the shared timer; a VT is spawned only if a deadline actually fires | 2,000 request deadlines → **0 VTs** (was 1 VT each) |
+| 6 | `perf(server-loom): make per-request telemetry opt-in (default off)` | gate span + 4-label metric + stdout log behind `Connector.requestTelemetry` | **~8.7 µs/request** removed by default |
+| 7 | `test(server-loom): add HPACK/frame codec microbenchmark` | `PerfCodec` harness | reproducible codec numbers |
 
 Each commit: `271/271 serverLoom tests pass`.
 
@@ -107,3 +109,54 @@ java -Xmx256m -XX:StartFlightRecording=settings=profile,filename=/tmp/f.jfr,dump
 ```
 
 Logs: `target/logs/perf-*.log`.
+
+## Per-request telemetry (commit 6)
+
+`H2Transport.instrumentRequest` ran unconditionally per request. `PerfTelemetry` microbenchmark of
+the exact calls:
+
+| op | ns/op |
+|---|---:|
+| `trace.span` + 6 attributes (default `AlwaysOnSampler`, in-memory processor) | 1,616 |
+| `requestCounter.add` with 4 labels | 713 |
+| `logger.info` → `ConsoleLogRecordProcessor` (stdout write) | 3,705 |
+| **all three (what ran per request)** | **8,666** |
+
+At 42k rps that is ≈0.36 core plus a syscall per request. Now gated behind
+`Connector.requestTelemetry` (default `false`); a disabled request calls `handleRequest` directly.
+Access logging remains available via the `AccessLog` middleware + sink.
+
+```bash
+CP=$(cat target/logs/perf-classpath-noscoverage.txt)
+java -cp "$CP" zio.http.h2.PerfTelemetry span 20000     # ~1.6us/op
+java -cp "$CP" zio.http.h2.PerfTelemetry log 2000       # ~3.7us/op (stdout; redirect to /dev/null)
+```
+
+## Broader request-path research (ranked, for follow-up)
+
+**In this repo (actionable):**
+1. `resolveProxyTrust` — two `Headers.add` full-array rebuilds + up to 6 `has()` scans per request,
+   even in the default-deny/no-forwarded-headers case. Fix: single `HeadersBuilder` pass; skip the
+   proxy-header pre-check when the peer is untrusted.
+2. `handleRequest` — `routeTree.get(method, path)` then `route.pattern.decode(method, path)` walks
+   the path twice per request and `decode` allocates a `List[(Any, Int)]` of candidates. Fix:
+   precompute "pattern captures no vars" at tree-build time and pass `()` without decoding.
+3. `buildResponseHeaders` / `isEventStream` — `headers.toList` materializes a tuple list per response;
+   `response.addHeader` copies the header set; `status.code.toString` allocates. `isEventStream`
+   runs per streamed response.
+4. `H2Connection.headerListSize` — `name.getBytes(UTF_8).length` + `value.getBytes(...)` per header
+   per request (allocation just to measure length). Fix: allocation-free UTF-8 length (ASCII fast path).
+5. `writeDataFrame` flushes per DATA frame (introduced when removing the writer VT). Fine for small
+   responses; large streaming bodies could batch.
+
+**Codec (`zio-http-h2-codec`):** clean JFR over HPACK encode+decode shows `DynamicTable` scan ~30%,
+decoder `String` construction ~12%, `ChunkBuilder` ~7%. A normalize-once + static-name + single-scan
+attempt measured **neutral** (1554 → 1553 ns/op) and was reverted; a real win needs a hash-indexed
+dynamic table (indices shift on add/evict) — higher risk. Decode string literals still do
+`Arrays.copyOfRange` + a `Chunk` round-trip per name/value (`HuffmanCodec.decode(Chunk)` → `toArray`),
+a plausible next codec win.
+
+**External (`zio-blocks` `http-model`, not in this repo):** `Headers.add` copies three arrays per add;
+`Headers.getLast` builds a full `Chunk`; `PercentEncoder.decode` allocates a `StringBuilder`/`String`
+even when no `%` is present; `URL.parse` does several `substring`s per request. Fixing these requires
+a zio-blocks change (the pinned `0.0.46+6-46f1890f-SNAPSHOT`).
