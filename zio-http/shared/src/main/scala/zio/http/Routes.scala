@@ -86,9 +86,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     aspect(self)
 
   /**
-   * Applies a [[HandlerAspect]] that produces a context of type `Ctx` to every
-   * route, and provides that context to the handlers as a service of their
-   * environment. The result no longer needs `Ctx`.
+   * Applies a [[HandlerAspect]] that produces a context of type `Ctx` to every route and to the not-found handler, and provides that context to the handlers as a service of their environment. The result no longer needs `Ctx`.
    */
   def @@[Env0, Ctx <: Env](
     aspect: HandlerAspect[Env0, Ctx],
@@ -255,11 +253,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes = routes.map(_.provideEnvironment(env)))
 
   /**
-   * Runs these routes on `request`, without requiring their errors to be
-   * handled. A request that matches no route succeeds with the not-found
-   * response. Although the error type is `Either[Err, Response]`, an error or a
-   * defect of a route is turned into a response with status 500 Internal Server
-   * Error that the effect succeeds with, even when the error is a `Response`.
+   * Runs these routes on `request`, without requiring their errors to be handled. A request that matches no route succeeds with the not-found response. Although the error type is `Either[Err, Response]`, the effect succeeds with a response: a typed error or a defect of a route becomes a 500 Internal Server Error response. A `Response` error of a route whose handler takes only the `Request` is returned as the response instead; a `Response` error of a route whose handler takes path parameters also becomes 500.
    */
   def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] = {
 
