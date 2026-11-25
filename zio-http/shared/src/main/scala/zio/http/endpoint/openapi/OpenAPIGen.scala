@@ -116,7 +116,9 @@ object OpenAPIGen {
 
     /**
      * The examples of the `Examples` annotations, by name. When two annotations
-     * have an example with the same name, the later one is kept.
+     * have an example with the same name, the one that comes later in
+     * `annotations` is kept; for a codec annotated twice with `examples`, that
+     * is the value of the first call.
      */
     lazy val examples: Map[String, Any] = annotations.foldLeft(Map.empty[String, Any]) {
       case (examples, HttpCodec.Metadata.Examples(nextExamples)) => examples ++ nextExamples

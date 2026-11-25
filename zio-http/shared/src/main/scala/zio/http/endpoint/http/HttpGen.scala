@@ -22,8 +22,8 @@ object HttpGen {
   private val PathWildcard = "pathWildcard"
 
   /**
-   * Returns an [[HttpFile]] with one request for each of the endpoints, using
-   * `config` to format query values.
+   * Returns an [[HttpFile]] with one request for each of the endpoints. The
+   * generated requests do not depend on `config`.
    */
   def fromEndpoints(
     config: CodecConfig,
@@ -88,9 +88,13 @@ object HttpGen {
     pathVariables(inAtoms) ++ queryVariables(config, inAtoms) ++ headersVariables(inAtoms) ++ bodyVariables(inAtoms)
 
   /**
-   * Returns one variable for each primitive property of the JSON body schema,
-   * each with a type hint as its comment. Returns an empty sequence when there
-   * is no JSON body.
+   * Returns one variable for each property of the JSON body schema whose schema
+   * is a number, an integer, a string, a boolean, an array or an enum, each
+   * with a type hint as its comment; the properties of a nested object are
+   * included the same way. Returns an empty sequence when there is no JSON
+   * body. Throws a `java.lang.IllegalArgumentException` with the message
+   * `name is required` when the body schema is not an object, for example for a
+   * `String` body.
    */
   def bodyVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     val bodySchema0 = bodySchema(inAtoms)
