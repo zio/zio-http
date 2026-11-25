@@ -48,9 +48,13 @@ final case class StompFrame(
 ) {
 
   /**
-   * Encodes the frame as bytes: the command name and a newline, one `key:value` line per header, an empty line (these lines are UTF-8 text), the body bytes if there are any, and a terminating NUL byte.
+   * Encodes the frame as bytes: the command name and a newline, one `key:value`
+   * line per header, an empty line (these lines are UTF-8 text), the body bytes
+   * if there are any, and a terminating NUL byte.
    *
-   * In header keys and values a backslash, a carriage return, a newline and a colon are written as `\\`, `\r`, `\n` and `\c`, whatever the command is. Headers are written in the iteration order of the `headers` map.
+   * In header keys and values a backslash, a carriage return, a newline and a
+   * colon are written as `\\`, `\r`, `\n` and `\c`, whatever the command is.
+   * Headers are written in the iteration order of the `headers` map.
    */
   def encode: Chunk[Byte] = {
     val builder = new StringBuilder
@@ -103,18 +107,22 @@ final case class StompFrame(
   }
 
   /**
-   * Returns the value of the header `key`, or `None` when the frame has no header with that key.
+   * Returns the value of the header `key`, or `None` when the frame has no
+   * header with that key.
    */
   def header(key: String): Option[String] = headers.get(key)
 
   /**
-   * Returns a copy of this frame with the header `key` set to `value`, replacing the value of an existing header with the same key.
+   * Returns a copy of this frame with the header `key` set to `value`,
+   * replacing the value of an existing header with the same key.
    */
   def withHeader(key: String, value: String): StompFrame =
     copy(headers = headers + (key -> value))
 
   /**
-   * Returns a copy of this frame with `bodyBytes` as the body and the `content-length` header set to the number of body bytes, replacing an existing `content-length` header.
+   * Returns a copy of this frame with `bodyBytes` as the body and the
+   * `content-length` header set to the number of body bytes, replacing an
+   * existing `content-length` header.
    */
   def withBody(bodyBytes: Chunk[Byte]): StompFrame =
     copy(
@@ -123,7 +131,8 @@ final case class StompFrame(
     )
 
   /**
-   * Returns a copy of this frame with the UTF-8 bytes of `bodyString` as the body and the `content-length` header set to the number of those bytes.
+   * Returns a copy of this frame with the UTF-8 bytes of `bodyString` as the
+   * body and the `content-length` header set to the number of those bytes.
    */
   def withBody(bodyString: String): StompFrame =
     withBody(Chunk.fromArray(bodyString.getBytes(Charsets.Utf8)))
@@ -140,9 +149,17 @@ object StompFrame {
   implicit val schema: Schema[StompFrame] = DeriveSchema.gen[StompFrame]
 
   /**
-   * Parses one frame from `bytes`. The bytes are read as UTF-8 text, and the part before the first NUL byte is parsed.
+   * Parses one frame from `bytes`. The bytes are read as UTF-8 text, and the
+   * part before the first NUL byte is parsed.
    *
-   * Returns `Left("Invalid STOMP frame: missing NULL terminator")` when `bytes` has no NUL byte, and `Left("Invalid STOMP command: ...")` when the trimmed first line is not a command known to `StompCommand.fromString`, which ignores case. Header lines without a colon, or with the colon first, are skipped. When a key appears more than once, the first value is kept. Header keys and values are unescaped. The lines after the first empty line, joined with newlines, form the body, which is `None` when they are empty. The `content-length` header is not used.
+   * Returns `Left("Invalid STOMP frame: missing NULL terminator")` when `bytes`
+   * has no NUL byte, and `Left("Invalid STOMP command: ...")` when the trimmed
+   * first line is not a command known to `StompCommand.fromString`, which
+   * ignores case. Header lines without a colon, or with the colon first, are
+   * skipped. When a key appears more than once, the first value is kept. Header
+   * keys and values are unescaped. The lines after the first empty line, joined
+   * with newlines, form the body, which is `None` when they are empty. The
+   * `content-length` header is not used.
    */
   def decode(bytes: Chunk[Byte]): Either[String, StompFrame] = {
     val content = bytes.asString(Charsets.Utf8)
@@ -227,9 +244,12 @@ object StompFrame {
   }
 
   /**
-   * A pipeline that splits a byte stream after each NUL byte and decodes every piece with `decode`. Pieces that fail to decode are dropped, so the stream never fails, and bytes after the last NUL byte are not emitted.
+   * A pipeline that splits a byte stream after each NUL byte and decodes every
+   * piece with `decode`. Pieces that fail to decode are dropped, so the stream
+   * never fails, and bytes after the last NUL byte are not emitted.
    *
-   * Bytes between frames are not skipped: a newline in front of a command line stays in that piece, and `decode` then rejects it.
+   * Bytes between frames are not skipped: a newline in front of a command line
+   * stays in that piece, and `decode` then rejects it.
    */
   val streamDecoder: ZPipeline[Any, String, Byte, StompFrame] = {
     ZPipeline
@@ -259,7 +279,10 @@ object StompFrame {
   // Factory methods for common frames
 
   /**
-   * Returns a `CONNECT` frame with the headers `accept-version` (the value of `acceptVersion`, `1.2` by default) and `host`. It adds `login` and `passcode` when given, and `heart-beat` written as `cx,cy` from the two numbers of `heartBeat` when given.
+   * Returns a `CONNECT` frame with the headers `accept-version` (the value of
+   * `acceptVersion`, `1.2` by default) and `host`. It adds `login` and
+   * `passcode` when given, and `heart-beat` written as `cx,cy` from the two
+   * numbers of `heartBeat` when given.
    */
   def connect(
     host: String,
@@ -283,7 +306,9 @@ object StompFrame {
   }
 
   /**
-   * Returns a `CONNECTED` frame with the header `version` (`1.2` by default). It adds `session` and `server` when given, and `heart-beat` written as `sx,sy` from the two numbers of `heartBeat` when given.
+   * Returns a `CONNECTED` frame with the header `version` (`1.2` by default).
+   * It adds `session` and `server` when given, and `heart-beat` written as
+   * `sx,sy` from the two numbers of `heartBeat` when given.
    */
   def connected(
     version: String = "1.2",
@@ -303,7 +328,12 @@ object StompFrame {
   }
 
   /**
-   * Returns a `SEND` frame with the header `destination` and `body` as the body. `additionalHeaders` are added after `destination`, so a key in both takes the value from `additionalHeaders`. `contentType`, when given, is written as `content-type` and replaces an entry with that key in `additionalHeaders`. The `content-length` header is set to the length of `body` and replaces an entry with that key in `additionalHeaders`.
+   * Returns a `SEND` frame with the header `destination` and `body` as the
+   * body. `additionalHeaders` are added after `destination`, so a key in both
+   * takes the value from `additionalHeaders`. `contentType`, when given, is
+   * written as `content-type` and replaces an entry with that key in
+   * `additionalHeaders`. The `content-length` header is set to the length of
+   * `body` and replaces an entry with that key in `additionalHeaders`.
    */
   def send(
     destination: String,
@@ -318,7 +348,9 @@ object StompFrame {
   }
 
   /**
-   * Returns the same frame as the `Chunk[Byte]` overload, with `body` encoded as UTF-8. This overload has no default arguments, so `contentType` and `additionalHeaders` are always passed.
+   * Returns the same frame as the `Chunk[Byte]` overload, with `body` encoded
+   * as UTF-8. This overload has no default arguments, so `contentType` and
+   * `additionalHeaders` are always passed.
    */
   def send(
     destination: String,
@@ -329,7 +361,9 @@ object StompFrame {
     send(destination, Chunk.fromArray(body.getBytes(Charsets.Utf8)), contentType, additionalHeaders)
 
   /**
-   * Returns a `SUBSCRIBE` frame with the headers `destination`, `id` and `ack` (`auto` by default). `additionalHeaders` are added after them, so a key in both takes the value from `additionalHeaders`.
+   * Returns a `SUBSCRIBE` frame with the headers `destination`, `id` and `ack`
+   * (`auto` by default). `additionalHeaders` are added after them, so a key in
+   * both takes the value from `additionalHeaders`.
    */
   def subscribe(
     destination: String,
@@ -353,7 +387,8 @@ object StompFrame {
     StompFrame(StompCommand.Unsubscribe, Map("id" -> id))
 
   /**
-   * Returns an `ACK` frame with the header `id`, and the header `transaction` when given.
+   * Returns an `ACK` frame with the header `id`, and the header `transaction`
+   * when given.
    */
   def ack(
     id: String,
@@ -366,7 +401,8 @@ object StompFrame {
   }
 
   /**
-   * Returns a `NACK` frame with the header `id`, and the header `transaction` when given.
+   * Returns a `NACK` frame with the header `id`, and the header `transaction`
+   * when given.
    */
   def nack(
     id: String,
@@ -397,7 +433,8 @@ object StompFrame {
     StompFrame(StompCommand.Abort, Map("transaction" -> transaction))
 
   /**
-   * Returns a `DISCONNECT` frame with the header `receipt` when `receipt` is given, and no headers otherwise.
+   * Returns a `DISCONNECT` frame with the header `receipt` when `receipt` is
+   * given, and no headers otherwise.
    */
   def disconnect(receipt: Option[String] = None): StompFrame = {
     val headers = receipt.map(r => Map("receipt" -> r)).getOrElse(Map.empty)
@@ -405,7 +442,13 @@ object StompFrame {
   }
 
   /**
-   * Returns a `MESSAGE` frame with the headers `destination`, `message-id` and `subscription` and `body` as the body. `additionalHeaders` are added after those three, so a key in both takes the value from `additionalHeaders`. `contentType`, when given, is written as `content-type` and replaces an entry with that key in `additionalHeaders`. The `content-length` header is set to the length of `body` and replaces an entry with that key in `additionalHeaders`.
+   * Returns a `MESSAGE` frame with the headers `destination`, `message-id` and
+   * `subscription` and `body` as the body. `additionalHeaders` are added after
+   * those three, so a key in both takes the value from `additionalHeaders`.
+   * `contentType`, when given, is written as `content-type` and replaces an
+   * entry with that key in `additionalHeaders`. The `content-length` header is
+   * set to the length of `body` and replaces an entry with that key in
+   * `additionalHeaders`.
    */
   def message(
     destination: String,
@@ -433,7 +476,9 @@ object StompFrame {
     StompFrame(StompCommand.Receipt, Map("receipt-id" -> receiptId))
 
   /**
-   * Returns an `ERROR` frame with the headers `message` and `receipt-id` when given. When `body` is given, its UTF-8 bytes are the body and the `content-length` header is set to their number.
+   * Returns an `ERROR` frame with the headers `message` and `receipt-id` when
+   * given. When `body` is given, its UTF-8 bytes are the body and the
+   * `content-length` header is set to their number.
    */
   def error(
     message: Option[String] = None,
@@ -449,7 +494,9 @@ object StompFrame {
   }
 
   /**
-   * Returns a frame with the `Heartbeat` command, no headers and no body. Its `encode` output is three newline bytes followed by a NUL byte, and `decode` returns `Left("Invalid STOMP command: ")` for that output.
+   * Returns a frame with the `Heartbeat` command, no headers and no body. Its
+   * `encode` output is three newline bytes followed by a NUL byte, and `decode`
+   * returns `Left("Invalid STOMP command: ")` for that output.
    */
   def heartbeat: StompFrame =
     StompFrame(StompCommand.Heartbeat, Map.empty, None)

@@ -175,8 +175,8 @@ object TestServer {
     }
 
   /**
-   * A `TestServer` backed by a Netty driver that listens on any open port.
-   * The Netty configuration is `NettyConfig.defaultWithFastShutdown`.
+   * A `TestServer` backed by a Netty driver that listens on any open port. The
+   * Netty configuration is `NettyConfig.defaultWithFastShutdown`.
    */
   val default: ZLayer[Any, Nothing, TestServer] = ZLayer.make[TestServer][Nothing](
     TestServer.layer.orDie,

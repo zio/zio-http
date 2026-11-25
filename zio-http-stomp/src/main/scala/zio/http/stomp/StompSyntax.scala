@@ -58,6 +58,7 @@ trait StompSyntax {
 }
 
 /**
- * The `StompSyntax` methods as an object, so they can be imported with `import zio.http.stomp.StompSyntax._`.
+ * The `StompSyntax` methods as an object, so they can be imported with
+ * `import zio.http.stomp.StompSyntax._`.
  */
 object StompSyntax extends StompSyntax

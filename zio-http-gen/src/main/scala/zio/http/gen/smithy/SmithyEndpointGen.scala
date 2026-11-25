@@ -330,13 +330,17 @@ object SmithyEndpointGen {
 }
 
 /**
- * Generates code files from `model` using `config`. The methods of the companion object create instances of it.
+ * Generates code files from `model` using `config`. The methods of the
+ * companion object create instances of it.
  */
 final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
   import SmithyEndpointGen._
 
   /**
-   * Returns the generated files: one file under `component` for each structure, union and enum shape, and an `Endpoints.scala` file with an `Endpoints` object when the model has operations with an `@http` trait. It does not validate the model.
+   * Returns the generated files: one file under `component` for each structure,
+   * union and enum shape, and an `Endpoints.scala` file with an `Endpoints`
+   * object when the model has operations with an `@http` trait. It does not
+   * validate the model.
    */
   def generate(): Code.Files = {
     val componentFiles = generateComponents()

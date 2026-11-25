@@ -13,7 +13,9 @@ import zio.http.gen.scala.Code._
 import zio.http.gen.scala.{Code, CodeGen}
 
 /**
- * Generates Scala code models (`Code.Files`) from OpenAPI documents. `EndpointGen.fromOpenAPI` is the entry point, and `CodeGen` renders its result.
+ * Generates Scala code models (`Code.Files`) from OpenAPI documents.
+ * `EndpointGen.fromOpenAPI` is the entry point, and `CodeGen` renders its
+ * result.
  */
 object EndpointGen {
 
@@ -36,7 +38,9 @@ object EndpointGen {
   /**
    * Returns the generated files for `openAPI`, using `config`.
    *
-   * The result has one file per path of the document, holding the endpoints of that path, followed by the files of the component schemas. Render it with `CodeGen.renderedFiles` or `CodeGen.writeFiles`.
+   * The result has one file per path of the document, holding the endpoints of
+   * that path, followed by the files of the component schemas. Render it with
+   * `CodeGen.renderedFiles` or `CodeGen.writeFiles`.
    *
    * {{{
    * import zio.http._
@@ -58,7 +62,9 @@ object EndpointGen {
   implicit class MapCompatOps[K, V](m: Map[K, V]) {
     // scala 2.12 collection does not support updatedWith natively, so we're adding this as an extension.
     /**
-     * Replaces the entry of `k` with the result of applying `f` to its current value, or to `None` when `k` is absent. A `Some` result stores the value under `k` and a `None` result removes `k`. Returns the updated map.
+     * Replaces the entry of `k` with the result of applying `f` to its current
+     * value, or to `None` when `k` is absent. A `Some` result stores the value
+     * under `k` and a `None` result removes `k`. Returns the updated map.
      */
     def updatedWith(k: K)(f: Option[V] => Option[V]): Map[K, V] =
       f(m.get(k)) match {
@@ -69,7 +75,8 @@ object EndpointGen {
 }
 
 /**
- * A generator that converts OpenAPI documents into `Code` models using `config`. `EndpointGen.fromOpenAPI` creates a new instance for each call.
+ * A generator that converts OpenAPI documents into `Code` models using
+ * `config`. `EndpointGen.fromOpenAPI` creates a new instance for each call.
  */
 final case class EndpointGen(config: Config) {
   import EndpointGen._
@@ -77,14 +84,16 @@ final case class EndpointGen(config: Config) {
   private var anonymousTypes: Map[String, Code.Object] = Map.empty[String, Code.Object]
 
   /**
-   * An extractor for a `oneOf` schema whose alternatives are all references to `#/components/schemas/<name>`.
+   * An extractor for a `oneOf` schema whose alternatives are all references to
+   * `#/components/schemas/<name>`.
    */
   object OneOfAllReferencesAsSimpleNames {
     // if all oneOf schemas are references,
     // we should render the oneOf as a sealed trait,
     // and make all objects case classes extending that sealed trait.
     /**
-     * Returns the referenced schema names, in the order of the alternatives, or `None` when an alternative is not such a reference.
+     * Returns the referenced schema names, in the order of the alternatives, or
+     * `None` when an alternative is not such a reference.
      */
     def unapply(schema: JsonSchema.OneOfSchema): Option[List[String]] =
       schema.oneOf.foldRight(Option(List.empty[String])) {
@@ -95,13 +104,15 @@ final case class EndpointGen(config: Config) {
   }
 
   /**
-   * An extractor for an `allOf` schema, which lists the component schemas that it references.
+   * An extractor for an `allOf` schema, which lists the component schemas that
+   * it references.
    */
   object AllOfSchemaExistsReferencesAsSimpleNames {
     // if all subtypes of a shared trait has same set of allOf schemas,
     // then we can render a sealed trait whose abstract methods are the fields shared by all subtypes.
     /**
-     * Always matches. Returns the names of the entries that are references to `#/components/schemas/<name>`, in order, and skips the other entries.
+     * Always matches. Returns the names of the entries that are references to
+     * `#/components/schemas/<name>`, in order, and skips the other entries.
      */
     def unapply(schema: JsonSchema.AllOfSchema): Some[List[String]] = Some(
       schema.allOf.foldRight(List.empty[String]) {
@@ -289,7 +300,10 @@ final case class EndpointGen(config: Config) {
   /**
    * Returns a function that rewrites the type of a field.
    *
-   * A reference to a subtype of exactly one sealed trait, other than `encapsulatingName`, becomes `<Trait>.<Subtype>`. A reference to an aliased primitive in `aliasedPrimitives` is replaced by its alias. The rewrite also applies to the element types of collections.
+   * A reference to a subtype of exactly one sealed trait, other than
+   * `encapsulatingName`, becomes `<Trait>.<Subtype>`. A reference to an aliased
+   * primitive in `aliasedPrimitives` is replaced by its alias. The rewrite also
+   * applies to the element types of collections.
    */
   def mapField(
     subtypeToTraits: Map[String, Set[String]],
@@ -370,9 +384,11 @@ final case class EndpointGen(config: Config) {
     }).asInstanceOf[T]
 
   /**
-   * Returns the generated files for `openAPI`: one file per path, holding the endpoints of that path, followed by the files of the component schemas.
+   * Returns the generated files for `openAPI`: one file per path, holding the
+   * endpoints of that path, followed by the files of the component schemas.
    *
-   * Throws a `java.lang.Exception` when a `{name}` segment of a path has no parameter of that name in the operations of that path.
+   * Throws a `java.lang.Exception` when a `{name}` segment of a path has no
+   * parameter of that name in the operations of that path.
    */
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
@@ -863,13 +879,26 @@ final case class EndpointGen(config: Config) {
   }
 
   /**
-   * Returns the generated file for the component schema `schema`, named `name`, or `None` when the schema needs no file of its own.
+   * Returns the generated file for the component schema `schema`, named `name`,
+   * or `None` when the schema needs no file of its own.
    *
-   * Objects become case classes, `oneOf` and `anyOf` schemas become sealed traits with their subtypes as cases, and `allOf` schemas become one case class with the merged fields of their parts. A primitive schema produces a file only when `config.generateSafeTypeAliases` is set (see `aliasedSchemaToCode`), and an array produces the file of its item schema, or `None` when it has no item schema. Throws a `java.lang.Exception` for unsupported schemas, for example a `oneOf` or `anyOf` that contains a primitive schema.
+   * Objects become case classes, `oneOf` and `anyOf` schemas become sealed
+   * traits with their subtypes as cases, and `allOf` schemas become one case
+   * class with the merged fields of their parts. A primitive schema produces a
+   * file only when `config.generateSafeTypeAliases` is set (see
+   * `aliasedSchemaToCode`), and an array produces the file of its item schema,
+   * or `None` when it has no item schema. Throws a `java.lang.Exception` for
+   * unsupported schemas, for example a `oneOf` or `anyOf` that contains a
+   * primitive schema.
    *
-   * @param annotations the metadata of the schema, from which the discriminator of a `oneOf` or `anyOf` is read
-   * @param mixins the names of the traits that a generated case class extends
-   * @param abstractMembers the object schemas whose fields become abstract members of a sealed trait generated from a `oneOf` schema
+   * @param annotations
+   *   the metadata of the schema, from which the discriminator of a `oneOf` or
+   *   `anyOf` is read
+   * @param mixins
+   *   the names of the traits that a generated case class extends
+   * @param abstractMembers
+   *   the object schemas whose fields become abstract members of a sealed trait
+   *   generated from a `oneOf` schema
    */
   def schemaToCode(
     schema: JsonSchema,
@@ -1196,9 +1225,11 @@ final case class EndpointGen(config: Config) {
   )
 
   /**
-   * Returns the `@validate[String]` annotation for the given length bounds, or `Nil` when both are `None`.
+   * Returns the `@validate[String]` annotation for the given length bounds, or
+   * `Nil` when both are `None`.
    *
-   * With both bounds the annotation is `Validation.maxLength(max) && Validation.minLength(min)`.
+   * With both bounds the annotation is
+   * `Validation.maxLength(max) && Validation.minLength(min)`.
    */
   def addStringValidations(minLength: Option[Int], maxLength: Option[Int]): List[Annotation] = {
     (maxLength, minLength) match {
@@ -1217,9 +1248,12 @@ final case class EndpointGen(config: Config) {
   }
 
   /**
-   * Returns the `@validate[T]` annotation for the given bounds, or `Nil` when both are `None`.
+   * Returns the `@validate[T]` annotation for the given bounds, or `Nil` when
+   * both are `None`.
    *
-   * The annotation uses `Validation.greaterThan(min)` and `Validation.lessThan(max)`, which are exclusive bounds. `T` is the name of the class tag of the bounds, for example `Long` or `Double`.
+   * The annotation uses `Validation.greaterThan(min)` and
+   * `Validation.lessThan(max)`, which are exclusive bounds. `T` is the name of
+   * the class tag of the bounds, for example `Long` or `Double`.
    */
   def addNumericValidations[T: ClassTag](minOpt: Option[T], maxOpt: Option[T]): List[Annotation] = {
     def typeName: String = implicitly[ClassTag[T]].toString
@@ -1252,9 +1286,16 @@ final case class EndpointGen(config: Config) {
   }
 
   /**
-   * Returns the field named `name` for the schema `schema`, with validation annotations where the schema has bounds.
+   * Returns the field named `name` for the schema `schema`, with validation
+   * annotations where the schema has bounds.
    *
-   * Primitive schemas become primitive field types, arrays become `Seq` or `Set` collections, an object with only `additionalProperties` becomes a `Map`, and other objects and enums become a reference to the type named after `name`. A string whose `format` is a key of `config.stringFormatTypes` gets the configured type. Throws a `java.lang.Exception` for unsupported schemas, for example an inline `allOf` or a reference outside the components.
+   * Primitive schemas become primitive field types, arrays become `Seq` or
+   * `Set` collections, an object with only `additionalProperties` becomes a
+   * `Map`, and other objects and enums become a reference to the type named
+   * after `name`. A string whose `format` is a key of
+   * `config.stringFormatTypes` gets the configured type. Throws a
+   * `java.lang.Exception` for unsupported schemas, for example an inline
+   * `allOf` or a reference outside the components.
    */
   def schemaToField(
     schema: JsonSchema,

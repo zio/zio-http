@@ -25,12 +25,15 @@ case class TestChannel(
   out: Queue[WebSocketChannelEvent],
   promise: Promise[Nothing, Unit],
 ) extends WebSocketChannel {
+
   /** Waits until the shutdown promise is completed, which `shutdown` does. */
-  def awaitShutdown(implicit trace: Trace): UIO[Unit]                                 =
+  def awaitShutdown(implicit trace: Trace): UIO[Unit] =
     promise.await
+
   /** Takes the next event from `in`, waiting until one is available. */
-  def receive(implicit trace: Trace): Task[WebSocketChannelEvent]                     =
+  def receive(implicit trace: Trace): Task[WebSocketChannelEvent] =
     in.take
+
   /**
    * Takes events from `in` and runs `f` on each of them, until `f` has run on
    * an `ExceptionCaught` or an `Unregistered` event. The returned effect then
@@ -48,13 +51,15 @@ case class TestChannel(
 
     loop
   }
+
   /**
    * Offers the event to `out`. Fails with a
    * `java.nio.channels.ClosedChannelException` when the channel has been shut
    * down.
    */
-  def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit]              =
+  def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] =
     whenOpen(out.offer(in).unit)
+
   /**
    * Offers the events to `out`. Fails with a
    * `java.nio.channels.ClosedChannelException` when the channel has been shut
@@ -68,11 +73,12 @@ case class TestChannel(
       case true  => ZIO.fail(new ClosedChannelException)
       case false => zio
     }
+
   /**
    * Offers an `Unregistered` event to both `in` and `out`, then completes the
    * shutdown promise. After this, `send` and `sendAll` fail on this channel.
    */
-  def shutdown(implicit trace: Trace): UIO[Unit]                           =
+  def shutdown(implicit trace: Trace): UIO[Unit] =
     in.offer(ChannelEvent.Unregistered) *>
       out.offer(ChannelEvent.Unregistered) *>
       promise.succeed(()).unit
@@ -80,6 +86,7 @@ case class TestChannel(
 
 /** Constructor for [[TestChannel]]. */
 object TestChannel {
+
   /**
    * Creates a `TestChannel` over the given queues and offers a
    * `UserEventTriggered(UserEvent.HandshakeComplete)` event to `out`.

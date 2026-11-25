@@ -27,14 +27,18 @@ import zio.schema.{DeriveSchema, Schema}
  * every case.
  */
 sealed trait StompCommand {
+
   /**
-   * The command text of a frame, for example `SEND`. It is a single newline for `Heartbeat`.
+   * The command text of a frame, for example `SEND`. It is a single newline for
+   * `Heartbeat`.
    */
   def name: String
+
   /**
    * `true` when a client can send a frame with this command to the server.
    */
   def isClientFrame: Boolean
+
   /**
    * `true` when a server can send a frame with this command to the client.
    */
@@ -42,7 +46,8 @@ sealed trait StompCommand {
 }
 
 /**
- * Defines the `StompCommand` cases, their `Schema`, the list of all cases and the lookup by command text.
+ * Defines the `StompCommand` cases, their `Schema`, the list of all cases and
+ * the lookup by command text.
  */
 object StompCommand {
 
@@ -53,17 +58,21 @@ object StompCommand {
 
   // Client frames (sent from client to server)
   /**
-   * The `CONNECT` command, which a client sends. `StompFrame.connect` builds a frame with this command.
+   * The `CONNECT` command, which a client sends. `StompFrame.connect` builds a
+   * frame with this command.
    */
   case object Connect extends StompCommand {
+
     /**
      * The command text, `"CONNECT"`.
      */
-    val name          = "CONNECT"
+    val name = "CONNECT"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -71,17 +80,21 @@ object StompCommand {
   }
 
   /**
-   * The `STOMP` command, which a client sends. The `StompFrame` factory methods do not build a frame with this command.
+   * The `STOMP` command, which a client sends. The `StompFrame` factory methods
+   * do not build a frame with this command.
    */
   case object Stomp extends StompCommand {
+
     /**
      * The command text, `"STOMP"`.
      */
-    val name          = "STOMP"
+    val name = "STOMP"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -89,17 +102,21 @@ object StompCommand {
   }
 
   /**
-   * The `SEND` command, which a client sends. `StompFrame.send` builds a frame with this command.
+   * The `SEND` command, which a client sends. `StompFrame.send` builds a frame
+   * with this command.
    */
   case object Send extends StompCommand {
+
     /**
      * The command text, `"SEND"`.
      */
-    val name          = "SEND"
+    val name = "SEND"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -107,17 +124,21 @@ object StompCommand {
   }
 
   /**
-   * The `SUBSCRIBE` command, which a client sends. `StompFrame.subscribe` builds a frame with this command.
+   * The `SUBSCRIBE` command, which a client sends. `StompFrame.subscribe`
+   * builds a frame with this command.
    */
   case object Subscribe extends StompCommand {
+
     /**
      * The command text, `"SUBSCRIBE"`.
      */
-    val name          = "SUBSCRIBE"
+    val name = "SUBSCRIBE"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -125,17 +146,21 @@ object StompCommand {
   }
 
   /**
-   * The `UNSUBSCRIBE` command, which a client sends. `StompFrame.unsubscribe` builds a frame with this command.
+   * The `UNSUBSCRIBE` command, which a client sends. `StompFrame.unsubscribe`
+   * builds a frame with this command.
    */
   case object Unsubscribe extends StompCommand {
+
     /**
      * The command text, `"UNSUBSCRIBE"`.
      */
-    val name          = "UNSUBSCRIBE"
+    val name = "UNSUBSCRIBE"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -143,17 +168,21 @@ object StompCommand {
   }
 
   /**
-   * The `ACK` command, which a client sends. `StompFrame.ack` builds a frame with this command.
+   * The `ACK` command, which a client sends. `StompFrame.ack` builds a frame
+   * with this command.
    */
   case object Ack extends StompCommand {
+
     /**
      * The command text, `"ACK"`.
      */
-    val name          = "ACK"
+    val name = "ACK"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -161,17 +190,21 @@ object StompCommand {
   }
 
   /**
-   * The `NACK` command, which a client sends. `StompFrame.nack` builds a frame with this command.
+   * The `NACK` command, which a client sends. `StompFrame.nack` builds a frame
+   * with this command.
    */
   case object Nack extends StompCommand {
+
     /**
      * The command text, `"NACK"`.
      */
-    val name          = "NACK"
+    val name = "NACK"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -179,17 +212,21 @@ object StompCommand {
   }
 
   /**
-   * The `BEGIN` command, which a client sends. `StompFrame.begin` builds a frame with this command.
+   * The `BEGIN` command, which a client sends. `StompFrame.begin` builds a
+   * frame with this command.
    */
   case object Begin extends StompCommand {
+
     /**
      * The command text, `"BEGIN"`.
      */
-    val name          = "BEGIN"
+    val name = "BEGIN"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -197,17 +234,21 @@ object StompCommand {
   }
 
   /**
-   * The `COMMIT` command, which a client sends. `StompFrame.commit` builds a frame with this command.
+   * The `COMMIT` command, which a client sends. `StompFrame.commit` builds a
+   * frame with this command.
    */
   case object Commit extends StompCommand {
+
     /**
      * The command text, `"COMMIT"`.
      */
-    val name          = "COMMIT"
+    val name = "COMMIT"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -215,17 +256,21 @@ object StompCommand {
   }
 
   /**
-   * The `ABORT` command, which a client sends. `StompFrame.abort` builds a frame with this command.
+   * The `ABORT` command, which a client sends. `StompFrame.abort` builds a
+   * frame with this command.
    */
   case object Abort extends StompCommand {
+
     /**
      * The command text, `"ABORT"`.
      */
-    val name          = "ABORT"
+    val name = "ABORT"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -233,17 +278,21 @@ object StompCommand {
   }
 
   /**
-   * The `DISCONNECT` command, which a client sends. `StompFrame.disconnect` builds a frame with this command.
+   * The `DISCONNECT` command, which a client sends. `StompFrame.disconnect`
+   * builds a frame with this command.
    */
   case object Disconnect extends StompCommand {
+
     /**
      * The command text, `"DISCONNECT"`.
      */
-    val name          = "DISCONNECT"
+    val name = "DISCONNECT"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `false`: a server does not send this command.
      */
@@ -252,17 +301,21 @@ object StompCommand {
 
   // Server frames (sent from server to client)
   /**
-   * The `CONNECTED` command, which a server sends. `StompFrame.connected` builds a frame with this command.
+   * The `CONNECTED` command, which a server sends. `StompFrame.connected`
+   * builds a frame with this command.
    */
   case object Connected extends StompCommand {
+
     /**
      * The command text, `"CONNECTED"`.
      */
-    val name          = "CONNECTED"
+    val name = "CONNECTED"
+
     /**
      * `false`: a client does not send this command.
      */
     val isClientFrame = false
+
     /**
      * `true`: a server can send this command.
      */
@@ -270,17 +323,21 @@ object StompCommand {
   }
 
   /**
-   * The `MESSAGE` command, which a server sends. `StompFrame.message` builds a frame with this command.
+   * The `MESSAGE` command, which a server sends. `StompFrame.message` builds a
+   * frame with this command.
    */
   case object Message extends StompCommand {
+
     /**
      * The command text, `"MESSAGE"`.
      */
-    val name          = "MESSAGE"
+    val name = "MESSAGE"
+
     /**
      * `false`: a client does not send this command.
      */
     val isClientFrame = false
+
     /**
      * `true`: a server can send this command.
      */
@@ -288,17 +345,21 @@ object StompCommand {
   }
 
   /**
-   * The `RECEIPT` command, which a server sends. `StompFrame.receipt` builds a frame with this command.
+   * The `RECEIPT` command, which a server sends. `StompFrame.receipt` builds a
+   * frame with this command.
    */
   case object Receipt extends StompCommand {
+
     /**
      * The command text, `"RECEIPT"`.
      */
-    val name          = "RECEIPT"
+    val name = "RECEIPT"
+
     /**
      * `false`: a client does not send this command.
      */
     val isClientFrame = false
+
     /**
      * `true`: a server can send this command.
      */
@@ -306,17 +367,21 @@ object StompCommand {
   }
 
   /**
-   * The `ERROR` command, which a server sends. `StompFrame.error` builds a frame with this command.
+   * The `ERROR` command, which a server sends. `StompFrame.error` builds a
+   * frame with this command.
    */
   case object Error extends StompCommand {
+
     /**
      * The command text, `"ERROR"`.
      */
-    val name          = "ERROR"
+    val name = "ERROR"
+
     /**
      * `false`: a client does not send this command.
      */
     val isClientFrame = false
+
     /**
      * `true`: a server can send this command.
      */
@@ -325,17 +390,21 @@ object StompCommand {
 
   // Special frame for heartbeats (can be sent by both client and server)
   /**
-   * The heartbeat marker, which both a client and a server can send. `StompFrame.heartbeat` builds a frame with this command.
+   * The heartbeat marker, which both a client and a server can send.
+   * `StompFrame.heartbeat` builds a frame with this command.
    */
   case object Heartbeat extends StompCommand {
+
     /**
      * The command text, `"\n"`.
      */
-    val name          = "\n"
+    val name = "\n"
+
     /**
      * `true`: a client can send this command.
      */
     val isClientFrame = true
+
     /**
      * `true`: a server can send this command.
      */
@@ -343,7 +412,8 @@ object StompCommand {
   }
 
   /**
-   * Every `StompCommand` case, in the order the client commands, the server commands and `Heartbeat` are declared.
+   * Every `StompCommand` case, in the order the client commands, the server
+   * commands and `Heartbeat` are declared.
    */
   val all: List[StompCommand] = List(
     Connect,
@@ -365,7 +435,9 @@ object StompCommand {
   )
 
   /**
-   * Returns the command whose text equals `s` ignoring case, or `None` when there is no such command. For example `"send"` gives `Some(Send)`, and a single newline gives `Some(Heartbeat)`.
+   * Returns the command whose text equals `s` ignoring case, or `None` when
+   * there is no such command. For example `"send"` gives `Some(Send)`, and a
+   * single newline gives `Some(Heartbeat)`.
    */
   def fromString(s: String): Option[StompCommand] = {
     s.toUpperCase match {

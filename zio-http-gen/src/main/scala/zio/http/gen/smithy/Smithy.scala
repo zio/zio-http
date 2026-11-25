@@ -14,41 +14,52 @@ import zio.Chunk
 // =============================================================================
 
 /**
- * A JSON-like value in a trait argument or control statement: a string, number, boolean, `null`, array, object or shape ID.
+ * A JSON-like value in a trait argument or control statement: a string, number,
+ * boolean, `null`, array, object or shape ID.
  */
 sealed trait NodeValue
+
 /**
  * The cases of `NodeValue`.
  */
 object NodeValue {
+
   /**
    * A string value.
    */
-  case class Str(value: String)                     extends NodeValue
+  case class Str(value: String) extends NodeValue
+
   /**
    * A number value, held as a `BigDecimal`.
    */
-  case class Num(value: BigDecimal)                 extends NodeValue
+  case class Num(value: BigDecimal) extends NodeValue
+
   /**
    * A boolean value.
    */
-  case class Bool(value: Boolean)                   extends NodeValue
+  case class Bool(value: Boolean) extends NodeValue
+
   /**
-   * The `null` value. The parser also returns it when it finds no value to read.
+   * The `null` value. The parser also returns it when it finds no value to
+   * read.
    */
-  case object Null                                  extends NodeValue
+  case object Null extends NodeValue
+
   /**
    * An array of values.
    */
-  case class Arr(values: List[NodeValue])           extends NodeValue
+  case class Arr(values: List[NodeValue]) extends NodeValue
+
   /**
    * An object, held as a list of field name and value pairs in source order.
    */
   case class Obj(fields: List[(String, NodeValue)]) extends NodeValue
+
   /**
-   * A value written as an unquoted shape ID, such as `String` or `smithy.api#String`.
+   * A value written as an unquoted shape ID, such as `String` or
+   * `smithy.api#String`.
    */
-  case class ShapeIdValue(id: ShapeId)              extends NodeValue
+  case class ShapeIdValue(id: ShapeId) extends NodeValue
 }
 
 // =============================================================================
@@ -66,14 +77,17 @@ final case class ShapeId(
   name: String,
   member: Option[String] = None,
 ) {
+
   /**
-   * Returns this shape ID with `defaultNamespace` as its namespace when it has none. A shape ID that already has a namespace keeps it.
+   * Returns this shape ID with `defaultNamespace` as its namespace when it has
+   * none. A shape ID that already has a namespace keeps it.
    */
   def absolute(defaultNamespace: String): ShapeId =
     copy(namespace = Some(namespace.getOrElse(defaultNamespace)))
 
   /**
-   * Renders the shape ID as `namespace#name`, followed by `\$member` when a member is present. Without a namespace it renders `name` only.
+   * Renders the shape ID as `namespace#name`, followed by `\$member` when a
+   * member is present. Without a namespace it renders `name` only.
    */
   def fullyQualified: String =
     namespace.fold(name)(ns => s"$ns#$name") + member.fold("")(m => s"$$$m")
@@ -83,10 +97,12 @@ final case class ShapeId(
  * Constructors for `ShapeId`.
  */
 object ShapeId {
+
   /**
    * Creates a shape ID with no namespace and no member.
    */
-  def apply(name: String): ShapeId                    = ShapeId(None, name, None)
+  def apply(name: String): ShapeId = ShapeId(None, name, None)
+
   /**
    * Creates a shape ID with the given namespace and no member.
    */
@@ -98,9 +114,12 @@ object ShapeId {
 // =============================================================================
 
 /**
- * A Smithy trait applied to a shape or a member. The parser turns a trait it does not know, or one whose argument has an unexpected form, into `SmithyTrait.Generic`.
+ * A Smithy trait applied to a shape or a member. The parser turns a trait it
+ * does not know, or one whose argument has an unexpected form, into
+ * `SmithyTrait.Generic`.
  */
 sealed trait SmithyTrait {
+
   /**
    * The shape ID of the trait, such as `smithy.api#http`.
    */
@@ -113,9 +132,12 @@ sealed trait SmithyTrait {
 object SmithyTrait {
   // HTTP traits
   /**
-   * The `smithy.api#http` trait: the HTTP method, the URI template and the success status code. When the parser reads the trait without a `method` it uses `GET`, without a `uri` it uses `/`, and without a `code` it uses 200.
+   * The `smithy.api#http` trait: the HTTP method, the URI template and the
+   * success status code. When the parser reads the trait without a `method` it
+   * uses `GET`, without a `uri` it uses `/`, and without a `code` it uses 200.
    */
   case class Http(method: String, uri: String, code: Int = 200) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#http`.
      */
@@ -123,9 +145,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpLabel` trait: the member is bound to a label of the URI template.
+   * The `smithy.api#httpLabel` trait: the member is bound to a label of the URI
+   * template.
    */
   case object HttpLabel extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpLabel`.
      */
@@ -133,9 +157,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpQuery` trait: the member is bound to the query string parameter `name`.
+   * The `smithy.api#httpQuery` trait: the member is bound to the query string
+   * parameter `name`.
    */
   case class HttpQuery(name: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpQuery`.
      */
@@ -143,9 +169,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpHeader` trait: the member is bound to the HTTP header `name`.
+   * The `smithy.api#httpHeader` trait: the member is bound to the HTTP header
+   * `name`.
    */
   case class HttpHeader(name: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpHeader`.
      */
@@ -153,9 +181,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpPayload` trait: the member is the body of the request or response.
+   * The `smithy.api#httpPayload` trait: the member is the body of the request
+   * or response.
    */
   case object HttpPayload extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpPayload`.
      */
@@ -163,9 +193,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpPrefixHeaders` trait: the member collects the headers whose names start with `prefix`.
+   * The `smithy.api#httpPrefixHeaders` trait: the member collects the headers
+   * whose names start with `prefix`.
    */
   case class HttpPrefixHeaders(prefix: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpPrefixHeaders`.
      */
@@ -173,9 +205,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpError` trait: the structure is an error returned with the status code `code`.
+   * The `smithy.api#httpError` trait: the structure is an error returned with
+   * the status code `code`.
    */
   case class HttpError(code: Int) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpError`.
      */
@@ -183,9 +217,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpResponseCode` trait: the member holds the response status code.
+   * The `smithy.api#httpResponseCode` trait: the member holds the response
+   * status code.
    */
   case object HttpResponseCode extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpResponseCode`.
      */
@@ -193,9 +229,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpQueryParams` trait: the map member is bound to query string parameters.
+   * The `smithy.api#httpQueryParams` trait: the map member is bound to query
+   * string parameters.
    */
   case class HttpQueryParams() extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpQueryParams`.
      */
@@ -207,6 +245,7 @@ object SmithyTrait {
    * The `smithy.api#required` trait: the member must be present.
    */
   case object Required extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#required`.
      */
@@ -214,9 +253,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#pattern` trait: a regular expression that string values must match.
+   * The `smithy.api#pattern` trait: a regular expression that string values
+   * must match.
    */
   case class Pattern(regex: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#pattern`.
      */
@@ -224,9 +265,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#length` trait: optional lower and upper bounds on the length of a string, list, map or blob.
+   * The `smithy.api#length` trait: optional lower and upper bounds on the
+   * length of a string, list, map or blob.
    */
   case class Length(min: Option[Long], max: Option[Long]) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#length`.
      */
@@ -234,9 +277,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#range` trait: optional lower and upper bounds on a numeric value.
+   * The `smithy.api#range` trait: optional lower and upper bounds on a numeric
+   * value.
    */
   case class Range(min: Option[BigDecimal], max: Option[BigDecimal]) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#range`.
      */
@@ -244,9 +289,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#documentation` trait: documentation text. The parser also builds it from a `///` doc comment.
+   * The `smithy.api#documentation` trait: documentation text. The parser also
+   * builds it from a `///` doc comment.
    */
   case class Documentation(value: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#documentation`.
      */
@@ -254,9 +301,12 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#error` trait: the structure is an error shape. The parser produces this case for `@error` with any argument (such as `"client"`) and drops the argument.
+   * The `smithy.api#error` trait: the structure is an error shape. The parser
+   * produces this case for `@error` with any argument (such as `"client"`) and
+   * drops the argument.
    */
   case object Error extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#error`.
      */
@@ -264,9 +314,11 @@ object SmithyTrait {
   }
 
   /**
-   * A trait that holds a selector string. The parser does not produce it, and its `shapeId` is `smithy.api#error`.
+   * A trait that holds a selector string. The parser does not produce it, and
+   * its `shapeId` is `smithy.api#error`.
    */
   case class ErrorMessage(selector: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#error`.
      */
@@ -277,6 +329,7 @@ object SmithyTrait {
    * The `smithy.api#readonly` trait: the operation does not modify state.
    */
   case object Readonly extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#readonly`.
      */
@@ -284,9 +337,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#idempotent` trait: calling the operation again has the same effect as calling it once.
+   * The `smithy.api#idempotent` trait: calling the operation again has the same
+   * effect as calling it once.
    */
   case object Idempotent extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#idempotent`.
      */
@@ -294,9 +349,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#timestampFormat` trait: the serialization format of a timestamp, such as `date-time`, `http-date` or `epoch-seconds`.
+   * The `smithy.api#timestampFormat` trait: the serialization format of a
+   * timestamp, such as `date-time`, `http-date` or `epoch-seconds`.
    */
   case class TimestampFormat(format: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#timestampFormat`.
      */
@@ -304,9 +361,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#mediaType` trait: the media type of a string or blob value, such as `application/json`.
+   * The `smithy.api#mediaType` trait: the media type of a string or blob value,
+   * such as `application/json`.
    */
   case class MediaType(value: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#mediaType`.
      */
@@ -317,6 +376,7 @@ object SmithyTrait {
    * The `smithy.api#jsonName` trait: the name that the member has in JSON.
    */
   case class JsonName(name: String) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#jsonName`.
      */
@@ -327,6 +387,7 @@ object SmithyTrait {
    * The `smithy.api#default` trait: the default value of a member.
    */
   case class Default(value: NodeValue) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#default`.
      */
@@ -338,6 +399,7 @@ object SmithyTrait {
    * The `smithy.api#streaming` trait: the value is streamed.
    */
   case object Streaming extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#streaming`.
      */
@@ -346,9 +408,11 @@ object SmithyTrait {
 
   // Event stream trait (for bi-directional streaming)
   /**
-   * The `smithy.api#eventStream` trait: the value is a stream of events. `SmithyEndpointGen` treats it like `Streaming`.
+   * The `smithy.api#eventStream` trait: the value is a stream of events.
+   * `SmithyEndpointGen` treats it like `Streaming`.
    */
   case object EventStream extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#eventStream`.
      */
@@ -360,6 +424,7 @@ object SmithyTrait {
    * The `smithy.api#httpBasicAuth` trait: the HTTP Basic authentication scheme.
    */
   case object HttpBasicAuth extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpBasicAuth`.
      */
@@ -367,9 +432,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpDigestAuth` trait: the HTTP Digest authentication scheme.
+   * The `smithy.api#httpDigestAuth` trait: the HTTP Digest authentication
+   * scheme.
    */
   case object HttpDigestAuth extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpDigestAuth`.
      */
@@ -377,9 +444,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpBearerAuth` trait: the HTTP Bearer authentication scheme.
+   * The `smithy.api#httpBearerAuth` trait: the HTTP Bearer authentication
+   * scheme.
    */
   case object HttpBearerAuth extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpBearerAuth`.
      */
@@ -387,9 +456,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#httpApiKeyAuth` trait: the HTTP API key authentication scheme.
+   * The `smithy.api#httpApiKeyAuth` trait: the HTTP API key authentication
+   * scheme.
    */
   case object HttpApiKeyAuth extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#httpApiKeyAuth`.
      */
@@ -397,9 +468,11 @@ object SmithyTrait {
   }
 
   /**
-   * The `smithy.api#auth` trait: the shape IDs of the authentication schemes that apply.
+   * The `smithy.api#auth` trait: the shape IDs of the authentication schemes
+   * that apply.
    */
   case class Auth(schemes: List[ShapeId]) extends SmithyTrait {
+
     /**
      * Returns the shape ID `smithy.api#auth`.
      */
@@ -408,9 +481,11 @@ object SmithyTrait {
 
   // Generic trait for unrecognized traits
   /**
-   * A trait that has no case of its own. It keeps the shape ID of the trait and its optional argument.
+   * A trait that has no case of its own. It keeps the shape ID of the trait and
+   * its optional argument.
    */
   case class Generic(id: ShapeId, value: Option[NodeValue]) extends SmithyTrait {
+
     /**
      * Returns the shape ID `id` of the trait.
      */
@@ -423,7 +498,9 @@ object SmithyTrait {
 // =============================================================================
 
 /**
- * A member of a structure or union: its name, the shape it targets, its traits and an optional default value. The parser never sets `defaultValue`; a `@default` trait is kept in `traits`.
+ * A member of a structure or union: its name, the shape it targets, its traits
+ * and an optional default value. The parser never sets `defaultValue`; a
+ * `@default` trait is kept in `traits`.
  */
 final case class Member(
   name: String,
@@ -431,6 +508,7 @@ final case class Member(
   traits: List[SmithyTrait] = Nil,
   defaultValue: Option[NodeValue] = None,
 ) {
+
   /**
    * Returns `true` when the member has the `Required` trait.
    */
@@ -455,7 +533,8 @@ final case class Member(
   }
 
   /**
-   * Returns the name from the first `HttpHeader` trait of the member, or `None`.
+   * Returns the name from the first `HttpHeader` trait of the member, or
+   * `None`.
    */
   def httpHeader: Option[String] = traits.collectFirst { case SmithyTrait.HttpHeader(name) =>
     name
@@ -475,20 +554,25 @@ final case class Member(
 // =============================================================================
 
 /**
- * A shape of a Smithy model. Each shape has a list of traits and a list of mixin shape IDs.
+ * A shape of a Smithy model. Each shape has a list of traits and a list of
+ * mixin shape IDs.
  */
 sealed trait Shape {
+
   /**
    * The traits applied to the shape.
    */
   def traits: List[SmithyTrait]
+
   /**
-   * The shape IDs of the mixins applied to the shape. The parser never fills this list.
+   * The shape IDs of the mixins applied to the shape. The parser never fills
+   * this list.
    */
   def mixins: List[ShapeId]
 
   /**
-   * Returns a copy of the shape with `newTraits` placed before its existing traits.
+   * Returns a copy of the shape with `newTraits` placed before its existing
+   * traits.
    */
   def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape
 }
@@ -502,6 +586,7 @@ object Shape {
    * A shape of a simple type. It has no mixins.
    */
   sealed trait SimpleShape extends Shape {
+
     /**
      * Returns an empty list.
      */
@@ -511,138 +596,180 @@ object Shape {
   /**
    * A `blob` shape.
    */
-  case class BlobShape(traits: List[SmithyTrait] = Nil)       extends SimpleShape {
+  case class BlobShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `boolean` shape.
    */
-  case class BooleanShape(traits: List[SmithyTrait] = Nil)    extends SimpleShape {
+  case class BooleanShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `string` shape.
    */
-  case class StringShape(traits: List[SmithyTrait] = Nil)     extends SimpleShape {
+  case class StringShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `byte` shape.
    */
-  case class ByteShape(traits: List[SmithyTrait] = Nil)       extends SimpleShape {
+  case class ByteShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `short` shape.
    */
-  case class ShortShape(traits: List[SmithyTrait] = Nil)      extends SimpleShape {
+  case class ShortShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `integer` shape.
    */
-  case class IntegerShape(traits: List[SmithyTrait] = Nil)    extends SimpleShape {
+  case class IntegerShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `long` shape.
    */
-  case class LongShape(traits: List[SmithyTrait] = Nil)       extends SimpleShape {
+  case class LongShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `float` shape.
    */
-  case class FloatShape(traits: List[SmithyTrait] = Nil)      extends SimpleShape {
+  case class FloatShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `double` shape.
    */
-  case class DoubleShape(traits: List[SmithyTrait] = Nil)     extends SimpleShape {
+  case class DoubleShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `bigInteger` shape.
    */
   case class BigIntegerShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `bigDecimal` shape.
    */
   case class BigDecimalShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `timestamp` shape.
    */
-  case class TimestampShape(traits: List[SmithyTrait] = Nil)  extends SimpleShape {
+  case class TimestampShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
+
   /**
    * A `document` shape.
    */
-  case class DocumentShape(traits: List[SmithyTrait] = Nil)   extends SimpleShape {
+  case class DocumentShape(traits: List[SmithyTrait] = Nil) extends SimpleShape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   // Aggregate shapes
   /**
-   * A `list` shape whose elements have the shape `member`. The parser uses `String` when the list declares no `member`.
+   * A `list` shape whose elements have the shape `member`. The parser uses
+   * `String` when the list declares no `member`.
    */
   case class ListShape(
     member: ShapeId,
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * A `map` shape with the key shape `key` and the value shape `value`. The parser uses `String` for a missing `key` or `value`.
+   * A `map` shape with the key shape `key` and the value shape `value`. The
+   * parser uses `String` for a missing `key` or `value`.
    */
   case class MapShape(
     key: ShapeId,
@@ -650,14 +777,17 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * A `structure` shape. `members` maps member names to members. The parser never sets `forResource`.
+   * A `structure` shape. `members` maps member names to members. The parser
+   * never sets `forResource`.
    */
   case class StructureShape(
     members: Map[String, Member],
@@ -665,8 +795,10 @@ object Shape {
     mixins: List[ShapeId] = Nil,
     forResource: Option[ShapeId] = None,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
@@ -679,8 +811,10 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
@@ -694,28 +828,34 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * An `intEnum` shape with `Int` member values. The parser does not produce it: an `intEnum` declaration creates no shape.
+   * An `intEnum` shape with `Int` member values. The parser does not produce
+   * it: an `intEnum` declaration creates no shape.
    */
   case class IntEnumShape(
     members: Map[String, IntEnumMember],
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * A member of an `enum` shape. `value` is the string after `=`, and is `None` when the member has no `=` part or the string is empty.
+   * A member of an `enum` shape. `value` is the string after `=`, and is `None`
+   * when the member has no `=` part or the string is empty.
    */
   case class EnumMember(
     value: Option[String],
@@ -732,7 +872,9 @@ object Shape {
 
   // Service shapes
   /**
-   * A `service` shape. The parser fills `version`, `operations`, `resources` and `traits`; `errors` and `rename` stay empty. `version` is the empty string when the service declares none.
+   * A `service` shape. The parser fills `version`, `operations`, `resources`
+   * and `traits`; `errors` and `rename` stay empty. `version` is the empty
+   * string when the service declares none.
    */
   case class ServiceShape(
     version: String,
@@ -743,14 +885,17 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * An `operation` shape with an optional input shape, an optional output shape and a list of error shapes.
+   * An `operation` shape with an optional input shape, an optional output shape
+   * and a list of error shapes.
    */
   case class OperationShape(
     input: Option[ShapeId],
@@ -759,20 +904,24 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
      * Returns the first `SmithyTrait.Http` trait of the operation, or `None`.
      */
-    def httpTrait: Option[SmithyTrait.Http]                       = traits.collectFirst { case h: SmithyTrait.Http =>
+    def httpTrait: Option[SmithyTrait.Http] = traits.collectFirst { case h: SmithyTrait.Http =>
       h
     }
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
 
   /**
-   * A `resource` shape. The parser fills `identifiers`, `read`, `list` and `traits`; the other fields keep their default values.
+   * A `resource` shape. The parser fills `identifiers`, `read`, `list` and
+   * `traits`; the other fields keep their default values.
    */
   case class ResourceShape(
     identifiers: Map[String, ShapeId] = Map.empty,
@@ -789,8 +938,10 @@ object Shape {
     traits: List[SmithyTrait] = Nil,
     mixins: List[ShapeId] = Nil,
   ) extends Shape {
+
     /**
-     * Returns a copy of the shape with `newTraits` placed before its existing traits.
+     * Returns a copy of the shape with `newTraits` placed before its existing
+     * traits.
      */
     def withAdditionalTraits(newTraits: List[SmithyTrait]): Shape = copy(traits = newTraits ++ traits)
   }
@@ -801,7 +952,9 @@ object Shape {
 // =============================================================================
 
 /**
- * A parsed Smithy model. `shapes` is keyed by shape name without a namespace. The parser fills `version`, `namespace`, `useStatements` and `shapes`, and leaves `metadata` empty.
+ * A parsed Smithy model. `shapes` is keyed by shape name without a namespace.
+ * The parser fills `version`, `namespace`, `useStatements` and `shapes`, and
+ * leaves `metadata` empty.
  */
 final case class SmithyModel(
   version: String = "2.0",
@@ -810,6 +963,7 @@ final case class SmithyModel(
   useStatements: List[ShapeId] = Nil,
   shapes: Map[String, Shape] = Map.empty,
 ) {
+
   /**
    * Returns the shape named `name`, or `None`.
    */
@@ -857,14 +1011,21 @@ final case class SmithyModel(
 // =============================================================================
 
 /**
- * Parses Smithy IDL text into a `SmithyModel`. It reads control statements, `namespace` and `use` statements, simple shapes, and `structure`, `list`, `map`, `union`, `enum`, `operation`, `service` and `resource` shapes, with their traits and `///` doc comments. A declaration that starts with another keyword is skipped to the end of its line.
+ * Parses Smithy IDL text into a `SmithyModel`. It reads control statements,
+ * `namespace` and `use` statements, simple shapes, and `structure`, `list`,
+ * `map`, `union`, `enum`, `operation`, `service` and `resource` shapes, with
+ * their traits and `///` doc comments. A declaration that starts with another
+ * keyword is skipped to the end of its line.
  */
 object SmithyParser {
 
   /**
-   * Parses `input` and returns the model. Text that the parser cannot read is skipped, so malformed input usually gives a `Right` with a smaller or empty model. Returns `Left("Parse error: ...")` when parsing throws an exception.
+   * Parses `input` and returns the model. Text that the parser cannot read is
+   * skipped, so malformed input usually gives a `Right` with a smaller or empty
+   * model. Returns `Left("Parse error: ...")` when parsing throws an exception.
    *
-   * A shape that is preceded by more than one `///` line gets no `Documentation` trait. A single `///` line becomes a `Documentation` trait.
+   * A shape that is preceded by more than one `///` line gets no
+   * `Documentation` trait. A single `///` line becomes a `Documentation` trait.
    */
   def parse(input: String): Either[String, SmithyModel] = {
     try {
@@ -1450,7 +1611,8 @@ object SmithyParser {
 // =============================================================================
 
 /**
- * A reduced view of a Smithy model: services, operations and resources by name, with shape references turned into plain names.
+ * A reduced view of a Smithy model: services, operations and resources by name,
+ * with shape references turned into plain names.
  */
 final case class Smithy(
   services: Map[String, Smithy.Service] = Map.empty,
@@ -1464,7 +1626,8 @@ final case class Smithy(
 object Smithy {
 
   /**
-   * Parses `value` with `SmithyParser` and converts the model to a `Smithy`. Returns an empty `Smithy` when the parser returns a `Left`.
+   * Parses `value` with `SmithyParser` and converts the model to a `Smithy`.
+   * Returns an empty `Smithy` when the parser returns a `Left`.
    */
   def parse(value: String): Smithy = {
     SmithyParser.parse(value) match {
@@ -1514,7 +1677,8 @@ object Smithy {
   }
 
   /**
-   * A resource in the reduced view. A lifecycle operation that the resource does not declare is a `LegacyShapeId` with an empty `id`.
+   * A resource in the reduced view. A lifecycle operation that the resource
+   * does not declare is a `LegacyShapeId` with an empty `id`.
    */
   final case class Resource(
     identifiers: Map[String, LegacyShapeId],
@@ -1531,38 +1695,47 @@ object Smithy {
   )
 
   /**
-   * A description of an aggregate shape in the reduced view. The conversion from a `SmithyModel` does not create it.
+   * A description of an aggregate shape in the reduced view. The conversion
+   * from a `SmithyModel` does not create it.
    */
   sealed trait Aggregates
+
   /**
    * The cases of `Aggregates`.
    */
   object Aggregates {
+
     /**
      * A list aggregate with the element shape `member`.
      */
-    final case class ListAggregate(member: LegacyShapeId)                   extends Aggregates
+    final case class ListAggregate(member: LegacyShapeId) extends Aggregates
+
     /**
      * A map aggregate with the key shape `key` and the value shape `value`.
      */
     final case class MapAggregate(key: LegacyShapeId, value: LegacyShapeId) extends Aggregates
+
     /**
      * A structure aggregate with its members by name.
      */
-    final case class Structure(members: Map[String, LegacyShapeId])         extends Aggregates
+    final case class Structure(members: Map[String, LegacyShapeId]) extends Aggregates
+
     /**
      * A union aggregate with its member shapes.
      */
-    final case class Union(members: List[LegacyShapeId])                    extends Aggregates
+    final case class Union(members: List[LegacyShapeId]) extends Aggregates
   }
 
   /**
-   * A shape reference held as a string. The conversion from a `SmithyModel` stores the shape name without a namespace, except in the keys of `Service.rename`, which hold the fully qualified ID.
+   * A shape reference held as a string. The conversion from a `SmithyModel`
+   * stores the shape name without a namespace, except in the keys of
+   * `Service.rename`, which hold the fully qualified ID.
    */
   final case class LegacyShapeId(id: String)
 
   /**
-   * A service in the reduced view: its version and the names of its operations, resources and errors, plus its renames.
+   * A service in the reduced view: its version and the names of its operations,
+   * resources and errors, plus its renames.
    */
   final case class Service(
     version: String,
@@ -1573,7 +1746,8 @@ object Smithy {
   )
 
   /**
-   * An operation in the reduced view. `input` and `output` are empty strings when the operation declares none.
+   * An operation in the reduced view. `input` and `output` are empty strings
+   * when the operation declares none.
    */
   final case class Operation(
     name: String,
@@ -1587,89 +1761,110 @@ object Smithy {
    * The kinds of shape in the reduced view.
    */
   sealed trait SimpleShapes
+
   /**
    * The cases of `SimpleShapes`.
    */
   object SimpleShapes {
+
     /**
      * The `blob` shape kind.
      */
-    case object Blob       extends SimpleShapes
+    case object Blob extends SimpleShapes
+
     /**
      * The `boolean` shape kind.
      */
-    case object Boolean    extends SimpleShapes
+    case object Boolean extends SimpleShapes
+
     /**
      * The `string` shape kind.
      */
-    case object String     extends SimpleShapes
+    case object String extends SimpleShapes
+
     /**
      * The `byte` shape kind.
      */
-    case object Byte       extends SimpleShapes
+    case object Byte extends SimpleShapes
+
     /**
      * The `short` shape kind.
      */
-    case object Short      extends SimpleShapes
+    case object Short extends SimpleShapes
+
     /**
      * The `integer` shape kind.
      */
-    case object Integer    extends SimpleShapes
+    case object Integer extends SimpleShapes
+
     /**
      * The `long` shape kind.
      */
-    case object Long       extends SimpleShapes
+    case object Long extends SimpleShapes
+
     /**
      * The `float` shape kind.
      */
-    case object Float      extends SimpleShapes
+    case object Float extends SimpleShapes
+
     /**
      * The `double` shape kind.
      */
-    case object Double     extends SimpleShapes
+    case object Double extends SimpleShapes
+
     /**
      * The `bigInteger` shape kind.
      */
     case object BigInteger extends SimpleShapes
+
     /**
      * The `bigDecimal` shape kind.
      */
     case object BigDecimal extends SimpleShapes
+
     /**
      * The `timestamp` shape kind.
      */
-    case object Timestamp  extends SimpleShapes
+    case object Timestamp extends SimpleShapes
+
     /**
      * The `document` shape kind.
      */
-    case object Document   extends SimpleShapes
+    case object Document extends SimpleShapes
+
     /**
      * The `list` shape kind.
      */
-    case object List       extends SimpleShapes
+    case object List extends SimpleShapes
+
     /**
      * The `map` shape kind.
      */
-    case object Map        extends SimpleShapes
+    case object Map extends SimpleShapes
+
     /**
      * The `structure` shape kind.
      */
-    case object Structure  extends SimpleShapes
+    case object Structure extends SimpleShapes
+
     /**
      * The `union` shape kind.
      */
-    case object Union      extends SimpleShapes
+    case object Union extends SimpleShapes
+
     /**
      * The `service` shape kind.
      */
-    case object Service    extends SimpleShapes
+    case object Service extends SimpleShapes
+
     /**
      * The `operation` shape kind.
      */
-    case object Operation  extends SimpleShapes
+    case object Operation extends SimpleShapes
+
     /**
      * The `resource` shape kind.
      */
-    case object Resource   extends SimpleShapes
+    case object Resource extends SimpleShapes
   }
 }

@@ -12,6 +12,7 @@ import zio.http.endpoint._
  * commands send HTTP requests and print the responses.
  */
 final case class HttpCliApp[-R, +E, +Model](cliApp: CliApp[R, E, Model])
+
 /** Constructor for [[HttpCliApp]]. */
 object HttpCliApp {
 

@@ -23,11 +23,15 @@ object HttpTestAspect {
   val devMode: TestAspectAtLeastR[Scope] =
     withMode(Mode.Dev)
 
-  /** A test aspect that runs the test with [[Mode.Prod]] as the current mode. */
+  /**
+   * A test aspect that runs the test with [[Mode.Prod]] as the current mode.
+   */
   val prodMode: TestAspectAtLeastR[Scope] =
     withMode(Mode.Prod)
 
-  /** A test aspect that runs the test with [[Mode.Preprod]] as the current mode. */
+  /**
+   * A test aspect that runs the test with [[Mode.Preprod]] as the current mode.
+   */
   val preprodMode: TestAspectAtLeastR[Scope] =
     withMode(Mode.Preprod)
 

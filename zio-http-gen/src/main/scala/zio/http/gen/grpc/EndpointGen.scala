@@ -11,9 +11,14 @@ object EndpointGen {
   /**
    * Returns one generated source file per service of `protobuf`.
    *
-   * Each service becomes an object named after the capitalized service name, in the file `<pkgPath>/<file name>/<Service>.scala`. The object holds one `POST` endpoint per method, at the path `/<service>/<method>`. A client-streaming method gets a streaming input (`inStream`) and a server-streaming method a streaming output (`outStream`).
+   * Each service becomes an object named after the capitalized service name, in
+   * the file `<pkgPath>/<file name>/<Service>.scala`. The object holds one
+   * `POST` endpoint per method, at the path `/<service>/<method>`. A
+   * client-streaming method gets a streaming input (`inStream`) and a
+   * server-streaming method a streaming output (`outStream`).
    *
-   * Each entry of `protobuf.dependencies` adds the imports `<dependency>._` and `<dependency>.Schemas._`, relative to the base package.
+   * Each entry of `protobuf.dependencies` adds the imports `<dependency>._` and
+   * `<dependency>.Schemas._`, relative to the base package.
    */
   def fromProtobuf(protobuf: Protobuf.File): Code.Files = {
     val imports = protobuf.dependencies

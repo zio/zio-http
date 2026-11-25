@@ -59,7 +59,8 @@ final case class SmithyConfig(
 )
 
 /**
- * Predefined `SmithyConfig` values and a ZIO Config descriptor for `SmithyConfig`.
+ * Predefined `SmithyConfig` values and a ZIO Config descriptor for
+ * `SmithyConfig`.
  */
 object SmithyConfig {
 

@@ -16,7 +16,10 @@ import zio.http._
 
 private[cli] sealed trait Retriever {
 
-  /** Obtains the `FormField`, by reading it from a URL or a file, or by returning one that it already holds. */
+  /**
+   * Obtains the `FormField`, by reading it from a URL or a file, or by
+   * returning one that it already holds.
+   */
   def retrieve(): ZIO[Client, Throwable, FormField]
 
 }

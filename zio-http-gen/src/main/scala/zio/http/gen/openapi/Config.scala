@@ -42,6 +42,7 @@ final case class Config(
   fieldNamesNormalization: NormalizeFields,
   stringFormatTypes: Map[String, String],
 )
+
 /**
  * The default options and the `zio.Config` descriptors of `Config`.
  */
@@ -71,14 +72,18 @@ object Config {
     enableAutomatic: Boolean,
     manualOverrides: Map[String, String],
   )
+
   /**
    * The `zio.Config` descriptor of `NormalizeFields`.
    */
   object NormalizeFields {
+
     /**
-     * A `zio.Config` that reads `NormalizeFields` from the key `enabled` and the table `special-replacements`.
+     * A `zio.Config` that reads `NormalizeFields` from the key `enabled` and
+     * the table `special-replacements`.
      *
-     * A missing `enabled` defaults to `false` and a missing `special-replacements` to an empty map.
+     * A missing `enabled` defaults to `false` and a missing
+     * `special-replacements` to an empty map.
      */
     lazy val config: zio.Config[NormalizeFields] = (
       zio.Config.boolean("enabled").withDefault(Config.default.fieldNamesNormalization.enableAutomatic) ++
@@ -89,7 +94,8 @@ object Config {
   }
 
   /**
-   * The default options: both flags are `false`, and there are no manual overrides and no string format types.
+   * The default options: both flags are `false`, and there are no manual
+   * overrides and no string format types.
    */
   val default: Config = Config(
     commonFieldsOnSuperType = false,
@@ -104,7 +110,10 @@ object Config {
   /**
    * A `zio.Config` that reads a `Config`.
    *
-   * It reads the keys `common-fields-on-super-type` and `generate-safe-type-aliases`, the nested `fields-normalization` (with the keys `enabled` and `special-replacements`) and the table `string-format-types`. A missing key takes its value from `Config.default`.
+   * It reads the keys `common-fields-on-super-type` and
+   * `generate-safe-type-aliases`, the nested `fields-normalization` (with the
+   * keys `enabled` and `special-replacements`) and the table
+   * `string-format-types`. A missing key takes its value from `Config.default`.
    */
   def config: zio.Config[Config] = (
     zio.Config.boolean("common-fields-on-super-type").withDefault(Config.default.commonFieldsOnSuperType) ++
