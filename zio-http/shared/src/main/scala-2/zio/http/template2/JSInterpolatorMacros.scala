@@ -19,10 +19,17 @@ package zio.http.template2
 import scala.reflect.macros.blackbox
 
 /**
- * Macro implementations for JavaScript interpolation (Scala 2.x)
+ * Macro implementation of the `js` string interpolator.
  */
 object JSInterpolatorMacros {
 
+  /**
+   * Expands a `js` interpolation to `Js.apply` of the `s`-interpolated string.
+   * On Scala 2, when the string has no arguments, it first checks the text and
+   * reports a compile error with the message `Invalid JavaScript syntax:`
+   * followed by the text when the check fails; on Scala 3 it does not report
+   * this error.
+   */
   def jsImpl(c: blackbox.Context)(args: c.Expr[Any]*): c.Expr[Js] = {
     import c.universe._
 

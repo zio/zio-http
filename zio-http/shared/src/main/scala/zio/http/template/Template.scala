@@ -17,10 +17,37 @@
 package zio.http.template
 
 /**
- * A ZIO Http styled general purpose templates
+ * A page template with a plain monospace style. `Handler.template` responds
+ * with a page built by `container`, and `Response.fromThrowable` uses it for
+ * the error body when its `ErrorResponseConfig` asks for an error body in the
+ * HTML format.
  */
 object Template {
 
+  /**
+   * Wraps `element` in a complete `html` page with the heading `heading`. The
+   * page's `title` is `ZIO Http - ` followed by `heading`, and a `style`
+   * element gives `body` a monospace font, a font size of 16px and the
+   * background color `#edede0`. The body holds a `div` with the style
+   * `margin: auto; padding: 2em 4em; max-width: 80%`, which contains an `h1`
+   * element with `heading` and then `element`.
+   *
+   * The result has no doctype declaration; `Response.html` puts one in front of
+   * the rendered page.
+   *
+   * {{{
+   * val page: Html = Template.container("Users")(ul(li("Ada"), li("Grace")))
+   * val rendered: String = page.encode.toString
+   *
+   * rendered.startsWith("<html><head><title>ZIO Http - Users</title>")
+   * // true
+   * rendered.endsWith("<ul><li>Ada</li><li>Grace</li></ul></div></body></html>")
+   * // true
+   * }}}
+   *
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
+   */
   def container(heading: CharSequence)(element: Html): Html = {
     html(
       head(

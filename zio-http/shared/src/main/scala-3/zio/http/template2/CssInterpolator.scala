@@ -17,15 +17,38 @@
 package zio.http.template2
 
 /**
- * Trait providing CSS and selector string interpolation with compile-time validation.
+ * Provides the `css` and `selector` string interpolators. When an interpolated string has no arguments, its text is checked at compile time.
  */
 trait CssInterpolator {
 
   /**
-   * CSS string interpolator that validates CSS syntax at compile time.
+   * Adds the `css` and `selector` interpolators to string literals.
    */
   extension(inline sc: StringContext) {
+    /**
+     * Creates a [[Css]] value from an interpolated string, inserting the arguments as the `s` interpolator does. When the string has no arguments, the macro checks its text at compile time and stops compilation with an error when the check fails. The check is a pattern test, not a CSS parser: text that contains a `:` passes, and `css"50%"` fails with the error `Invalid CSS syntax: 50%`.
+     *
+     * {{{
+     * val heading: Css = css"h1 { color: navy; }"
+     * style(heading).render
+     * // <style>h1 { color: navy; }</style>
+     * }}}
+     *
+     * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+     */
     inline def css(inline args: Any*): Css = ${ CssInterpolatorMacros.cssImpl('args, 'sc) }
+
+    /**
+     * Creates a [[CssSelector]] (a `CssSelector.Raw`) from an interpolated string, inserting the arguments as the `s` interpolator does. When the string has no arguments, the macro checks at compile time that the text uses only ASCII letters, digits, whitespace and a fixed set of other characters, and stops compilation with an error otherwise: `selector"div!"` fails with the error `Invalid CSS selector syntax: div!`. On Scala 3 that set has no caret, so an attribute test with the CSS starts-with operator fails there; Scala 2 accepts it.
+     *
+     * {{{
+     * val links: CssSelector = selector"nav > a.active"
+     * links.render
+     * // nav > a.active
+     * }}}
+     *
+     * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+     */
     inline def selector(inline args: Any*): CssSelector = ${ CssInterpolatorMacros.selectorImpl('args, 'sc) }
   }
 }
