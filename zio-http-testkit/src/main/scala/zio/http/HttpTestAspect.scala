@@ -6,7 +6,9 @@ import zio.test._
 /**
  * Test aspects that run a test with a fixed value of the `zio.http.mode` system
  * property. Each aspect sets the property before the test and sets it back to
- * the previous [[Mode]] after the test.
+ * the previous [[Mode]] after the test. If the property was unset before the
+ * test, it is set afterwards to the name of the previous mode (for example
+ * `Prod`) and stays set. The property is JVM-wide.
  */
 object HttpTestAspect {
 
