@@ -1491,7 +1491,6 @@ object Endpoint {
       AuthType.None,
     )
 
-  @nowarn("msg=type parameter .* defined")
   /**
    * The builder that `Endpoint#outErrors` returns. Its `apply` takes one error
    * codec for each subtype of `Err2` (from two to twenty-two codecs) and
@@ -1519,6 +1518,7 @@ object Endpoint {
    *     )
    * }}}
    */
+  @nowarn("msg=type parameter .* defined")
   final case class OutErrors[PathInput, Input, Err, Output, Auth <: AuthType, Err2](
     self: Endpoint[PathInput, Input, Err, Output, Auth],
   ) extends AnyVal {
