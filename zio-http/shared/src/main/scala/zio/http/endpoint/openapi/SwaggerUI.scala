@@ -5,27 +5,43 @@ import java.net.URLEncoder
 import zio.http._
 import zio.http.codec.PathCodec
 
+/**
+ * Serves the Swagger UI, a web page that shows OpenAPI documents, together with
+ * the documents as JSON.
+ */
 object SwaggerUI {
 
+  /**
+   * The Swagger UI version that `routes` uses when no version is given:
+   * `5.10.3`.
+   */
   val DefaultSwaggerUIVersion: String = "5.10.3"
 
   //format: off
   /**
-   * Creates routes for serving the Swagger UI at the given path.
+   * Creates routes that serve the Swagger UI for the given OpenAPI documents,
+   * with Swagger UI version `DefaultSwaggerUIVersion`.
    *
-   * Example:
+   * A `GET` request to `path` returns the Swagger UI HTML page. Each document
+   * is served as JSON at `path` followed by one more segment: its `info.title`,
+   * URL-encoded with `java.net.URLEncoder` (UTF-8), and `.json`. The title
+   * `Shop API` gives the segment `Shop+API.json`. The page lists the documents
+   * in the order given, and it loads the Swagger UI CSS and scripts from
+   * unpkg.com. When two documents have the same title, the page lists both, and
+   * their URL serves the last one.
+   *
    * {{{
-   *  val routes: Routes[Any, Response] = ???
-   *  val openAPIv1: OpenAPI = ???
-   *  val openAPIv2: OpenAPI = ???
-   *  val swaggerUIRoutes = SwaggerUI.routes("docs" / "openapi", openAPIv1, openAPIv2)
-   *  val routesWithSwagger = routes ++ swaggerUIRoutes
-   * }}}
+   * import zio.http._
+   * import zio.http.codec.PathCodec
+   * import zio.http.endpoint.openapi.{OpenAPI, SwaggerUI}
    *
-   * With this middleware in place, a request to `https://www.domain.com/[path]`
-   * would serve the Swagger UI. The different OpenAPI specifications are served
-   * at `https://www.domain.com/[path]/[title].json`. Where `title` is the title
-   * of the OpenAPI specification and is url encoded.
+   * val routes: Routes[Any, Response] = Routes.empty
+   * val openAPIv1: OpenAPI = OpenAPI.empty.title("Shop API").version("1.0")
+   * val openAPIv2: OpenAPI = OpenAPI.empty.title("Shop API v2").version("2.0")
+   * val swaggerUIRoutes = SwaggerUI.routes(PathCodec.literal("docs") / "openapi", openAPIv1, openAPIv2)
+   * // GET /docs/openapi, /docs/openapi/Shop+API.json, /docs/openapi/Shop+API+v2.json
+   * val routesWithSwagger = routes ++ swaggerUIRoutes
+   * }}}
    */
   //format: on
   def routes(path: PathCodec[Unit], api: OpenAPI, apis: OpenAPI*): Routes[Any, Response] = {
@@ -34,22 +50,26 @@ object SwaggerUI {
 
   //format: off
   /**
-   * Creates a middleware for serving the Swagger UI at the given path and with
-   * the given swagger ui version.
+   * Creates routes that serve the Swagger UI for the given OpenAPI documents,
+   * with Swagger UI version `version`: the page loads the CSS and scripts of
+   * `swagger-ui-dist` at that version from unpkg.com.
    *
-   * Example:
+   * A `GET` request to `path` returns the Swagger UI HTML page. Each document
+   * is served as JSON at `path` followed by one more segment: its `info.title`,
+   * URL-encoded with `java.net.URLEncoder` (UTF-8), and `.json`. When two
+   * documents have the same title, the page lists both, and their URL serves
+   * the last one.
+   *
    * {{{
-   *  val routes: Routes[Any, Response] = ???
-   *  val openAPIv1: OpenAPI = ???
-   *  val openAPIv2: OpenAPI = ???
-   *  val swaggerUIRoutes = SwaggerUI.routes("docs" / "openapi", openAPIv1, openAPIv2)
-   *  val routesWithSwagger = routes ++ swaggerUIRoutes
-   * }}}
+   * import zio.http._
+   * import zio.http.codec.PathCodec
+   * import zio.http.endpoint.openapi.{OpenAPI, SwaggerUI}
    *
-   * With this middleware in place, a request to `https://www.domain.com/[path]`
-   * would serve the Swagger UI. The different OpenAPI specifications are served
-   * at `https://www.domain.com/[path]/[title].json`. Where `title` is the title
-   * of the OpenAPI specification and is url encoded.
+   * val routes: Routes[Any, Response] = Routes.empty
+   * val openAPIv1: OpenAPI = OpenAPI.empty.title("Shop API").version("1.0")
+   * val swaggerUIRoutes = SwaggerUI.routes(PathCodec.literal("docs") / "openapi", "5.17.14", openAPIv1)
+   * val routesWithSwagger = routes ++ swaggerUIRoutes
+   * }}}
    */
   //format: on
   def routes(path: PathCodec[Unit], version: String, api: OpenAPI, apis: OpenAPI*): Routes[Any, Response] = {
