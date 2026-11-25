@@ -72,7 +72,8 @@ object CodeGen {
    * without touching the file system.
    *
    * Returns a map from the relative path of each file (its path segments joined
-   * with `/`) to its source text.
+   * with `/`) to its source text. The map is built with `toMap`, so when two
+   * files have the same path only the later one is kept.
    *
    * {{{
    * import zio.http._
@@ -101,9 +102,9 @@ object CodeGen {
    *
    * Throws a `java.lang.Exception` for `Code.Files`, which are rendered one
    * file at a time, and for types that have no rendering.
-   * `Code.ScalaType.Unit`, `Code.ScalaType.Or` and
-   * `Code.Primitive.ScalaDuration` have none, and fail with the message
-   * `Unknown ScalaType: <type>`.
+   * `Code.ScalaType.Unit`, `Code.ScalaType.Or`, `Code.Primitive.ScalaDuration`,
+   * `Code.Annotation` and `Code.AuthTypeCode` have none, and fail with the
+   * message `Unknown ScalaType: <type>`.
    */
   def render(basePackage: String)(structure: Code): (List[Code.Import], String) = structure match {
     case Code.Files(_) =>
@@ -351,9 +352,15 @@ object CodeGen {
    * Returns the path-codec expression for a path segment named `name` of type
    * `segmentType`, with the imports it needs.
    *
-   * A `Literal` segment is rendered as the quoted name and the other types as a
-   * call such as `int("name")`. Throws a `java.lang.Exception` for `SeqOf` and
-   * `SetOf`.
+   * A `Literal` segment is rendered as the quoted name. The other types are
+   * rendered as a call with the name as its argument: `Boolean` as `bool`,
+   * `Int` as `int`, `Long` as `long`, `String` as `string`, `UUID` as `uuid`,
+   * `LocalDate` as `date`, `LocalTime` as `time`, `Instant` as `date-time` and
+   * `Duration` as `duration`. Of these, `bool`, `int`, `long`, `string` and
+   * `uuid` are the names used by `zio.http`; the other four are written as they
+   * are and are not `zio.http` names. An `Aliased` type renders its underlying
+   * type followed by `.transform` with the newtype's `wrap` and `unwrap`.
+   * Throws a `java.lang.Exception` for `SeqOf` and `SetOf`.
    */
   def renderSegmentType(name: String, segmentType: Code.CodecType): (String, List[Code.Import]) =
     segmentType match {

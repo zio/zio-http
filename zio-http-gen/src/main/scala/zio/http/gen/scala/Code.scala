@@ -62,7 +62,8 @@ object Code {
     case object Inferred extends ScalaType
 
     /**
-     * The `Unit` type, used for a `null` schema. `CodeGen.render` has no
+     * The `Unit` type, used for a `null` schema of an OpenAPI document and for
+     * a `Unit` type of a Smithy model. `CodeGen.render` has no
      * rendering for it and throws an exception; `Primitive.ScalaUnit` is
      * rendered as `Unit`.
      */
@@ -87,7 +88,8 @@ object Code {
   final case class TypeRef(name: String) extends ScalaType
 
   /**
-   * The source files to generate, as returned by `EndpointGen.fromOpenAPI`.
+   * The source files to generate, as returned by `EndpointGen.fromOpenAPI`, by
+   * the gRPC `EndpointGen.fromProtobuf` and by `SmithyEndpointGen`.
    * Render them with `CodeGen.renderedFiles` or `CodeGen.writeFiles`;
    * `CodeGen.render` throws an exception for a `Files` value.
    */
@@ -304,7 +306,8 @@ object Code {
    *   the case classes that extend the trait
    * @param caseNames
    *   the values of the `@caseName` annotations of the cases, in the order of
-   *   `cases`; no annotations are rendered when it is empty
+   *   `cases`; no annotations are rendered when it is empty. When it is
+   *   shorter than `cases`, the cases without a name are not rendered
    * @param discriminator
    *   the value of the `@discriminatorName` annotation, if defined
    * @param noDiscriminator
@@ -435,10 +438,14 @@ object Code {
      * Returns `name` converted to camelCase, or `None` when there is nothing to
      * change.
      *
-     * The name is split at characters that are not letters or digits and at
-     * lower-to-upper case boundaries. The first part is lowercased and the
-     * other parts are capitalized. For example, `foo_bar` gives `Some(fooBar)`
-     * and `fooBar` gives `None`.
+     * The name is split at runs of characters that are not letters or digits,
+     * between a lowercase letter or digit and a following uppercase letter or
+     * digit, and inside a run of capitals before a lowercase letter or digit
+     * (`HTTPServer` is split into `HTTP` and `Server`). Leading separators are
+     * dropped. The first part is lowercased and the other parts are
+     * capitalized. For example, `foo_bar` gives `Some(fooBar)`, `HTTPServer`
+     * gives `Some(httpServer)`, `_foo` gives `Some(Foo)` and `fooBar` gives
+     * `None`.
      */
     def normalize(name: String): Option[String] = {
 
@@ -699,7 +706,9 @@ object Code {
 
     /**
      * A newtype named `newtypeName` over the type `underlying`. It is imported
-     * from the `components` package of the base package.
+     * from the `components` package of the base package, as rendered by
+     * `CodeGen`. `EndpointGen` writes the newtype itself to the `component`
+     * package of the base package.
      */
     case class Aliased(underlying: CodecType, newtypeName: String) extends CodecType
 

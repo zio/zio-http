@@ -39,8 +39,9 @@ object EndpointGen {
    * Returns the generated files for `openAPI`, using `config`.
    *
    * The result has one file per path of the document, holding the endpoints of
-   * that path, followed by the files of the component schemas. Render it with
-   * `CodeGen.renderedFiles` or `CodeGen.writeFiles`.
+   * that path, followed by the files of the component schemas. Each path object
+   * also holds the inline body types generated for all earlier paths. Render it
+   * with `CodeGen.renderedFiles` or `CodeGen.writeFiles`.
    *
    * {{{
    * import zio.http._
@@ -77,6 +78,8 @@ object EndpointGen {
 /**
  * A generator that converts OpenAPI documents into `Code` models using
  * `config`. `EndpointGen.fromOpenAPI` creates a new instance for each call.
+ * An instance keeps a private `anonymousTypes` map between calls, so use one
+ * instance per document.
  */
 final case class EndpointGen(config: Config) {
   import EndpointGen._
@@ -387,8 +390,11 @@ final case class EndpointGen(config: Config) {
    * Returns the generated files for `openAPI`: one file per path, holding the
    * endpoints of that path, followed by the files of the component schemas.
    *
+   * The path objects also hold the inline body types of all earlier paths,
+   * because these are collected in one map that is not cleared between paths.
    * Throws a `java.lang.Exception` when a `{name}` segment of a path has no
-   * parameter of that name in the operations of that path.
+   * parameter of that name in the operations of that path, and for other
+   * unsupported input such as an unexpected parameter or body definition.
    */
   def fromOpenAPI(openAPI: OpenAPI): Code.Files =
     Code.Files {
