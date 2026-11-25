@@ -39,11 +39,9 @@ import zio.http.codec._
  * @param data
  *   the event data, which may span multiple lines
  * @param eventType
- *   the optional event type, sent as the `event` field. Line breaks in it are
- *   replaced with a space when the event is encoded.
+ *   optional type, must not contain \n or \r
  * @param id
- *   the optional event id, sent as the `id` field. Line breaks in it are
- *   replaced with a space when the event is encoded.
+ *   optional id, must not contain \n or \r
  * @param retry
  *   the optional reconnection delay, sent as the `retry` field in milliseconds
  *
@@ -81,9 +79,7 @@ final case class ServerSentEvent[T](
    *
    * The fields are written in the order `event`, `data`, `id`, `retry`, and a
    * blank line ends the event. Each line of the data text is written as a
-   * `data: ` line, except for comments such as `ServerSentEvent.heartbeat`.
-   * Line breaks in `eventType` and `id` are replaced with a space, and `retry`
-   * is written in milliseconds.
+   * `data: ` line, and `retry` is written in milliseconds.
    *
    * {{{
    * val event = ServerSentEvent("temperature: 21", Some("reading"), Some("7"))
