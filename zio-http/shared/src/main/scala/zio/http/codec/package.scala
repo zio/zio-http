@@ -17,9 +17,34 @@
 package zio.http
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 package object codec {
+
+  /**
+   * An [[zio.http.codec.HttpCodec]] for the body of a request or response,
+   * built by `HttpCodec.content` and its variants.
+   */
   type ContentCodec[A] = HttpCodec[HttpCodecType.Content, A]
-  type HeaderCodec[A]  = HttpCodec[HttpCodecType.Header, A]
-  type MethodCodec[A]  = HttpCodec[HttpCodecType.Method, A]
-  type QueryCodec[A]   = HttpCodec[HttpCodecType.Query, A]
-  type StatusCodec[A]  = HttpCodec[HttpCodecType.Status, A]
+
+  /**
+   * An [[zio.http.codec.HttpCodec]] for one or more headers of a request or
+   * response, built by `HttpCodec.header` and its variants.
+   */
+  type HeaderCodec[A] = HttpCodec[HttpCodecType.Header, A]
+
+  /**
+   * An [[zio.http.codec.HttpCodec]] for the method of a request, such as
+   * `HttpCodec.get` or `HttpCodec.method(Method.POST)`.
+   */
+  type MethodCodec[A] = HttpCodec[HttpCodecType.Method, A]
+
+  /**
+   * An [[zio.http.codec.HttpCodec]] for query parameters of a request, built by
+   * `HttpCodec.query` and its variants.
+   */
+  type QueryCodec[A] = HttpCodec[HttpCodecType.Query, A]
+
+  /**
+   * An [[zio.http.codec.HttpCodec]] for the status of a response, such as
+   * `HttpCodec.status(Status.NotFound)`.
+   */
+  type StatusCodec[A] = HttpCodec[HttpCodecType.Status, A]
 }

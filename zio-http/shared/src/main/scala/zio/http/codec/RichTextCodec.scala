@@ -30,9 +30,20 @@ import zio.{Chunk, NonEmptyChunk}
  * slower than the simpler text codecs, they can be utilized to parse structured
  * information in HTTP headers, which in turn allows generating much better
  * error messages and documentation than otherwise possible.
+ *
+ * {{{
+ * import zio.http.codec._
+ *
+ * val version: RichTextCodec[(Int, Int)] =
+ *   RichTextCodec.literalUnit("v") ~> RichTextCodec.digit ~ (RichTextCodec.char('.').const('.') ~> RichTextCodec.digit)
+ *
+ * val decoded: Either[String, (Int, Int)] = version.decode("v1.2")   // Right((1,2))
+ * val encoded: Either[String, String]     = version.encode((3, 4))   // Right(v3.4)
+ * }}}
  */
 sealed abstract class RichTextCodec[A] { self =>
 
+  /** Converts a codec of `Chunk[Char]` into a codec of `String`. */
   final def string(implicit ev: A =:= Chunk[Char]): RichTextCodec[String] =
     self
       .asType[Chunk[Char]]
@@ -63,7 +74,8 @@ sealed abstract class RichTextCodec[A] { self =>
 
   /**
    * Returns a new codec that is the sequential composition of this codec and
-   * the specified codec, producing the values of both as a tuple.
+   * the specified codec, producing the values of both as a tuple. The
+   * [[Combiner]] flattens nested tuples and drops `Unit` values.
    */
   final def ~[B](that: => RichTextCodec[B])(implicit combiner: Combiner[A, B]): RichTextCodec[combiner.Out] =
     RichTextCodec.Zip(self, RichTextCodec.defer(that), combiner)
@@ -89,23 +101,37 @@ sealed abstract class RichTextCodec[A] { self =>
           .get,
       )
 
+  /**
+   * Returns a codec of `Unit` that decodes with this codec or, when it fails,
+   * with `that`. It encodes `()` with this codec.
+   */
   final def ~|~(that: => RichTextCodec[Unit])(implicit ev: A =:= Unit): RichTextCodec[Unit] =
     self.asType[Unit] | that
 
   /**
-   * Tranforms this constant unit codec to a constant codec of another type.
+   * Transforms this constant unit codec to a constant codec of another type.
    */
   final def as[B](b: => B)(implicit ev: A =:= Unit): RichTextCodec[B] =
     self.asType[Unit].transform(_ => b)(_ => ())
 
+  /** Returns this codec with its value type seen as `B`, which equals `A`. */
   final def asType[B](implicit ev: A =:= B): RichTextCodec[B] =
     self.asInstanceOf[RichTextCodec[B]]
 
+  /**
+   * Returns a codec that applies `pf` to each decoded value, and fails with
+   * `failure` when `pf` is not defined for it. Encoding is unchanged.
+   */
   final def collectOrFail(failure: String)(pf: PartialFunction[A, A]): RichTextCodec[A] = {
     val lifted = pf.lift
     transformOrFailLeft[A](lifted(_).toRight(failure))(identity)
   }
 
+  /**
+   * Decodes a value from the start of `value`, or returns an error message.
+   * Text left after the decoded part is ignored: `literal("ab").decode("abc")`
+   * returns `Right("ab")`.
+   */
   final def decode(value: CharSequence): Either[String, A] =
     RichTextCodec.parse(value, self, new RichTextCodec.ParserIndex)
 
@@ -117,14 +143,23 @@ sealed abstract class RichTextCodec[A] { self =>
   /**
    * Tags the codec with a label used in the documentation
    */
-  final def ??(label: String): RichTextCodec.Tagged[A]     = tagged(label)
+  final def ??(label: String): RichTextCodec.Tagged[A] = tagged(label)
+
+  /**
+   * Tags the codec with a label used in the documentation; the same as `??`.
+   */
   final def tagged(label: String): RichTextCodec.Tagged[A] = RichTextCodec.Tagged(label, self)
 
   /**
    * Tags the codec with a label used in the documentation. The label will be
    * used but not explained
    */
-  final def ?!(label: String): RichTextCodec.Tagged[A]                = taggedUnexplained(label)
+  final def ?!(label: String): RichTextCodec.Tagged[A] = taggedUnexplained(label)
+
+  /**
+   * Tags the codec with a label used, but not explained, in the documentation;
+   * the same as `?!`.
+   */
   final def taggedUnexplained(label: String): RichTextCodec.Tagged[A] =
     RichTextCodec.Tagged(label, self, descriptionNotNeeded = true)
 
@@ -135,37 +170,64 @@ sealed abstract class RichTextCodec[A] { self =>
   final def encode(value: A): Either[String, String] = RichTextCodec.encode(value, self)
 
   /**
-   * This method is Right biased merge
+   * Converts a codec of `Either[B, B]` into a codec of `B`. Decoding returns
+   * the value of either side; encoding uses the right side.
    */
   final def merge[B](implicit ev: A <:< Either[B, B]): RichTextCodec[B] = {
     val codec = self.asInstanceOf[RichTextCodec[Either[B, B]]]
     codec.transform[B](_.merge)(Right(_))
   }
 
+  /**
+   * Returns a codec of `Option[A]` that decodes like this codec and wraps the
+   * value in `Some`; it fails when this codec fails, and does not return
+   * `None`. It encodes `None` as `default`.
+   */
   final def optional(default: A): RichTextCodec[Option[A]] =
     self.transform[Option[A]](a => Some(a))(_.fold(default)(identity))
 
+  /**
+   * A codec that decodes this codec zero or more times, as long as it succeeds.
+   */
   final lazy val repeat: RichTextCodec[Chunk[A]] =
     RichTextCodec.Repeated(self)
 
+  /**
+   * Like `repeat`, but fails with `Expected at least one element` when this
+   * codec decodes nothing.
+   */
   final lazy val repeatNonEmpty: RichTextCodec[NonEmptyChunk[A]] =
     self.repeat.transformOrFailLeft[NonEmptyChunk[A]](chunk =>
       if (chunk.isEmpty) Left("Expected at least one element")
       else Right(NonEmptyChunk.fromIterable(chunk.head, chunk.tail)),
     )(chunk => chunk.toChunk)
 
+  /**
+   * Returns a codec of a one-element `NonEmptyChunk`; encoding uses the first
+   * element.
+   */
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
     self.transform(a => NonEmptyChunk.single(a))(_.head)
 
+  /**
+   * Transforms the value type of this codec with `f` when decoding and `g` when
+   * encoding.
+   */
   final def transform[B](f: A => B)(g: B => A): RichTextCodec[B] =
     self.transformOrFail[B](a => Right(f(a)))(b => Right(g(b)))
 
+  /**
+   * Transforms the value type of this codec with `f` when decoding and `g` when
+   * encoding; a `Left` is the error message.
+   */
   final def transformOrFail[B](f: A => Either[String, B])(g: B => Either[String, A]): RichTextCodec[B] =
     RichTextCodec.TransformOrFail(self, f, g)
 
+  /** Like `transformOrFail`, but only decoding (`f`) can fail. */
   final def transformOrFailLeft[B](f: A => Either[String, B])(g: B => A): RichTextCodec[B] =
     self.transformOrFail[B](f)(b => Right(g(b)))
 
+  /** Like `transformOrFail`, but only encoding (`g`) can fail. */
   final def transformOrFailRight[B](f: A => B)(g: B => Either[String, A]): RichTextCodec[B] =
     self.transformOrFail[B](a => Right(f(a)))(g)
 
@@ -185,10 +247,17 @@ sealed abstract class RichTextCodec[A] { self =>
       case x if p(x) => x
     }
 
+  /**
+   * Returns a codec that adds `errorMessage` to the error when decoding fails.
+   * The error then holds both messages in parentheses, the error of this codec
+   * first and `errorMessage` second.
+   */
   final def withError(errorMessage: String): RichTextCodec[A] =
     self | RichTextCodec.fail[A](errorMessage)
 
 }
+
+/** Constructors of [[RichTextCodec]] values. */
 object RichTextCodec {
   private[codec] case object Empty                                                    extends RichTextCodec[Unit]
   private[codec] final case class CharIn(set: BitSet)                                 extends RichTextCodec[Char] {
@@ -206,9 +275,15 @@ object RichTextCodec {
   private[codec] final case class Lazy[A](private val codec0: () => RichTextCodec[A]) extends RichTextCodec[A]    {
     lazy val codec: RichTextCodec[A] = codec0()
   }
+
+  /**
+   * The extractor of lazy codecs, which returns the codec without the function
+   * that creates it.
+   */
   object Lazy {
     // Prevents us from accidentally extracting the codec function in pattern matching. However, compiling doesn't work
     // with Scala 2.12 when used this way so it's only defined just to be safe
+    /** Returns the codec of `l`, created on first use. */
     def unapply[A](l: Lazy[A]): Option[RichTextCodec[A]] = Some(l.codec)
   }
 
@@ -235,9 +310,11 @@ object RichTextCodec {
    */
   def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
+  /** A codec that describes a single character that is one of `cs`. */
   def chars(cs: Char*): RichTextCodec[Char] =
     CharIn(BitSet(cs.map(_.toInt): _*))
 
+  /** A codec that describes a single character that is not one of `cs`. */
   def charsNot(cs: Char*): RichTextCodec[Char] =
     filter(c => !cs.contains(c))
 
@@ -253,6 +330,9 @@ object RichTextCodec {
    */
   val empty: RichTextCodec[Unit] = Empty
 
+  /**
+   * A codec that always fails with `message`, when decoding and when encoding.
+   */
   def fail[A](message: String): RichTextCodec[A] =
     empty.transformOrFail(_ => Left(message))(_ => Left(message))
 
@@ -263,6 +343,11 @@ object RichTextCodec {
   def filter(pred: Char => Boolean): RichTextCodec[Char] =
     CharIn(BitSet((Char.MinValue to Char.MaxValue).filter(pred).map(_.toInt): _*))
 
+  /**
+   * A codec for a single character that satisfies `pred`. When the character
+   * does not satisfy `pred`, the error is the one of `filter`, and `failure` is
+   * not used.
+   */
   def filterOrFail(pred: Char => Boolean)(failure: String): RichTextCodec[Char] =
     filter(pred).collectOrFail(failure) { case c => c }
 
@@ -271,6 +356,10 @@ object RichTextCodec {
    */
   val letter: RichTextCodec[Char] = filter(_.isLetter) ?! "letter"
 
+  /**
+   * A codec that describes zero or more letters as a `String`. Decoding stops
+   * at the first character that is not a letter.
+   */
   val string: RichTextCodec[String] = letter.repeat.string
 
   /**
@@ -279,6 +368,7 @@ object RichTextCodec {
   def literal(lit: String): RichTextCodec[String] =
     literalUnit(lit).as(lit)
 
+  /** A codec that describes a literal character sequence, as `Unit`. */
   def literalUnit(lit: String): RichTextCodec[Unit] = {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {

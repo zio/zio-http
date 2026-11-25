@@ -26,10 +26,16 @@ import zio.http._
 import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] { self =>
+
+  /** Decodes a value from the parts of a request or response. */
   def decode(config: CodecConfig, url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
+  /**
+   * Encodes `value` into the parts of a request or response, and passes them to
+   * `f`.
+   */
   def encodeWith[Z](config: CodecConfig, value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z

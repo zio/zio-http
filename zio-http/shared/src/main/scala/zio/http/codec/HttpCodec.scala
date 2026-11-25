@@ -34,16 +34,34 @@ import zio.http.codec.internal._
 import zio.http.internal.StringSchemaCodec
 
 /**
- * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
- * request. HttpCodec the HTTP protocol, these parts may be the unconsumed
+ * A [[zio.http.codec.HttpCodec]] represents a codec for parts of an HTTP
+ * request or response. In the HTTP protocol, these parts may be the unconsumed
  * portion of the HTTP path (a route codec), the query string parameters (a
- * query codec), the request headers (a header codec), or the request body (a
- * body codec).
+ * query codec), the headers (a header codec), the body (a body codec), the
+ * method of a request (a method codec) or the status of a response (a status
+ * codec). The type parameter `AtomTypes` records which parts a codec uses, with
+ * the phantom types of [[HttpCodecType]].
  *
  * A HttpCodec is a purely declarative description of an input, and therefore,
- * it can be used to generate documentation, clients, and client libraries.
+ * it can be used to generate documentation, clients, and client libraries. The
+ * same codec decodes a request on the server (`decodeRequest`) and encodes it
+ * in a client (`encodeRequest`). `Endpoint` uses codecs for its inputs, outputs
+ * and errors.
  *
- * HttpCodecs are a bit like invertible multi-channel parsers.
+ * HttpCodecs are a bit like invertible multi-channel parsers. Combine them with
+ * `++` (both parts), `|` (one part or the other) and `optional`, change their
+ * value type with `transform`, and attach documentation with `??`.
+ *
+ * {{{
+ * import zio.http._
+ * import zio.http.codec._
+ *
+ * val paging: QueryCodec[(Int, Int)] =
+ *   HttpCodec.query[Int]("page") ++ HttpCodec.query[Int]("size")
+ *
+ * val request: Request = paging.encodeRequest((2, 50))
+ * // request.url.encode: "?page=2&size=50"
+ * }}}
  */
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
@@ -78,6 +96,28 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def ??(doc: Doc): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Documented(doc))
 
+  /**
+   * Returns a codec that decodes with this codec or, when this codec fails with
+   * an [[HttpCodecError]] defect such as a missing or malformed header or query
+   * parameter, with `that`. A body that cannot be decoded is a typed
+   * `HttpCodecError.MalformedBody` failure, and this codec does not fall back
+   * on it.
+   *
+   * The value type is computed by [[Alternator]]: `Either[Value, Value2]`, or
+   * `Value` when both types are the same. Encoding uses the side that holds the
+   * value. With the same types, it uses this codec, unless the accepted media
+   * types (`outputTypes` of `encodeResponse`) match the body of `that` and not
+   * the body of this codec.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.codec._
+   *
+   * val user: QueryCodec[Either[Int, String]] =
+   *   HttpCodec.query[Int]("id") | HttpCodec.query[String]("name")
+   * // decoding "?name=bob" gives Right("bob")
+   * }}}
+   */
   final def |[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
   )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] = {
@@ -100,6 +140,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Returns a new codec that is the composition of this codec and the specified
    * codec. For codecs that include route codecs, the routes will be decoded
    * sequentially from left to right.
+   *
+   * The values of both codecs are combined by [[Combiner]] into a tuple, which
+   * is flattened and drops `Unit` values.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.codec._
+   *
+   * val search: HttpCodec[HttpCodecType.Query with HttpCodecType.Header, (String, String)] =
+   *   HttpCodec.query[String]("q") ++ HttpCodec.headerAs[String]("x-api-key")
+   * }}}
    */
   final def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
@@ -107,10 +158,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
 
   /**
-   * To end the route codec and begin with query codec, and re-interprets as
-   * PathQueryCodec
-   *
-   * GET /ab/c :? paramStr("") &
+   * Combines this path codec with the query codec `that`, like `++`, and types
+   * the result as a codec of the path and the query
+   * (`HttpCodecType.PathQuery`).
    */
   final def ^?[Value2](
     that: QueryCodec[Value2],
@@ -121,8 +171,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     (self ++ that).asInstanceOf[HttpCodec[HttpCodecType.PathQuery, combiner.Out]]
 
   /**
-   * Append more query parameters to either a query codec, or to a pathQuery
-   * codec which is a combination of path and query
+   * Appends the query parameters of `that` to this query codec, like `++`. It
+   * applies to codecs whose only part is the query; a `PathQuery` codec does
+   * not compile with it.
    */
   final def &[Value2](
     that: QueryCodec[Value2],
@@ -165,11 +216,18 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def const(canonical: => Value): HttpCodec[AtomTypes, Unit] =
     self.transform(_ => ())(_ => canonical)
 
+  /**
+   * Converts this codec of `Unit` into a codec of `Value2` that decodes to
+   * `value2` and ignores the value when encoding.
+   */
   final def const[Value2](value2: => Value2)(implicit ev: Unit <:< Value): HttpCodec[AtomTypes, Value2] =
     self.transform(_ => value2)(_ => ev(()))
 
   /**
-   * Uses this codec to decode the Scala value from a request.
+   * Uses this codec to decode the Scala value from a request, with the
+   * [[CodecConfig]] of the current fiber. A missing or malformed part fails
+   * with an [[HttpCodecError]], as a defect for most parts and as a typed
+   * failure for the body.
    */
   final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
     CodecConfig.codecRef.getWith(
@@ -177,19 +235,26 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     )
 
   /**
-   * Uses this codec to decode the Scala value from a request.
+   * Uses this codec to decode the Scala value from a request, with `config`.
    */
   final def decodeRequest(request: Request, config: CodecConfig)(implicit trace: Trace): Task[Value] =
     encoderDecoder.decode(config, request.url, Status.Ok, request.method, request.headers, request.body)
 
   /**
-   * Uses this codec to decode the Scala value from a response.
+   * Uses this codec to decode the Scala value from a response, with `config`
+   * (by default `CodecConfig.defaultConfig`, not the configuration of the
+   * fiber).
    */
   final def decodeResponse(response: Response, config: CodecConfig = CodecConfig.defaultConfig)(implicit
     trace: Trace,
   ): Task[Value] =
     encoderDecoder.decode(config, URL.empty, response.status, Method.GET, response.headers, response.body)
 
+  /**
+   * Returns the documentation attached with `??`, or `None`. It looks through
+   * other annotations such as `named`, but not through `transform`, `++` or
+   * `|`.
+   */
   def doc: Option[Doc] = {
     @tailrec
     def loop(codec: HttpCodec[_, _]): Option[Doc] =
@@ -210,7 +275,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     encodeRequest(value, CodecConfig.defaultConfig)
 
   /**
-   * Uses this codec to encode the Scala value into a request.
+   * Uses this codec to encode the Scala value into a request. The method is
+   * `GET` unless the codec sets one.
    */
   final def encodeRequest(value: Value, config: CodecConfig): Request =
     encodeWith(config, value, Chunk.empty)((url, _, method, headers, body) =>
@@ -225,7 +291,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     )
 
   /**
-   * Uses this codec to encode the Scala value as a response.
+   * Uses this codec to encode the Scala value as a response. The status is
+   * `200 OK` unless the codec sets one. `outputTypes`, usually from the
+   * `Accept` header, chooses the media type of the body.
    */
   final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor], config: CodecConfig): Response =
     encodeWith(config, value, outputTypes)((_, status, _, headers, body) =>
@@ -237,17 +305,43 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): Z =
     encoderDecoder.encodeWith(config, value, outputTypes.sorted)(f)
 
+  /**
+   * Returns this codec with named example values, shown in the generated
+   * OpenAPI documentation. When a name is used twice across calls, the example
+   * added first is kept.
+   */
   def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))
 
+  /**
+   * Returns this codec with named example values, shown in the generated
+   * OpenAPI documentation.
+   *
+   * {{{
+   * import zio.http.codec._
+   *
+   * val page: QueryCodec[Int] =
+   *   HttpCodec.query[Int]("page").examples("first" -> 1, "tenth" -> 10)
+   *
+   * val shown: Map[String, Int] = page.examples
+   * // Map(first -> 1, tenth -> 10)
+   * }}}
+   */
   def examples(example1: (String, Value), examples: (String, Value)*): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Examples((example1 +: Chunk.fromIterable(examples)).toMap))
 
+  /**
+   * Returns the examples attached to this codec with `examples(...)`, or an
+   * empty map. Examples attached before a `transform`, `++` or `|` are not
+   * included.
+   */
   def examples: Map[String, Value] = Map.empty
 
   /**
    * Returns a new codec that will expect the value to be equal to the specified
-   * value.
+   * value. Decoding another value fails with an `HttpCodecError.CustomError`
+   * whose message names both values, such as `Expected 1 but found 2`; encoding
+   * writes `expected`.
    */
   def expect(expected: Value): HttpCodec[AtomTypes, Unit] =
     transformOrFailLeft(actual =>
@@ -258,6 +352,11 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private[http] def matchesStatus(status: Status) =
     matchesAnyStatus || statusCodes.contains(status)
 
+  /**
+   * Returns a new codec that is the same as this one, but has attached a name.
+   * The generated OpenAPI documentation uses this name, for example for a part
+   * of a multipart body.
+   */
   def named(name: String): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Named(name))
 
@@ -270,6 +369,19 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   /**
    * Returns a new codec, where the value produced by this one is optional.
+   * Decoding returns `None` when the query parameters or headers of this codec
+   * are missing; a malformed value still fails. For a codec made by `content`
+   * on its own, an empty body also decodes to `None`; in a codec combined with
+   * `++`, an empty body fails with `HttpCodecError.MalformedBody`. Encoding
+   * `None` writes nothing.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.codec._
+   *
+   * val page: QueryCodec[Option[Int]] = HttpCodec.query[Int]("page").optional
+   * // decoding "?" gives None, "?page=3" gives Some(3), "?page=x" fails
+   * }}}
    */
   def optional: HttpCodec[AtomTypes, Option[Value]] =
     Annotated(
@@ -282,14 +394,23 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       Metadata.Optional(),
     )
 
+  /** The same as `|`. */
   final def orElseEither[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
   )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] =
     self | that
 
+  /**
+   * Returns a codec of `Either[Value, R]` that decodes to `Left`. Encoding a
+   * `Right` throws an `HttpCodecError.CustomError` with the message `Error!`.
+   */
   final def toLeft[R]: HttpCodec[AtomTypes, Either[Value, R]] =
     self.transformOrFail[Either[Value, R]](value => Right(Left(value)))(either => either.swap.left.map(_ => "Error!"))
 
+  /**
+   * Returns a codec of `Either[L, Value]` that decodes to `Right`. Encoding a
+   * `Left` throws an `HttpCodecError.CustomError` with the message `Error!`.
+   */
   final def toRight[L]: HttpCodec[AtomTypes, Either[L, Value]] =
     self.transformOrFail[Either[L, Value]](value => Right(Right(value)))(either => either.left.map(_ => "Error!"))
 
@@ -315,30 +436,75 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * endpoint is invoked on the server. The other of these functions will be
    * used in encoding, for example, when a client calls the endpoint on the
    * server.
+   *
+   * {{{
+   * import zio.http.codec._
+   *
+   * final case class UserId(value: Int)
+   *
+   * val userId: QueryCodec[UserId] =
+   *   HttpCodec.query[Int]("user").transform(UserId(_))(_.value)
+   * }}}
    */
   final def transform[Value2](f: Value => Value2)(g: Value2 => Value): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), output => Right(g(output)))
 
+  /**
+   * Transforms the type parameter of this codec like `transform`, but either
+   * function can fail with an error message. A failure while decoding is an
+   * `HttpCodecError.CustomError` defect named `SchemaTransformationFailure`
+   * with that message; a failure while encoding throws the same error.
+   */
   final def transformOrFail[Value2](f: Value => Either[String, Value2])(
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, g)
 
+  /** Like `transformOrFail`, but only decoding (`f`) can fail. */
   final def transformOrFailLeft[Value2](f: Value => Either[String, Value2])(
     g: Value2 => Value,
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, output => Right(g(output)))
 
+  /** Like `transformOrFail`, but only encoding (`g`) can fail. */
   final def transformOrFailRight[Value2](f: Value => Value2)(
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
 }
 
+/**
+ * Constructors of [[HttpCodec]] values: `content` for bodies, `header` and
+ * `headerAs` for headers, `query` for query parameters, `method` for the method
+ * and `status` for the status, plus `empty`, `error` and `enumeration`.
+ */
 object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with QueryCodecs with StatusCodecs {
+
+  /**
+   * Starts a codec of `Value` built from codecs of its subtypes, with one of
+   * the `f2` to `f22` methods of [[Enumeration]].
+   *
+   * {{{
+   * import zio.http.codec._
+   *
+   * sealed trait Shape
+   * final case class Circle(radius: Int) extends Shape
+   * final case class Square(side: Int)   extends Shape
+   *
+   * val shape: QueryCodec[Shape] = HttpCodec.enumeration[Shape].f2(
+   *   HttpCodec.query[Int]("radius").transform(Circle(_))(_.radius),
+   *   HttpCodec.query[Int]("side").transform(Square(_))(_.side),
+   * )
+   * // decoding "?side=4" gives Square(4)
+   * }}}
+   */
   def enumeration[Value]: Enumeration[Value] =
     new Enumeration[Value](())
 
+  /**
+   * A codec for an error response with the status `status` and a body of type
+   * `Body0`, named `error-response`.
+   */
   def error[Body0](status: zio.http.Status)(implicit
     schema: Schema[Body0],
   ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body0] =
@@ -354,12 +520,27 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     case object Method  extends AtomTag
   }
 
+  /** A codec that reads and writes nothing, with the value `()`. */
   def empty: HttpCodec[Any, Unit] =
     Empty
 
+  /**
+   * A codec with no possible value. `unused | that` and `that | unused` are
+   * `that`. Decoding with it alone fails with an `IllegalStateException`.
+   */
   def unused: HttpCodec[Any, ZNothing] = Halt
 
+  /**
+   * Builds a codec of `Value` from codecs of its subtypes, created by
+   * `HttpCodec.enumeration`. Each `fN` method takes `N` codecs. Decoding tries
+   * the codecs in order, like `|`, and returns the first success. Encoding uses
+   * the first codec whose subtype matches the runtime class of the value, and
+   * throws an `HttpCodecError.CustomError` with the message
+   * `Unexpected error type` when none matches.
+   */
   final case class Enumeration[Value](unit: Unit) extends AnyVal {
+
+    /** Returns a codec of `Value` from the codecs of 2 of its subtypes. */
     def f2[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
@@ -372,6 +553,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 3 of its subtypes. */
     def f3[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
@@ -386,6 +568,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 4 of its subtypes. */
     def f4[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -410,6 +593,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 5 of its subtypes. */
     def f5[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -437,6 +621,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 6 of its subtypes. */
     def f6[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -467,6 +652,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 7 of its subtypes. */
     def f7[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -500,6 +686,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 8 of its subtypes. */
     def f8[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -540,6 +727,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 9 of its subtypes. */
     def f9[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -587,6 +775,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 10 of its subtypes. */
     def f10[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -646,6 +835,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         },
       )
 
+    /** Returns a codec of `Value` from the codecs of 11 of its subtypes. */
     def f11[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -711,6 +901,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
             case _            => Left(s"Unexpected error type")
           },
         )
+
+    /** Returns a codec of `Value` from the codecs of 12 of its subtypes. */
     def f12[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -783,6 +975,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
             case _            => Left(s"Unexpected error type")
           },
         )
+
+    /** Returns a codec of `Value` from the codecs of 13 of its subtypes. */
     def f13[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -864,6 +1058,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
             case _            => Left(s"Unexpected error type")
           },
         )
+
+    /** Returns a codec of `Value` from the codecs of 14 of its subtypes. */
     def f14[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -956,6 +1152,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 15 of its subtypes. */
     def f15[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1058,6 +1255,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 16 of its subtypes. */
     def f16[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1169,6 +1367,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 17 of its subtypes. */
     def f17[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1294,6 +1493,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 18 of its subtypes. */
     def f18[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1433,6 +1633,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 19 of its subtypes. */
     def f19[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1590,6 +1791,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 20 of its subtypes. */
     def f20[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1771,6 +1973,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 21 of its subtypes. */
     def f21[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -1978,6 +2181,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
           },
         )
 
+    /** Returns a codec of `Value` from the codecs of 22 of its subtypes. */
     def f22[
       AtomTypes,
       Sub1 <: Value: ClassTag,
@@ -2216,10 +2420,16 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
 
   private[http] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0] {
+
+    /** The kind of part this atom reads and writes. */
     def tag: AtomTag
 
+    /**
+     * The position of this atom among the atoms of the same kind in a codec.
+     */
     def index: Int
 
+    /** Returns this atom at position `index`. */
     def index(index: Int): Atom[AtomTypes, Value0]
   }
 
@@ -2335,7 +2545,17 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       }
   }
 
+  /**
+   * Metadata attached to an [[HttpCodec]] with `annotate`: a name, an optional
+   * flag, examples, documentation or a deprecation. The generated OpenAPI
+   * documentation reads it.
+   */
   sealed trait Metadata[Value] {
+
+    /**
+     * Returns this metadata for a codec of `Value2`, with the examples
+     * converted by `f`.
+     */
     def transform[Value2](f: Value => Value2): Metadata[Value2] =
       this match {
         case Metadata.Named(name)     => Metadata.Named(name)
@@ -2345,6 +2565,10 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
         case Metadata.Deprecated(doc) => Metadata.Deprecated(doc)
       }
 
+    /**
+     * Returns this metadata for a codec of `Value2`, with the examples
+     * converted by `f`; examples for which `f` fails are dropped.
+     */
     def transformOrFail[Value2](f: Value => Either[String, Value2]): Metadata[Value2] =
       this match {
         case Metadata.Named(name)     => Metadata.Named(name)
@@ -2359,15 +2583,28 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       }
   }
 
+  /** The kinds of [[Metadata]]. */
   object Metadata {
+
+    /** The name of a codec, set by `named`. */
     final case class Named[A](name: String) extends Metadata[A]
 
+    /**
+     * Marks a codec as optional, set by `optional`; OpenAPI shows it as not
+     * required.
+     */
     final case class Optional[A]() extends Metadata[A]
 
+    /** Named example values, set by `examples`. */
     final case class Examples[A](examples: Map[String, A]) extends Metadata[A]
 
+    /** The documentation of a codec, set by `??`. */
     final case class Documented[A](doc: Doc) extends Metadata[A]
 
+    /**
+     * Marks a codec as deprecated, with documentation `doc`; OpenAPI shows it
+     * as deprecated.
+     */
     final case class Deprecated[A](doc: Doc) extends Metadata[A]
   }
 
@@ -2413,7 +2650,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
      * `left` codec. All implementations of `Fallback` other than `optional` are
      * willing to attempt to recover from any `HttpCodecError`. Implementations
      * of `Fallback` constructed from `optional` are only willing to attempt to
-     * recover from `MissingHeader` or `MissingQueryParam` errors.
+     * recover from `MissingHeader`, `MissingHeaders`, `MissingQueryParam` or
+     * `MissingQueryParams` errors.
      */
     sealed trait Condition { self =>
       def apply(cause: Cause[Any]): Boolean   =

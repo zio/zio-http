@@ -26,11 +26,28 @@ import zio.http.endpoint.openapi.OpenAPI.Extensions
 import zio.http.template
 
 /**
- * A `Doc` models documentation for an endpoint or input.
+ * A `Doc` models documentation for an endpoint or input. It is a tree of
+ * headers, paragraphs, lists and description lists, with optional tags and
+ * OpenAPI extensions, that renders to CommonMark, HTML or plain text. Attach
+ * one to an [[HttpCodec]] with `??`.
+ *
+ * {{{
+ * import zio.http.codec._
+ *
+ * val doc: Doc = Doc.h1("Users") + Doc.p("Lists all users.")
+ * val markdown: String = doc.toCommonMark
+ * // "# Users\n\nLists all users.\n\n"
+ *
+ * val page: HttpCodec[HttpCodecType.Query, Int] = HttpCodec.query[Int]("page") ?? Doc.p("The page number")
+ * }}}
  */
 sealed trait Doc { self =>
   import Doc._
 
+  /**
+   * Returns a doc with this doc followed by `that`. An empty side is dropped,
+   * and the result has the tags of both sides.
+   */
   def +(that: Doc): Doc =
     (self, that) match {
       case (self, that) if self.isEmpty           => that
@@ -39,6 +56,12 @@ sealed trait Doc { self =>
       case _                                      => Doc.Sequence(self, that).tag(self.tags ++ that.tags)
     }
 
+  /**
+   * Returns `true` for `Doc.empty`, for `fromCommonMark("")`, and for lists,
+   * sequences and description lists that contain only empty docs. A header, a
+   * paragraph or a tagged doc is never empty, even with empty text, and a doc
+   * with extensions added by `ext` is never empty.
+   */
   def isEmpty: Boolean =
     self match {
       case Doc.Empty                 => true
@@ -57,19 +80,23 @@ sealed trait Doc { self =>
       case x                         => Chunk(x)
     }
 
+  /** Returns this doc with `tags` added after its existing tags. */
   def tag(tags: Seq[String]): Doc = self match {
     case Tagged(doc, existingTags) => Tagged(doc, existingTags ++ tags)
     case _                         => Tagged(self, tags.toList)
   }
 
+  /** Returns this doc with `tag` added after its existing tags. */
   def tag(tag: String): Doc =
     self match {
       case Tagged(doc, tags) => Tagged(doc, tags :+ tag)
       case _                 => Tagged(self, List(tag))
     }
 
+  /** Returns this doc with `tag` and `tags` added after its existing tags. */
   def tag(tag: String, tags: String*): Doc = self.tag(tag +: tags)
 
+  /** Returns the tags of this doc, in the order they were added. */
   def tags: List[String] = self match {
     // `Extended` only wraps a doc, so unwrapping it cannot duplicate tags.
     case Extended(doc, _)  =>
@@ -99,6 +126,10 @@ sealed trait Doc { self =>
       case _                   => Extended(self, Map((name, value)))
     }
 
+  /**
+   * Returns the OpenAPI extensions added with `ext`, by name without the `x-`
+   * prefix. When a name is added twice, the later value wins.
+   */
   def extensions: Map[String, Json] = self match {
     case Extended(doc, exts)   => doc.extensions ++ exts
     case Tagged(doc, _)        => doc.extensions
@@ -106,6 +137,10 @@ sealed trait Doc { self =>
     case _                     => Map.empty
   }
 
+  /**
+   * Renders this doc as CommonMark (Markdown) text, for example `# Users` for
+   * `Doc.h1("Users")`. The tags are rendered as a bullet list at the end.
+   */
   def toCommonMark: String = {
     val writer = new StringBuilder
 
@@ -201,6 +236,11 @@ sealed trait Doc { self =>
     writer.toString()
   }
 
+  /**
+   * Renders this doc as HTML. The tags are rendered as a bullet list at the
+   * end. It throws an `IllegalArgumentException` for a header level outside 1
+   * to 6, and for a doc created with `fromCommonMark`.
+   */
   def toHtml: template.Html = {
     import template._
 
@@ -254,9 +294,16 @@ sealed trait Doc { self =>
     html ++ (if (tags.nonEmpty) Doc.unorderedListing(self.tags.map(Doc.p): _*).toHtml else Html.Empty)
   }
 
+  /** Renders this doc as an HTML string, indented by two spaces per level. */
   def toHtmlSnippet: String =
     toHtml.encode(2).toString
 
+  /**
+   * Renders this doc as plain text for a terminal, wrapped at `columnWidth`
+   * columns. Headers are upper-cased. When `color` is `true`, bold, colors and
+   * underlines are written as ANSI escape codes. It throws an
+   * `IllegalArgumentException` for a doc created with `fromCommonMark`.
+   */
   def toPlaintext(columnWidth: Int = 100, color: Boolean = true): String = {
     val _ = color
 
@@ -406,14 +453,25 @@ sealed trait Doc { self =>
   }
 
 }
+
+/** Constructors of [[Doc]] values and their parts. */
 object Doc {
 
+  /**
+   * A `Schema` of `Doc` as a CommonMark string: encoding uses `toCommonMark`,
+   * decoding uses `fromCommonMark`.
+   */
   implicit val schemaDocSchema: Schema[Doc] =
     Schema[String].transform(
       fromCommonMark,
       _.toCommonMark,
     )
 
+  /**
+   * Creates a doc from CommonMark text, kept as it is. `toCommonMark` returns
+   * the text unchanged; `toHtml` and `toPlaintext` throw an
+   * `IllegalArgumentException` for this doc.
+   */
   def fromCommonMark(commonMark: String): Doc =
     Doc.Raw(commonMark, RawDocType.CommonMark)
 
@@ -424,55 +482,112 @@ object Doc {
     case object Html       extends RawDocType
   }
 
-  case object Empty                                                       extends Doc
-  private final case class Raw(value: String, docType: RawDocType)        extends Doc
-  final case class Header(value: String, level: Int)                      extends Doc
-  final case class Paragraph(value: Span)                                 extends Doc
-  final case class DescriptionList(definitions: List[(Span, Doc)])        extends Doc
-  final case class Sequence(left: Doc, right: Doc)                        extends Doc
+  /** The empty doc, which renders as nothing. */
+  case object Empty                                                extends Doc
+  private final case class Raw(value: String, docType: RawDocType) extends Doc
+
+  /** A header with the text `value` at `level`, 1 being the top level. */
+  final case class Header(value: String, level: Int) extends Doc
+
+  /** A paragraph of text. */
+  final case class Paragraph(value: Span) extends Doc
+
+  /** A list of terms, each with its definition. */
+  final case class DescriptionList(definitions: List[(Span, Doc)]) extends Doc
+
+  /** The doc `left` followed by the doc `right`. */
+  final case class Sequence(left: Doc, right: Doc) extends Doc
+
+  /** A bullet list or a numbered list of docs. */
   final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
-  final case class Tagged(doc: Doc, tgs: List[String])                    extends Doc
-  final case class Extended(doc: Doc, exts: Map[String, Json])            extends Doc
+
+  /** The doc `doc` with the tags `tgs`. */
+  final case class Tagged(doc: Doc, tgs: List[String]) extends Doc
+
+  /**
+   * The doc `doc` with the OpenAPI extensions `exts`, by name without the `x-`
+   * prefix.
+   */
+  final case class Extended(doc: Doc, exts: Map[String, Json]) extends Doc
+
+  /** The kind of a [[Listing]]: bullet or numbered. */
   sealed trait ListingType
+
+  /** The kinds of [[Listing]]. */
   object ListingType {
+
+    /** A bullet list. */
     case object Unordered extends ListingType
-    case object Ordered   extends ListingType
+
+    /** A numbered list. */
+    case object Ordered extends ListingType
   }
 
+  /**
+   * Returns the docs of `bs` one after the other, or `Doc.empty` when `bs` is
+   * empty.
+   */
   def blocks(bs: Iterable[Doc]): Doc =
     if (bs.isEmpty) Doc.Empty else blocks(bs.head, bs.tail.toSeq: _*)
 
+  /** Returns `helpDoc` followed by the docs of `helpDocs0`, joined with `+`. */
   def blocks(helpDoc: Doc, helpDocs0: Doc*): Doc =
     helpDocs0.foldLeft(helpDoc)(_ + _)
 
+  /** Returns a list of terms, each with its definition. */
   def descriptionList(definitions: (Span, Doc)*): Doc = Doc.DescriptionList(definitions.toList)
 
+  /** The empty doc. */
   val empty: Doc = Empty
 
+  /** Returns a numbered list of `elements`. */
   def orderedListing(elements: Doc*): Doc =
     Doc.Listing(elements.toList, ListingType.Ordered)
 
+  /** Returns a bullet list of `elements`. */
   def unorderedListing(elements: Doc*): Doc =
     Doc.Listing(elements.toList, ListingType.Unordered)
 
+  /** Returns a level-1 header. */
   def h1(t: String): Doc = Header(t, 1)
+
+  /** Returns a level-2 header. */
   def h2(t: String): Doc = Header(t, 2)
+
+  /** Returns a level-3 header. */
   def h3(t: String): Doc = Header(t, 3)
+
+  /** Returns a level-4 header. */
   def h4(t: String): Doc = Header(t, 4)
+
+  /** Returns a level-5 header. */
   def h5(t: String): Doc = Header(t, 5)
+
+  /** Returns a level-6 header. */
   def h6(t: String): Doc = Header(t, 6)
 
-  def p(t: String): Doc  = Doc.Paragraph(Span.text(t))
+  /** Returns a paragraph of the plain text `t`. */
+  def p(t: String): Doc = Doc.Paragraph(Span.text(t))
+
+  /** Returns a paragraph of `span`. */
   def p(span: Span): Doc = Doc.Paragraph(span)
 
+  /** Inline text inside a doc: plain, code, bold, italic, error or link. */
   sealed trait Span { self =>
+
+    /** Returns this span followed by `that`. An empty side is dropped. */
     final def +(that: Span): Span =
       if (self.isEmpty) that
       else if (that.isEmpty) self
       else Span.Sequence(self, that)
 
+    /** Returns `true` when `size` is 0. */
     final def isEmpty: Boolean = self.size == 0
 
+    /**
+     * Returns the number of characters of text in this span; for a link, the
+     * length of its URI.
+     */
     final def size: Int =
       self match {
         case Span.Text(value)           => value.length
@@ -484,6 +599,10 @@ object Doc {
         case Span.Sequence(left, right) => left.size + right.size
       }
 
+    /**
+     * Renders this span as HTML, for example a `code` element for code and an
+     * `a` element for a link.
+     */
     def toHtml: template.Html = {
       import template._
 
@@ -500,34 +619,91 @@ object Doc {
       }
     }
   }
-  object Span       {
-    final case class Text(value: String)                             extends Span
-    final case class Code(value: String, codeStyle: CodeStyle)       extends Span
-    final case class Error(value: String)                            extends Span
-    final case class Bold(value: Span)                               extends Span
-    final case class Italic(value: Span)                             extends Span
-    final case class Link(value: java.net.URI, text: Option[String]) extends Span
-    final case class Sequence(left: Span, right: Span)               extends Span
 
+  /** The kinds of [[Span]] and their constructors. */
+  object Span {
+
+    /** Plain text. */
+    final case class Text(value: String) extends Span
+
+    /** Code, inline or as a block. */
+    final case class Code(value: String, codeStyle: CodeStyle) extends Span
+
+    /** Text shown as an error, in red. */
+    final case class Error(value: String) extends Span
+
+    /** Bold text. */
+    final case class Bold(value: Span) extends Span
+
+    /** Italic text. */
+    final case class Italic(value: Span) extends Span
+
+    /**
+     * A link to `value`, shown as `text` when it is present and as the URI
+     * otherwise.
+     */
+    final case class Link(value: java.net.URI, text: Option[String]) extends Span
+
+    /** The span `left` followed by the span `right`. */
+    final case class Sequence(left: Span, right: Span) extends Span
+
+    /** How a [[Code]] span is shown: inline or as a block. */
     sealed trait CodeStyle
+
+    /** The styles of a [[Code]] span. */
     object CodeStyle {
+
+      /** Code inside a line of text. */
       case object Inline extends CodeStyle
-      case object Block  extends CodeStyle
+
+      /** Code as a separate block. */
+      case object Block extends CodeStyle
     }
 
-    def code(t: String): Span                       = Span.Code(t, CodeStyle.Inline)
-    def codeBlock(t: String): Span                  = Span.Code(t, CodeStyle.Block)
-    def empty: Span                                 = Span.text("")
-    def error(t: String): Span                      = Span.Error(t)
-    def bold(span: Span): Span                      = Span.Bold(span)
-    def bold(t: String): Span                       = Span.Bold(text(t))
-    def italic(span: Span): Span                    = Span.Italic(span)
-    def italic(t: String): Span                     = Span.Italic(text(t))
-    def text(t: String): Span                       = Span.Text(t)
-    def link(uri: java.net.URI): Span               = Span.Link(uri, None)
+    /** Returns inline code. */
+    def code(t: String): Span = Span.Code(t, CodeStyle.Inline)
+
+    /** Returns a block of code. */
+    def codeBlock(t: String): Span = Span.Code(t, CodeStyle.Block)
+
+    /** Returns the empty span, an empty text. */
+    def empty: Span = Span.text("")
+
+    /** Returns text shown as an error. */
+    def error(t: String): Span = Span.Error(t)
+
+    /** Returns `span` in bold. */
+    def bold(span: Span): Span = Span.Bold(span)
+
+    /** Returns the text `t` in bold. */
+    def bold(t: String): Span = Span.Bold(text(t))
+
+    /** Returns `span` in italics. */
+    def italic(span: Span): Span = Span.Italic(span)
+
+    /** Returns the text `t` in italics. */
+    def italic(t: String): Span = Span.Italic(text(t))
+
+    /** Returns plain text. */
+    def text(t: String): Span = Span.Text(t)
+
+    /** Returns a link to `uri`, shown as the URI. */
+    def link(uri: java.net.URI): Span = Span.Link(uri, None)
+
+    /**
+     * Returns a link to `uri`, shown as `text`, or as the URI when `text` is
+     * empty.
+     */
     def link(uri: java.net.URI, text: String): Span = Span.Link(uri, Some(text).filter(_.nonEmpty))
-    def spans(span: Span, spans0: Span*): Span      = spans(span :: spans0.toList)
-    def spans(spans: Iterable[Span]): Span          = spans.toList.foldLeft(empty)(_ + _)
+
+    /** Returns `span` followed by `spans0`, joined with `+`. */
+    def spans(span: Span, spans0: Span*): Span = spans(span :: spans0.toList)
+
+    /**
+     * Returns the spans of `spans` joined with `+`, or the empty span when
+     * there are none.
+     */
+    def spans(spans: Iterable[Span]): Span = spans.toList.foldLeft(empty)(_ + _)
 
   }
 }
