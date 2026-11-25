@@ -83,10 +83,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     Route.handledIgnoreParams(self)(handler)
 
   /**
-   * Expands this pattern into one pattern per method and path alternative: a
-   * pattern for `Method.ANY` becomes one pattern per standard method, and a
-   * path built with `anyOf` or `orElse` becomes one pattern per alternative
-   * path.
+   * Expands this pattern into one pattern per method and path alternative: a pattern for `Method.ANY` becomes one pattern per standard method, a set of methods (`Method.GET #| Method.POST`) becomes one pattern per method, and a path built with `anyOf` or `orElse` becomes one pattern per alternative path.
    */
   def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.flatMap { path =>
     if (method == Method.ANY) Method.standardMethods.map(RoutePattern(_, path))
