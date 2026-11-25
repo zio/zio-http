@@ -1519,23 +1519,32 @@ object OpenAPI {
    * expression, evaluated at runtime, that identifies a URL to use for the
    * callback operation.
    *
+   * The JSON form is an object with a single `expressions` field that holds
+   * this map.
+   *
    * @param expressions
-   *   A Path Item Object used to define a callback request and expected
-   *   responses.
+   *   Maps each runtime expression to the Path Item Object that defines the
+   *   callback request and the expected responses.
    */
   final case class Callback(expressions: Map[String, PathItem] = Map.empty)
 
+  /** The companion of `Callback`, with its schema. */
   object Callback {
+
+    /** The schema of `Callback`, derived from its fields. */
     implicit val schema: Schema[Callback] =
       DeriveSchema.gen[Callback]
   }
 
+  // There is currently no API to set the summary, description or externalValue
   /**
-   * In all cases, the example value is expected to be compatible with the type
-   * schema of its associated value. Tooling implementations MAY choose to
-   * validate compatibility automatically, and reject the example value(s) if
-   * incompatible.
+   * An example value (the Example Object). In all cases, the example value is
+   * expected to be compatible with the type schema of its associated value.
+   * Tooling implementations MAY choose to validate compatibility automatically,
+   * and reject the example value(s) if incompatible.
    *
+   * @param value
+   *   The example value, as JSON.
    * @param summary
    *   Short description for the example.
    * @param description
@@ -1545,7 +1554,6 @@ object OpenAPI {
    *   reference examples that cannot easily be included in JSON or YAML
    *   documents.
    */
-  // There is currently no API to set the summary, description or externalValue
   final case class Example(
     value: Json,
     summary: Option[String] = None,
@@ -1553,7 +1561,10 @@ object OpenAPI {
     externalValue: Option[URI] = None,
   )
 
+  /** The companion of `Example`, with its schema. */
   object Example {
+
+    /** The schema of `Example`, derived from its fields. */
     implicit val schema: Schema[Example] =
       DeriveSchema.gen[Example]
   }
@@ -1599,43 +1610,81 @@ object OpenAPI {
     server: Option[Server],
   )
 
+  /** The companion of `Link`, with its schema. */
   object Link {
+
+    /** The schema of `Link`, derived from its fields. */
     implicit val schema: Schema[Link] =
       DeriveSchema.gen[Link]
   }
 
+  /**
+   * A value of a Link Object: a literal number, decimal, string or boolean, or
+   * a runtime expression.
+   */
   sealed trait LiteralOrExpression
+
+  /** The cases of `LiteralOrExpression`, and the `expression` constructor. */
   object LiteralOrExpression {
+
+    /**
+     * The schema of `LiteralOrExpression`. It writes a value as an object with
+     * one field named after its case, such as `{"NumberLiteral":5}`.
+     */
     implicit val schema: Schema[LiteralOrExpression] =
       DeriveSchema.gen[LiteralOrExpression]
 
+    /** A whole-number literal. */
     final case class NumberLiteral(value: Long) extends LiteralOrExpression
 
+    /** The companion of `NumberLiteral`, with its schema. */
     object NumberLiteral {
+
+      /** The schema of `NumberLiteral`, as a plain JSON number. */
       implicit val schema: Schema[NumberLiteral] =
         Schema[Long].transform[NumberLiteral](s => NumberLiteral(s), p => p.value)
     }
+
+    /** A decimal number literal. */
     final case class DecimalLiteral(value: Double) extends LiteralOrExpression
 
+    /** The companion of `DecimalLiteral`, with its schema. */
     object DecimalLiteral {
+
+      /** The schema of `DecimalLiteral`, as a plain JSON number. */
       implicit val schema: Schema[DecimalLiteral] =
         Schema[Double].transform[DecimalLiteral](s => DecimalLiteral(s), p => p.value)
     }
+
+    /** A string literal. */
     final case class StringLiteral(value: String) extends LiteralOrExpression
 
+    /** The companion of `StringLiteral`, with its schema. */
     object StringLiteral {
+
+      /** The schema of `StringLiteral`, as a plain JSON string. */
       implicit val schema: Schema[StringLiteral] =
         Schema[String].transform[StringLiteral](s => StringLiteral(s), p => p.value)
     }
+
+    /** A boolean literal. */
     final case class BooleanLiteral(value: Boolean) extends LiteralOrExpression
 
+    /** The companion of `BooleanLiteral`, with its schema. */
     object BooleanLiteral {
+
+      /** The schema of `BooleanLiteral`, as a plain JSON boolean. */
       implicit val schema: Schema[BooleanLiteral] =
         Schema[Boolean].transform[BooleanLiteral](s => BooleanLiteral(s), p => p.value)
     }
+
+    /** A runtime expression, such as `\$request.path.id`. */
     case class Expression(value: String) extends LiteralOrExpression
 
+    /** The companion of `Expression`, with its schema. */
     object Expression {
+
+      /** The schema of `Expression`, as a plain JSON string. */
       implicit val schema: Schema[Expression] =
         Schema[String].transform[Expression](s => Expression.create(s), p => p.value)
 
@@ -1644,8 +1693,16 @@ object OpenAPI {
 
     // TODO: maybe one could make a regex to validate the expression. For now just accept anything
     // https://swagger.io/specification/#runtime-expressions
+    /**
+     * The pattern that `expression` accepts: `.*`, which matches the empty
+     * string and any string without a line break.
+     */
     val ExpressionRegex: Regex = """.*""".r
 
+    /**
+     * Returns an `Expression` for `value` when it matches `ExpressionRegex`,
+     * and `None` otherwise, for example for a string that contains a newline.
+     */
     def expression(value: String): Option[LiteralOrExpression] =
       value match {
         case ExpressionRegex() => Some(Expression.create(value))
@@ -1664,6 +1721,9 @@ object OpenAPI {
    *   A short description for the tag.
    * @param externalDocs
    *   Additional external documentation for this tag.
+   * @param extensions
+   *   Extensions to the tag, written as `x-` fields of the Tag Object. The keys
+   *   are stored without the `x-` prefix.
    */
   final case class Tag(
     name: String,
@@ -1673,8 +1733,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Tag`, with its schema. */
   object Tag extends TagCompatibility {
 
+    /**
+     * The schema of `Tag`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Tag] = extensionSchema(
       DeriveSchema.gen[Tag],
       _.extensions,
@@ -1683,15 +1749,20 @@ object OpenAPI {
   }
 
   /**
-   * A simple object to allow referencing other components in the specification,
-   * internally and externally.
-   *
-   * @param ref
-   *   The reference string.
+   * Either a reference to a component (`Reference`, the Reference Object) or an
+   * inline value (`Or`). The JSON has no discriminator: a reference is an
+   * object with a `\$ref` field, and an inline value is written as the value
+   * itself.
    */
-
   @noDiscriminator
   sealed trait ReferenceOr[+T] {
+
+    /**
+     * Returns this value as a [[JsonSchema]]. An inline schema is returned as
+     * is. A reference becomes a `\$ref` schema whose description is the
+     * reference's summary followed by its description, as CommonMark, and is
+     * empty when both are `None`.
+     */
     def asJsonSchema(implicit ev: T <:< JsonSchema): JsonSchema = this match {
       case ReferenceOr.Reference(ref, summary, description) =>
         JsonSchema
@@ -1702,10 +1773,28 @@ object OpenAPI {
 
   }
 
+  /** The two cases of `ReferenceOr`: `Reference` and `Or`. */
   object ReferenceOr {
+
+    /**
+     * The schema of `ReferenceOr[T]`, built from the schema of `T`. It decodes
+     * an object with a `\$ref` field as a `Reference`, and other input as an
+     * inline `T`.
+     */
     implicit def schema[T: Schema]: Schema[ReferenceOr[T]] =
       DeriveSchema.gen[ReferenceOr[T]]
 
+    /**
+     * A simple object to allow referencing other components in the
+     * specification, internally and externally.
+     *
+     * @param ref
+     *   The reference string, written as the `\$ref` field.
+     * @param summary
+     *   A short summary of the referenced component.
+     * @param description
+     *   A description of the referenced component.
+     */
     @nowarn("msg=possible missing interpolator")
     final case class Reference(
       @fieldName("$ref") ref: String,
@@ -1713,14 +1802,21 @@ object OpenAPI {
       description: Option[Doc] = None,
     ) extends ReferenceOr[Nothing]
 
+    /** The companion of `Reference`, with its schema. */
     object Reference {
+
+      /** The schema of `Reference`, derived from its fields. */
       implicit val schema: Schema[Reference] =
         DeriveSchema.gen[Reference]
     }
 
+    /** An inline value, used instead of a reference. */
     final case class Or[T](value: T) extends ReferenceOr[T]
 
+    /** The companion of `Or`, with its schema. */
     object Or {
+
+      /** The schema of `Or[T]`: the value as `T`, with no wrapper object. */
       implicit def schema[T: Schema]: Schema[Or[T]] =
         Schema[T].transform(Or(_), _.value)
 
@@ -1749,7 +1845,10 @@ object OpenAPI {
     mapping: Map[String, String] = Map.empty,
   )
 
+  /** The companion of `Discriminator`, with its schema. */
   object Discriminator {
+
+    /** The schema of `Discriminator`, derived from its fields. */
     implicit val schema: Schema[Discriminator] =
       DeriveSchema.gen[Discriminator]
   }
@@ -1775,9 +1874,9 @@ object OpenAPI {
    *   instead of an element.
    * @param wrapped
    *   MAY be used only for an array definition. Signifies whether the array is
-   *   wrapped (for example, <books><book/><book/></books>) or unwrapped
-   *   (<book/><book/>). The definition takes effect only when defined alongside
-   *   type being array (outside the items).
+   *   wrapped (for example, `<books><book/><book/></books>`) or unwrapped
+   *   (`<book/><book/>`). The definition takes effect only when defined
+   *   alongside type being array (outside the items).
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
