@@ -429,8 +429,13 @@ private[zio] final case class ServerInboundHandler(
     Response.internalServerError(cause.getMessage)
 }
 
+/** Provides the request handler of the Netty server as a layer. */
 object ServerInboundHandler {
 
+  /**
+   * A layer that creates the handler that runs the routes for each request,
+   * from the routes reference and the `Server.Config`.
+   */
   val live: ZLayer[
     RoutesRef & Server.Config,
     Nothing,

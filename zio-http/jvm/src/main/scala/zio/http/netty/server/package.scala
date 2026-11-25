@@ -45,9 +45,14 @@ package object server {
     }
   }
 
+  /**
+   * The Netty server driver with `NettyConfig.default`; the same layer as
+   * `NettyDriver.live`.
+   */
   val live: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
 
+  /** The same layer as `NettyDriver.manual`. */
   val manual
     : ZLayer[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] =
     NettyDriver.manual

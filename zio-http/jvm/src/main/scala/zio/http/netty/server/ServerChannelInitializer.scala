@@ -34,7 +34,11 @@ import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
 
 /**
- * Initializes the netty channel with default handlers
+ * Sets up the pipeline of each accepted channel: the HTTP request decoder and
+ * response encoder, the handlers that `Server.Config` turns on (SSL, read
+ * timeout, request decompression, response compression, request aggregation,
+ * `Expect: 100-continue` and keep-alive), a flush consolidation handler, and
+ * the request handler last.
  */
 @Sharable
 private[zio] final case class ServerChannelInitializer(
@@ -109,9 +113,16 @@ private[zio] final case class ServerChannelInitializer(
 
 }
 
+/** Provides the channel initializer of the Netty server as a layer. */
 object ServerChannelInitializer {
+
+  /** An empty `Trace`, the implicit trace of `layer`. */
   implicit val trace: Trace = Trace.empty
 
+  /**
+   * A layer that creates the channel initializer from the `Server.Config` and
+   * the request handler in its environment.
+   */
   val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =
     ZLayer.fromZIO {
       for {
