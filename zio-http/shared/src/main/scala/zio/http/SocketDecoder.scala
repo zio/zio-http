@@ -21,7 +21,34 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import com.lihaoyi.unroll
 
 /**
- * Frame decoder configuration
+ * The configuration of the WebSocket frame decoder. Use `WebSocketConfig#decoderConfig`
+ * to set it.
+ *
+ * @param maxFramePayloadLength
+ *   the maximum length in bytes of a frame's payload. It defaults to 65536.
+ * @param expectMaskedFrames
+ *   whether incoming frames are expected to be masked. It defaults to `true`.
+ *   The client side does not apply this setting.
+ * @param allowMaskMismatch
+ *   when `true`, frames that are not masked as expected are accepted. It
+ *   defaults to `false`.
+ * @param allowExtensions
+ *   whether the reserved extension bits (RSV) of a frame may be set. It
+ *   defaults to `false`.
+ * @param closeOnProtocolViolation
+ *   whether a close frame is sent immediately when a protocol violation is
+ *   detected. It defaults to `true`. The client side does not apply this
+ *   setting to the frame decoder, but it does to the aggregation of
+ *   fragments.
+ * @param withUTF8Validator
+ *   whether Netty's UTF-8 validator for text frames is added. It defaults to
+ *   `true`.
+ * @param aggregateFragments
+ *   whether fragmented messages are aggregated into one frame. It defaults to
+ *   `true`.
+ * @param maxMessageLength
+ *   the maximum size in bytes of an aggregated message. It defaults to
+ *   1048576.
  */
 final case class SocketDecoder(
   maxFramePayloadLength: Int = 65536,
@@ -48,12 +75,16 @@ final case class SocketDecoder(
 
   /**
    * The maximum size in bytes of an aggregated message. If a fragmented message
-   * exceeds this size, the connection is closed with status 1009 (message too
-   * big). Only relevant if `aggregateFragments` is enabled. Unfragmented frames
-   * are limited by `maxFramePayloadLength` instead.
+   * exceeds this size and `closeOnProtocolViolation` is enabled, the
+   * connection is closed with status 1009 (message too big). Only relevant if
+   * `aggregateFragments` is enabled. Unfragmented frames are limited by
+   * `maxFramePayloadLength` instead.
    */
   def maxMessageLength(length: Int): SocketDecoder = self.copy(maxMessageLength = length)
 
+  /**
+   * Sets `allowExtensions`: whether the reserved extension bits (RSV) of a frame may be set.
+   */
   def extensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 
   /**
@@ -63,7 +94,9 @@ final case class SocketDecoder(
   def maskMismatch(allowed: Boolean): SocketDecoder = self.copy(allowMaskMismatch = allowed)
 
   /**
-   * Web socket servers must set this to true to reject incoming masked payload.
+   * Sets `expectMaskedFrames`: whether incoming frames are expected to be
+   * masked. The frame decoder treats a frame whose masking differs from this as
+   * a protocol violation, unless `allowMaskMismatch` is `true`.
    */
   def maskedFrames(allowed: Boolean): SocketDecoder = self.copy(expectMaskedFrames = allowed)
 
@@ -74,7 +107,8 @@ final case class SocketDecoder(
   def maxFramePayloadLength(length: Int): SocketDecoder = self.copy(maxFramePayloadLength = length)
 
   /**
-   * Flag to not send close frame immediately on any protocol violation.ion.
+   * Sets `closeOnProtocolViolation`: whether a close frame is sent immediately
+   * when a protocol violation is detected.
    */
   def protocolViolation(allowed: Boolean): SocketDecoder = self.copy(closeOnProtocolViolation = allowed)
 
@@ -86,6 +120,7 @@ final case class SocketDecoder(
   def uTF8Validation(enable: Boolean): SocketDecoder = self.copy(withUTF8Validator = enable)
 }
 
+/** The default decoder configuration. */
 object SocketDecoder {
 
   /**
