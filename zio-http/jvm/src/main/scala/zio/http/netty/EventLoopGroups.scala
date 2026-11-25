@@ -47,7 +47,8 @@ object EventLoopGroups {
 
     /**
      * The number of event loops (threads) in the group. With 0, Netty uses its
-     * default, twice the number of available processors.
+     * default: the `io.netty.eventLoopThreads` system property when it is set,
+     * else twice the number of available processors.
      */
     def nThreads: Int
 
@@ -140,9 +141,9 @@ object EventLoopGroups {
 
   /**
    * Creates an event loop group on Netty's local transport, which connects
-   * channels inside one JVM, with Netty's default thread count (twice the
-   * number of available processors). `config.nThreads` is not used; the
-   * shutdown settings of `config` are.
+   * channels inside one JVM, with Netty's default thread count (see
+   * `Config#nThreads`). `config.nThreads` is not used; the shutdown settings of
+   * `config` are.
    */
   def default(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
     config,

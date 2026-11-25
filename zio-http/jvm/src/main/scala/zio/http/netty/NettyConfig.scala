@@ -48,8 +48,9 @@ import io.netty.util.ResourceLeakDetector
  *   the transport of the worker event loop group and of the channels
  * @param nThreads
  *   the number of threads of the worker event loop group, or of the client's
- *   event loop group. With 0, Netty uses its default, twice the number of
- *   available processors.
+ *   event loop group. With 0, Netty uses its default: the
+ *   `io.netty.eventLoopThreads` system property when it is set, else twice the
+ *   number of available processors.
  * @param shutdownQuietPeriodDuration
  *   the quiet period of the graceful shutdown of the worker event loop group
  * @param shutdownTimeoutDuration
@@ -94,7 +95,8 @@ final case class NettyConfig(
   /**
    * Returns a copy that uses `nThreads` threads for the worker event loop
    * group, or for the client's event loop group. With 0, Netty uses its
-   * default, twice the number of available processors.
+   * default: the `io.netty.eventLoopThreads` system property when it is set,
+   * else twice the number of available processors.
    */
   def maxThreads(nThreads: Int): NettyConfig = self.copy(nThreads = nThreads)
 
@@ -171,7 +173,8 @@ object NettyConfig {
    * `channel-type` or a `max-threads` that is not a number, the worker settings
    * are read from the same keys at the top level instead; otherwise the
    * top-level keys are not read. An unknown `boss-group.channel-type`, such as
-   * `foo`, fails with `Invalid channel type: foo`.
+   * `foo`, fails with a `Config.Error.InvalidData` whose message is `Invalid
+   * channel type: foo`.
    */
   def config: Config[NettyConfig] =
     (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
@@ -276,7 +279,8 @@ object NettyConfig {
     /**
      * A `zio.Config` that reads a level from one of the lowercase strings
      * `disabled`, `simple`, `advanced` or `paranoid`. Any other string, such as
-     * `SIMPLE`, fails with `Invalid leak detection level: SIMPLE`.
+     * `SIMPLE`, fails with a `Config.Error.InvalidData` whose message is
+     * `Invalid leak detection level: SIMPLE`.
      */
     def config: Config[LeakDetectionLevel] =
       Config.string.mapOrFail {
