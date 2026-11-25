@@ -23,6 +23,28 @@ import zio._
 
 import zio.http.internal.{HeaderOps, QueryOps}
 
+/**
+ * An HTTP request: method, URL, headers, body and protocol version, plus the
+ * remote address and TLS certificate of the client when the server knows them.
+ *
+ * A handler receives a `Request` on the server; a client builds one and sends
+ * it. The companion has constructors per method (`Request.get`,
+ * `Request.post`, ...), and the header and query parameter operations come
+ * from `HeaderOps` and `QueryOps`.
+ *
+ * {{{
+ * val request: Request =
+ *   Request
+ *     .post("/orders", Body.fromString("sku=A-12&qty=2"))
+ *     .addHeader(Header.ContentType(MediaType.application.`x-www-form-urlencoded`))
+ *
+ * request.method      // POST
+ * request.path.encode // /orders
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/request/ Request]]
+ */
 final case class Request(
   version: Version = Version.Default,
   method: Method = Method.ANY,
@@ -38,6 +60,12 @@ final case class Request(
    * A right-biased way of combining two requests. Most information will be
    * merged, but in cases where this does not make sense (e.g. two non-empty
    * bodies), the information from the right request will be used.
+   *
+   * The URLs are combined with `URL#++` (`/a` and `/b` give `/a/b`), the
+   * headers are concatenated, the method of `that` wins unless it is
+   * `Method.ANY`, and the body of `that` wins unless it is empty. The remote
+   * address of `that` is used when present; the remote certificate of neither
+   * request is kept.
    */
   def ++(that: Request): Request =
     Request(
@@ -49,7 +77,10 @@ final case class Request(
       that.remoteAddress.orElse(self.remoteAddress),
     )
 
-  /** Custom headers and headers required by the used Body */
+  /**
+   * Custom headers and headers required by the used Body. When the body has a
+   * media type, its `Content-Type` replaces any `Content-Type` in `headers`.
+   */
   val allHeaders: Headers = {
     body.mediaType match {
       case Some(mediaType) =>
@@ -59,8 +90,13 @@ final case class Request(
     }
   }
 
+  /** Adds a leading slash to the path, if it has none. */
   def addLeadingSlash: Request = self.copy(url = url.addLeadingSlash)
 
+  /**
+   * Adds `cookie` to the request's `Cookie` header, creating the header if
+   * there is none.
+   */
   def addCookie(cookie: Cookie.Request): Request =
     updateHeaders { (headers: Headers) =>
       if (headers.contains(Header.Cookie.name))
@@ -71,6 +107,10 @@ final case class Request(
         headers.addHeader(Header.Cookie(NonEmptyChunk(cookie)))
     }
 
+  /**
+   * Adds the cookies to the request's `Cookie` header, creating the header if
+   * there is none.
+   */
   def addCookies(cookie: Cookie.Request, cookies: Cookie.Request*): Request =
     updateHeaders { (headers: Headers) =>
       if (headers.contains(Header.Cookie.name))
@@ -87,11 +127,11 @@ final case class Request(
   def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
 
   /**
-   * Collects the potentially streaming body of the response into a single
+   * Collects the potentially streaming body of the request into a single
    * chunk.
    *
    * Any errors that occur from the collection of the body will be caught and
-   * propagated to the Body
+   * propagated to the Body: reading the new body fails with the same error.
    */
   def collect(implicit trace: Trace): ZIO[Any, Nothing, Request] =
     self.body.materialize.map { b =>
@@ -99,6 +139,7 @@ final case class Request(
       else self.copy(body = b)
     }
 
+  /** Removes the leading slash from the path, if it has one. */
   def dropLeadingSlash: Request = updateURL(_.dropLeadingSlash)
 
   /**
@@ -108,7 +149,7 @@ final case class Request(
 
   /**
    * Consumes the streaming body fully and then discards it while also ignoring
-   * any failures
+   * any failures. Returns the request with an empty body.
    */
   def ignoreBody(implicit trace: Trace): ZIO[Any, Nothing, Request] = {
     val out   = self.copy(body = Body.empty)
@@ -117,11 +158,14 @@ final case class Request(
     else body0.asStream.runDrain.ignore.as(out)
   }
 
+  /** Adds the headers and query parameters of `p` to this request. */
   def patch(p: Request.Patch): Request =
     self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
 
+  /** The path of the request URL. */
   def path: Path = url.path
 
+  /** Returns a request whose URL has the given path. */
   def path(path: Path): Request = updateURL(_.path(path))
 
   override def queryParameters: QueryParams =
@@ -136,13 +180,18 @@ final case class Request(
   override def updateQueryParams(f: QueryParams => QueryParams): Request =
     copy(url = url.updateQueryParams(f))
 
+  /** Returns a request whose URL is `f` applied to the current URL. */
   def updateURL(f: URL => URL): Request = copy(url = f(url))
 
+  /** Returns a request whose path is `f` applied to the current path. */
   def updatePath(f: Path => Path): Request = copy(url = url.copy(path = f(path)))
 
   /**
    * Unnests the request by the specified prefix. If the request URL is not
    * nested at the specified path, then this has no effect on the URL.
+   *
+   * The remaining path has no leading slash: unnesting `/api/v1/users` by
+   * `/api` gives `v1/users`.
    */
   def unnest(prefix: Path): Request =
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
@@ -171,7 +220,8 @@ final case class Request(
 
   /**
    * Uses the cookie with the given name if it exists and runs `f` with the
-   * cookie afterwards.
+   * cookie afterwards. When there is no such cookie, the effect fails with a
+   * `java.util.NoSuchElementException`.
    */
   def cookieWithZIO[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit
     trace: Trace,
@@ -212,38 +262,71 @@ final case class Request(
 
 }
 
+/** Constructors for [[Request]], one or two per HTTP method. */
 object Request {
+
+  /** Headers and query parameters to add to a request with `Request#patch`. */
   final case class Patch(addHeaders: Headers, addQueryParams: QueryParams) { self =>
+
+    /** Combines two patches: the result adds the headers and query parameters of both. */
     def ++(that: Patch): Patch =
       Patch(self.addHeaders ++ that.addHeaders, self.addQueryParams ++ that.addQueryParams)
   }
 
+  /**
+   * Creates a `DELETE` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def delete(path: String): Request = Request(method = Method.DELETE, url = pathOrUrl(path))
 
+  /** Creates a `DELETE` request for `url`, with an empty body. */
   def delete(url: URL): Request = Request(method = Method.DELETE, url = url)
 
+  /**
+   * Creates a `GET` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def get(path: String): Request = Request(method = Method.GET, url = pathOrUrl(path))
 
+  /** Creates a `GET` request for `url`, with an empty body. */
   def get(url: URL): Request = Request(method = Method.GET, url = url)
 
+  /**
+   * Creates a `HEAD` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def head(path: String): Request = Request(method = Method.HEAD, url = pathOrUrl(path))
 
+  /** Creates a `HEAD` request for `url`, with an empty body. */
   def head(url: URL): Request = Request(method = Method.HEAD, url = url)
 
+  /**
+   * Creates a `OPTIONS` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def options(path: String): Request = Request(method = Method.OPTIONS, url = pathOrUrl(path))
 
+  /** Creates a `OPTIONS` request for `url`, with an empty body. */
   def options(url: URL): Request = Request(method = Method.OPTIONS, url = url)
 
+  /**
+   * Creates a `PATCH` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def patch(path: String, body: Body): Request = Request(method = Method.PATCH, url = pathOrUrl(path), body = body)
 
+  /** Creates a `PATCH` request for `url` with the given body. */
   def patch(url: URL, body: Body): Request = Request(method = Method.PATCH, url = url, body = body)
 
+  /**
+   * Creates a `POST` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def post(path: String, body: Body): Request = Request(method = Method.POST, url = pathOrUrl(path), body = body)
 
+  /** Creates a `POST` request for `url` with the given body. */
   def post(url: URL, body: Body): Request = Request(method = Method.POST, url = url, body = body)
 
+  /**
+   * Creates a `PUT` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   */
   def put(path: String, body: Body): Request = Request(method = Method.PUT, url = pathOrUrl(path), body = body)
 
+  /** Creates a `PUT` request for `url` with the given body. */
   def put(url: URL, body: Body): Request = Request(method = Method.PUT, url = url, body = body)
 
   /**
@@ -257,7 +340,10 @@ object Request {
       URL(Path(path))
     }
 
+  /** Constructors for [[Request.Patch]]. */
   object Patch {
+
+    /** A patch that adds nothing. */
     val empty: Patch = Patch(Headers.empty, QueryParams.empty)
   }
 }
