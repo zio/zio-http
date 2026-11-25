@@ -24,9 +24,18 @@ import zio.http.internal.ChannelState
 
 import com.lihaoyi.unroll
 
+/**
+ * The network part of a client: it creates the connection pool and sends requests on connections. The Netty driver implements it on the JVM, and `Client.customized` creates a `Client` from one.
+ */
 trait ClientDriver {
+  /**
+   * The type of a connection to a server.
+   */
   type Connection
 
+  /**
+   * Sends `req` on `connection`. The driver completes `onResponse` with the response, and `onComplete` when the exchange ends, with the state that tells whether the connection can be reused. `createSocketApp` and `webSocketConfig` are used when the request upgrades to a WebSocket connection, and `bodyReadTimeoutMillis` is the timeout for reading the response body. Returns the interface that resets or interrupts the channel.
+   */
   def requestOnChannel(
     connection: Connection,
     location: URL.Location.Absolute,
@@ -63,17 +72,35 @@ trait ClientDriver {
         .flatMap(channelInterface => channelPromise.await.map((channelInterface, _)))
     }
 
+  /**
+   * Creates the pool of connections that the client uses, resolving host names with `dnsResolver`.
+   */
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Connection]]
 }
 
+/**
+ * The `shared` layer and the [[ClientDriver.ChannelInterface]] type.
+ */
 object ClientDriver {
+  /**
+   * Controls the channel of one request.
+   */
   trait ChannelInterface {
+    /**
+     * Prepares the channel for the next request and returns whether it can be reused.
+     */
     def resetChannel: ZIO[Any, Throwable, ChannelState]
+    /**
+     * Interrupts the exchange on the channel.
+     */
     def interrupt: ZIO[Any, Throwable, Unit]
   }
 
+  /**
+   * A layer that creates a `ClientDriver` from the server [[Driver]] in the environment, so that the client runs on the server's event loop threads.
+   */
   val shared: ZLayer[Driver, Throwable, ClientDriver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
