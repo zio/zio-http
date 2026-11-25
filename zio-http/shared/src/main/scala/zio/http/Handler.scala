@@ -226,7 +226,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.foldHandler(f, Handler.succeed(_))
 
   /**
-   * Recovers from every failure of this handler, including defects and interruption, by running the handler that `f` returns for the [[zio.Cause]], on the same input.
+   * Recovers from every failure of this handler, including defects and interruption, by running the handler that `f` returns for the `Cause`, on the same input.
    */
   final def catchAllCause[R1 <: R, Err1, In1 <: In, Out1 >: Out](f: Cause[Err] => Handler[R1, Err1, In1, Out1])(implicit
     trace: Trace,
@@ -355,7 +355,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Returns a handler that runs `onFailure` with the full [[zio.Cause]] when this handler fails (including defects and interruption), or `onSuccess` with the output when it succeeds. The chosen handler runs on the same input.
+   * Returns a handler that runs `onFailure` with the full `Cause` when this handler fails (including defects and interruption), or `onSuccess` with the output when it succeeds. The chosen handler runs on the same input.
    */
   final def foldCauseHandler[R1 <: R, Err1, In1 <: In, Out1](
     onFailure: Cause[Err] => Handler[R1, Err1, In1, Out1],
@@ -434,7 +434,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed(_))
 
   /**
-   * Handles every failure of this handler except pure interruption with the effect `f`, which receives the full [[zio.Cause]]: when `f` succeeds, its value becomes the output of the handler, and when `f` fails, its error becomes the new error.
+   * Handles every failure of this handler except pure interruption with the effect `f`, which receives the full `Cause`: when `f` succeeds, its value becomes the output of the handler, and when `f` fails, its error becomes the new error.
    */
   final def mapErrorCauseZIO[R1 <: R, Err1, Out1 >: Out](
     f: Cause[Err] => ZIO[R1, Err1, Out1],
@@ -459,7 +459,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.asInstanceOf[Handler[R, Err, In1, Out]]
 
   /**
-   * Returns a handler that runs `f` with the [[zio.Exit]] of this handler, whether it succeeds or fails, and then returns the original result. A failure of `f` becomes the failure of the handler.
+   * Returns a handler that runs `f` with the `Exit` of this handler, whether it succeeds or fails, and then returns the original result. A failure of `f` becomes the failure of the handler.
    */
   final def onExit[R1 <: R, Err1 >: Err](f: Exit[Err, Out] => ZIO[R1, Err1, Any])(implicit
     trace: Trace,
@@ -666,7 +666,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Returns a handler that runs `f` with the [[zio.Cause]] when this handler fails, then fails with the same cause. A failure of `f` replaces the original failure.
+   * Returns a handler that runs `f` with the `Cause` when this handler fails, then fails with the same cause. A failure of `f` replaces the original failure.
    */
   final def tapErrorCauseZIO[R1 <: R, Err1 >: Err](
     f: Cause[Err] => ZIO[R1, Err1, Any],
@@ -753,7 +753,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Returns a handler that runs the [[zio.ZIO]] effect that this handler produces, and succeeds with its result.
+   * Returns a handler that runs the `ZIO` effect that this handler produces, and succeeds with its result.
    */
   final def unwrapZIO[R1 <: R, Err1 >: Err, Out1](implicit
     ev: Out <:< ZIO[R1, Err1, Out1],
@@ -972,7 +972,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.Forbidden, message)
 
   /**
-   * Creates a handler from any value that has a [[ToHandler]] instance, such as a [[Response]], a [[zio.ZIO]] effect or a function. Same as the `handler` function of the `zio.http` package.
+   * Creates a handler from any value that has a [[ToHandler]] instance, such as a [[Response]], a `ZIO` effect or a function. Same as the `handler` function of the `zio.http` package.
    */
   def from[H](handler: => H)(implicit h: ToHandler[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
@@ -1017,12 +1017,12 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
   def fromFunctionEither[In]: FromFunctionEither[In] = new FromFunctionEither[In](())
 
   /**
-   * Creates a handler from a function that returns a [[zio.Exit]], which is the result of the handler.
+   * Creates a handler from a function that returns a `Exit`, which is the result of the handler.
    */
   def fromFunctionExit[In]: FromFunctionExit[In] = new FromFunctionExit[In](())
 
   /**
-   * Creates a handler from a function that returns a [[zio.ZIO]] effect, which the handler runs.
+   * Creates a handler from a function that returns a `ZIO` effect, which the handler runs.
    *
    * {{{
    * import zio._
@@ -1660,7 +1660,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
    */
   final class FromFunctionExit[In](val self: Unit) extends AnyVal {
     /**
-     * Creates a handler that completes with the [[zio.Exit]] that `f` returns. A non-fatal exception thrown by `f` becomes a defect.
+     * Creates a handler that completes with the `Exit` that `f` returns. A non-fatal exception thrown by `f` becomes a defect.
      */
     def apply[R, Err, Out](f: In => Exit[Err, Out]): Handler[Any, Err, In, Out] =
       new Handler[Any, Err, In, Out] {
