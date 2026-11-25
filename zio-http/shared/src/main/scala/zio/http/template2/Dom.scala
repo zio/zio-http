@@ -446,7 +446,9 @@ object Dom {
     /**
      * Returns this element with the modifiers applied in order: an attribute is
      * added, replacing an attribute with the same name, and a node is added as
-     * the last child.
+     * the last child. A `Seq[Modifier]` among `modifiers` is applied with
+     * `Modifier.iterableToModifier`, which also removes every child that is
+     * equal to an earlier child.
      */
     def apply(modifier: Modifier, modifiers: Modifier*): Element =
       apply(modifier +: modifiers)
@@ -558,8 +560,9 @@ object Dom {
    * it is passed to an element together with the element's children, and it
    * replaces an earlier attribute of that element with the same name. The two
    * kinds are `Dom.CompleteAttribute` and `Dom.BooleanAttribute`; the attribute
-   * values of `zio.http.template2`, such as `id` and `href`, create them with
-   * `:=`.
+   * values of `zio.http.template2`, such as `id` and `href`, create a
+   * `Dom.CompleteAttribute` with `:=`, and boolean ones such as `disabled` are
+   * `Dom.BooleanAttribute` values.
    *
    * {{{
    * val attrs: List[Dom.Attribute] = List(Dom.attr("lang", "fa"), Dom.boolAttr("hidden"))
@@ -619,7 +622,8 @@ object Dom {
   /**
    * An attribute with a name and a value. Its `selector` is `.value` for the
    * `class` attribute, `#value` for `id`, and `*[name="value"]` for other
-   * names, with the value as it renders.
+   * names, where the value is `value.toString`; a boolean value gives `true` or
+   * `false`.
    */
   final case class CompleteAttribute(name: String, value: AttributeValue) extends Attribute with CssSelectable {
     override val selector: CssSelector =

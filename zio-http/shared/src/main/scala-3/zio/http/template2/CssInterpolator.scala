@@ -39,7 +39,7 @@ trait CssInterpolator {
     inline def css(inline args: Any*): Css = ${ CssInterpolatorMacros.cssImpl('args, 'sc) }
 
     /**
-     * Creates a [[CssSelector]] (a `CssSelector.Raw`) from an interpolated string, inserting the arguments as the `s` interpolator does. When the string has no arguments, the macro checks at compile time that the text uses only letters, digits, whitespace and a fixed set of other characters, and stops compilation with an error otherwise: `selector"div!"` fails with the error `Invalid CSS selector syntax: div!`. On Scala 3 that set has no caret, so an attribute test with the CSS starts-with operator fails there; Scala 2 accepts it.
+     * Creates a [[CssSelector]] (a `CssSelector.Raw`) from an interpolated string, inserting the arguments as the `s` interpolator does. When the string has no arguments, the macro checks at compile time that the text uses only ASCII letters, digits, whitespace and a fixed set of other characters, and stops compilation with an error otherwise: `selector"div!"` fails with the error `Invalid CSS selector syntax: div!`. On Scala 3 that set has no caret, so an attribute test with the CSS starts-with operator fails there; Scala 2 accepts it.
      *
      * {{{
      * val links: CssSelector = selector"nav > a.active"

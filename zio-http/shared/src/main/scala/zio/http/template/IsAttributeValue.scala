@@ -40,8 +40,11 @@ object IsAttributeValue {
   }
 
   /**
-   * Joins the strings with a space, as in a `class` value:
-   * `Seq("btn", "primary")` gives `btn primary`.
+   * Joins the strings with a space. The helpers of `Attributes` are all
+   * `PartialAttribute[String]`, so this instance applies to a
+   * `PartialAttribute[Seq[String]]` built directly, such as
+   * `PartialAttribute[Seq[String]]("class")`: `Seq("btn", "primary")` gives
+   * `btn primary`.
    */
   implicit val instanceList: IsAttributeValue[Seq[String]] = new IsAttributeValue[Seq[String]] {
     override def apply(a: Seq[String]): String = a.mkString(" ")

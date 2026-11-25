@@ -296,7 +296,8 @@ object CssSelector {
 
     /**
      * Returns `inner` followed by the attribute test in brackets, such as
-     * `a[href*="zio"]`, or `[attribute]` when there is no `matcher`.
+     * `a[href*="zio"]`. With no `matcher` the test is `[attribute]`, as in
+     * `div[x]`.
      */
     def render: String = {
       val base     = if (inner.toString != "") inner.toString else ""

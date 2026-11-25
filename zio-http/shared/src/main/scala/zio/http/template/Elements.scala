@@ -546,7 +546,8 @@ trait Elements {
   /**
    * Returns a partial `param` element (a parameter for an object element):
    * apply it to children to get the element as a [[Dom]]. It is a void element:
-   * with no child content it renders as one self-closing tag.
+   * with no child content it renders as one self-closing tag. The HTML standard
+   * lists it as obsolete.
    */
   final def param: PartialElement = PartialElement("param")
 
