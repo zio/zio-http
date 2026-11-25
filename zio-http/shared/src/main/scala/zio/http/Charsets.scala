@@ -17,6 +17,9 @@
 package zio.http
 
 import java.nio.charset.{Charset, StandardCharsets}
+/**
+ * Character sets used by default when encoding and decoding HTTP content.
+ */
 object Charsets {
 
   /**
@@ -24,5 +27,6 @@ object Charsets {
    */
   val Http: Charset = StandardCharsets.UTF_8
 
+  /** The UTF-8 charset. */
   val Utf8: Charset = StandardCharsets.UTF_8
 }

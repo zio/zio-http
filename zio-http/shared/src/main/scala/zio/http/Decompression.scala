@@ -18,25 +18,42 @@ package zio.http
 
 import zio.Config
 
+/**
+ * Whether and how compressed message bodies are decompressed. `No` leaves bodies as they are, while `Strict` and `NonStrict` add a content decompressor to the Netty pipeline and differ in the `strict` flag handed to it.
+ */
 sealed trait Decompression {
+  /** Returns `true` when a content decompressor is added to the pipeline. It is `false` only for `Decompression.No`. */
   def enabled: Boolean
+  /** The value passed as the `strict` argument of Netty's `HttpContentDecompressor`. It is `true` only for `Decompression.Strict`. */
   def strict: Boolean
 }
 
+/**
+ * The decompression settings and a `Config` that reads them.
+ */
 object Decompression {
+  /** Decompression is disabled. */
   case object No        extends Decompression {
     override def enabled: Boolean = false
     override def strict: Boolean  = false
   }
+  /** Decompression is enabled and `strict` is `true`. */
   case object Strict    extends Decompression {
     override def enabled: Boolean = true
     override def strict: Boolean  = true
   }
+  /** Decompression is enabled and `strict` is `false`. */
   case object NonStrict extends Decompression {
     override def enabled: Boolean = true
     override def strict: Boolean  = false
   }
 
+  /**
+   * A `Config` that reads one of the strings `no`, `strict` and `nonstrict`,
+   * in lowercase, as `Decompression.No`, `Decompression.Strict` and
+   * `Decompression.NonStrict`. Any other string, including the same names in
+   * other casing, fails with a `Config.Error.InvalidData` whose message is `Invalid decompression value: ` followed by the string.
+   */
   def config: Config[Decompression] =
     Config.string.mapOrFail {
       case "no"        => Right(No)
