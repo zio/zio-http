@@ -24,7 +24,7 @@ import zio.schema.Schema
  * `MediaType.text.html` and `MediaType.application.json`.
  *
  * {{{
- * val html   = MediaType.forFileExtension("html") // Some(MediaType.text.html)
+ * val html   = MediaType.forFileExtension("html").map(_.fullType) // Some(text/html)
  * val json   = MediaType.forContentType("application/json; charset=utf-8")
  * val plain  = MediaType.text.plain.matches(MediaType.text.any) // true
  * }}}
@@ -136,9 +136,12 @@ object MediaType extends MediaTypes {
   /**
    * Parses a string of the form `main/sub` with optional `;name=value`
    * parameters into a media type that is not looked up among the predefined
-   * ones. The result is `None` when the part before the first `;` does not have
-   * exactly one `/`. The media type is marked as binary unless it starts with
-   * `text/` or is `*` and `*`, and it is not marked as compressible.
+   * ones. The result is `None` when the whole string does not split at `/` into
+   * exactly two parts, so a `/` in a parameter value also gives `None`;
+   * trailing `/` characters are ignored. The media type is marked as binary
+   * unless it starts with `text/` or is exactly the wildcard type, with `*` as
+   * main type and sub type and no parameters, and it is not marked as
+   * compressible.
    */
   def parseCustomMediaType(customMediaType: String): Option[MediaType] = {
     val contentTypeParts = customMediaType.split('/')

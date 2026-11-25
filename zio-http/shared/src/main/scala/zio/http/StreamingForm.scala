@@ -74,8 +74,9 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
   /**
    * Returns a stream of the fields, in the order they appear. A part whose
    * content type is binary is emitted as a `FormField.StreamingBinary` while
-   * its data is still arriving, and the other parts are emitted as
-   * `FormField.Text` fields.
+   * its data is still arriving. The other parts are emitted when they are
+   * complete: as `FormField.Text` fields, or as `FormField.Binary` fields with
+   * `application/octet-stream` when they have no `Content-Type` header.
    */
   def fields(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
     streamFormFields(bufferUpToBoundary = false)

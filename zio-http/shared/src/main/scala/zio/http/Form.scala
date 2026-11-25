@@ -228,7 +228,8 @@ object Form {
    * `FormDecodingError.FormDecodingException` that holds
    * `FormDecodingError.BoundaryNotFoundInContent` when there is none. Parts
    * whose content type is not binary become `FormField.Text` fields, and the
-   * others become `FormField.Binary` fields.
+   * others, including parts without a `Content-Type` header, become
+   * `FormField.Binary` fields.
    */
   def fromMultipartBytes(
     bytes: Chunk[Byte],
