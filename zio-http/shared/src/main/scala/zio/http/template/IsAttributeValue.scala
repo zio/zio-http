@@ -19,21 +19,30 @@ package zio.http.template
 import scala.language.implicitConversions
 
 /**
- * Checks if the value A can be represented as a valid html attribute.
+ * A type class that converts a value of type `A` into the string of an HTML attribute value. `PartialAttribute` uses it in `:=` and `apply`. It does not check the value; the attribute value is escaped when the element is rendered. The trait is sealed, so its instances are the three in the companion object: `String`, `Seq[String]` and `Seq[(String, String)]`.
  */
 sealed trait IsAttributeValue[-A] {
+
+  /** Returns `a` as an attribute value string. */
   def apply(a: A): String
 }
 
+/** The [[IsAttributeValue]] instances. */
 object IsAttributeValue {
+
+  /** Uses the string as it is. */
   implicit val instanceString: IsAttributeValue[String] = new IsAttributeValue[String] {
     override def apply(a: String): String = a
   }
 
+  /** Joins the strings with a space, as in a `class` value: `Seq("btn", "primary")` gives `btn primary`. */
   implicit val instanceList: IsAttributeValue[Seq[String]] = new IsAttributeValue[Seq[String]] {
     override def apply(a: Seq[String]): String = a.mkString(" ")
   }
 
+  /**
+   * Writes each pair as `key:value` and joins the pairs with `;`, as in a `style` value: `Seq("color" -> "red", "margin" -> "0")` gives `color:red;margin:0`. Keys and values are not checked.
+   */
   implicit val instanceTuple2Seq: IsAttributeValue[Seq[(String, String)]] =
     new IsAttributeValue[Seq[(String, String)]] {
       override def apply(a: Seq[(String, String)]): String =
