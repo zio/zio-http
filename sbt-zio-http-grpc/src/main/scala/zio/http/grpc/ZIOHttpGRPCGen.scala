@@ -15,7 +15,9 @@ import scalapb.compiler._
  * endpoint code for the services of `.proto` files. For each service it emits a
  * Scala file with the endpoints, and next to it a `Schemas.scala` file in the
  * same package with an implicit `Schema` for the request and response types of
- * that service's endpoints.
+ * that service's endpoints. The `Schemas.scala` file is named by the file path
+ * without its last element, so two services in one `.proto` file produce two
+ * `Schemas.scala` files with the same path.
  */
 object ZIOHttpGRPCGen extends CodeGenApp {
 
@@ -51,8 +53,8 @@ object ZIOHttpGRPCGen extends CodeGenApp {
   /**
    * Converts a generated code file to a protoc response file. The response file
    * is named by the code file's path joined with `/`, and its content is the
-   * rendered source, with the package taken from the path without its last two
-   * elements.
+   * rendered source, with the package made of the path without its last two
+   * elements (the proto package) followed by the proto file name.
    */
   def fileToPluginCode(file: Code.File): CodeGeneratorResponse.File = {
     val b = CodeGeneratorResponse.File.newBuilder()
