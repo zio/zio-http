@@ -129,33 +129,36 @@ final class H2ConnectionControl(
       future.complete()
       return future
     }
-    val thread = Thread
-      .ofVirtual()
-      .name("zio-http-h2-stream-timeout-" + streamId)
-      .start(runnable {
-        try {
-          TimeUnit.MILLISECONDS.sleep(timeoutMs)
-          // Re-check at send time (mirrors startRequestTimer's isStreamOpen
-          // guard): the stream may have completed between the wake-up check
-          // and the wire write below — never RST a completed stream.
-          if (!future.isCancelled && stillPending() && (!requireOpenStream || isStreamOpen(streamId))) {
-            try sendRstStream(streamId, errorCode)
-            catch {
-              case NonFatal(_) => ()
-            }
-          }
-          future.complete()
-        } catch {
-          case _: InterruptedException =>
-            if (future.isCancelled) future.complete()
-            else {
-              Thread.currentThread().interrupt()
-              future.complete()
-            }
-          case NonFatal(error)         => future.fail(error)
+    // Scheduled on the shared timer (no VT per request). Only if the deadline
+    // actually fires do we spawn a short-lived VT: the RST write blocks on the
+    // socket and must never stall the single timer thread.
+    val scheduled = H2ConnectionControl.scheduler.schedule(
+      runnable {
+        if (future.isCancelled) future.complete()
+        else {
+          val task = Thread
+            .ofVirtual()
+            .name("zio-http-h2-stream-timeout-" + streamId)
+            .unstarted(runnable {
+              try {
+                // Re-check at send time: the stream may have completed between
+                // the deadline firing and the wire write below.
+                if (!future.isCancelled && stillPending() && (!requireOpenStream || isStreamOpen(streamId))) {
+                  try sendRstStream(streamId, errorCode)
+                  catch { case NonFatal(_) => () }
+                }
+                future.complete()
+              } catch {
+                case NonFatal(error) => future.fail(error)
+              }
+            })
+          task.start()
         }
-      })
-    future.attach(thread)
+      },
+      timeoutMs,
+      TimeUnit.MILLISECONDS,
+    )
+    future.attachScheduled(scheduled)
     future
   }
 
@@ -165,25 +168,28 @@ final class H2ConnectionControl(
       future.complete()
       return future
     }
-    val thread = Thread
-      .ofVirtual()
-      .name("zio-http-h2-request-timeout-" + streamId)
-      .start(runnable {
-        try {
-          TimeUnit.MILLISECONDS.sleep(requestTimeoutMs)
-          if (!future.isCancelled && isStreamOpen(streamId)) sendRstStream(streamId, H2Error.Code.CANCEL)
-          future.complete()
-        } catch {
-          case _: InterruptedException =>
-            if (future.isCancelled) future.complete()
-            else {
-              Thread.currentThread().interrupt()
-              future.complete()
-            }
-          case NonFatal(error)         => future.fail(error)
+    val scheduled = H2ConnectionControl.scheduler.schedule(
+      runnable {
+        if (future.isCancelled) future.complete()
+        else {
+          val task = Thread
+            .ofVirtual()
+            .name("zio-http-h2-request-timeout-" + streamId)
+            .unstarted(runnable {
+              try {
+                if (!future.isCancelled && isStreamOpen(streamId)) sendRstStream(streamId, H2Error.Code.CANCEL)
+                future.complete()
+              } catch {
+                case NonFatal(error) => future.fail(error)
+              }
+            })
+          task.start()
         }
-      })
-    future.attach(thread)
+      },
+      requestTimeoutMs,
+      TimeUnit.MILLISECONDS,
+    )
+    future.attachScheduled(scheduled)
     future
   }
 
@@ -262,10 +268,13 @@ final class H2ConnectionControl(
   private final class VirtualTimerFuture(deadlineNanos: Long) extends ScheduledFuture[Unit] {
     private val doneRef                                              = new AtomicBoolean(false)
     private val cancelledRef                                         = new AtomicBoolean(false)
-    private val threadRef                                            = new AtomicReference[Thread](null)
+    private val threadRef                                            = new AtomicReference[ScheduledFuture[?]](null)
     private val failureRef                                           = new AtomicReference[Throwable](null)
     private val doneLatch                                            = new CountDownLatch(1)
-    def attach(thread: Thread): Unit                                 = threadRef.set(thread)
+    def attachScheduled(future: ScheduledFuture[?]): Unit            = {
+      threadRef.set(future)
+      if (cancelledRef.get()) future.cancel(false)
+    }
     def complete(): Unit                                             =
       if (doneRef.compareAndSet(false, true)) doneLatch.countDown()
     def fail(error: Throwable): Unit                                 = {
@@ -283,10 +292,8 @@ final class H2ConnectionControl(
       else {
         val cancelled = cancelledRef.compareAndSet(false, true)
         if (cancelled) {
-          if (mayInterruptIfRunning) {
-            val thread = threadRef.get()
-            if (thread != null) thread.interrupt()
-          }
+          val scheduled = threadRef.get()
+          if (scheduled != null) scheduled.cancel(false)
           complete()
         }
         cancelled

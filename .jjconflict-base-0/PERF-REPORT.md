@@ -12,6 +12,7 @@ All numbers are process-level measurements from an in-process harness of real `H
 | 2 | `test(server-loom): in-process idle/write perf harness + report` | `PerfIdle` harness | reproducible benchmarks |
 | 3 | `perf(server-loom): shared scheduler for idle deadlines` | per-conn idle-timer VT → 1 shared `ScheduledThreadPoolExecutor` | VTs/conn **3 → 2**; idle-timer VTs 500 → 0 |
 | 4 | `perf(server-loom): write response DATA directly, remove per-conn writer VT` | DATA written under `writeLock` from the handler VT; writer VT + queue drain deleted | VTs/conn **2 → 1** |
+| 5 | `perf(server-loom): request/header deadlines on shared scheduler` | `startRequestTimer`/`scheduleTimeoutRst` schedule on the shared timer; a VT is spawned only if a deadline actually fires | 2,000 request deadlines → **0 VTs** (was 1 VT each) |
 
 Each commit: `271/271 serverLoom tests pass`.
 
@@ -39,6 +40,12 @@ fixed   : mode=idle conns=1000 secs=8 cpu_seconds=0.000  cpu_per_conn_millicores
 
 At 1M connections: **3M VTs → 1M VTs**, all idle-writer CPU removed, and idle-timer work is one
 shared thread instead of 1M sleeping threads.
+
+### Request/header deadlines
+
+`startRequestTimer` × 2,000 (no cancellation) → **0 virtual threads** (the old code spawned one
+sleeping VT per deadline). The shared scheduler holds the deadline; a short-lived VT is created
+only if the deadline actually fires, so a healthy request creates no timer thread at all.
 
 ## Profiling (JFR)
 
@@ -76,9 +83,9 @@ of shipping a placebo. Static analysis had over-estimated this cost.
   bodies pay one flush/frame. Could batch per response later if a large-body throughput
   regression is observed.
 - A slow client now parks that stream's handler VT (backpressure) instead of a writer VT.
-- `request`/`header` timeout deadlines still use one short-lived VT per request
-  (`startRequestTimer`, `scheduleTimeoutRst`). That is a per-request, not per-connection cost;
-  a candidate next step is to move them onto the same shared scheduler.
+- `request`/`header` timeout deadlines now use the shared scheduler (commit 5): no VT per request;
+  a short-lived VT is spawned only when a deadline actually fires (rare), and the RST write never
+  runs on the single shared timer thread.
 
 ## Reproduce
 

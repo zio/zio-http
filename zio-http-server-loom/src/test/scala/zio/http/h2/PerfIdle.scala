@@ -7,6 +7,8 @@ import java.util.concurrent.locks.LockSupport
 import scala.annotation.experimental
 import scala.jdk.CollectionConverters._
 
+import zio.blocks.mux.Mux
+
 /** In-process perf harness for the Loom H2 connection.
   *
   * Isolates per-connection costs without sockets/network:
@@ -77,11 +79,32 @@ object PerfIdle {
     val x    = if (args.length > 2) args(2).toLong else 10L
 
     mode match {
-      case "idle" => idle(n, x.toInt)
-      case "feed" => feed(n, x)
-      case other  => println(s"unknown mode: $other (use idle|feed)"); sys.exit(2)
+      case "idle"   => idle(n, x.toInt)
+      case "feed"   => feed(n, x)
+      case "timers" => timers(n, x.toInt)
+      case other    => println(s"unknown mode: $other (use idle|feed|timers)"); sys.exit(2)
     }
     sys.exit(0)
+  }
+
+  private def timers(n: Int, secs: Int): Unit = {
+    // One control, N request deadlines started and never cancelled: with the old
+    // implementation this parks N virtual threads; with the shared scheduler it
+    // creates zero VTs until a deadline actually fires.
+    val control = new H2ConnectionControl(
+      new NullOut,
+      Mux[Int, H2Frame, H2Frame](n * 2 + 16),
+      requestTimeoutMs = 600000L,
+    )
+    val keep = new java.util.ArrayList[Any]()
+    var i    = 0
+    while (i < n) {
+      keep.add(control.startRequestTimer(i * 2 + 1))
+      i += 1
+    }
+    println(s"started $n request timers; sleeping $secs s (VT dump sampled externally)")
+    Thread.sleep(secs * 1000L)
+    println(s"timers done (kept ${keep.size()} futures)")
   }
 
   private def idle(n: Int, secs: Int): Unit = {
