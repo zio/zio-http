@@ -13,33 +13,39 @@ import zio.http.gen.openapi.Config.NormalizeFields
  *   via @fieldName annotations. Enabled by default.
  *
  * @param validateBeforeGeneration
- *   If true, validates the Smithy model before generating code. Validation
- *   errors will cause generation to fail with detailed messages.
+ *   If true, validates the Smithy model before generating code. The
+ *   `SmithyEndpointGen` methods that validate (all except `fromSmithyModel`)
+ *   then return a `Left` with the rendered errors when the model is invalid.
  *
  * @param generateCompanionObjects
  *   If true, generates companion objects with Schema derivation for all case
- *   classes.
+ *   classes. `SmithyEndpointGen` does not read this field.
  *
  * @param unwrapSingleMemberInputs
  *   If true, operations with single-member input structures will use the member
  *   type directly instead of the wrapper. e.g.,
- *   `GetUserInput { userId: String }` -> endpoint takes `String`
+ *   `GetUserInput { userId: String }` -> endpoint takes `String`.
+ *   `SmithyEndpointGen` does not read this field.
  *
  * @param generateEndpointsObject
  *   If true, generates a single `Endpoints` object containing all endpoint
  *   definitions. If false, generates separate files per operation.
+ *   `SmithyEndpointGen` does not read this field; it always generates one
+ *   `Endpoints` object.
  *
  * @param endpointsObjectName
  *   Name of the generated endpoints object (default: "Endpoints").
+ *   `SmithyEndpointGen` does not read this field; the generated object is
+ *   always named `Endpoints`.
  *
  * @param includeDocumentation
  *   If true, includes Smithy @documentation traits as Scaladoc comments in the
- *   generated code.
+ *   generated code. `SmithyEndpointGen` does not read this field.
  *
  * @param typeMapping
  *   Custom mapping of Smithy shape names to Scala types. Allows overriding
  *   default type mappings for specific shapes. e.g., Map("UserId" ->
- *   "java.util.UUID")
+ *   "java.util.UUID"). `SmithyEndpointGen` does not read this field.
  */
 final case class SmithyConfig(
   fieldNamesNormalization: NormalizeFields,
@@ -52,6 +58,9 @@ final case class SmithyConfig(
   typeMapping: Map[String, String],
 )
 
+/**
+ * Predefined `SmithyConfig` values and a ZIO Config descriptor for `SmithyConfig`.
+ */
 object SmithyConfig {
 
   /**
@@ -77,7 +86,7 @@ object SmithyConfig {
   )
 
   /**
-   * Config with validation disabled for faster generation during development
+   * The `default` config with `validateBeforeGeneration` set to false.
    */
   val fast: SmithyConfig = default.copy(validateBeforeGeneration = false)
 

@@ -3,16 +3,18 @@ package zio.http.gen.smithy
 /**
  * Smithy Model Validation
  *
- * Validates Smithy models according to the Smithy specification:
- * https://smithy.io/2.0/spec/model-validation.html
+ * Checks a `SmithyModel` against some of the rules of the Smithy
+ * specification: https://smithy.io/2.0/spec/model-validation.html
  *
- * Provides comprehensive validation with helpful error messages including:
+ * The checks are:
  *   - Shape reference validation (undefined references)
  *   - HTTP trait validation (path parameters, methods, status codes)
- *   - Constraint trait validation (@length, @range, @pattern)
- *   - Structure validation (required members, duplicate members)
+ *   - Constraint trait validation (`@length`, `@range`, `@pattern`,
+ *     `@timestampFormat`)
  *   - Operation validation (input/output/error shapes)
- *   - Service validation (referenced operations/resources exist)
+ *   - Service validation (referenced operations/resources are of the right kind)
+ *   - Enum validation (at least one member, no duplicate values)
+ *   - Union validation (at least one member)
  */
 object SmithyValidation {
 
@@ -25,6 +27,9 @@ object SmithyValidation {
     errorType: ErrorType,
     message: String,
   ) {
+    /**
+     * Renders the error as `location: [TYPE] message`. The location is `shape.member`, the shape name alone, `<unknown>.member` when only the member is known, or `<model>` when neither is known.
+     */
     def render: String = {
       val location = (shapeName, memberName) match {
         case (Some(shape), Some(member)) => s"$shape.$member"
@@ -36,27 +41,90 @@ object SmithyValidation {
     }
   }
 
+  /**
+   * The category of a validation error.
+   */
   sealed trait ErrorType {
+    /**
+     * Returns the upper-case name of the category, such as `UNDEFINED_SHAPE`, used in rendered messages.
+     */
     def name: String
   }
+  /**
+   * The categories of validation errors.
+   */
   object ErrorType       {
+    /**
+     * A reference points to a shape that is neither in the model nor in the prelude.
+     */
     case object UndefinedShape         extends ErrorType { def name = "UNDEFINED_SHAPE"          }
+    /**
+     * A reference to a member that does not exist. `SmithyValidation.validate` does not produce it.
+     */
     case object UndefinedMember        extends ErrorType { def name = "UNDEFINED_MEMBER"         }
+    /**
+     * The method of an `@http` trait is not GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE or CONNECT. The comparison ignores case.
+     */
     case object InvalidHttpMethod      extends ErrorType { def name = "INVALID_HTTP_METHOD"      }
+    /**
+     * The URI of an `@http` trait does not start with `/`.
+     */
     case object InvalidHttpPath        extends ErrorType { def name = "INVALID_HTTP_PATH"        }
+    /**
+     * A status code is out of range: an `@http` code outside 100 to 599, or an `@httpError` code outside 400 to 599.
+     */
     case object InvalidStatusCode      extends ErrorType { def name = "INVALID_STATUS_CODE"      }
+    /**
+     * A member has `@httpLabel` but its name is not a label of the URI.
+     */
     case object PathParameterMismatch  extends ErrorType { def name = "PATH_PARAMETER_MISMATCH"  }
+    /**
+     * A label of the URI has no member of that name in the operation input.
+     */
     case object MissingPathParameter   extends ErrorType { def name = "MISSING_PATH_PARAMETER"   }
+    /**
+     * The same label appears more than once in the URI.
+     */
     case object DuplicatePathParameter extends ErrorType { def name = "DUPLICATE_PATH_PARAMETER" }
+    /**
+     * A constraint trait has an invalid value. `SmithyValidation.validate` produces it for an unknown `@timestampFormat`.
+     */
     case object InvalidConstraint      extends ErrorType { def name = "INVALID_CONSTRAINT"       }
+    /**
+     * The regular expression of a `@pattern` trait does not compile.
+     */
     case object InvalidPattern         extends ErrorType { def name = "INVALID_PATTERN"          }
+    /**
+     * A trait is applied to a shape it does not support, or an input has more than one `@httpPayload` member.
+     */
     case object IncompatibleTrait      extends ErrorType { def name = "INCOMPATIBLE_TRAIT"       }
+    /**
+     * A required trait is missing: `@httpLabel` on a member that the URI names, or `@error` on an error structure of an operation.
+     */
     case object MissingRequiredTrait   extends ErrorType { def name = "MISSING_REQUIRED_TRAIT"   }
+    /**
+     * An input, output or error of an operation is not a structure. `SmithyValidation.validate` also uses it for a union without members.
+     */
     case object InvalidOperation       extends ErrorType { def name = "INVALID_OPERATION"        }
+    /**
+     * A service lists a shape that is not an operation or resource shape, or declares an empty version.
+     */
     case object InvalidService         extends ErrorType { def name = "INVALID_SERVICE"          }
+    /**
+     * An enum has no members, or two members of an enum have the same value.
+     */
     case object InvalidEnum            extends ErrorType { def name = "INVALID_ENUM"             }
+    /**
+     * A cyclic reference between shapes. `SmithyValidation.validate` does not produce it.
+     */
     case object CyclicReference        extends ErrorType { def name = "CYCLIC_REFERENCE"         }
+    /**
+     * A `@range` trait has a minimum greater than its maximum.
+     */
     case object InvalidRange           extends ErrorType { def name = "INVALID_RANGE"            }
+    /**
+     * A `@length` trait has a negative bound, or a minimum greater than its maximum.
+     */
     case object InvalidLength          extends ErrorType { def name = "INVALID_LENGTH"           }
   }
 
@@ -67,12 +135,24 @@ object SmithyValidation {
     errors: List[ValidationError],
     warnings: List[ValidationError],
   ) {
+    /**
+     * Returns `true` when there are no errors. Warnings do not affect the result.
+     */
     def isValid: Boolean     = errors.isEmpty
+    /**
+     * Returns `true` when there is at least one warning.
+     */
     def hasWarnings: Boolean = warnings.nonEmpty
 
+    /**
+     * Returns a result with the errors and warnings of this result followed by those of `other`.
+     */
     def ++(other: ValidationResult): ValidationResult =
       ValidationResult(errors ++ other.errors, warnings ++ other.warnings)
 
+    /**
+     * Renders the errors under an `Errors (n):` heading and the warnings under a `Warnings (n):` heading, separated by a blank line. Returns an empty string when there are neither.
+     */
     def render: String = {
       val errorMessages = if (errors.nonEmpty) {
         s"Errors (${errors.size}):\n" + errors.map(e => s"  - ${e.render}").mkString("\n")
@@ -86,12 +166,30 @@ object SmithyValidation {
     }
   }
 
+  /**
+   * Constructors for `ValidationResult`.
+   */
   object ValidationResult {
+    /**
+     * A result with no errors and no warnings.
+     */
     val empty: ValidationResult = ValidationResult(Nil, Nil)
 
+    /**
+     * Returns a result with the single error `e` and no warnings.
+     */
     def error(e: ValidationError): ValidationResult           = ValidationResult(List(e), Nil)
+    /**
+     * Returns a result with the single warning `w` and no errors.
+     */
     def warning(w: ValidationError): ValidationResult         = ValidationResult(Nil, List(w))
+    /**
+     * Returns a result with the errors `es` and no warnings.
+     */
     def errors(es: List[ValidationError]): ValidationResult   = ValidationResult(es, Nil)
+    /**
+     * Returns a result with the warnings `ws` and no errors.
+     */
     def warnings(ws: List[ValidationError]): ValidationResult = ValidationResult(Nil, ws)
   }
 
@@ -100,7 +198,8 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate a SmithyModel and return all errors and warnings
+   * Runs every check on `model` and returns the errors of all checks combined.
+   * The checks add errors only, so `warnings` of the result is empty.
    */
   def validate(model: SmithyModel): ValidationResult = {
     val validators: List[SmithyModel => ValidationResult] = List(
@@ -119,7 +218,9 @@ object SmithyValidation {
   }
 
   /**
-   * Validate and throw if there are errors
+   * Validates `model` and returns it when there are no errors. Throws a
+   * `SmithyValidationException` that carries the result when there is at least
+   * one error.
    */
   def validateOrThrow(model: SmithyModel): SmithyModel = {
     val result = validate(model)
@@ -129,6 +230,9 @@ object SmithyValidation {
     model
   }
 
+  /**
+   * The exception that `validateOrThrow` throws. Its message is `Smithy validation failed:` and the rendered `result`, and `result` holds the errors and warnings.
+   */
   class SmithyValidationException(val result: ValidationResult)
       extends RuntimeException(s"Smithy validation failed:\n${result.render}")
 
@@ -161,7 +265,8 @@ object SmithyValidation {
   )
 
   /**
-   * Validate that all shape references point to existing shapes
+   * Reports each reference whose target name is neither a prelude shape nor a
+   * shape of the model.
    */
   private def validateShapeReferences(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -246,7 +351,8 @@ object SmithyValidation {
   )
 
   /**
-   * Validate HTTP-related traits on operations
+   * Validates the `@http` traits of operations (method, status code, URI and
+   * labels, `@httpPayload`) and the `@httpError` codes of all shapes.
    */
   private def validateHttpTraits(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -387,7 +493,8 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate constraint traits like @length, @range, @pattern
+   * Validates the `@length`, `@range`, `@pattern` and `@timestampFormat`
+   * traits.
    */
   private def validateConstraintTraits(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -566,7 +673,8 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate operations have valid input/output types
+   * Validates that the input and output of an operation are structures and
+   * that its errors are structures with an error trait.
    */
   private def validateOperations(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -641,7 +749,8 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate services reference valid operations and resources
+   * Validates that a service lists operation shapes and resource shapes, and
+   * that its version is not empty.
    */
   private def validateServices(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -698,7 +807,8 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate enum shapes have at least one member
+   * Validates that enum and intEnum shapes have at least one member and no
+   * duplicate values.
    */
   private def validateEnums(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
@@ -759,7 +869,7 @@ object SmithyValidation {
   // ===========================================================================
 
   /**
-   * Validate union shapes have at least one member
+   * Validates that union shapes have at least one member.
    */
   private def validateUnions(model: SmithyModel): ValidationResult = {
     val errors = scala.collection.mutable.ListBuffer.empty[ValidationError]
