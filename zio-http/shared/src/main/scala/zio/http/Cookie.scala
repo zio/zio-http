@@ -264,7 +264,8 @@ object Cookie {
   object Request {
 
     /**
-     * Decodes a request cookie from a string.
+     * Decodes the value of a `Cookie` request header into request cookies, as
+     * `Cookie.decodeRequest` does.
      */
     def decode(header: String, validate: Boolean = false): Either[Exception, Chunk[Cookie.Request]] = {
       try {

@@ -400,7 +400,9 @@ object Flash {
   def getBoolean(key: String): Flash[Boolean] = get[Boolean](key)
 
   /**
-   * Gets the first flash value of type `A` regardless of any key.
+   * Gets a flash value of type `A` regardless of its key: the keys are tried in
+   * the iteration order of the decoded map, and the first value that decodes as
+   * `A` is returned.
    */
   def get[A: Schema]: Flash[A] = withInput { map =>
     map.keys.map(a => Flash.get(a)(Schema[A])).foldLeft[Flash[A]](Flash.fail("no flash set")) { case (lhs, rhs) =>
