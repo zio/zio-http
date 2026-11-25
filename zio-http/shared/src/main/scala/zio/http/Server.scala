@@ -191,7 +191,9 @@ object Server extends ServerPlatformSpecific {
       self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
 
     /**
-     * When `true`, a `HEAD` request is handled by the matching `GET` route, but only when the routes contain no `HEAD` route at all (a route for `Method.ANY` counts as one). The default is `false`.
+     * When `true`, a `HEAD` request is handled by the matching `GET` route, but
+     * only when the routes contain no `HEAD` route at all (a route for
+     * `Method.ANY` counts as one). The default is `false`.
      */
     def generateHeadRoutes(enable: Boolean): Config = self.copy(generateHeadRoutes = enable)
 

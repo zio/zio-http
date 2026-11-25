@@ -55,7 +55,8 @@ object Proxy {
   /**
    * Reads a proxy from the key `url`, the optional keys `credentials.user` and
    * `credentials.password`, and the optional list `headers` of `name` and
-   * `value` pairs. A `url` that is not a valid URL fails with the message of `URL.decode`: `Invalid URL: ` followed by the input in double quotes.
+   * `value` pairs. A `url` that is not a valid URL fails with the message of
+   * `URL.decode`: `Invalid URL: ` followed by the input in double quotes.
    */
   def config: Config[Proxy] =
     (

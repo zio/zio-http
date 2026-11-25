@@ -64,7 +64,10 @@ sealed trait Route[-Env, +Err] { self =>
    * This method can be used to convert a route that does not handle its errors
    * into one that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCauseZIO { cause =>
@@ -79,7 +82,10 @@ sealed trait Route[-Env, +Err] { self =>
    * that produces a response. This method can be used to convert a route that
    * does not handle its errors into one that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorZIO[Env1 <: Env](
     f: Err => ZIO[Env1, Nothing, Response],
@@ -96,7 +102,10 @@ sealed trait Route[-Env, +Err] { self =>
    * converting them into responses. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self match {
@@ -131,7 +140,10 @@ sealed trait Route[-Env, +Err] { self =>
    * can be used to convert a route that does not handle its errors into one
    * that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorCauseZIO[Env1 <: Env](
     f: Cause[Err] => ZIO[Env1, Nothing, Response],
@@ -243,7 +255,10 @@ sealed trait Route[-Env, +Err] { self =>
    * used to convert a route that does not handle its errors into one that does
    * handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorRequest(f: (Err, Request) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorRequestCauseZIO((request, cause) =>
@@ -256,7 +271,10 @@ sealed trait Route[-Env, +Err] { self =>
    * error. This method can be used to convert a route that does not handle its
    * errors into one that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorRequestZIO[Env1 <: Env](
     f: (Err, Request) => ZIO[Env1, Nothing, Response],
@@ -274,7 +292,10 @@ sealed trait Route[-Env, +Err] { self =>
    * the error. This method can be used to convert a route that does not handle
    * its errors into one that does handle its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorRequestCause(f: (Request, Cause[Err]) => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self match {
@@ -320,7 +341,10 @@ sealed trait Route[-Env, +Err] { self =>
    * convert a route that does not handle its errors into one that does handle
    * its errors.
    *
-   * If the route was built from a handler that takes only the `Request` and uses the error channel to send responses, those responses are not passed to the provided function. For a route whose handler takes path parameters, a `Response` error is passed to it like any other error.
+   * If the route was built from a handler that takes only the `Request` and
+   * uses the error channel to send responses, those responses are not passed to
+   * the provided function. For a route whose handler takes path parameters, a
+   * `Response` error is passed to it like any other error.
    */
   final def handleErrorRequestCauseZIO[Env1 <: Env](
     f: (Request, Cause[Err]) => ZIO[Env1, Nothing, Response],
@@ -404,12 +428,20 @@ sealed trait Route[-Env, +Err] { self =>
     Route.Provided(self, env)
 
   /**
-   * The route pattern over which the route is defined. [[Routes]] sends a route only the requests that match it.
+   * The route pattern over which the route is defined. [[Routes]] sends a route
+   * only the requests that match it.
    */
   def routePattern: RoutePattern[_]
 
   /**
-   * Runs this route on `request`, without requiring its errors to be handled, like `Routes.run`. A request that does not match the route succeeds with a 404 Not Found response. Although the error type is `Either[Err, Response]`, the effect succeeds with a response: a typed error or a defect of the route becomes a 500 Internal Server Error response. A `Response` error of a route whose handler takes only the `Request` is returned as the response instead; a `Response` error of a route whose handler takes path parameters also becomes 500.
+   * Runs this route on `request`, without requiring its errors to be handled,
+   * like `Routes.run`. A request that does not match the route succeeds with a
+   * 404 Not Found response. Although the error type is `Either[Err, Response]`,
+   * the effect succeeds with a response: a typed error or a defect of the route
+   * becomes a 500 Internal Server Error response. A `Response` error of a route
+   * whose handler takes only the `Request` is returned as the response instead;
+   * a `Response` error of a route whose handler takes path parameters also
+   * becomes 500.
    */
   final def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] =
     Routes(self).run(request)

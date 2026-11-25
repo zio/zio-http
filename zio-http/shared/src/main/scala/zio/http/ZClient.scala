@@ -906,9 +906,17 @@ object ZClient extends ZClientPlatformSpecific {
   }
 
   /**
-   * Configuration of the client that the layers `Client.default`, `Client.fromConfig`, `Client.live`, `Client.configured` and `Client.customized` create. `Config.default` has no SSL configuration or proxy, a fixed connection pool of 10 connections, a maximum initial line length of 4096 and a maximum header size of 8192, no response decompression, the `User-Agent` header, an idle timeout of 50 seconds, no connection timeout, and no body read timeout of its own (the idle timeout still applies while the body is read).
+   * Configuration of the client that the layers `Client.default`,
+   * `Client.fromConfig`, `Client.live`, `Client.configured` and
+   * `Client.customized` create. `Config.default` has no SSL configuration or
+   * proxy, a fixed connection pool of 10 connections, a maximum initial line
+   * length of 4096 and a maximum header size of 8192, no response
+   * decompression, the `User-Agent` header, an idle timeout of 50 seconds, no
+   * connection timeout, and no body read timeout of its own (the idle timeout
+   * still applies while the body is read).
    *
-   * On Scala.js, the client sends requests with the Fetch API, and only `addUserAgentHeader` is used.
+   * On Scala.js, the client sends requests with the Fetch API, and only
+   * `addUserAgentHeader` is used.
    */
   final case class Config(
     ssl: Option[ClientSSLConfig],
@@ -1264,7 +1272,13 @@ object ZClient extends ZClientPlatformSpecific {
     )
 
     /**
-     * Reads a [[ZClient.Config]] with ZIO Config, from the keys `ssl`, `proxy`, `connection-pool`, `max-initial-line-length`, `max-header-size`, `request-decompression`, `add-user-agent-header`, `idle-timeout`, `connection-timeout` and `body-read-timeout`. A missing key takes its value from `Config.default`, except `idle-timeout`: when it is missing, the config has no idle timeout, while `Config.default` has 50 seconds. `localAddress` and `webSocketConfig` always keep their default values.
+     * Reads a [[ZClient.Config]] with ZIO Config, from the keys `ssl`, `proxy`,
+     * `connection-pool`, `max-initial-line-length`, `max-header-size`,
+     * `request-decompression`, `add-user-agent-header`, `idle-timeout`,
+     * `connection-timeout` and `body-read-timeout`. A missing key takes its
+     * value from `Config.default`, except `idle-timeout`: when it is missing,
+     * the config has no idle timeout, while `Config.default` has 50 seconds.
+     * `localAddress` and `webSocketConfig` always keep their default values.
      */
     def config: zio.Config[Config] =
       (

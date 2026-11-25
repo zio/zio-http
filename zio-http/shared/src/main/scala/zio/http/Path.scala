@@ -78,9 +78,9 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   /**
    * Combines two paths together to create a new one, having a leading slash if
    * the left path has a leading slash, and a trailing slash if the right path
-   * has a trailing slash or is the root path. Note that if you concat the empty path to any other
-   * path, either on the left or right hand side, you get back that same path
-   * unmodified.
+   * has a trailing slash or is the root path. Note that if you concat the empty
+   * path to any other path, either on the left or right hand side, you get back
+   * that same path unmodified.
    */
   def ++(that: Path): Path =
     if (self.isEmpty) that

@@ -23,7 +23,8 @@ import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderOps}
 /**
  * Represents an immutable collection of headers. It is an `Iterable[Header]`
  * that also has operators to read the headers by name or by header type, and
- * the operators defined here to combine and modify headers. Header names are matched ignoring case.
+ * the operators defined here to combine and modify headers. Header names are
+ * matched ignoring case.
  *
  * {{{
  * val headers = Headers("X-Request-Id" -> "42") ++ Headers(Header.ContentLength(3))
@@ -75,7 +76,11 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
    */
   final def get(key: CharSequence): Option[String] = Option(getUnsafe(key))
 
-  /** Returns the value of the header with the name of the given type, found as `get(key)` finds it, parsed as that type, or `None` when there is none or it cannot be parsed. */
+  /**
+   * Returns the value of the header with the name of the given type, found as
+   * `get(key)` finds it, parsed as that type, or `None` when there is none or
+   * it cannot be parsed.
+   */
   final def get(headerType: Header.HeaderType): Option[headerType.HeaderValue] = header(headerType)
 
   /**

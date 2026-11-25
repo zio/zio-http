@@ -40,7 +40,11 @@ import zio.http.multipart.mixed.MultipartMixed
  * `Body.fromStream...`, `Body.fromFile`, `Body.json`, forms); the `as...`
  * methods read a body back as bytes, a string, a stream, a form or JSON.
  *
- * A body may carry a [[Body.ContentType]]. A [[Request]] sends it as its `Content-Type` header (see `Request#allHeaders`). A [[Response]] made with `Response(body = ...)` does not: set the header on the response, or use a constructor that sets it, such as `Response.json` or `Response.error(status, body)`.
+ * A body may carry a [[Body.ContentType]]. A [[Request]] sends it as its
+ * `Content-Type` header (see `Request#allHeaders`). A [[Response]] made with
+ * `Response(body = ...)` does not: set the header on the response, or use a
+ * constructor that sets it, such as `Response.json` or
+ * `Response.error(status, body)`.
  *
  * {{{
  * import zio._
@@ -451,9 +455,11 @@ object Body {
     ChunkBody(data, Some(contentType))
 
   /**
-   * Constructs a [[zio.http.Body]] from the contents of a file. When the body is streamed, the file is read in chunks of `chunkSize` bytes; `asArray`, `asChunk` and `asString` read the whole file at once. The file
-   * length is read when the body is built; a file that does not exist gives a
-   * body of length 0 whose reads fail.
+   * Constructs a [[zio.http.Body]] from the contents of a file. When the body
+   * is streamed, the file is read in chunks of `chunkSize` bytes; `asArray`,
+   * `asChunk` and `asString` read the whole file at once. The file length is
+   * read when the body is built; a file that does not exist gives a body of
+   * length 0 whose reads fail.
    */
   def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
     ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>

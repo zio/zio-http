@@ -936,7 +936,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.BadRequest)
 
   /**
-   * Creates a handler that always responds with status 400 Bad Request, like `error(Status.BadRequest, message)`: `message` is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * Creates a handler that always responds with status 400 Bad Request, like
+   * `error(Status.BadRequest, message)`: `message` is in the body only when the
+   * current [[ErrorResponseConfig]] has `withErrorBody` set, which by default
+   * is the case only in `Mode.Dev`.
    */
   def badRequest(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.BadRequest, message)
@@ -1069,7 +1072,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.Forbidden)
 
   /**
-   * Creates a handler that always responds with status 403 Forbidden, like `error(Status.Forbidden, message)`: `message` is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * Creates a handler that always responds with status 403 Forbidden, like
+   * `error(Status.Forbidden, message)`: `message` is in the body only when the
+   * current [[ErrorResponseConfig]] has `withErrorBody` set, which by default
+   * is the case only in `Mode.Dev`.
    */
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.Forbidden, message)
@@ -1110,7 +1116,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     }
 
   /**
-   * Creates a handler from a pure function of the input. The type parameter is the input type, and the function comes in a second argument list: `Handler.fromFunction[Request](request => Response.text(request.method.name))`. A non-fatal exception thrown by the function becomes a defect.
+   * Creates a handler from a pure function of the input. The type parameter is
+   * the input type, and the function comes in a second argument list:
+   * `Handler.fromFunction[Request](request => Response.text(request.method.name))`.
+   * A non-fatal exception thrown by the function becomes a defect.
    */
   def fromFunction[In]: FromFunction[In] = new FromFunction[In](())
 
@@ -1167,9 +1176,17 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     fromFileZIO(ZIO.attempt(makeFile), charset)
 
   /**
-   * Creates a handler that serves the file returned by `getFile`, which runs on each request. The response has the headers `Accept-Ranges: bytes`, a weak `ETag`, `Last-Modified`, and a `Content-Type` found from the file extension, with `charset` for text types. `Range` requests get a 206 Partial Content or 416 Range Not Satisfiable response; when an `If-Range` header does not match the file's `ETag` or `Last-Modified`, the whole file is sent.
+   * Creates a handler that serves the file returned by `getFile`, which runs on
+   * each request. The response has the headers `Accept-Ranges: bytes`, a weak
+   * `ETag`, `Last-Modified`, and a `Content-Type` found from the file
+   * extension, with `charset` for text types. `Range` requests get a 206
+   * Partial Content or 416 Range Not Satisfiable response; when an `If-Range`
+   * header does not match the file's `ETag` or `Last-Modified`, the whole file
+   * is sent.
    *
-   * The handler fails with a `java.io.FileNotFoundException` when the file does not exist, a `java.nio.file.AccessDeniedException` when it can't be read, and a `java.nio.file.NotDirectoryException` when it is a directory.
+   * The handler fails with a `java.io.FileNotFoundException` when the file does
+   * not exist, a `java.nio.file.AccessDeniedException` when it can't be read,
+   * and a `java.nio.file.NotDirectoryException` when it is a directory.
    */
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File], charset: Charset = Charsets.Utf8)(implicit
     trace: Trace,
@@ -1469,7 +1486,10 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.InternalServerError)
 
   /**
-   * Creates a handler that always responds with status 500 Internal Server Error, like `error(Status.InternalServerError, message)`: `message` is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * Creates a handler that always responds with status 500 Internal Server
+   * Error, like `error(Status.InternalServerError, message)`: `message` is in
+   * the body only when the current [[ErrorResponseConfig]] has `withErrorBody`
+   * set, which by default is the case only in `Mode.Dev`.
    */
   def internalServerError(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.InternalServerError, message)
@@ -1482,13 +1502,19 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.MethodNotAllowed)
 
   /**
-   * Creates a handler that always responds with status 405 Method Not Allowed, like `error(Status.MethodNotAllowed, message)`: `message` is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * Creates a handler that always responds with status 405 Method Not Allowed,
+   * like `error(Status.MethodNotAllowed, message)`: `message` is in the body
+   * only when the current [[ErrorResponseConfig]] has `withErrorBody` set,
+   * which by default is the case only in `Mode.Dev`.
    */
   def methodNotAllowed(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.MethodNotAllowed, message)
 
   /**
-   * A handler that responds with status 404 Not Found, like `error(Status.NotFound, path)` with the request path as the message. The message is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * A handler that responds with status 404 Not Found, like
+   * `error(Status.NotFound, path)` with the request path as the message. The
+   * message is in the body only when the current [[ErrorResponseConfig]] has
+   * `withErrorBody` set, which by default is the case only in `Mode.Dev`.
    */
   val notFound: Handler[Any, Nothing, Request, Response] =
     Handler
@@ -1497,13 +1523,21 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
       }
 
   /**
-   * Creates a handler that always responds with status 404 Not Found, like `error(Status.NotFound, message)`: `message` is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`.
+   * Creates a handler that always responds with status 404 Not Found, like
+   * `error(Status.NotFound, message)`: `message` is in the body only when the
+   * current [[ErrorResponseConfig]] has `withErrorBody` set, which by default
+   * is the case only in `Mode.Dev`.
    */
   def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
     error(Status.NotFound, message)
 
   /**
-   * Creates a handler that responds with status 404 Not Found, like `error(Status.NotFound, path)` with the request path as the message. The message is in the body only when the current [[ErrorResponseConfig]] has `withErrorBody` set, which by default is the case only in `Mode.Dev`. The `routes` argument is not used: the result is the same as the `notFound` value.
+   * Creates a handler that responds with status 404 Not Found, like
+   * `error(Status.NotFound, path)` with the request path as the message. The
+   * message is in the body only when the current [[ErrorResponseConfig]] has
+   * `withErrorBody` set, which by default is the case only in `Mode.Dev`. The
+   * `routes` argument is not used: the result is the same as the `notFound`
+   * value.
    */
   def notFound(routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
     Handler
