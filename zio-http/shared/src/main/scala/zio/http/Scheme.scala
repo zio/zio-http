@@ -129,7 +129,9 @@ object Scheme {
    * `isSecure` is `None`.
    *
    * @param scheme
-   *   value MUST not be "http" "https" "ws" "wss"
+   *   the scheme text, in lowercase. `Scheme.decode` gives a `Custom` for every
+   *   string other than the exact lowercase `http`, `https`, `ws` and `wss`, so
+   *   `HTTP` gives a `Custom` with the text `http`.
    */
   sealed abstract case class Custom private[http] (scheme: String) extends Scheme
 

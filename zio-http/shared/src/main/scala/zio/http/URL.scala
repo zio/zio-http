@@ -185,7 +185,9 @@ final case class URL(
   /**
    * @return
    *   the host name, followed by `:` and the port when the URL has a port that
-   *   is not the default port of its scheme. `None` for a relative URL.
+   *   differs from the default port of its scheme. For a scheme without a
+   *   default port, such as a `Scheme.Custom`, it is the host name alone.
+   *   `None` for a relative URL.
    */
   def hostPort: Option[String] =
     kind match {
@@ -426,8 +428,9 @@ object URL {
    * `java.net.URI`: one with a scheme is an absolute URL and needs a host (so
    * `mailto:a@b.com` and `http:///a` fail), and one without a scheme is a
    * relative URL. Dot segments in the path are removed. Returns a `Left` with a
-   * `java.net.MalformedURLException` whose message is `Invalid URL: "..."`
-   * followed by the input when the string cannot be parsed.
+   * `java.net.MalformedURLException` when the string cannot be parsed. Its
+   * message is `Invalid URL: ` followed by the input in double quotes, for
+   * example `Invalid URL: "http:///a"`.
    */
   def decode(rawUrl: String): Either[MalformedURLException, URL] = {
     def invalidURL(e: Throwable = null): Either[MalformedURLException, URL] = Left(new Err(rawUrl = rawUrl, cause = e))

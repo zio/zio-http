@@ -27,9 +27,10 @@ import zio.http.internal.{QueryParamEncoding, ThreadLocals}
  * whether there are leading and trailing slashes in the path. This allows for a
  * combination of precision and performance and supports a rich API.
  *
- * The leading and trailing slashes count in `size`, `take`, `drop` and
- * `dropRight`. Two paths are equal when they have the same segments and the
- * same slash flags, so `/a` and `a` are different paths.
+ * The leading and trailing slashes count in `size`, `take` and `dropRight`, and
+ * the leading slash counts in `drop`. Two paths are equal when they have the
+ * same segments and the same slash flags, so `/a` and `a` are different paths.
+ * A path without segments is compared as the empty path or as the root path.
  *
  * {{{
  * val path    = Path("/users") / "42"
@@ -77,7 +78,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   /**
    * Combines two paths together to create a new one, having a leading slash if
    * the left path has a leading slash, and a trailing slash if the right path
-   * has a trailing slash. Note that if you concat the empty path to any other
+   * has a trailing slash or is the root path. Note that if you concat the empty path to any other
    * path, either on the left or right hand side, you get back that same path
    * unmodified.
    */
@@ -110,8 +111,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   /**
    * Drops the first n segments from the path. A leading slash counts as one
    * segment. A trailing slash is not dropped, so dropping every segment of a
-   * path that has a trailing slash leaves `/`. A non-positive `n` returns the
-   * path unchanged.
+   * path that has segments and a trailing slash leaves `/`, while the root path
+   * becomes the empty path. A non-positive `n` returns the path unchanged.
    */
   def drop(n: Int): Path =
     if (n <= 0) self
