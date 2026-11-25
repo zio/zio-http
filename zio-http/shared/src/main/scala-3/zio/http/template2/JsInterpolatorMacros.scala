@@ -19,10 +19,13 @@ package zio.http.template2
 import scala.quoted.*
 
 /**
- * Macro implementations for JavaScript interpolation (Scala 3.x)
+ * Macro implementation of the `js` string interpolator.
  */
 object JsInterpolatorMacros {
 
+  /**
+   * Expands a `js` interpolation to `Js.apply` of the `s`-interpolated string. On Scala 2, when the string has no arguments, it first checks the text and reports a compile error with the message `Invalid JavaScript syntax:` followed by the text when the check fails; on Scala 3 it does not report this error.
+   */
   def jsImpl(args: Expr[Seq[Any]], sc: Expr[StringContext])(using Quotes): Expr[Js] = {
     import quotes.reflect.*
     // Extract StringContext value and perform validation when possible
