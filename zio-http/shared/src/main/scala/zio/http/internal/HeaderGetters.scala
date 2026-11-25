@@ -134,7 +134,12 @@ trait HeaderGetters { self =>
    */
   def headers: Headers
 
-  /** Gets the raw unparsed value of the first header with this name. */
+  /**
+   * Gets the raw unparsed value of a header with this name, ignoring case. When
+   * several headers have the name, headers joined with `++` (as `addHeader`
+   * does) give the value added last; within one `Headers(...)` the first one is
+   * returned.
+   */
   final def rawHeader(name: CharSequence): Option[String] = headers.get(name)
 
   /** Returns the raw values of all headers with this name, ignoring case. */
@@ -145,7 +150,10 @@ trait HeaderGetters { self =>
         .map(_.renderedValue),
     )
 
-  /** Gets the raw unparsed value of the first header with the type's name. */
+  /**
+   * Gets the raw unparsed value of a header with the type's name, chosen as
+   * `rawHeader(name)` chooses it.
+   */
   final def rawHeader(headerType: HeaderType): Option[String] =
     rawHeader(headerType.name)
 }

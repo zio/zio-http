@@ -21,7 +21,9 @@ trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
   /**
    * Returns `true` when an entry with this key exists, including one without
-   * values; the name is compared with the `String` key by `equals`.
+   * values. On a `URL` or a `Request` the name is compared with the `String`
+   * key by `equals`, so a non-`String` `CharSequence` never matches;
+   * `QueryParams` overrides it to compare `name.toString`.
    */
   def hasQueryParam(name: CharSequence): Boolean =
     queryParameters.seq.exists(_.getKey == name)

@@ -55,13 +55,16 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
   final def hasHeader(name: CharSequence): Boolean =
     rawHeader(name).nonEmpty
 
-  /** Returns `true` when a header of this type is present and parses. */
+  /**
+   * Returns `true` when the value that `rawHeader(headerType)` returns parses
+   * as this type.
+   */
   final def hasHeader(headerType: HeaderType): Boolean =
     header(headerType).nonEmpty
 
   /**
-   * Returns `true` when the header of the same type parses to a value equal to
-   * `header`.
+   * Returns `true` when the value that `rawHeader(header.headerType)` returns
+   * parses to a value equal to `header`.
    */
   final def hasHeader(header: Header): Boolean =
     self.header(header.headerType).contains(header)
