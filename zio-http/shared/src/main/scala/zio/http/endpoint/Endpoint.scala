@@ -34,20 +34,43 @@ import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 import zio.http.internal.StringBuilderPool
 
 /**
- * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
- * protocol. Every `API` has an input, which comes from a combination of the
- * HTTP route, query string parameters, and headers, and an output, which is the
- * data computed by the handler of the API.
+ * An `Endpoint` describes one HTTP API operation as data: its route pattern,
+ * the request input it reads (path parameters, query parameters, headers and
+ * body), the output and error types it writes in the response, its
+ * authentication type and its documentation. `Endpoint(route)` creates one, and
+ * builder methods such as `query`, `header`, `in`, `out`, `outError` and `auth`
+ * each return a new endpoint with one more part.
  *
- * MiddlewareInput : Example: A subset of `HttpCodec[Input]` that doesn't give
- * access to `Input` MiddlewareOutput: Example: A subset of `Out[Output]` that
- * doesn't give access to `Output` Input: Example: Int Output: Example: User
+ * The type parameters are the type of the path parameters (`PathInput`), the
+ * type of the whole request input (`Input`), the error type (`Err`), the output
+ * type (`Output`) and the authentication type (`Auth`). `Input` holds the
+ * values of all input parts, as a tuple when there are several; a part of type
+ * `Unit`, such as a literal path segment, adds no element.
  *
- * As [[zio.http.endpoint.Endpoint]] is a purely declarative encoding of an
- * endpoint, it is possible to use this model to generate a [[zio.http.Route]]
- * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
- * to generate a type-safe Scala client for the endpoint, and possibly, to
- * generate client libraries in other programming languages.
+ * Because an endpoint is a description, one value serves several uses:
+ * `implement` turns it into a server [[zio.http.Route]], `OpenAPIGen` turns it
+ * into an OpenAPI document, and `apply` makes an [[Invocation]] that an
+ * [[EndpointExecutor]] sends as a client request.
+ *
+ * {{{
+ * import zio._
+ * import zio.http._
+ *
+ * val getUser: Endpoint[Int, (Int, Boolean), String, String, AuthType.None] =
+ *   Endpoint(Method.GET / "users" / int("id"))
+ *     .query[Boolean]("verbose")
+ *     .out[String]
+ *     .outError[String](Status.NotFound)
+ *
+ * val route: Route[Any, Nothing] =
+ *   getUser.implement { case (id, verbose) =>
+ *     if (id == 7) ZIO.succeed(if (verbose) "Ada Lovelace, id 7" else "Ada Lovelace")
+ *     else ZIO.fail("no user with id " + id)
+ *   }
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/concepts/endpoint/ Endpoint]]
  */
 @nowarn("msg=type parameter .* defined")
 final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
@@ -61,8 +84,19 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 ) extends EndpointPlatformSpecific[PathInput, Input, Err, Output, Auth] {
   self =>
 
-  val authCombiner: Combiner[Input, authType.ClientRequirement]                   =
+  /**
+   * The `Combiner` that joins `Input` with the credentials that a client sends
+   * for `authType` (`authType.ClientRequirement`, for example
+   * `Header.Authorization.Bearer` for `AuthType.Bearer`).
+   */
+  val authCombiner: Combiner[Input, authType.ClientRequirement] =
     implicitly[Combiner[Input, authType.ClientRequirement]]
+
+  /**
+   * The request codec of the credentials for `authType`: the `Authorization`
+   * header for `AuthType.Basic`, `AuthType.Bearer` and `AuthType.Digest`, and
+   * an empty codec for `AuthType.None`.
+   */
   val authCodec: HttpCodec[HttpCodecType.RequestType, authType.ClientRequirement] =
     authType.codec
 
@@ -72,11 +106,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     input ++ authCodec
   }.asInstanceOf[HttpCodec[HttpCodecType.RequestType, AuthedInput]]
 
+  /**
+   * The type of the input together with the client credentials: `Input` joined
+   * with `authType.ClientRequirement` by `authCombiner`.
+   */
   type AuthedInput = authCombiner.Out
 
   /**
-   * Returns a new API that is derived from this one, but which includes
-   * additional documentation that will be included in OpenAPI generation.
+   * Returns a new endpoint whose documentation is this endpoint's documentation
+   * followed by `that`. OpenAPI generation includes it.
    */
   def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Auth] = copy(documentation = self.documentation + that)
 
@@ -89,19 +127,49 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       self.copy(input = input) -> condition
     }
 
+  /**
+   * Creates an [[Invocation]] of this endpoint with `input`. An
+   * [[EndpointExecutor]] runs the invocation: it sends the request and decodes
+   * the response into `Output` or `Err`. Overloads that take two to twelve
+   * arguments build a tuple input from its elements.
+   *
+   * {{{
+   * import zio.http._
+   *
+   * val search =
+   *   Endpoint(Method.GET / "shops" / int("shopId"))
+   *     .query[String]("q")
+   *     .out[List[String]]
+   *
+   * val invocation = search(12, "espresso")
+   * // invocation.input == (12, "espresso")
+   * }}}
+   */
   def apply(input: Input): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(self, input)
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the two elements of its
+   * tuple input `(A, B)`.
+   */
   def apply[A, B](a: A, b: B)(implicit
     ev: (A, B) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(self, ev((a, b)))
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the three elements of its
+   * tuple input `(A, B, C)`.
+   */
   def apply[A, B, C](a: A, b: B, c: C)(implicit
     ev: (A, B, C) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
     Invocation(self, ev((a, b, c)))
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the four elements of its
+   * tuple input `(A, B, C, D)`.
+   */
   def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
     ev: (A, B, C, D) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -110,6 +178,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the five elements of its
+   * tuple input `(A, B, C, D, E)`.
+   */
   def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
     ev: (A, B, C, D, E) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -118,6 +190,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the six elements of its
+   * tuple input `(A, B, C, D, E, F)`.
+   */
   def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
     ev: (A, B, C, D, E, F) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -126,6 +202,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the seven elements of its
+   * tuple input `(A, B, C, D, E, F, G)`.
+   */
   def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
     ev: (A, B, C, D, E, F, G) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -134,6 +214,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the eight elements of its
+   * tuple input `(A, B, C, D, E, F, G, H)`.
+   */
   def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
     ev: (A, B, C, D, E, F, G, H) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -142,6 +226,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g, h)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the nine elements of its
+   * tuple input `(A, B, C, D, E, F, G, H, I)`.
+   */
   def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
     ev: (A, B, C, D, E, F, G, H, I) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -150,6 +238,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g, h, i)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the ten elements of its
+   * tuple input `(A, B, C, D, E, F, G, H, I, J)`.
+   */
   def apply[A, B, C, D, E, F, G, H, I, J](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J)(implicit
     ev: (A, B, C, D, E, F, G, H, I, J) <:< Input,
   ): Invocation[PathInput, Input, Err, Output, Auth] =
@@ -158,6 +250,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g, h, i, j)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the eleven elements of its
+   * tuple input `(A, B, C, D, E, F, G, H, I, J, K)`.
+   */
   def apply[A, B, C, D, E, F, G, H, I, J, K](
     a: A,
     b: B,
@@ -178,6 +274,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       ev((a, b, c, d, e, f, g, h, i, j, k)),
     )
 
+  /**
+   * Creates an [[Invocation]] of this endpoint from the twelve elements of its
+   * tuple input `(A, B, C, D, E, F, G, H, I, J, K, L)`.
+   */
   def apply[A, B, C, D, E, F, G, H, I, J, K, L](
     a: A,
     b: B,
@@ -226,7 +326,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     route.format(values).map(_.encode)
 
   /**
-   * Renders the URL path for this endpoint with a base path prefix.
+   * Renders the URL path for this endpoint with a base path prefix. One
+   * trailing `/` of `basePath` is dropped: with the base path
+   * `http://localhost:8080/` and the route `GET /users/{id}`, the input `42`
+   * renders as `http://localhost:8080/users/42`.
    */
   def renderUrl(basePath: String, values: PathInput): Either[String, String] =
     renderUrl(values).map { url =>
@@ -234,6 +337,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       base + url
     }
 
+  /**
+   * Returns the scopes set with `scopes(...)`, read from the
+   * `AuthType.ScopedAuth` of this endpoint and from both sides of an
+   * `AuthType.Or`. Returns an empty list when no scopes are set. It does not
+   * look inside the auth type that `unauthorizedStatus` wraps, so it returns an
+   * empty list after `.scopes("read").unauthorizedStatus(Status.Unauthorized)`.
+   */
   def scopes: List[String] = authScopesRecursive(authType)
 
   private def authScopesRecursive(authType: AuthType): List[String] = authType match {
@@ -245,6 +355,17 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       Nil
   }
 
+  /**
+   * Returns a new endpoint whose auth type carries the given scopes, which
+   * OpenAPI generation lists in the endpoint's security requirement. When the
+   * auth type is already an `AuthType.ScopedAuth`, its scopes are replaced;
+   * otherwise the auth type is wrapped in one. The `Auth` type of the result is
+   * `AuthType`.
+   *
+   * Throws an `IllegalArgumentException` with the message "Scopes cannot be
+   * empty, and authType must not be AuthType.None" when no scope is given or
+   * when the auth type is `AuthType.None`.
+   */
   def scopes(scopes: String*): Endpoint[PathInput, Input, Err, Output, AuthType] =
     if (scopes.isEmpty || authType == AuthType.None) {
       throw new IllegalArgumentException("Scopes cannot be empty, and authType must not be AuthType.None")
@@ -258,7 +379,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     }
 
   /**
-   * Hides any details of codec errors from the user.
+   * Returns a new endpoint that answers a request that fails to decode (for
+   * example one without a required query parameter) with status 400 Bad Request
+   * and an empty body, instead of a body that names the problem. It replaces
+   * the codec error codec, including codecs added with `outCodecError`.
    */
   def emptyErrorResponse: Endpoint[PathInput, Input, Err, Output, Auth] =
     self.copy(codecError =
@@ -266,18 +390,40 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         .transformOrFail[HttpCodecError](_ => Right(HttpCodecError.CustomError("Empty", "empty")))(_ => Right(())),
     )
 
+  /**
+   * Returns a new endpoint with named examples of the whole request input,
+   * which OpenAPI generation shows. When a later call repeats a name, the value
+   * from the earlier call is kept.
+   */
   def examplesIn(examples: (String, Input)*): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(input = self.input.examples(examples))
 
+  /**
+   * Returns the named request input examples set by `examplesIn`. It reads only
+   * the outermost codec of `input`, so it returns an empty map when an input
+   * part (for example a header) was added after the last `examplesIn`.
+   */
   def examplesIn: Map[String, Input] = self.input.examples
 
+  /**
+   * Returns a new endpoint with named examples of the output, which OpenAPI
+   * generation shows. When a later call repeats a name, the value from the
+   * earlier call is kept.
+   */
   def examplesOut(examples: (String, Output)*): Endpoint[PathInput, Input, Err, Output, Auth] =
     copy(output = self.output.examples(examples))
 
+  /**
+   * Returns the named output examples set by `examplesOut`. It reads only the
+   * outermost codec of `output`, so it returns an empty map when an output part
+   * (for example a response header) was added after the last `examplesOut`.
+   */
   def examplesOut: Map[String, Output] = self.output.examples
 
   /**
-   * Returns a new endpoint that requires the specified headers to be present.
+   * Returns a new endpoint that also reads the request header described by
+   * `codec` and adds its value to the input. A request without a required
+   * header gets status 400 Bad Request.
    */
   def header[A](codec: HeaderCodec[A])(implicit
     combiner: Combiner[Input, A],
@@ -285,7 +431,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = self.input ++ codec)
 
   /**
-   * Returns a new endpoint that requires the specified headers to be present.
+   * Returns a new endpoint that also reads the request header `name` as an `A`,
+   * decoded with its `Schema`, and adds it to the input. A request without the
+   * header gets status 400 Bad Request, unless `A` is an `Option`: then the
+   * value is `None`.
    */
   def header[A](
     name: String,
@@ -293,7 +442,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     header(HeaderCodec.headerAs[A](name))
 
   /**
-   * Returns a new endpoint that requires the specified headers to be present.
+   * Returns a new endpoint that also reads several request headers into one `A`
+   * and adds it to the input. For a case class, each field is read from the
+   * header with the field's name; for a type that is not a record, the value is
+   * read from the header named `headers`. When a field's header is missing, the
+   * field gets an empty value (for example `""` for a `String` field and `0`
+   * for an `Int` field) instead of a 400 response.
    */
   def header[A](implicit
     schema: Schema[A],
@@ -301,11 +455,25 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     header(HeaderCodec.headers[A])
 
+  /**
+   * Converts this endpoint into a server [[zio.http.Route]] that decodes each
+   * request into `Input`, runs `f`, and encodes its success with the output
+   * codec and its failure with the error codec. A request that fails to decode
+   * gets status 400 Bad Request with a body that names the problem. With an
+   * auth type such as `AuthType.Bearer`, a request whose `Authorization` header
+   * is missing or has another scheme gets the endpoint's unauthorized status
+   * (404 Not Found unless changed with `unauthorizedStatus`).
+   */
   def implement[Env](f: Input => ZIO[Env, Err, Output])(implicit
     trace: Trace,
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromFunctionZIO(f))
 
+  /**
+   * Like `implement`, for a function that also needs a `Scope`. The scope is
+   * the one the server opens for the request, so finalizers added in `f` run
+   * when the server closes it.
+   */
   def implementScoped[Env, Env1](f: Input => ZIO[Env, Err, Output])(implicit
     ev: Env <:< Env1 with Scope,
     trace: Trace,
@@ -314,26 +482,46 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       Handler.scoped[Env1](Handler.fromFunctionZIO(f.asInstanceOf[Input => ZIO[Env1 with Scope, Err, Output]])),
     )
 
+  /**
+   * Converts this endpoint into a server route from a pure function: `Right`
+   * becomes the output response and `Left` the error response.
+   */
   def implementEither(f: Input => Either[Err, Output])(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.fromFunctionEither[Input](f))
 
+  /**
+   * Converts this endpoint into a server route from a pure function that always
+   * succeeds.
+   */
   def implementPurely(f: Input => Output)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.fromFunctionExit[Input](in => Exit.succeed(f(in))))
 
+  /**
+   * Converts this endpoint into a server route that responds with `output` to
+   * every request that decodes.
+   */
   def implementAs(output: Output)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.succeed(output))
 
+  /**
+   * Converts this endpoint into a server route that runs the effect `output`
+   * for every request that decodes, without looking at the input.
+   */
   def implementAsZIO[Env](output: ZIO[Env, Err, Output])(implicit
     trace: Trace,
   ): Route[Env, Nothing] =
     implementHandler(Handler.fromZIO(output))
 
+  /**
+   * Like `implementAsZIO`, for an effect that also needs a `Scope`. The scope
+   * is the one the server opens for the request.
+   */
   def implementAsZIOScoped[Env, Env1](output: ZIO[Env, Err, Output])(implicit
     ev: Env <:< Env1 with Scope,
     trace: Trace,
@@ -342,11 +530,29 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       Handler.scoped[Env1](Handler.fromZIO(output.asInstanceOf[ZIO[Env1 with Scope, Err, Output]])),
     )
 
+  /**
+   * Converts this endpoint into a server route that fails every request that
+   * decodes with `err`, encoded by the error codec.
+   */
   def implementAsError(err: Err)(implicit
     trace: Trace,
   ): Route[Any, Nothing] =
     implementHandler[Any](Handler.fail(err))
 
+  /**
+   * Converts this endpoint into a server [[zio.http.Route]] from a
+   * [[zio.http.Handler]] that maps `Input` to `Output`. The other `implement`
+   * methods call it.
+   *
+   * For each request, the route tries the input alternatives in order, decodes
+   * the request together with the credentials of the auth type, runs
+   * `original`, and encodes the result in a media type chosen from the `Accept`
+   * header and the media types the codec supports. A request whose
+   * `Authorization` header is missing or has another scheme than the auth type
+   * needs gets the endpoint's unauthorized status, with a `WWW-Authenticate`
+   * header when that status is 401. Other decoding failures are encoded with
+   * the codec error codec (by default status 400 Bad Request and a JSON body).
+   */
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
 
@@ -518,6 +724,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     Route.handledIgnoreParams(self.route)(handler)
   }
 
+  /**
+   * Like `implementHandler`, for a handler that also needs a `Scope`. The scope
+   * is the one the server opens for the request.
+   */
   def implementHandlerScoped[Env, Env1](original: Handler[Env, Err, Input, Output])(implicit
     ev: Env <:< Env1 with Scope,
     trace: Trace,
@@ -525,8 +735,20 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     implementHandler[Env1](Handler.scoped[Env1](original.asInstanceOf[Handler[Env1 with Scope, Err, Input, Output]]))
 
   /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema.
+   * Returns a new endpoint that also reads the request body as an `Input2`,
+   * with the `HttpContentCodec` of `Input2`, and adds it to the input. When an
+   * endpoint has more than one body, the request is sent as
+   * `multipart/form-data` with one part per body.
+   *
+   * {{{
+   * import zio.ZNothing
+   * import zio.http._
+   *
+   * val rename: Endpoint[Int, (Int, String), ZNothing, Unit, AuthType.None] =
+   *   Endpoint(Method.PUT / "teams" / int("teamId") / "name")
+   *     .in[String]
+   *     .out[Unit]
+   * }}}
    */
   def in[Input2: HttpContentCodec](implicit
     combiner: Combiner[Input, Input2],
@@ -534,8 +756,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = input ++ HttpCodec.content[Input2])
 
   /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema and is documented.
+   * Returns a new endpoint that also reads the request body as an `Input2` and
+   * adds it to the input, with `doc` as the body's documentation.
    */
   def in[Input2: HttpContentCodec](doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
@@ -543,8 +765,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = input ++ HttpCodec.content[Input2] ?? doc)
 
   /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema and is documented.
+   * Returns a new endpoint that also reads the request body as an `Input2` and
+   * adds it to the input. `name` is the name of the body's part when the
+   * request is `multipart/form-data`.
    */
   def in[Input2: HttpContentCodec](name: String)(implicit
     combiner: Combiner[Input, Input2],
@@ -552,29 +775,56 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = input ++ HttpCodec.content[Input2](name))
 
   /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema and is documented.
+   * Returns a new endpoint that also reads the request body as an `Input2` and
+   * adds it to the input. `name` is the name of the body's part when the
+   * request is `multipart/form-data`, and `doc` is the body's documentation.
    */
   def in[Input2: HttpContentCodec](name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = input ++ (HttpCodec.content[Input2](name) ?? doc))
 
+  /**
+   * Returns a new endpoint that also reads the request body as an `Input2` in
+   * the media type `mediaType` and adds it to the input. It throws an
+   * `IllegalArgumentException` when the codec of `Input2` does not support
+   * `mediaType`.
+   */
   def in[Input2: HttpContentCodec](mediaType: MediaType)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = input ++ HttpCodec.content[Input2](mediaType))
 
+  /**
+   * Returns a new endpoint that also reads the request body as an `Input2` in
+   * the media type `mediaType` and adds it to the input, with `doc` as the
+   * body's documentation. It throws an `IllegalArgumentException` when the
+   * codec of `Input2` does not support `mediaType`.
+   */
   def in[Input2: HttpContentCodec](mediaType: MediaType, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = input ++ (HttpCodec.content(mediaType) ?? doc))
 
+  /**
+   * Returns a new endpoint that also reads the request body as an `Input2` in
+   * the media type `mediaType` and adds it to the input. `name` is the name of
+   * the body's part when the request is `multipart/form-data`. It throws an
+   * `IllegalArgumentException` when the codec of `Input2` does not support
+   * `mediaType`.
+   */
   def in[Input2: HttpContentCodec](mediaType: MediaType, name: String)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
     copy(input = input ++ HttpCodec.content(name, mediaType))
 
+  /**
+   * Returns a new endpoint that also reads the request body as an `Input2` in
+   * the media type `mediaType` and adds it to the input. `name` is the name of
+   * the body's part when the request is `multipart/form-data`, and `doc` is the
+   * body's documentation. It throws an `IllegalArgumentException` when the
+   * codec of `Input2` does not support `mediaType`.
+   */
   def in[Input2: HttpContentCodec](mediaType: MediaType, name: String, doc: Doc)(implicit
     combiner: Combiner[Input, Input2],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Auth] =
@@ -621,7 +871,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   /**
    * Returns a new endpoint derived from this one, whose input type is a stream
-   * of the specified typ.
+   * of the specified type.
    */
   def inStream[Input2: HttpContentCodec](implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
@@ -690,6 +940,22 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code.
+   *
+   * Each call adds one more possible response. When the endpoint already has an
+   * output of another type, the new output type is `Either[Output2, Output]`,
+   * and the response is encoded by the codec of the side the value is on. When
+   * `Output2` is the same type as `Output`, the type stays the same and
+   * responses use the codec added last.
+   *
+   * {{{
+   * import zio.ZNothing
+   * import zio.http._
+   *
+   * val upload: Endpoint[Unit, Unit, ZNothing, Either[Int, String], AuthType.None] =
+   *   Endpoint(Method.POST / "uploads")
+   *     .out[String]
+   *     .out[Int](Status.Accepted)
+   * }}}
    */
   def out[Output2: HttpContentCodec](implicit
     alt: Alternator[Output2, Output],
@@ -715,7 +981,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
-   * specified type for the ok status code.
+   * specified type for the ok status code, in the media type `mediaType`.
    */
   def out[Output2: HttpContentCodec](
     mediaType: MediaType,
@@ -759,7 +1025,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
-   * specified type for the ok status code and is documented.
+   * specified type for the ok status code, in the media type `mediaType`, and
+   * is documented.
    */
   def out[Output2: HttpContentCodec](
     mediaType: MediaType,
@@ -777,7 +1044,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
-   * specified type for the specified status code and is documented.
+   * specified type for the specified status code, in the media type
+   * `mediaType`, and is documented.
    */
   def out[Output2: HttpContentCodec](
     status: Status,
@@ -796,7 +1064,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
-   * specified type for the specified status code.
+   * specified type for the specified status code, in the media type
+   * `mediaType`.
    */
   def out[Output2: HttpContentCodec](
     status: Status,
@@ -822,8 +1091,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(output = codec | self.output)
 
   /**
-   * Converts a codec error into a specific error type. The given media types
-   * are sorted by q-factor. Beginning with the highest q-factor.
+   * Returns a new endpoint whose codec error codec, which encodes the
+   * `HttpCodecError` of a request that fails to decode, is `codec` followed by
+   * the current one. When a server route encodes the error, the alternatives
+   * whose body media type matches the request's `Accept` header or JSON are
+   * tried first, so a `codec` without a body is not used while the default JSON
+   * codec error codec is present.
    */
   def outCodecError(
     codec: HttpCodec[HttpCodecType.ResponseType, HttpCodecError],
@@ -833,6 +1106,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Returns a new endpoint that can fail with the specified error type for the
    * specified status code.
+   *
+   * Like `out`, each call adds one more possible error. When the endpoint
+   * already has an error of another type, the new error type is
+   * `Either[Err2, Err]`: a handler fails with `Left` for the new type and
+   * `Right` for the earlier one.
    */
   def outError[Err2: HttpContentCodec](status: Status)(implicit
     alt: Alternator[Err2, Err],
@@ -875,16 +1153,27 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
         ((ContentCodec.content[Err2]("error-response", mediaType) ++ StatusCodec.status(status)) ?? doc) | self.error,
     )
 
+  /**
+   * Starts adding one error codec per subtype of `Err2`; the
+   * [[Endpoint.OutErrors]] that it returns takes the codecs. The error type of
+   * the result is `Err2` when the endpoint has no error type yet, instead of a
+   * nested `Either`.
+   */
   def outErrors[Err2]: OutErrors[PathInput, Input, Err, Output, Auth, Err2] = OutErrors(self)
 
+  /**
+   * Returns a new endpoint whose responses also carry the header described by
+   * `codec`; its value is added to the output.
+   */
   def outHeader[A](codec: HeaderCodec[A])(implicit
     combiner: Combiner[Output, A],
   ): Endpoint[PathInput, Input, Err, combiner.Out, Auth] =
     copy(output = self.output ++ codec)
 
   /**
-   * Returns a new endpoint that requires the specified headers to be part of
-   * the response.
+   * Returns a new endpoint whose responses also carry the header `name`, with a
+   * value of type `A` encoded with its `Schema`; the value is added to the
+   * output.
    */
   def outHeader[A](
     name: String,
@@ -892,8 +1181,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     outHeader(HeaderCodec.headerAs[A](name))
 
   /**
-   * Returns a new endpoint that requires the specified headers to be part of
-   * the response.
+   * Returns a new endpoint whose responses also carry several headers, written
+   * from one `A` that is added to the output: for a case class, each field
+   * becomes the header with the field's name. For a type that is not a record,
+   * the value is written to the header named `headers`.
    */
   def outHeader[A](implicit
     schema: Schema[A],
@@ -973,6 +1264,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     )
   }
 
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the ok status code, in the media type
+   * `mediaType`. When `mediaType` is binary, the stream is sent as raw bytes.
+   */
   def outStream[Output2: HttpContentCodec](
     mediaType: MediaType,
   )(implicit
@@ -980,6 +1276,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
     outStream(Status.Ok, mediaType)
 
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the ok status code, in the media type
+   * `mediaType`, and is documented. The stream is sent as raw bytes when the
+   * elements are `Byte`s.
+   */
   def outStream[Output2: HttpContentCodec](
     mediaType: MediaType,
     doc: Doc,
@@ -988,6 +1290,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   ): Endpoint[PathInput, Input, Err, alt.Out, Auth] =
     outStream(Status.Ok, mediaType, doc)
 
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the specified status code, in the media type
+   * `mediaType`. When `mediaType` is binary, the stream is sent as raw bytes.
+   */
   def outStream[Output2: HttpContentCodec](
     status: Status,
     mediaType: MediaType,
@@ -1009,6 +1316,12 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     )
   }
 
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the specified status code, in the media type
+   * `mediaType`, and is documented. The stream is sent as raw bytes when the
+   * elements are `Byte`s.
+   */
   def outStream[Output2: HttpContentCodec](status: Status, mediaType: MediaType, doc: Doc)(implicit
     alt: Alternator[ZStream[Any, Nothing, Output2], Output],
   ): Endpoint[PathInput, Input, Err, alt.Out, Auth] = {
@@ -1028,7 +1341,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   }
 
   /**
-   * Returns a new endpoint that requires the specified query.
+   * Returns a new endpoint that also reads the query parameters described by
+   * `codec` and adds their value to the input.
    */
   def query[A](codec: QueryCodec[A])(implicit
     combiner: Combiner[Input, A],
@@ -1036,7 +1350,10 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = self.input ++ codec)
 
   /**
-   * Returns a new endpoint that requires the specified query.
+   * Returns a new endpoint that also reads the query parameter `name` as an
+   * `A`, decoded with its `Schema`, and adds it to the input. A request without
+   * the parameter gets status 400 Bad Request, unless `A` is an `Option`: then
+   * the value is `None`. A value that does not decode also gets status 400.
    */
   def query[A](
     name: String,
@@ -1044,7 +1361,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
     copy(input = self.input ++ QueryCodec.query[A](name))
 
   /**
-   * Returns a new endpoint that requires the specified query.
+   * Returns a new endpoint that also reads several query parameters into one
+   * `A` and adds it to the input: for a case class, each field is read from the
+   * query parameter with the field's name.
    */
   def query[A](implicit
     schema: Schema[A],
@@ -1136,6 +1455,11 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
       url  <- URL.decode(path.encode)
     } yield url
 
+  /**
+   * Generates an absolute URL for this endpoint from the path input, with the
+   * scheme, host and port of `request`'s URL. The scheme defaults to `http` and
+   * the host to `localhost` when the request URL has none.
+   */
   def urlFromRequest(values: PathInput)(request: Request): Either[Exception, URL] = {
     val basePath = StringBuilderPool.withStringBuilder { sb =>
       if (request.url.scheme.isEmpty) sb.append("http")
@@ -1150,10 +1474,14 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
 
 }
 
+/** Constructs [[Endpoint]] values and holds the `outErrors` builder. */
 object Endpoint {
 
   /**
-   * Constructs an endpoint for a route pattern.
+   * Constructs an endpoint for a route pattern. Its input is the path
+   * parameters of the route; it has no output, no error type and no
+   * authentication yet, and request decoding errors get status 400 Bad Request
+   * with a JSON body.
    */
   def apply[Input](
     route: RoutePattern[Input],
@@ -1169,10 +1497,42 @@ object Endpoint {
     )
 
   @nowarn("msg=type parameter .* defined")
+  /**
+   * The builder that `Endpoint#outErrors` returns. Its `apply` takes one error
+   * codec for each subtype of `Err2` (from two to twenty-two codecs) and
+   * returns the endpoint with an error codec that encodes each error with the
+   * first codec whose subtype matches the error's runtime class.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.codec.HttpCodec
+   * import zio.schema.Schema
+   *
+   * sealed trait OrderError
+   * final case class UnknownOrder(orderId: Int)    extends OrderError
+   * final case class OrderLocked(reason: String) extends OrderError
+   *
+   * implicit val unknownSchema: Schema[UnknownOrder] = Schema[Int].transform(UnknownOrder(_), _.orderId)
+   * implicit val lockedSchema: Schema[OrderLocked]   = Schema[String].transform(OrderLocked(_), _.reason)
+   *
+   * val cancel: Endpoint[Int, Int, OrderError, Unit, AuthType.None] =
+   *   Endpoint(Method.DELETE / "orders" / int("orderId"))
+   *     .out[Unit]
+   *     .outErrors[OrderError](
+   *       HttpCodec.error[UnknownOrder](Status.NotFound),
+   *       HttpCodec.error[OrderLocked](Status.Conflict),
+   *     )
+   * }}}
+   */
   final case class OutErrors[PathInput, Input, Err, Output, Auth <: AuthType, Err2](
     self: Endpoint[PathInput, Input, Err, Output, Auth],
   ) extends AnyVal {
 
+    /**
+     * Returns the endpoint with an error codec built from these two codecs, one
+     * per subtype of `Err2`, placed in front of the endpoint's earlier error
+     * codecs.
+     */
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag](
       codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
@@ -1181,6 +1541,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these three codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag, Sub3 <: Err2: ClassTag](
       codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
@@ -1190,6 +1555,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these four codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[Sub1 <: Err2: ClassTag, Sub2 <: Err2: ClassTag, Sub3 <: Err2: ClassTag, Sub4 <: Err2: ClassTag](
       codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
       codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
@@ -1200,6 +1570,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these five codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1217,6 +1592,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these six codecs, one
+     * per subtype of `Err2`, placed in front of the endpoint's earlier error
+     * codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1236,6 +1616,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these seven codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1257,6 +1642,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these eight codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1281,6 +1671,11 @@ object Endpoint {
     }
 
     // apply 9
+    /**
+     * Returns the endpoint with an error codec built from these nine codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1306,6 +1701,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these ten codecs, one
+     * per subtype of `Err2`, placed in front of the endpoint's earlier error
+     * codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1334,6 +1734,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these eleven codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1375,6 +1780,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these twelve codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1419,6 +1829,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these thirteen
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1466,6 +1881,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these fourteen
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1516,6 +1936,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these fifteen codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1569,6 +1994,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these sixteen codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1625,6 +2055,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these seventeen
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1684,6 +2119,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these eighteen
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1746,6 +2186,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these nineteen
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1811,6 +2256,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these twenty codecs,
+     * one per subtype of `Err2`, placed in front of the endpoint's earlier
+     * error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1879,6 +2329,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these twenty-one
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
@@ -1950,6 +2405,11 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Auth](error = codec | self.error)
     }
 
+    /**
+     * Returns the endpoint with an error codec built from these twenty-two
+     * codecs, one per subtype of `Err2`, placed in front of the endpoint's
+     * earlier error codecs.
+     */
     def apply[
       Sub1 <: Err2: ClassTag,
       Sub2 <: Err2: ClassTag,
