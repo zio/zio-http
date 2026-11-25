@@ -345,7 +345,7 @@ object OpenAPI {
   }
 
   /**
-   * A schema for [[zio.http.Status]] that reads and writes the status code as a
+   * A schema for `zio.http.Status` that reads and writes the status code as a
    * JSON string, such as `"404"`. Decoding a string that is not a number, such
    * as `"abc"`, throws a `java.lang.NumberFormatException` instead of returning
    * a `Left`.
@@ -1758,10 +1758,10 @@ object OpenAPI {
   sealed trait ReferenceOr[+T] {
 
     /**
-     * Returns this value as a [[JsonSchema]]. An inline schema is returned as
-     * is. A reference becomes a `\$ref` schema whose description is the
-     * reference's summary followed by its description, as CommonMark, and is
-     * empty when both are `None`.
+     * Returns this value as a `JsonSchema`. An inline schema is returned as is.
+     * A reference becomes a `\$ref` schema whose description is the reference's
+     * summary followed by its description, as CommonMark, and is empty when
+     * both are `None`.
      */
     def asJsonSchema(implicit ev: T <:< JsonSchema): JsonSchema = this match {
       case ReferenceOr.Reference(ref, summary, description) =>
