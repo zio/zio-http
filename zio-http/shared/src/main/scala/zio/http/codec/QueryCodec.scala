@@ -16,4 +16,23 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * Codecs for URL query parameters, to use in an `Endpoint` or another
+ * [[HttpCodec]]. `query[A](name)` reads one parameter, and `query[A]` reads
+ * several parameters into the fields of a case class; the values are decoded
+ * with the ZIO Schema of `A`. `HttpCodec` has the same members.
+ *
+ * {{{
+ * import zio.http._
+ *
+ * val search: QueryCodec[(String, Option[Int])] =
+ *   QueryCodec.query[String]("q") ++ QueryCodec.query[Option[Int]]("limit")
+ *
+ * search.encodeRequest(("zio", Some(10))).url.encode // ?q=zio&limit=10
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/http-codec/ HttpCodec]]
+ */
 object QueryCodec extends QueryCodecs

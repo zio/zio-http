@@ -16,4 +16,10 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * The constructors of `ContentCodec` values for request and response bodies,
+ * such as `ContentCodec.content[A]` and `ContentCodec.binaryStream`. The same
+ * constructors are available on the [[HttpCodec]] companion object.
+ */
 object ContentCodec extends ContentCodecs

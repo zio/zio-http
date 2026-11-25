@@ -11,6 +11,11 @@ import zio.schema._
 import zio.schema.annotation.simpleEnum
 import zio.schema.codec._
 
+/**
+ * Derives `BinaryCodec`s that write values as plain text, such as `42` or
+ * `true`. `HttpContentCodec.fromSchema` uses them for `text/plain` and
+ * `application/octet-stream`.
+ */
 object TextBinaryCodec {
   private def errorCodec[A](schema: Schema[A]) =
     new BinaryCodec[A] {
@@ -31,6 +36,14 @@ object TextBinaryCodec {
       )
     }
 
+  /**
+   * Derives a text codec from `schema`. It supports primitive schemas (written
+   * with `toString`), `Option` (an empty body is `None`), enums annotated with
+   * `@simpleEnum` (written as the case name), records with one field, and
+   * transformations of these. For other schemas, such as records with several
+   * fields or collections, the returned codec throws an
+   * `IllegalArgumentException` when it is used.
+   */
   implicit def fromSchema[A](implicit schema: Schema[A]): BinaryCodec[A] = {
     schema match {
       case Schema.Optional(schema, _)                                                    =>

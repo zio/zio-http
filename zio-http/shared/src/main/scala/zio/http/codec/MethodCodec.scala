@@ -16,4 +16,10 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * Codecs for the HTTP method of a request, to use in an [[HttpCodec]]: `method`
+ * for any method, and one codec for each common method, such as `get` and
+ * `post`. `HttpCodec` has the same members.
+ */
 object MethodCodec extends MethodCodecs

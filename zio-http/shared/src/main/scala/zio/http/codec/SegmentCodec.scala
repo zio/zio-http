@@ -25,10 +25,29 @@ import zio.http.codec.Combiner.WithOut
 import zio.http.codec.PathCodec.MetaData
 import zio.http.codec.SegmentCodec._
 
+/**
+ * A `SegmentCodec[A]` describes the content of one path segment and the value
+ * of type `A` that it holds: a literal (`Unit`), a named `Int`, `Long`,
+ * `String`, `Boolean` or `java.util.UUID` variable, or `trailing`, which holds
+ * the rest of the path as a `Path`. A segment codec converts to a one-segment
+ * [[PathCodec]] implicitly. Several segment codecs can share one segment with
+ * `~`, as in `user-{id}`.
+ *
+ * {{{
+ * import zio.http.Path
+ *
+ * val userSegment: SegmentCodec[Int] = SegmentCodec.literal("user-") ~ SegmentCodec.int("id")
+ * val profile: PathCodec[Int]        = PathCodec.empty / "profiles" / userSegment
+ *
+ * profile.decode(Path("/profiles/user-12")) // Right(12)
+ * userSegment.render                        // /user-{id}
+ * }}}
+ */
 sealed trait SegmentCodec[A] { self =>
   private var _hashCode: Int  = 0
   private var _render: String = ""
 
+  /** The type of the value that this codec holds. */
   final type Type = A
 
   override def equals(that: Any): Boolean = that match {
@@ -36,12 +55,25 @@ sealed trait SegmentCodec[A] { self =>
     case _                     => false
   }
 
+  /**
+   * Returns a one-segment `PathCodec` with a named example value attached,
+   * which OpenAPI generation shows.
+   */
   final def example(name: String, example: A): PathCodec[A] =
     PathCodec.segment(self).annotate(MetaData.Examples(Map(name -> example)))
 
+  /**
+   * Returns a one-segment `PathCodec` with the given named example values
+   * attached, which OpenAPI generation shows.
+   */
   final def examples(examples: (String, A)*): PathCodec[A] =
     PathCodec.segment(self).annotate(MetaData.Examples(examples.toMap))
 
+  /**
+   * Encodes `value` as a path. A literal or a variable gives one segment with a
+   * leading `/`, such as `/42`; `trailing` returns `value` unchanged, and the
+   * empty codec gives an empty path.
+   */
   def format(value: A): Path
 
   override val hashCode: Int = {
@@ -52,34 +84,84 @@ sealed trait SegmentCodec[A] { self =>
     _hashCode
   }
 
+  /**
+   * Returns `true` when this is the empty segment codec, `SegmentCodec.empty`.
+   */
   final def isEmpty: Boolean = self.asInstanceOf[SegmentCodec[_]] match {
     case SegmentCodec.Empty => true
     case _                  => false
   }
 
+  /**
+   * Returns a one-segment `PathCodec` with `doc` attached as its documentation.
+   */
   final def ??(doc: Doc): PathCodec[A] = PathCodec.Segment(self).??(doc)
 
+  /**
+   * Returns a codec for one segment that holds this codec followed directly by
+   * `that`, such as `user-{id}` or `{id}.json`. The values are combined as with
+   * `PathCodec`'s `/`. Throws a `java.lang.IllegalArgumentException` when two
+   * `string` codecs, or two `int`/`long` codecs, would be next to each other.
+   * `PathCodec.encode` writes the parts of a combined segment as separate
+   * segments: `literal("user-") ~ int("id")` with `12` gives `/user-/12`.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * val file: SegmentCodec[(String, String)] =
+   *   SegmentCodec.string("name") ~ "." ~ SegmentCodec.string("ext")
+   *
+   * (PathCodec.empty / "files" / file).decode(Path("/files/report.pdf")) // Right((report,pdf))
+   * }}}
+   */
   final def ~[B](
     that: SegmentCodec[B],
   )(implicit combiner: Combiner[A, B], combinable: Combinable[B, SegmentCodec[B]]): SegmentCodec[combiner.Out] =
     combinable.combine(self, that)
 
+  /**
+   * Returns a codec for one segment that holds this codec followed directly by
+   * the literal text `that`, as in `int("id") ~ ".json"`.
+   */
   final def ~(that: String)(implicit combiner: Combiner[A, Unit]): SegmentCodec[combiner.Out] =
     self.~(SegmentCodec.literal(that))(combiner, Combinable.combinableLiteral)
 
-  // Returns number of segments matched, or -1 if not matched:
+  /**
+   * Returns the number of entries of `segments`, starting at `index`, that this
+   * codec matches, or -1 when it does not match. A literal or a variable
+   * matches 1, `trailing` matches all remaining segments, and the empty codec
+   * matches 0.
+   */
   def matches(segments: Chunk[String], index: Int): Int
 
-  // Returns the last index of the subsegment matched, or -1 if not matched
+  /**
+   * Returns the position in `segment` where the text that this codec matches,
+   * starting at `from`, ends, or -1 when it does not match there. It is used to
+   * match codecs combined with `~`. For a literal it is the index after the
+   * match (`literal("ab")` in `"ab"` gives 2); for `int` and `long` codecs
+   * whose digits run to the end of `segment` it is the index of the last digit
+   * (`int("id")` in `"12"` gives 1).
+   */
   def inSegmentUntil(segment: String, from: Int): Int
 
+  /** Returns `true` when this is not the empty segment codec. */
   final def nonEmpty: Boolean = !isEmpty
 
+  /**
+   * Renders this segment as a path template with a leading `/`: `/v1` for a
+   * literal, `/{id}` for a variable, `/...` for `trailing`, and `/` for the
+   * empty codec.
+   */
   final def render: String = {
     if (_render == "") _render = render("{", "}")
     _render
   }
 
+  /**
+   * Renders this segment like `render`, but writes each variable name between
+   * `prefix` and `suffix`: `SegmentCodec.int("id").render(":", "")` gives
+   * `/:id`.
+   */
   final def render(prefix: String, suffix: String): String = {
     val b = new StringBuilder
 
@@ -121,25 +203,40 @@ sealed trait SegmentCodec[A] { self =>
     b.result()
   }
 
+  /**
+   * Returns a one-segment `PathCodec` of `A2` that applies `f` to each decoded
+   * value and `g` to each value before encoding.
+   */
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.Segment(self).transform(f)(g)
 
+  /**
+   * Returns a one-segment `PathCodec` of `A2` that applies `f` when decoding
+   * and `g` when encoding; either can fail with a `Left` error message.
+   */
   final def transformOrFail[A2](f: A => Either[String, A2])(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.Segment(self).transformOrFail(f)(g)
 
+  /** Like `transformOrFail`, but only decoding (`f`) can fail. */
   final def transformOrFailLeft[A2](f: A => Either[String, A2])(g: A2 => A): PathCodec[A2] =
     PathCodec.Segment(self).transformOrFailLeft(f)(g)
 
+  /** Like `transformOrFail`, but only encoding (`g`) can fail. */
   final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.Segment(self).transformOrFailRight(f)(g)
 }
-object SegmentCodec          {
+
+/**
+ * Constructors of [[SegmentCodec]]: `literal`, the typed variables `int`,
+ * `long`, `string`, `bool` and `uuid`, `trailing` and `empty`.
+ */
+object SegmentCodec {
 
   /**
-   * Ordering for SegmentCodec that ensures Trailing is always sorted to the
-   * end, while maintaining the existing order for all other segment codec
-   * types. We use this to ensure that Trailing segments are always matched last
-   * and more specific segments are matched first.
+   * Ordering for SegmentCodec that sorts `Trailing` after every other segment
+   * codec and treats all other codecs as equal, so a stable sort keeps their
+   * existing order. Routing sorts the codecs that follow a segment with it, so
+   * that `Trailing` is tried after the other codecs at the same position.
    */
   implicit val segmentCodecOrdering: Ordering[SegmentCodec[_]] = new Ordering[SegmentCodec[_]] {
     def compare(x: SegmentCodec[_], y: SegmentCodec[_]): Int = {
@@ -152,16 +249,32 @@ object SegmentCodec          {
     }
   }
 
+  /**
+   * Evidence that a segment codec holding `B` can be appended inside one
+   * segment with `~`. Instances exist for `String`, `Int`, `Long`, `Boolean`,
+   * `java.util.UUID` and literals (`Unit`).
+   */
   @implicitNotFound("Segments of type ${B} cannot be appended to a multi-value segment")
   sealed trait Combinable[B, S <: SegmentCodec[B]] {
+
+    /**
+     * Returns a codec for one segment that holds `self` followed directly by
+     * `that`.
+     */
     def combine[A](self: SegmentCodec[A], that: SegmentCodec[B])(implicit
       combiner: Combiner[A, B],
     ): SegmentCodec[combiner.Out]
   }
   // Must stay accessible at use sites: Scala 3.10 will no longer resolve implicits from a
   // companion object that is not visible there.
-  object Combinable                                {
+  /** The `Combinable` instances that `~` uses. */
+  object Combinable {
 
+    /**
+     * Allows `~` with a `string` codec. Throws a
+     * `java.lang.IllegalArgumentException` when the left side is or ends with a
+     * `string` codec.
+     */
     implicit val combinableString: Combinable[String, SegmentCodec[String]] =
       new Combinable[String, SegmentCodec[String]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[String])(implicit
@@ -192,7 +305,13 @@ object SegmentCodec          {
           }
         }
       }
-    implicit val combinableInt: Combinable[Int, SegmentCodec[Int]]          =
+
+    /**
+     * Allows `~` with an `int` codec. Throws a
+     * `java.lang.IllegalArgumentException` when the left side is or ends with
+     * an `int` or `long` codec.
+     */
+    implicit val combinableInt: Combinable[Int, SegmentCodec[Int]] =
       new Combinable[Int, SegmentCodec[Int]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Int])(implicit
           combiner: Combiner[A, Int],
@@ -233,7 +352,13 @@ object SegmentCodec          {
           }
         }
       }
-    implicit val combinableLong: Combinable[Long, SegmentCodec[Long]]       =
+
+    /**
+     * Allows `~` with a `long` codec. Throws a
+     * `java.lang.IllegalArgumentException` when the left side is or ends with
+     * an `int` or `long` codec.
+     */
+    implicit val combinableLong: Combinable[Long, SegmentCodec[Long]] =
       new Combinable[Long, SegmentCodec[Long]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Long])(implicit
           combiner: Combiner[A, Long],
@@ -274,6 +399,8 @@ object SegmentCodec          {
           }
         }
       }
+
+    /** Allows `~` with a `bool` codec. */
     implicit val combinableBool: Combinable[Boolean, SegmentCodec[Boolean]] =
       new Combinable[Boolean, SegmentCodec[Boolean]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Boolean])(implicit
@@ -286,7 +413,9 @@ object SegmentCodec          {
           }
         }
       }
-    implicit val combinableUUID: Combinable[UUID, SegmentCodec[UUID]]       =
+
+    /** Allows `~` with a `uuid` codec. */
+    implicit val combinableUUID: Combinable[UUID, SegmentCodec[UUID]] =
       new Combinable[UUID, SegmentCodec[UUID]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[UUID])(implicit
           combiner: Combiner[A, UUID],
@@ -298,7 +427,12 @@ object SegmentCodec          {
           }
         }
       }
-    implicit val combinableLiteral: Combinable[Unit, SegmentCodec[Unit]]    =
+
+    /**
+     * Allows `~` with a literal. Two literals next to each other are merged
+     * into one literal.
+     */
+    implicit val combinableLiteral: Combinable[Unit, SegmentCodec[Unit]] =
       new Combinable[Unit, SegmentCodec[Unit]] {
         override def combine[A](self: SegmentCodec[A], that: SegmentCodec[Unit])(implicit
           combiner: Combiner[A, Unit],
@@ -326,21 +460,40 @@ object SegmentCodec          {
       }
   }
 
+  /** Creates a codec for a segment named `name` that holds a `Boolean`. */
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
 
+  /** The empty segment codec, which matches no segment and holds `()`. */
   val empty: SegmentCodec[Unit] = SegmentCodec.Empty
 
+  /** Creates a codec for a segment named `name` that holds an `Int`. */
   def int(name: String): SegmentCodec[Int] = SegmentCodec.IntSeg(name)
 
+  /**
+   * Creates a codec for the literal text `value`. As an implicit conversion, it
+   * lets a `String` be used where a `SegmentCodec` is expected.
+   */
   implicit def literal(value: String): SegmentCodec[Unit] =
     SegmentCodec.Literal(value)
 
+  /** Creates a codec for a segment named `name` that holds a `Long`. */
   def long(name: String): SegmentCodec[Long] = SegmentCodec.LongSeg(name)
 
+  /**
+   * Creates a codec for a segment named `name` that holds its text as a
+   * `String`.
+   */
   def string(name: String): SegmentCodec[String] = SegmentCodec.Text(name)
 
+  /**
+   * The codec that matches the rest of the path, zero or more segments, and
+   * holds it as a `Path`.
+   */
   def trailing: SegmentCodec[Path] = SegmentCodec.Trailing
 
+  /**
+   * Creates a codec for a segment named `name` that holds a `java.util.UUID`.
+   */
   def uuid(name: String): SegmentCodec[java.util.UUID] = SegmentCodec.UUID(name)
 
   private[http] case object Empty extends SegmentCodec[Unit] { self =>
@@ -556,9 +709,18 @@ object SegmentCodec          {
 
   }
 
+  /**
+   * The segment codec that matches the rest of the path; `trailing` returns it.
+   */
   case object Trailing extends SegmentCodec[Path] { self =>
+
+    /** Returns `value` unchanged. */
     def format(value: Path): Path = value
 
+    /**
+     * Returns the number of segments from `index` to the end of `segments`, or
+     * 0 when `index` is past the end.
+     */
     def matches(segments: Chunk[String], index: Int): Int =
       (segments.length - index).max(0)
 

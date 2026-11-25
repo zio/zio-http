@@ -14,15 +14,47 @@ import zio.http._
 import zio.http.internal.HeaderOps
 import zio.http.template._
 
+/**
+ * A codec for a body of type `A` in one or more media types. It maps each media
+ * type to a [[BinaryCodecWithSchema]]. Decoding picks the codec by the
+ * `Content-Type` of the message; encoding uses the first media type, unless the
+ * client asks for another one with `Accept`. `HttpCodec.content[A]` finds one
+ * implicitly; `HttpContentCodec.fromSchema` derives one from a `Schema`.
+ *
+ * {{{
+ * import zio.http.codec._
+ * import zio.schema._
+ *
+ * final case class Book(title: String)
+ * implicit val bookSchema: Schema[Book] = DeriveSchema.gen[Book]
+ *
+ * val codec: HttpContentCodec[Book] = HttpContentCodec.fromSchema[Book]
+ * val mediaTypes: List[String]      = codec.choices.keys.map(_.fullType).toList
+ * // List(application/json, application/protobuf, text/plain, application/octet-stream)
+ * }}}
+ */
 sealed trait HttpContentCodec[A] { self =>
+
+  /**
+   * The media types this codec supports, in order of preference, each with its
+   * codec.
+   */
   def choices: ListMap[MediaType, BinaryCodecWithSchema[A]]
 
   /**
-   * A right-biased merge of two HttpContentCodecs.
+   * A right-biased merge of two HttpContentCodecs. The media types of this
+   * codec come first; for a media type that both codecs support, the codec of
+   * `that` is used.
    */
   def ++(that: HttpContentCodec[A]): HttpContentCodec[A] =
     HttpContentCodec.Choices(choices ++ that.choices)
 
+  /**
+   * Decodes the body of `request` with the codec for its `Content-Type`, or for
+   * `application/json` when the request has no `Content-Type`. It fails with an
+   * `IllegalArgumentException` when no media type of this codec matches, and
+   * with the `DecodeError` of the codec when the body cannot be decoded.
+   */
   def decodeRequest(request: Request, config: CodecConfig): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(request)
     lookup(contentType) match {
@@ -35,9 +67,20 @@ sealed trait HttpContentCodec[A] { self =>
     }
   }
 
+  /**
+   * Decodes the body of `request` like the overload with a config, using the
+   * [[CodecConfig]] of the current fiber.
+   */
   def decodeRequest(request: Request): Task[A] =
     CodecConfig.codecRef.getWith(decodeRequest(request, _))
 
+  /**
+   * Decodes the body of `response` with the codec for its `Content-Type`, or
+   * for `application/json` when the response has no `Content-Type`. It fails
+   * with an `IllegalArgumentException` when no media type of this codec
+   * matches, and with the `DecodeError` of the codec when the body cannot be
+   * decoded.
+   */
   def decodeResponse(response: Response, config: CodecConfig): Task[A] = {
     val contentType = mediaTypeFromContentTypeHeader(response)
     lookup(contentType) match {
@@ -50,6 +93,10 @@ sealed trait HttpContentCodec[A] { self =>
     }
   }
 
+  /**
+   * Decodes the body of `response` like the overload with a config, using the
+   * [[CodecConfig]] of the current fiber.
+   */
   def decodeResponse(response: Response): Task[A] =
     CodecConfig.codecRef.getWith(decodeResponse(response, _))
 
@@ -66,6 +113,10 @@ sealed trait HttpContentCodec[A] { self =>
     }
   }
 
+  /**
+   * Encodes `value` with the codec of the first media type, into a body with
+   * that media type.
+   */
   def encode(value: A, config: CodecConfig = CodecConfig.defaultConfig): Either[String, Body] = {
     if (choices.isEmpty) {
       Left("No codec defined")
@@ -74,6 +125,10 @@ sealed trait HttpContentCodec[A] { self =>
     }
   }
 
+  /**
+   * Returns a codec that supports only `mediaType`. It throws an
+   * `IllegalArgumentException` when this codec does not support `mediaType`.
+   */
   def only(mediaType: MediaType): HttpContentCodec[A] =
     if (lookup(mediaType).isEmpty) {
       throw new IllegalArgumentException(s"MediaType $mediaType is not supported by $self")
@@ -81,6 +136,10 @@ sealed trait HttpContentCodec[A] { self =>
       HttpContentCodec.Filtered(self, mediaType)
     }
 
+  /**
+   * Returns a codec that supports only the given media type, or this codec when
+   * `mediaType` is `None`.
+   */
   def only(mediaType: Option[MediaType]): HttpContentCodec[A] =
     mediaType match {
       case Some(value) => only(value)
@@ -124,6 +183,11 @@ sealed trait HttpContentCodec[A] { self =>
       else result
     }
 
+  /**
+   * Returns the first media type of this codec that matches `mediaType`, with
+   * its codec, or `None` when no media type matches. `MediaType.any` matches
+   * the first media type.
+   */
   def lookup(mediaType: MediaType): Option[(MediaType, BinaryCodecWithSchema[A])]
 
   private[http] val defaultMediaType: MediaType =
@@ -145,6 +209,10 @@ sealed trait HttpContentCodec[A] { self =>
       throw new IllegalArgumentException(s"No codec defined")
     }
 
+  /**
+   * Returns a codec of `Option[A]` that decodes an empty body as `None` and
+   * encodes `None` as an empty body.
+   */
   def optional: HttpContentCodec[Option[A]] =
     self match {
       case HttpContentCodec.Choices(choices)           =>
@@ -176,7 +244,12 @@ sealed trait HttpContentCodec[A] { self =>
 
 }
 
+/** Constructors and predefined instances of [[HttpContentCodec]]. */
 object HttpContentCodec {
+
+  /**
+   * An [[HttpContentCodec]] with the given media types and codecs, in order.
+   */
   final case class Choices[A](
     choices: ListMap[MediaType, BinaryCodecWithSchema[A]],
   ) extends HttpContentCodec[A] {
@@ -193,6 +266,7 @@ object HttpContentCodec {
     }
   }
 
+  /** The media type `mediaType` of `codec`, alone; the result of `only`. */
   final case class Filtered[A](codec: HttpContentCodec[A], mediaType: MediaType) extends HttpContentCodec[A] {
     self =>
     override lazy val choices: ListMap[MediaType, BinaryCodecWithSchema[A]] =
@@ -277,20 +351,36 @@ object HttpContentCodec {
       ),
     )
 
+  /**
+   * The codec of an [[HttpCodecError]] response: status `400 Bad Request`, with
+   * a body that holds the name and the message of the error. The body is HTML
+   * (`text/html`) by default, or JSON (`application/json`) on request.
+   */
   val responseErrorCodec: HttpCodec[HttpCodecType.ResponseType, HttpCodecError] =
     ContentCodec.content(defaultHttpContentCodec) ++ StatusCodec.BadRequest
 
   private var fromSchemaCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
 
+  /**
+   * Creates a codec with the given media types and codecs, in order. It throws
+   * an `IllegalArgumentException` when `choices` is empty.
+   */
   def apply[A](choices: ListMap[MediaType, BinaryCodecWithSchema[A]]): HttpContentCodec[A] =
     Choices(choices)
 
+  /** Creates a codec with the given media types and codecs, in order. */
   def from[A](
     codec: (MediaType, BinaryCodecWithSchema[A]),
     codecs: (MediaType, BinaryCodecWithSchema[A])*,
   ): HttpContentCodec[A] =
     HttpContentCodec.Choices(ListMap((codec +: codecs): _*))
 
+  /**
+   * Derives a codec from `schema` with the media types `application/json`,
+   * `application/protobuf`, `text/plain` and `application/octet-stream`, in
+   * this order. The last two use [[TextBinaryCodec]]. For an `Option` schema,
+   * an empty body decodes as `None`. The result is cached per schema.
+   */
   implicit def fromSchema[A](implicit schema: Schema[A]): HttpContentCodec[A] = {
     if (fromSchemaCache.contains(schema)) {
       fromSchemaCache(schema).asInstanceOf[HttpContentCodec[A]]
@@ -310,10 +400,16 @@ object HttpContentCodec {
 
   }
 
+  /** Codecs for `application/json` only. */
   object json {
 
     private var jsonCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
-    def only[A](implicit schema: Schema[A]): HttpContentCodec[A]    =
+
+    /**
+     * Returns a codec for `application/json` only, derived from `schema` and
+     * configured by [[CodecConfig]].
+     */
+    def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
       if (jsonCodecCache.contains(schema)) {
         jsonCodecCache(schema).asInstanceOf[HttpContentCodec[A]]
       } else {
@@ -333,10 +429,14 @@ object HttpContentCodec {
       }
   }
 
+  /** Codecs for `application/protobuf` only. */
   object protobuf {
 
     private var protobufCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
 
+    /**
+     * Returns a codec for `application/protobuf` only, derived from `schema`.
+     */
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
       if (protobufCodecCache.contains(schema)) {
         protobufCodecCache(schema).asInstanceOf[HttpContentCodec[A]]
@@ -352,10 +452,17 @@ object HttpContentCodec {
       }
   }
 
+  /** Codecs for `text/plain` and `application/octet-stream`. */
   object text {
 
     private var textCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
 
+    /**
+     * Returns a codec for `text/plain` and `application/octet-stream` that
+     * writes the value as text with [[TextBinaryCodec]]. It supports the
+     * schemas that `TextBinaryCodec` supports, such as primitives; other
+     * schemas throw an `IllegalArgumentException` when used.
+     */
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
       if (textCodecCache.contains(schema)) {
         textCodecCache(schema).asInstanceOf[HttpContentCodec[A]]
@@ -374,10 +481,15 @@ object HttpContentCodec {
 
   }
 
+  /** Codecs for `application/x-www-form-urlencoded` only. */
   object form {
 
     private var formCodecCache: Map[Schema[_], HttpContentCodec[_]] = Map.empty
 
+    /**
+     * Returns a codec for `application/x-www-form-urlencoded` only, which
+     * writes the fields of `A` as form fields, for example `name=a+b&age=1`.
+     */
     def only[A](implicit schema: Schema[A]): HttpContentCodec[A] =
       if (formCodecCache.contains(schema)) {
         formCodecCache(schema).asInstanceOf[HttpContentCodec[A]]
@@ -434,6 +546,10 @@ object HttpContentCodec {
       ZPipeline.identity[Chunk[Byte]].flattenChunks
   }
 
+  /**
+   * The codec of raw bytes, as a `Chunk[Byte]`, for every binary media type
+   * known to `MediaType`. Its first media type is `application/x-bdoc`.
+   */
   implicit val byteChunkCodec: HttpContentCodec[Chunk[Byte]] = {
     HttpContentCodec.Choices(
       ListMap(
@@ -458,6 +574,12 @@ object HttpContentCodec {
       ZPipeline.identity[Byte]
   }
 
+  /**
+   * The codec of single bytes for every binary media type known to `MediaType`,
+   * used by byte streams such as `HttpCodec.binaryStream`. Its first media type
+   * is `application/x-bdoc`. Decoding a whole body with it requires exactly one
+   * byte.
+   */
   implicit val byteCodec: HttpContentCodec[Byte] = {
     HttpContentCodec.Choices(
       ListMap(

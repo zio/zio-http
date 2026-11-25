@@ -21,20 +21,33 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 /**
  * A combiner is a type class responsible for combining invariant type
  * parameters using a tuple. It is used to compose the parameters of the
- * [[zio.http.codec.HttpCodec]] data type.
+ * [[zio.http.codec.HttpCodec]] data type. `Unit` values are dropped and tuples
+ * are flattened, so `HttpCodec.query[Int]("a") ++ HttpCodec.empty ++
+ * HttpCodec.query[Int]("b")` has the value type `(Int, Int)`.
  */
 sealed trait Combiner[L, R] {
+
+  /** The combined type of `L` and `R`. */
   type Out
 
+  /** Combines a left and a right value into one value. */
   def combine(l: L, r: R): Out
 
+  /** Splits a combined value back into its left and right values. */
   def separate(out: Out): (L, R)
 
 }
 
+/** Instances of [[Combiner]], tried in priority order. */
 object Combiner extends CombinerLowPriority1 {
+
+  /** A [[Combiner]] whose `Out` type is `Out0`. */
   type WithOut[L, R, Out0] = Combiner[L, R] { type Out = Out0 }
 
+  /**
+   * Combines `()` on the left with a value on the right into that value: `Unit`
+   * is dropped.
+   */
   implicit def leftUnit[A]: Combiner.WithOut[Unit, A, A] =
     new Combiner[Unit, A] {
       type Out = A
@@ -45,7 +58,13 @@ object Combiner extends CombinerLowPriority1 {
     }
 }
 
+/** Lower-priority [[Combiner]] instances: `Unit` on the right. */
 trait CombinerLowPriority1 extends CombinerLowPriority2 {
+
+  /**
+   * Combines a value on the left with `()` on the right into that value: `Unit`
+   * is dropped.
+   */
   implicit def rightUnit[A]: Combiner.WithOut[A, Unit, A] =
     new Combiner[A, Unit] {
       type Out = A
@@ -56,7 +75,16 @@ trait CombinerLowPriority1 extends CombinerLowPriority2 {
     }
 }
 
+/**
+ * Lower-priority [[Combiner]] instances: a tuple on each side, from 2 to 9
+ * elements each.
+ */
 trait CombinerLowPriority2 extends CombinerLowPriority3 {
+
+  /**
+   * Combines a 2-tuple on the left with a 2-tuple on the right into a flat
+   * 4-tuple.
+   */
   implicit def combine2L2R[L1, L2, R1, R2]: Combiner.WithOut[(L1, L2), (R1, R2), (L1, L2, R1, R2)] =
     new Combiner[(L1, L2), (R1, R2)] {
       type Out = (L1, L2, R1, R2)
@@ -66,6 +94,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
       def separate(out: (L1, L2, R1, R2)): ((L1, L2), (R1, R2)) = ((out._1, out._2), (out._3, out._4))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 2-tuple on the right into a flat
+   * 5-tuple.
+   */
   implicit def combin3L2R[L1, L2, L3, R1, R2]: Combiner.WithOut[(L1, L2, L3), (R1, R2), (L1, L2, L3, R1, R2)] =
     new Combiner[(L1, L2, L3), (R1, R2)] {
       type Out = (L1, L2, L3, R1, R2)
@@ -76,6 +108,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 2-tuple on the right into a flat
+   * 6-tuple.
+   */
   implicit def combine4L2R[L1, L2, L3, L4, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2), (L1, L2, L3, L4, R1, R2)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2)] {
@@ -88,6 +124,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 2-tuple on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine5L2R[L1, L2, L3, L4, L5, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2), (L1, L2, L3, L4, L5, R1, R2)] =
     new Combiner[(L1, L2, L3, L4, L5), (R1, R2)] {
@@ -100,6 +140,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 2-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine6L2R[L1, L2, L3, L4, L5, L6, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2), (L1, L2, L3, L4, L5, L6, R1, R2)] =
     new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2)] {
@@ -112,6 +156,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 2-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine7L2R[L1, L2, L3, L4, L5, L6, L7, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, R1, R2)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2)] {
@@ -124,6 +172,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9))
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 2-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine8L2R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2)] {
@@ -136,6 +188,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10))
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 2-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine9L2R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2)] {
@@ -150,6 +206,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11))
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 3-tuple on the right into a flat
+   * 5-tuple.
+   */
   implicit def combine2L3R[L1, L2, R1, R2, R3]: Combiner.WithOut[(L1, L2), (R1, R2, R3), (L1, L2, R1, R2, R3)] =
     new Combiner[(L1, L2), (R1, R2, R3)] {
       type Out = (L1, L2, R1, R2, R3)
@@ -161,6 +221,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 3-tuple on the right into a flat
+   * 6-tuple.
+   */
   implicit def combine3L3R[L1, L2, L3, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3), (L1, L2, L3, R1, R2, R3)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3)] {
@@ -173,6 +237,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 3-tuple on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine4L3R[L1, L2, L3, L4, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3), (L1, L2, L3, L4, R1, R2, R3)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2, R3)] {
@@ -185,6 +253,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 3-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine5L3R[L1, L2, L3, L4, L5, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3), (L1, L2, L3, L4, L5, R1, R2, R3)] =
     new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3)] {
@@ -197,6 +269,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 3-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine6L3R[L1, L2, L3, L4, L5, L6, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, R1, R2, R3)] =
     new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3)] {
@@ -209,6 +285,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 3-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine7L3R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3)] {
@@ -221,6 +301,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 3-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine8L3R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3)] {
@@ -235,6 +319,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 3-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine9L3R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3),
@@ -255,6 +343,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 4-tuple on the right into a flat
+   * 6-tuple.
+   */
   implicit def combine2L4R[L1, L2, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4), (L1, L2, R1, R2, R3, R4)] =
     new Combiner[(L1, L2), (R1, R2, R3, R4)] {
@@ -266,6 +358,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 4-tuple on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine3L4R[L1, L2, L3, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4), (L1, L2, L3, R1, R2, R3, R4)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3, R4)] {
@@ -277,6 +373,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 4-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine4L4R[L1, L2, L3, L4, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4), (L1, L2, L3, L4, R1, R2, R3, R4)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4)] {
@@ -289,6 +389,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 4-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine5L4R[L1, L2, L3, L4, L5, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, R1, R2, R3, R4)] =
     new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4)] {
@@ -301,6 +405,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 4-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine6L4R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4)] =
     new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4)] {
@@ -313,6 +421,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 4-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine7L4R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4)] =
     new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4)] {
@@ -325,6 +437,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 4-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine8L4R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4),
@@ -340,6 +456,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 4-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine9L4R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4),
@@ -355,6 +475,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 5-tuple on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine2L5R[L1, L2, R1, R2, R3, R4, R5]
     : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5), (L1, L2, R1, R2, R3, R4, R5)] =
     new Combiner[(L1, L2), (R1, R2, R3, R4, R5)] {
@@ -366,6 +490,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 5-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine3L5R[L1, L2, L3, R1, R2, R3, R4, R5]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5), (L1, L2, L3, R1, R2, R3, R4, R5)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5)] {
@@ -378,6 +506,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 5-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine4L5R[L1, L2, L3, L4, R1, R2, R3, R4, R5]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, R1, R2, R3, R4, R5)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5)] {
@@ -390,6 +522,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 5-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine5L5R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5]
     : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5)] =
     new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5)] {
@@ -402,6 +538,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 5-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine6L5R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5]
     : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5)] =
     new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5)] {
@@ -414,6 +554,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 5-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine7L5R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7),
     (R1, R2, R3, R4, R5),
@@ -429,6 +573,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 5-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine8L5R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4, R5),
@@ -444,6 +592,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 5-tuple on the right into a flat
+   * 14-tuple.
+   */
   implicit def combine9L5R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4, R5),
@@ -462,6 +614,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 6-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine2L6R[L1, L2, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
     (L1, L2),
     (R1, R2, R3, R4, R5, R6),
@@ -477,6 +633,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 6-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine3L6R[L1, L2, L3, R1, R2, R3, R4, R5, R6]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, R1, R2, R3, R4, R5, R6)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6)] {
@@ -489,6 +649,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 6-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine4L6R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6)] {
@@ -501,6 +665,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 6-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine5L6R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6]
     : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6)] =
     new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6)] {
@@ -513,6 +681,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 6-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine6L6R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6),
     (R1, R2, R3, R4, R5, R6),
@@ -528,6 +700,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 6-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine7L6R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7),
     (R1, R2, R3, R4, R5, R6),
@@ -543,6 +719,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 6-tuple on the right into a flat
+   * 14-tuple.
+   */
   implicit def combine8L6R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4, R5, R6),
@@ -561,6 +741,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 6-tuple on the right into a flat
+   * 15-tuple.
+   */
   implicit def combine9L6R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4, R5, R6),
@@ -579,6 +763,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 7-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine2L7R[L1, L2, R1, R2, R3, R4, R5, R6, R7]
     : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, R1, R2, R3, R4, R5, R6, R7)] =
     new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7)] {
@@ -591,6 +779,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 7-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine3L7R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7)] {
@@ -603,6 +795,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 7-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine4L7R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7]
     : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7)] =
     new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7)] {
@@ -615,6 +811,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 7-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine5L7R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
     (L1, L2, L3, L4, L5),
     (R1, R2, R3, R4, R5, R6, R7),
@@ -630,6 +830,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 7-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine6L7R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6),
     (R1, R2, R3, R4, R5, R6, R7),
@@ -645,6 +849,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 7-tuple on the right into a flat
+   * 14-tuple.
+   */
   implicit def combine7L7R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7),
     (R1, R2, R3, R4, R5, R6, R7),
@@ -663,6 +871,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 7-tuple on the right into a flat
+   * 15-tuple.
+   */
   implicit def combine8L7R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4, R5, R6, R7),
@@ -681,6 +893,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 7-tuple on the right into a flat
+   * 16-tuple.
+   */
   implicit def combine9L7R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4, R5, R6, R7),
@@ -699,6 +915,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 8-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine2L8R[L1, L2, R1, R2, R3, R4, R5, R6, R7, R8]
     : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8), (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8)] =
     new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8)] {
@@ -711,6 +931,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 8-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine3L8R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8]
     : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8), (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8)] =
     new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8)] {
@@ -723,6 +947,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 8-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine4L8R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -738,6 +966,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 8-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine5L8R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4, L5),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -753,6 +985,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 8-tuple on the right into a flat
+   * 14-tuple.
+   */
   implicit def combine6L8R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -771,6 +1007,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 8-tuple on the right into a flat
+   * 15-tuple.
+   */
   implicit def combine7L8R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -789,6 +1029,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 8-tuple on the right into a flat
+   * 16-tuple.
+   */
   implicit def combine8L8R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -807,6 +1051,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 8-tuple on the right into a flat
+   * 17-tuple.
+   */
   implicit def combine9L8R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4, R5, R6, R7, R8),
@@ -825,6 +1073,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 2-tuple on the left with a 9-tuple on the right into a flat
+   * 11-tuple.
+   */
   implicit def combine2L9R[L1, L2, R1, R2, R3, R4, R5, R6, R7, R8, R9]
     : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8, R9), (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8, R9)] =
     new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
@@ -837,6 +1089,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a 3-tuple on the left with a 9-tuple on the right into a flat
+   * 12-tuple.
+   */
   implicit def combine3L9R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -852,6 +1108,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a 4-tuple on the left with a 9-tuple on the right into a flat
+   * 13-tuple.
+   */
   implicit def combine4L9R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -867,6 +1127,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a 5-tuple on the left with a 9-tuple on the right into a flat
+   * 14-tuple.
+   */
   implicit def combine5L9R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4, L5),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -885,6 +1149,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 6-tuple on the left with a 9-tuple on the right into a flat
+   * 15-tuple.
+   */
   implicit def combine6L9R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -903,6 +1171,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 7-tuple on the left with a 9-tuple on the right into a flat
+   * 16-tuple.
+   */
   implicit def combine7L9R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -921,6 +1193,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 8-tuple on the left with a 9-tuple on the right into a flat
+   * 17-tuple.
+   */
   implicit def combine8L9R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -939,6 +1215,10 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
         )
     }
 
+  /**
+   * Combines a 9-tuple on the left with a 9-tuple on the right into a flat
+   * 18-tuple.
+   */
   implicit def combine9L9R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
     (L1, L2, L3, L4, L5, L6, L7, L8, L9),
     (R1, R2, R3, R4, R5, R6, R7, R8, R9),
@@ -959,8 +1239,16 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
 
 }
 
+/**
+ * Lower-priority [[Combiner]] instances: a single value on the left and a tuple
+ * of 2 to 15 elements on the right.
+ */
 trait CombinerLowPriority3 extends CombinerLowPriority4 {
   // Low priority
+  /**
+   * Combines a single value on the left with a 2-tuple on the right into a flat
+   * 3-tuple.
+   */
   implicit def combine1L2R[L1, R1, R2]: Combiner.WithOut[L1, (R1, R2), (L1, R1, R2)] = new Combiner[L1, (R1, R2)] {
     override type Out = (L1, R1, R2)
 
@@ -969,6 +1257,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
     override def separate(out: Out): (L1, (R1, R2)) = (out._1, (out._2, out._3))
   }
 
+  /**
+   * Combines a single value on the left with a 3-tuple on the right into a flat
+   * 4-tuple.
+   */
   implicit def combine1L3R[L1, R1, R2, R3]: Combiner.WithOut[L1, (R1, R2, R3), (L1, R1, R2, R3)] =
     new Combiner[L1, (R1, R2, R3)] {
       override type Out = (L1, R1, R2, R3)
@@ -978,6 +1270,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
       override def separate(out: Out): (L1, (R1, R2, R3)) = (out._1, (out._2, out._3, out._4))
     }
 
+  /**
+   * Combines a single value on the left with a 4-tuple on the right into a flat
+   * 5-tuple.
+   */
   implicit def combine1L4R[L1, R1, R2, R3, R4]: Combiner.WithOut[L1, (R1, R2, R3, R4), (L1, R1, R2, R3, R4)] =
     new Combiner[L1, (R1, R2, R3, R4)] {
       override type Out = (L1, R1, R2, R3, R4)
@@ -987,6 +1283,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
       override def separate(out: Out): (L1, (R1, R2, R3, R4)) = (out._1, (out._2, out._3, out._4, out._5))
     }
 
+  /**
+   * Combines a single value on the left with a 5-tuple on the right into a flat
+   * 6-tuple.
+   */
   implicit def combine1L5R[L1, R1, R2, R3, R4, R5]
     : Combiner.WithOut[L1, (R1, R2, R3, R4, R5), (L1, R1, R2, R3, R4, R5)] =
     new Combiner[L1, (R1, R2, R3, R4, R5)] {
@@ -997,6 +1297,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
       override def separate(out: Out): (L1, (R1, R2, R3, R4, R5)) = (out._1, (out._2, out._3, out._4, out._5, out._6))
     }
 
+  /**
+   * Combines a single value on the left with a 6-tuple on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine1L6R[L1, R1, R2, R3, R4, R5, R6]
     : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6), (L1, R1, R2, R3, R4, R5, R6)] =
     new Combiner[L1, (R1, R2, R3, R4, R5, R6)] {
@@ -1008,6 +1312,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7))
     }
 
+  /**
+   * Combines a single value on the left with a 7-tuple on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine1L7R[L1, R1, R2, R3, R4, R5, R6, R7]
     : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7), (L1, R1, R2, R3, R4, R5, R6, R7)] =
     new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7)] {
@@ -1019,6 +1327,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8))
     }
 
+  /**
+   * Combines a single value on the left with a 8-tuple on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine1L8R[L1, R1, R2, R3, R4, R5, R6, R7, R8]
     : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7, R8), (L1, R1, R2, R3, R4, R5, R6, R7, R8)] =
     new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7, R8)] {
@@ -1031,6 +1343,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9))
     }
 
+  /**
+   * Combines a single value on the left with a 9-tuple on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine1L9R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9]
     : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7, R8, R9), (L1, R1, R2, R3, R4, R5, R6, R7, R8, R9)] =
     new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
@@ -1043,6 +1359,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10))
     }
 
+  /**
+   * Combines a single value on the left with a 10-tuple on the right into a
+   * flat 11-tuple.
+   */
   implicit def combine1L10R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10),
@@ -1058,6 +1378,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11))
     }
 
+  /**
+   * Combines a single value on the left with a 11-tuple on the right into a
+   * flat 12-tuple.
+   */
   implicit def combine1L11R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11),
@@ -1073,6 +1397,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12))
     }
 
+  /**
+   * Combines a single value on the left with a 12-tuple on the right into a
+   * flat 13-tuple.
+   */
   implicit def combine1L12R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12),
@@ -1088,6 +1416,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13))
     }
 
+  /**
+   * Combines a single value on the left with a 13-tuple on the right into a
+   * flat 14-tuple.
+   */
   implicit def combine1L13R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13),
@@ -1106,6 +1438,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         )
     }
 
+  /**
+   * Combines a single value on the left with a 14-tuple on the right into a
+   * flat 15-tuple.
+   */
   implicit def combine1L14R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14),
@@ -1139,6 +1475,10 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
         )
     }
 
+  /**
+   * Combines a single value on the left with a 15-tuple on the right into a
+   * flat 16-tuple.
+   */
   implicit def combine1L15R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15]: Combiner.WithOut[
     L1,
     (R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15),
@@ -1174,7 +1514,16 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
     }
 }
 
+/**
+ * Lower-priority [[Combiner]] instances: a pair on the left and a single value
+ * on the right.
+ */
 trait CombinerLowPriority4 extends CombinerLowPriority5 {
+
+  /**
+   * Combines a 2-tuple on the left with a single value on the right into a
+   * 3-tuple.
+   */
   implicit def combine34[A, B, C]: Combiner.WithOut[(A, B), C, (A, B, C)] =
     new Combiner[(A, B), C] {
       type Out = (A, B, C)
@@ -1186,10 +1535,18 @@ trait CombinerLowPriority4 extends CombinerLowPriority5 {
     }
 }
 
+/**
+ * Lower-priority [[Combiner]] instances: a tuple of 3 to 15 elements on the
+ * left and a single value on the right.
+ */
 trait CombinerLowPriority5 extends CombinerLowPriority6 {
 
   // (A, B, C) + D -> (A, B, C, D)
   // (A, B, C) + D -> (A, B, C, D)
+  /**
+   * Combines a 3-tuple on the left with a single value on the right into a flat
+   * 4-tuple.
+   */
   implicit def combine3[A, B, C, D]: Combiner.WithOut[(A, B, C), D, (A, B, C, D)] =
     new Combiner[(A, B, C), D] {
       type Out = (A, B, C, D)
@@ -1201,6 +1558,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D) + E -> (A, B, C, D, E)
+  /**
+   * Combines a 4-tuple on the left with a single value on the right into a flat
+   * 5-tuple.
+   */
   implicit def combine4[A, B, C, D, E]: Combiner.WithOut[(A, B, C, D), E, (A, B, C, D, E)] =
     new Combiner[(A, B, C, D), E] {
       type Out = (A, B, C, D, E)
@@ -1212,6 +1573,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E) + F -> (A, B, C, D, E, F)
+  /**
+   * Combines a 5-tuple on the left with a single value on the right into a flat
+   * 6-tuple.
+   */
   implicit def combine5[A, B, C, D, E, F]: Combiner.WithOut[(A, B, C, D, E), F, (A, B, C, D, E, F)] =
     new Combiner[(A, B, C, D, E), F] {
       type Out = (A, B, C, D, E, F)
@@ -1223,6 +1588,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F) + G -> (A, B, C, D, E, F, G)
+  /**
+   * Combines a 6-tuple on the left with a single value on the right into a flat
+   * 7-tuple.
+   */
   implicit def combine6[A, B, C, D, E, F, G]: Combiner.WithOut[(A, B, C, D, E, F), G, (A, B, C, D, E, F, G)] =
     new Combiner[(A, B, C, D, E, F), G] {
       type Out = (A, B, C, D, E, F, G)
@@ -1234,6 +1603,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G) + H -> (A, B, C, D, E, F, G, H)
+  /**
+   * Combines a 7-tuple on the left with a single value on the right into a flat
+   * 8-tuple.
+   */
   implicit def combine7[A, B, C, D, E, F, G, H]: Combiner.WithOut[(A, B, C, D, E, F, G), H, (A, B, C, D, E, F, G, H)] =
     new Combiner[(A, B, C, D, E, F, G), H] {
       type Out = (A, B, C, D, E, F, G, H)
@@ -1246,6 +1619,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H) + I -> (A, B, C, D, E, F, G, H, I)
+  /**
+   * Combines a 8-tuple on the left with a single value on the right into a flat
+   * 9-tuple.
+   */
   implicit def combine8[A, B, C, D, E, F, G, H, I]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H), I, (A, B, C, D, E, F, G, H, I)] =
     new Combiner[(A, B, C, D, E, F, G, H), I] {
@@ -1259,6 +1636,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I) + J -> (A, B, C, D, E, F, G, H, I, J)
+  /**
+   * Combines a 9-tuple on the left with a single value on the right into a flat
+   * 10-tuple.
+   */
   implicit def combine9[A, B, C, D, E, F, G, H, I, J]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I), J, (A, B, C, D, E, F, G, H, I, J)] =
     new Combiner[(A, B, C, D, E, F, G, H, I), J] {
@@ -1272,6 +1653,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J) + K -> (A, B, C, D, E, F, G, H, I, J, K)
+  /**
+   * Combines a 10-tuple on the left with a single value on the right into a
+   * flat 11-tuple.
+   */
   implicit def combine10[A, B, C, D, E, F, G, H, I, J, K]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I, J), K, (A, B, C, D, E, F, G, H, I, J, K)] =
     new Combiner[(A, B, C, D, E, F, G, H, I, J), K] {
@@ -1285,6 +1670,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J, K) + L -> (A, B, C, D, E, F, G, H, I, J, K, L)
+  /**
+   * Combines a 11-tuple on the left with a single value on the right into a
+   * flat 12-tuple.
+   */
   implicit def combine11[A, B, C, D, E, F, G, H, I, J, K, L]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I, J, K), L, (A, B, C, D, E, F, G, H, I, J, K, L)] =
     new Combiner[(A, B, C, D, E, F, G, H, I, J, K), L] {
@@ -1298,6 +1687,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J, K, L) + M -> (A, B, C, D, E, F, G, H, I, J, K, L, M)
+  /**
+   * Combines a 12-tuple on the left with a single value on the right into a
+   * flat 13-tuple.
+   */
   implicit def combine12[A, B, C, D, E, F, G, H, I, J, K, L, M]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I, J, K, L), M, (A, B, C, D, E, F, G, H, I, J, K, L, M)] =
     new Combiner[(A, B, C, D, E, F, G, H, I, J, K, L), M] {
@@ -1311,6 +1704,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J, K, L, M) + N -> (A, B, C, D, E, F, G, H, I, J, K, L, M, N)
+  /**
+   * Combines a 13-tuple on the left with a single value on the right into a
+   * flat 14-tuple.
+   */
   implicit def combine13[A, B, C, D, E, F, G, H, I, J, K, L, M, N]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I, J, K, L, M), N, (A, B, C, D, E, F, G, H, I, J, K, L, M, N)] =
     new Combiner[(A, B, C, D, E, F, G, H, I, J, K, L, M), N] {
@@ -1327,6 +1724,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J, K, L, M, N) + O -> (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)
+  /**
+   * Combines a 14-tuple on the left with a single value on the right into a
+   * flat 15-tuple.
+   */
   implicit def combine14[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O]
     : Combiner.WithOut[(A, B, C, D, E, F, G, H, I, J, K, L, M, N), O, (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
     new Combiner[(A, B, C, D, E, F, G, H, I, J, K, L, M, N), O] {
@@ -1363,6 +1764,10 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
     }
 
   // (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O) + P -> (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)
+  /**
+   * Combines a 15-tuple on the left with a single value on the right into a
+   * flat 16-tuple.
+   */
   implicit def combine15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P]: Combiner.WithOut[
     (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O),
     P,
@@ -1404,7 +1809,15 @@ trait CombinerLowPriority5 extends CombinerLowPriority6 {
 
 }
 
+/**
+ * The lowest-priority [[Combiner]] instance: two values combined into a pair.
+ */
 trait CombinerLowPriority6 {
+
+  /**
+   * Combines two values into a pair. It is the fallback when no other instance
+   * applies.
+   */
   implicit def combine[A, B]: Combiner.WithOut[A, B, (A, B)] =
     new Combiner[A, B] {
       type Out = (A, B)

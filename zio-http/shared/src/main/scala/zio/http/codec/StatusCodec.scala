@@ -16,4 +16,10 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * Codecs for the status of a response, to use in an [[HttpCodec]]: one codec
+ * for each predefined status, such as `Ok` and `NotFound`, and `status` and
+ * `CustomStatus` for any other. `HttpCodec` has the same members.
+ */
 object StatusCodec extends StatusCodecs

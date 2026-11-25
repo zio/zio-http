@@ -27,39 +27,90 @@ import zio.http._
 import zio.http.codec.SegmentCodec.segmentCodecOrdering
 
 /**
- * A codec for paths, which consists of segments, where each segment may be a
- * literal, an integer, a long, a string, a UUID, or the trailing path.
+ * A `PathCodec[A]` describes the path of a URL as a sequence of segments, and
+ * converts between a [[zio.http.Path]] and a value of type `A`. A segment is a
+ * literal, which adds no value; a named variable of type `Int`, `Long`,
+ * `String`, `Boolean` or `java.util.UUID`; or `trailing`, which holds the rest
+ * of the path as a `Path`. Segments are joined with `/`, and the values of the
+ * variables are combined into a tuple. Several variables can share one segment
+ * with `SegmentCodec`'s `~`, as in `user-{id}`.
+ *
+ * Route patterns such as `Method.GET / "users" / int("id")` and endpoints use a
+ * path codec to match request paths, and `encode` turns a value back into a
+ * path.
  *
  * {{{
- * import zio.http.endpoint.PathCodec._
+ * import zio.http.Path
  *
- * val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
+ * val userPost: PathCodec[(Int, String)] =
+ *   PathCodec.empty / "users" / PathCodec.int("user-id") / "posts" / PathCodec.string("post-id")
+ *
+ * userPost.decode(Path("/users/42/posts/hello")) // Right((42,hello))
+ * userPost.encode((42, "hello"))                 // Right(/users/42/posts/hello)
+ * userPost.render                                // /users/{user-id}/posts/{post-id}
  * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/path_codec/ PathCodec]]
  */
 sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   import PathCodec._
 
   /**
    * Attaches documentation to the path codec, which may be used when generating
-   * developer docs for a route.
+   * developer docs for a route. When `??` is called more than once on the same
+   * codec, `doc` returns the first documentation only.
    */
   def ??(doc: Doc): PathCodec[A] =
     self.annotate(MetaData.Documented(doc))
 
+  /**
+   * Returns a codec that matches this path followed by `that` path. The values
+   * are combined by the implicit `Combiner`, as with `/`. Unlike `/`, it keeps
+   * a `PathCodec.empty` operand, so `PathCodec.empty ++ PathCodec("b")` renders
+   * as `//b`.
+   */
   final def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     PathCodec.Concat(self, that, combiner)
 
+  /**
+   * Returns a codec that matches this path followed by `that` path. The values
+   * of the two codecs are combined by the implicit `Combiner`: a literal adds
+   * no value, and two variables give a tuple. When either side equals
+   * `PathCodec.empty` (an empty codec with `??` or examples attached does not),
+   * the result is the other side. A `String` or a `SegmentCodec` on the right
+   * converts to a `PathCodec` implicitly.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * val item: PathCodec[(String, Long)] =
+   *   PathCodec.empty / "shops" / PathCodec.string("shop") / "items" / PathCodec.long("item")
+   *
+   * item.decode(Path("/shops/berlin/items/9000000000")) // Right((berlin,9000000000))
+   * }}}
+   */
   final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] = {
     if (self == PathCodec.empty) that.asInstanceOf[PathCodec[combiner.Out]]
     else if (that == PathCodec.empty) self.asInstanceOf[PathCodec[combiner.Out]]
     else self ++ that
   }
 
+  /**
+   * Returns `routes` with this path added in front of every route, so
+   * `PathCodec("api") / routes` serves a route for `/health` at `/api/health`.
+   * This codec must have no variables (a `PathCodec[Unit]`).
+   */
   final def /[Env, Err](routes: Routes[Env, Err])(implicit
     ev: PathCodec[A] <:< PathCodec[Unit],
   ): Routes[Env, Err] =
     routes.nest(ev(self))
 
+  /**
+   * Returns this codec with `metaData` added to its annotations. `??`,
+   * `example` and `examples` use it. Annotations do not change how the codec
+   * decodes or encodes.
+   */
   final def annotate(metaData: MetaData[A]): PathCodec[A] = {
     self match {
       case Annotated(codc, annotations) => Annotated(codc, annotations :+ metaData)
@@ -90,6 +141,12 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     loop(List(f.left, f.right), List.empty).asInstanceOf[List[PathCodec[Any]]]
   }
 
+  /**
+   * Returns one codec for each path that this codec can match, by expanding the
+   * alternatives made with `anyOf`: `Root / anyOf("a", "b") / int("x")` gives
+   * codecs for `/a/{x}` and `/b/{x}`. A codec without alternatives gives a list
+   * with one equivalent codec.
+   */
   final def alternatives: List[PathCodec[A]] = {
     var alts                                                      = List.empty[PathCodec[Any]]
     def loop(codec: PathCodec[_], combiner: Combiner[_, _]): Unit = codec match {
@@ -119,10 +176,26 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     alts.asInstanceOf[List[PathCodec[A]]]
   }
 
+  /**
+   * Returns this codec typed as `PathCodec[B]`, given evidence that `A` and `B`
+   * are the same type.
+   */
   final def asType[B](implicit ev: A =:= B): PathCodec[B] = self.asInstanceOf[PathCodec[B]]
 
   /**
-   * Decodes a method and path into a value of type `A`.
+   * Decodes `path` into a value of type `A`, or returns `Left` with an error
+   * message when the path does not match. The path matches with or without a
+   * leading `/`, and a trailing `/` is accepted. Every segment must be matched:
+   * extra segments give a `Left`.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * val order = PathCodec.empty / "orders" / PathCodec.int("id")
+   *
+   * order.decode(Path("/orders/7"))     // Right(7)
+   * order.decode(Path("/orders/seven")) // Left(Expected integer path segment but found "seven")
+   * }}}
    */
   final def decode(path: Path): Either[String, A] = {
     import PathCodec.Opt._
@@ -450,7 +523,8 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   }
 
   /**
-   * Returns the documentation for the path codec, if any.
+   * Returns the documentation attached to this codec and its parts with `??`,
+   * joined together, or `Doc.empty` when there is none.
    */
   def doc: Doc =
     self match {
@@ -463,22 +537,40 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
     }
 
   /**
-   * Encodes a value of type `A` into the method and path that this route
-   * pattern would successfully match against.
+   * Encodes `value` into a path that this codec matches, with a leading `/`.
+   * Returns `Left` with the error message when the encoding function of
+   * `transformOrFail` or `transformOrFailRight` fails. For alternatives made
+   * with `anyOf`, it uses the first one. A segment made with `SegmentCodec`'s
+   * `~` is written as separate segments: `literal("user-") ~ int("id")` with
+   * `12` gives `/user-/12`.
+   *
+   * {{{
+   * val line = PathCodec.empty / "orders" / PathCodec.int("order") / "lines" / PathCodec.int("line")
+   *
+   * line.encode((7, 2)) // Right(/orders/7/lines/2)
+   * }}}
    */
   final def encode(value: A): Either[String, Path] = format(value)
 
   private[http] final def erase: PathCodec[Any] = self.asInstanceOf[PathCodec[Any]]
 
+  /**
+   * Returns this codec with a named example value attached. OpenAPI generation
+   * shows it for the path parameters.
+   */
   final def example(name: String, example: A): PathCodec[A] =
     annotate(MetaData.Examples(Map(name -> example)))
 
+  /**
+   * Returns this codec with the given named example values attached. OpenAPI
+   * generation shows them for the path parameters.
+   */
   final def examples(examples: (String, A)*): PathCodec[A] =
     annotate(MetaData.Examples(examples.toMap))
 
   /**
-   * Formats a value of type `A` into a path. This is useful for embedding paths
-   * into HTML that is rendered by the server.
+   * Formats a value of type `A` into a path, the same as `encode`. This is
+   * useful for embedding paths into HTML that is rendered by the server.
    */
   final def format(value: A): Either[String, Path] = {
     def loop(path: PathCodec[_], value: Any): Either[String, Path] = path match {
@@ -505,9 +597,9 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   }
 
   /**
-   * Determines if this pattern matches the specified method and path. Rather
-   * than use this method, you should just try to decode it directly, for higher
-   * performance, otherwise the same information will be decoded twice.
+   * Returns `true` when `decode` succeeds on `path`. It runs the full decoder,
+   * so when the decoded value is needed as well, calling `decode` once avoids
+   * decoding the path twice.
    */
   final def matches(path: Path): Boolean =
     decode(path).isRight
@@ -581,14 +673,15 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   }
 
   /**
-   * Renders the path codec as a string.
+   * Renders the path codec as a string: a path template with each variable
+   * written as `{name}` and `trailing` as `...`, such as `/users/{id}`.
    */
   def render: String =
     render("{", "}")
 
   /**
    * Renders the path codec as a string. Surrounds the path variables with the
-   * specified prefix and suffix.
+   * specified prefix and suffix: `render(":", "")` gives `/users/:id`.
    */
   def render(prefix: String, suffix: String): String = {
     def loop(path: PathCodec[_]): String = path match {
@@ -630,7 +723,8 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   }
 
   /**
-   * Returns the segments of the path codec.
+   * Returns the segments of the path codec. For alternatives made with `anyOf`,
+   * only the first one is included.
    */
   def segments: Chunk[SegmentCodec[_]] = {
     def loop(path: PathCodec[_]): Chunk[SegmentCodec[_]] = path match {
@@ -671,15 +765,44 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
 
   override def toString: String = render
 
+  /**
+   * Returns a codec of `A2` that applies `f` to each decoded value and `g` to
+   * each value before encoding.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * final case class UserId(value: Int)
+   *
+   * val user: PathCodec[UserId] =
+   *   PathCodec.empty / "users" / PathCodec.int("id").transform(UserId(_))(_.value)
+   *
+   * user.decode(Path("/users/7")) // Right(UserId(7))
+   * user.encode(UserId(7))        // Right(/users/7)
+   * }}}
+   */
   final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), output => Right(g(output)))
 
+  /**
+   * Returns a codec of `A2` that applies `f` to each decoded value and `g` to
+   * each value before encoding. A `Left` from `f` is returned by `decode`, and
+   * a `Left` from `g` by `encode`.
+   */
   final def transformOrFail[A2](f: A => Either[String, A2])(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, f, g)
 
+  /**
+   * Like `transformOrFail`, but only decoding can fail: a `Left` from `f` is
+   * returned by `decode`, and `g` always succeeds.
+   */
   final def transformOrFailLeft[A2](f: A => Either[String, A2])(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, f, output => Right(g(output)))
 
+  /**
+   * Like `transformOrFail`, but only encoding can fail: a `Left` from `g` is
+   * returned by `encode`, and `f` always succeeds.
+   */
   final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
 
@@ -695,10 +818,17 @@ sealed trait PathCodec[A] extends codec.PathCodecPlatformSpecific { self =>
   def toPath(implicit ev: A =:= Unit): Path =
     encode(().asInstanceOf[A]).getOrElse(Path.root)
 }
+
+/**
+ * Constructors of [[PathCodec]]: literal paths, the typed variables `int`,
+ * `long`, `string`, `bool` and `uuid`, and `trailing`.
+ */
 object PathCodec {
 
   /**
-   * Constructs a path codec from a method and a path literal.
+   * Creates a codec that matches the literal path `value`, with one literal
+   * segment for each `/`-separated part. Leading and trailing slashes are
+   * ignored, and `""` gives `PathCodec.empty`.
    */
   def apply(value: String): PathCodec[Unit] = {
     val path = Path(value)
@@ -713,27 +843,85 @@ object PathCodec {
 
   }
 
+  /**
+   * Creates a codec for one path segment named `name` that holds a `Boolean`.
+   * `decode` accepts `true` and `false` in any letter case, while route
+   * matching in `Routes` accepts only lowercase `true` and `false`.
+   */
   def bool(name: String): PathCodec[Boolean] = Segment(SegmentCodec.bool(name))
 
   /**
-   * The empty / root path codec.
+   * The empty / root path codec. It matches `/` and the empty path, and holds
+   * `()`. With `/`, an empty operand is dropped.
    */
   def empty: PathCodec[Unit] = Segment[Unit](SegmentCodec.Empty)
 
+  /**
+   * Creates a codec for one path segment named `name` that holds an `Int`, such
+   * as `42` or `-5`. A number outside the `Int` range does not match.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * val page = PathCodec.empty / "pages" / PathCodec.int("page")
+   *
+   * page.decode(Path("/pages/3"))           // Right(3)
+   * page.decode(Path("/pages/99999999999")) // Left(Expected integer path segment but found "99999999999")
+   * }}}
+   */
   def int(name: String): PathCodec[Int] = Segment(SegmentCodec.int(name))
 
+  /**
+   * Creates a codec that matches the literal path `value`; the same as
+   * `PathCodec(value)`.
+   */
   def literal(value: String): PathCodec[Unit] = apply(value)
 
+  /**
+   * Creates a codec for one path segment named `name` that holds a `Long`. A
+   * number outside the `Long` range does not match.
+   */
   def long(name: String): PathCodec[Long] = Segment(SegmentCodec.long(name))
 
+  /**
+   * Converts a string to a literal path codec, so that a `String` such as
+   * `"users"` can be used where a `PathCodec` is expected.
+   */
   implicit def path(value: String): PathCodec[Unit] = apply(value)
 
+  /**
+   * Converts a [[SegmentCodec]] to a path codec of one segment, so that a
+   * segment codec such as `int("id")` from the `zio.http` package can be used
+   * where a `PathCodec` is expected.
+   */
   implicit def segment[A](codec: SegmentCodec[A]): PathCodec[A] = Segment(codec)
 
+  /**
+   * Creates a codec for one path segment named `name` that holds the segment's
+   * text as a `String`.
+   */
   def string(name: String): PathCodec[String] = Segment(SegmentCodec.string(name))
 
+  /**
+   * Creates a codec that matches the rest of the path, zero or more segments,
+   * and holds it as a `Path`. With no segments left, the value is `Path.empty`,
+   * or `Path.root` when the path ends with `/`.
+   *
+   * {{{
+   * import zio.http.Path
+   *
+   * val files = PathCodec.empty / "files" / PathCodec.trailing
+   *
+   * files.decode(Path("/files/docs/readme.md")) // Right(docs/readme.md)
+   * files.encode(Path("docs/readme.md"))        // Right(/files/docs/readme.md)
+   * }}}
+   */
   def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing)
 
+  /**
+   * Creates a codec for one path segment named `name` that holds a
+   * `java.util.UUID`, written in the 36-character form with dashes.
+   */
   def uuid(name: String): PathCodec[java.util.UUID] = Segment(SegmentCodec.uuid(name))
 
   private[http] final case class Fallback[A](left: PathCodec[Unit], right: PathCodec[Unit]) extends PathCodec[A]
@@ -755,6 +943,11 @@ object PathCodec {
     type Out = A
   }
 
+  /**
+   * A path codec with metadata attached, built by `annotate`, `??`, `example`
+   * and `examples`. It equals another `Annotated` codec when their `codec`
+   * values are equal; the annotations are not compared.
+   */
   final case class Annotated[A](codec: PathCodec[A], annotations: Chunk[MetaData[A]]) extends PathCodec[A] {
 
     override def equals(that: Any): Boolean = that match {
@@ -766,10 +959,21 @@ object PathCodec {
 
   }
 
+  /**
+   * Metadata attached to a path codec with `annotate`: documentation or
+   * examples. OpenAPI generation reads it.
+   */
   sealed trait MetaData[A] extends Product with Serializable
 
+  /** The kinds of path codec metadata: `Documented` and `Examples`. */
   object MetaData {
-    final case class Documented[A](value: Doc)             extends MetaData[A]
+
+    /** Documentation for a path codec, added by `??`. */
+    final case class Documented[A](value: Doc) extends MetaData[A]
+
+    /**
+     * Named example values for a path codec, added by `example` and `examples`.
+     */
     final case class Examples[A](examples: Map[String, A]) extends MetaData[A]
   }
 
@@ -955,7 +1159,14 @@ object PathCodec {
       _othersFlat.asInstanceOf[Chunk[(SegmentCodec[_], SegmentSubtree[Env])]]
     }
   }
-  object SegmentSubtree    {
+
+  /**
+   * Constructors of the tree of path segments that `Routes` uses to find the
+   * handler for a path.
+   */
+  object SegmentSubtree {
+
+    /** Builds a tree with one handler, `value`, reached through `segments`. */
     def single[Env](segments: Iterable[SegmentCodec[_]], value: RequestHandler[Env, Response]): SegmentSubtree[Env] =
       segments.collect { case x if x.nonEmpty => x }
         .foldRight[SegmentSubtree[Env]](SegmentSubtree(Map.empty, ListMap(), Set.empty, value)) {
@@ -980,6 +1191,7 @@ object PathCodec {
             )
         }
 
+    /** A tree with no handlers. */
     val empty: SegmentSubtree[Any] =
       SegmentSubtree(Map(), ListMap(), Set.empty, null.asInstanceOf[RequestHandler[Any, Response]])
   }
