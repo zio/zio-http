@@ -130,8 +130,8 @@ object Scheme {
    *
    * @param scheme
    *   the scheme text, in lowercase. `Scheme.decode` gives a `Custom` for every
-   *   string other than the exact lowercase `http`, `https`, `ws` and `wss`, so
-   *   `HTTP` gives a `Custom` with the text `http`.
+   *   non-empty string other than the exact lowercase `http`, `https`, `ws` and
+   *   `wss`, so `HTTP` gives a `Custom` with the text `http`.
    */
   sealed abstract case class Custom private[http] (scheme: String) extends Scheme
 
