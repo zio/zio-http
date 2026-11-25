@@ -11,6 +11,10 @@ import zio.http._
 import org.scalajs.dom
 import org.scalajs.dom.BodyInit
 
+/**
+ * A [[ZClient.Driver]] that sends requests with the browser Fetch API; its
+ * response bodies stream, and WebSockets are not supported.
+ */
 final case class FetchDriver() extends ZClient.Driver[Any, Scope, Throwable] {
   override def request(
     version: Version,
@@ -57,8 +61,10 @@ final case class FetchDriver() extends ZClient.Driver[Any, Scope, Throwable] {
 
 }
 
+/** Companion of [[FetchDriver]]. */
 object FetchDriver {
 
+  /** A layer that provides a [[FetchDriver]]. */
   val live: ZLayer[Any, Nothing, FetchDriver] =
     ZLayer.succeed(FetchDriver())
 
