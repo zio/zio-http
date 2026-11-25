@@ -459,10 +459,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * Converts this endpoint into a server [[zio.http.Route]] that decodes each
    * request into `Input`, runs `f`, and encodes its success with the output
    * codec and its failure with the error codec. A request that fails to decode
-   * gets status 400 Bad Request with a body that names the problem. With an
-   * auth type such as `AuthType.Bearer`, a request whose `Authorization` header
-   * is missing or has another scheme gets the endpoint's unauthorized status
-   * (404 Not Found unless changed with `unauthorizedStatus`).
+   * gets status 400 Bad Request with a body that names the problem.
    */
   def implement[Env](f: Input => ZIO[Env, Err, Output])(implicit
     trace: Trace,
@@ -547,11 +544,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * For each request, the route tries the input alternatives in order, decodes
    * the request together with the credentials of the auth type, runs
    * `original`, and encodes the result in a media type chosen from the `Accept`
-   * header and the media types the codec supports. A request whose
-   * `Authorization` header is missing or has another scheme than the auth type
-   * needs gets the endpoint's unauthorized status, with a `WWW-Authenticate`
-   * header when that status is 401. Other decoding failures are encoded with
-   * the codec error codec (by default status 400 Bad Request and a JSON body).
+   * header and the media types the codec supports. Decoding failures are
+   * encoded with the codec error codec (by default status 400 Bad Request and a
+   * JSON body).
    */
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
