@@ -21,9 +21,13 @@ import scala.language.implicitConversions
 import zio.http.template2.{Dom, Modifier}
 
 /**
- * The template2 HTML DSL: the HTML element and attribute values (from `HtmlElements` and `HtmlAttributes`), the `css`, `selector` and `js` string interpolators, and implicit conversions from strings, options and collections to [[Dom]] and [[Modifier]]. Import it with `import zio.http.template2._`.
+ * The template2 HTML DSL: the HTML element and attribute values (from
+ * `HtmlElements` and `HtmlAttributes`), the `css`, `selector` and `js` string
+ * interpolators, and implicit conversions from strings, options and collections
+ * to [[Dom]] and [[Modifier]]. Import it with `import zio.http.template2._`.
  *
- * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+ * @see
+ *   [[https://ziohttp.com/reference/template/ Template DSL]]
  */
 package object template2
     extends HtmlElements
@@ -33,12 +37,15 @@ package object template2
     with JsInterpolator {
 
   /**
-   * Converts a collection of nodes to one [[Modifier]], a `Dom.Fragment` of the nodes, so a collection such as `items.map(li(_))` can be passed to an element as children.
+   * Converts a collection of nodes to one [[Modifier]], a `Dom.Fragment` of the
+   * nodes, so a collection such as `items.map(li(_))` can be passed to an
+   * element as children.
    */
-  implicit def itrToModifier(seq: Iterable[Dom]): Modifier    = Dom.Fragment(seq)
+  implicit def itrToModifier(seq: Iterable[Dom]): Modifier = Dom.Fragment(seq)
 
   /**
-   * Converts an `Option[Modifier]` to the modifier it holds, or to `Dom.Empty` when it is `None`.
+   * Converts an `Option[Modifier]` to the modifier it holds, or to `Dom.Empty`
+   * when it is `None`.
    */
   implicit def optToModifier(opt: Option[Modifier]): Modifier = opt match {
     case Some(mod) => mod
@@ -46,7 +53,11 @@ package object template2
   }
 
   /**
-   * Converts a `String` to a text node (`Dom.Text`) where a [[Modifier]] is expected, so a string can be passed to an element as a child. A `String` where a [[Dom]] is expected becomes a text node through `stringToDom`. The text is rendered with `&`, `<`, `>`, `"` and `'` replaced by character references, except inside `script` and `style` elements.
+   * Converts a `String` to a text node (`Dom.Text`) where a [[Modifier]] is
+   * expected, so a string can be passed to an element as a child. A `String`
+   * where a [[Dom]] is expected becomes a text node through `stringToDom`. The
+   * text is rendered with `&`, `<`, `>`, `"` and `'` replaced by character
+   * references, except inside `script` and `style` elements.
    *
    * {{{
    * import zio.http.template2._
@@ -57,16 +68,18 @@ package object template2
    * // <p>Hello, <b>Ada</b></p>
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
-  implicit def stringToModifier(s: String): Modifier          = Dom.Text(s)
+  implicit def stringToModifier(s: String): Modifier = Dom.Text(s)
 
 }
 
 private[http] trait LowPriorityTemplateImplicits {
 
   /**
-   * Converts an `Option[String]` to a text node (`Dom.Text`), or to `Dom.Empty` when it is `None`.
+   * Converts an `Option[String]` to a text node (`Dom.Text`), or to `Dom.Empty`
+   * when it is `None`.
    */
   implicit def optStrToDom(opt: Option[String]): Dom = opt match {
     case Some(str) => Dom.Text(str)
@@ -74,7 +87,8 @@ private[http] trait LowPriorityTemplateImplicits {
   }
 
   /**
-   * Converts a `String` to a text node (`Dom.Text`) where a [[Dom]] is expected.
+   * Converts a `String` to a text node (`Dom.Text`) where a [[Dom]] is
+   * expected.
    */
-  implicit def stringToDom(s: String): Dom           = Dom.Text(s)
+  implicit def stringToDom(s: String): Dom = Dom.Text(s)
 }

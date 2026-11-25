@@ -24,7 +24,10 @@ import scala.reflect.macros.blackbox
 object CssInterpolatorMacros {
 
   /**
-   * Expands a `css` interpolation to `Css.apply` of the `s`-interpolated string. When the string has no arguments, it first checks the text and reports a compile error with the message `Invalid CSS syntax:` followed by the text when the check fails.
+   * Expands a `css` interpolation to `Css.apply` of the `s`-interpolated
+   * string. When the string has no arguments, it first checks the text and
+   * reports a compile error with the message `Invalid CSS syntax:` followed by
+   * the text when the check fails.
    */
   def cssImpl(c: blackbox.Context)(args: c.Expr[Any]*): c.Expr[Css] = {
     import c.universe._
@@ -58,7 +61,10 @@ object CssInterpolatorMacros {
   }
 
   /**
-   * Expands a `selector` interpolation to `CssSelector.raw` of the `s`-interpolated string. When the string has no arguments, it first checks the text and reports a compile error with the message `Invalid CSS selector syntax:` followed by the text when the check fails.
+   * Expands a `selector` interpolation to `CssSelector.raw` of the
+   * `s`-interpolated string. When the string has no arguments, it first checks
+   * the text and reports a compile error with the message
+   * `Invalid CSS selector syntax:` followed by the text when the check fails.
    */
   def selectorImpl(c: blackbox.Context)(args: c.Expr[Any]*): c.Expr[CssSelector] = {
     import c.universe._

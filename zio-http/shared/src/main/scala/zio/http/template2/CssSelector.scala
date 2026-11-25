@@ -5,7 +5,9 @@ import scala.language.implicitConversions
 import zio.schema.Schema
 
 /**
- * A value that has a CSS selector, with methods that build larger selectors from it. Elements, complete attributes (`Dom.CompleteAttribute`) and every [[CssSelector]] are `CssSelectable`, so `div > p` is a selector.
+ * A value that has a CSS selector, with methods that build larger selectors
+ * from it. Elements, complete attributes (`Dom.CompleteAttribute`) and every
+ * [[CssSelector]] are `CssSelectable`, so `div > p` is a selector.
  */
 trait CssSelectable {
   self =>
@@ -16,22 +18,28 @@ trait CssSelectable {
   val selector: CssSelector
 
   /** Returns the child selector `this > child`. */
-  def >(child: CssSelector): CssSelector       = CssSelector.Child(selector, child.selector)
+  def >(child: CssSelector): CssSelector = CssSelector.Child(selector, child.selector)
 
-  /** Returns the descendant selector `this descendant`, with a space between the two. */
+  /**
+   * Returns the descendant selector `this descendant`, with a space between the
+   * two.
+   */
   def >>(descendant: CssSelector): CssSelector = CssSelector.Descendant(selector, descendant.selector)
 
   /** Returns the next-sibling selector `this + adjacent`. */
-  def +(adjacent: CssSelector): CssSelector    = CssSelector.AdjacentSibling(selector, adjacent.selector)
+  def +(adjacent: CssSelector): CssSelector = CssSelector.AdjacentSibling(selector, adjacent.selector)
 
-  /** Returns a selector that matches both selectors, written together with nothing between them, such as `div.card`. */
-  def &(other: CssSelector): CssSelector       = CssSelector.And(selector, other.selector)
+  /**
+   * Returns a selector that matches both selectors, written together with
+   * nothing between them, such as `div.card`.
+   */
+  def &(other: CssSelector): CssSelector = CssSelector.And(selector, other.selector)
 
   /** Returns the subsequent-sibling selector `this ~ sibling`. */
-  def ~(sibling: CssSelector): CssSelector     = CssSelector.GeneralSibling(selector, sibling.selector)
+  def ~(sibling: CssSelector): CssSelector = CssSelector.GeneralSibling(selector, sibling.selector)
 
   /** Returns the selector list `this, other`, which matches either selector. */
-  def |(other: CssSelector): CssSelector       = CssSelector.Or(selector, other.selector)
+  def |(other: CssSelector): CssSelector = CssSelector.Or(selector, other.selector)
 
   /** Returns `this:active`. */
   def active: CssSelector = CssSelector.PseudoClass(selector, "active")
@@ -108,32 +116,51 @@ trait CssSelectable {
   /** Returns `this:visited`. */
   def visited: CssSelector = CssSelector.PseudoClass(selector, "visited")
 
-  /** Returns `this[attr]`, which matches when the attribute `attr` is present. */
+  /**
+   * Returns `this[attr]`, which matches when the attribute `attr` is present.
+   */
   def withAttribute(attr: String): CssSelector = CssSelector.Attribute(selector, attr, None)
 
-  /** Returns `this[attr="value"]`, which matches when the attribute `attr` equals `value`. */
+  /**
+   * Returns `this[attr="value"]`, which matches when the attribute `attr`
+   * equals `value`.
+   */
   def withAttribute(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.Exact(value)))
 
-  /** Returns `this[attr*="value"]`, which matches when the attribute `attr` contains `value`. */
+  /**
+   * Returns `this[attr*="value"]`, which matches when the attribute `attr`
+   * contains `value`.
+   */
   def withAttributeContaining(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.Contains(value)))
 
-  /** Returns `this[attr\$="value"]`, which matches when the attribute `attr` ends with `value`. */
+  /**
+   * Returns `this[attr\$="value"]`, which matches when the attribute `attr`
+   * ends with `value`.
+   */
   def withAttributeEnding(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.EndsWith(value)))
 
   /**
-   * Returns `this[attr|="value"]`, which matches when the attribute `attr` equals `value` or starts with `value` followed by `-`, as language codes such as `en-US` do.
+   * Returns `this[attr|="value"]`, which matches when the attribute `attr`
+   * equals `value` or starts with `value` followed by `-`, as language codes
+   * such as `en-US` do.
    */
   def withAttributePrefix(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.HyphenPrefix(value)))
 
-  /** Returns an attribute selector with the CSS starts-with operator, which matches when the attribute `attr` starts with `value`. */
+  /**
+   * Returns an attribute selector with the CSS starts-with operator, which
+   * matches when the attribute `attr` starts with `value`.
+   */
   def withAttributeStarting(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.StartsWith(value)))
 
-  /** Returns `this[attr~="value"]`, which matches when `value` is one of the space-separated words of the attribute `attr`. */
+  /**
+   * Returns `this[attr~="value"]`, which matches when `value` is one of the
+   * space-separated words of the attribute `attr`.
+   */
   def withAttributeWord(attr: String, value: String): CssSelector =
     CssSelector.Attribute(selector, attr, Some(CssSelector.AttributeMatch.WhitespaceContains(value)))
 }
@@ -148,7 +175,10 @@ object CssSelectable {
 }
 
 /**
- * A CSS selector. Create one with the constructors of the companion object, with the `selector` string interpolator, or from an element, and combine selectors with the methods of [[CssSelectable]]. `render` and `toString` return the selector as CSS text.
+ * A CSS selector. Create one with the constructors of the companion object,
+ * with the `selector` string interpolator, or from an element, and combine
+ * selectors with the methods of [[CssSelectable]]. `render` and `toString`
+ * return the selector as CSS text.
  */
 sealed trait CssSelector extends CssSelectable with Product with Serializable {
 
@@ -187,7 +217,8 @@ object CssSelector {
   def universal: Universal.type = Universal
 
   /**
-   * A `Schema` that encodes a selector as its rendered text and decodes a string as a `CssSelector.Raw`, without parsing it.
+   * A `Schema` that encodes a selector as its rendered text and decodes a
+   * string as a `CssSelector.Raw`, without parsing it.
    */
   implicit val schema: Schema[CssSelector] =
     Schema[String].transform(
@@ -205,22 +236,35 @@ object CssSelector {
    */
   object AttributeMatch {
 
-    /** Matches when the attribute value contains `value` (the `*=` operator). */
-    final case class Contains(value: String)           extends AttributeMatch
+    /**
+     * Matches when the attribute value contains `value` (the `*=` operator).
+     */
+    final case class Contains(value: String) extends AttributeMatch
 
-    /** Matches when the attribute value ends with `value` (the `\$=` operator). */
-    final case class EndsWith(value: String)           extends AttributeMatch
+    /**
+     * Matches when the attribute value ends with `value` (the `\$=` operator).
+     */
+    final case class EndsWith(value: String) extends AttributeMatch
 
     /** Matches when the attribute value equals `value` (the `=` operator). */
-    final case class Exact(value: String)              extends AttributeMatch
+    final case class Exact(value: String) extends AttributeMatch
 
-    /** Matches when the attribute value equals `value` or starts with `value` followed by `-` (the `|=` operator). */
-    final case class HyphenPrefix(value: String)       extends AttributeMatch
+    /**
+     * Matches when the attribute value equals `value` or starts with `value`
+     * followed by `-` (the `|=` operator).
+     */
+    final case class HyphenPrefix(value: String) extends AttributeMatch
 
-    /** Matches when the attribute value starts with `value` (the CSS starts-with operator). */
-    final case class StartsWith(value: String)         extends AttributeMatch
+    /**
+     * Matches when the attribute value starts with `value` (the CSS starts-with
+     * operator).
+     */
+    final case class StartsWith(value: String) extends AttributeMatch
 
-    /** Matches when `value` is one of the space-separated words of the attribute value (the `~=` operator). */
+    /**
+     * Matches when `value` is one of the space-separated words of the attribute
+     * value (the `~=` operator).
+     */
     final case class WhitespaceContains(value: String) extends AttributeMatch
   }
 
@@ -234,7 +278,8 @@ object CssSelector {
   }
 
   /**
-   * A selector that matches both `left` and `right`, written together with nothing between them.
+   * A selector that matches both `left` and `right`, written together with
+   * nothing between them.
    */
   final case class And(left: CssSelector, right: CssSelector) extends CssSelector {
 
@@ -243,13 +288,15 @@ object CssSelector {
   }
 
   /**
-   * An attribute selector: `inner` followed by a test of the attribute `attribute`. With no `matcher`, the test is that the attribute is present.
+   * An attribute selector: `inner` followed by a test of the attribute
+   * `attribute`. With no `matcher`, the test is that the attribute is present.
    */
   final case class Attribute(inner: CssSelector, attribute: String, matcher: Option[AttributeMatch])
       extends CssSelector {
 
     /**
-     * Returns `inner` followed by the attribute test in brackets, such as `a[href*="zio"]`, or `[attribute]` when there is no `matcher`.
+     * Returns `inner` followed by the attribute test in brackets, such as
+     * `a[href*="zio"]`, or `[attribute]` when there is no `matcher`.
      */
     def render: String = {
       val base     = if (inner.toString != "") inner.toString else ""
@@ -330,7 +377,9 @@ object CssSelector {
   }
 
   /**
-   * The selector list `left, right`, which matches either selector. It is rendered without grouping, so a combinator applied to it is written after the whole list: `(a | b) > c` renders as `a, b > c`.
+   * The selector list `left, right`, which matches either selector. It is
+   * rendered without grouping, so a combinator applied to it is written after
+   * the whole list: `(a | b) > c` renders as `a, b > c`.
    */
   final case class Or(left: CssSelector, right: CssSelector) extends CssSelector {
 

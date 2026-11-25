@@ -25,11 +25,19 @@ import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec, TextBinaryCodec}
 import zio.http.internal.OutputEncoder
 
 /**
- * A node of an HTML document: an element, a text node, a raw node, an attribute, a boolean attribute or the empty node. Build nodes with the constructors in the companion object, or with the element and attribute helpers of the `zio.http.template` package, and render them with `encode`.
+ * A node of an HTML document: an element, a text node, a raw node, an
+ * attribute, a boolean attribute or the empty node. Build nodes with the
+ * constructors in the companion object, or with the element and attribute
+ * helpers of the `zio.http.template` package, and render them with `encode`.
  *
- * When a node is rendered, text and attribute values are escaped: `&`, `<`, `>`, `"` and `'` become character references. Text inside a `script` or `style` element is written as is, and so is the content of a `Dom.raw` node.
+ * When a node is rendered, text and attribute values are escaped: `&`, `<`,
+ * `>`, `"` and `'` become character references. Text inside a `script` or
+ * `style` element is written as is, and so is the content of a `Dom.raw` node.
  *
- * The elements `area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`, `param`, `source`, `track` and `wbr` are void elements: when they have no child content they render as one self-closing tag, which ends in `/>`. With child content they render with an end tag, like other elements.
+ * The elements `area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`,
+ * `link`, `meta`, `param`, `source`, `track` and `wbr` are void elements: when
+ * they have no child content they render as one self-closing tag, which ends in
+ * `/>`. With child content they render with an end tag, like other elements.
  *
  * {{{
  * val link: Dom =
@@ -41,17 +49,24 @@ import zio.http.internal.OutputEncoder
  * // <hr/>
  * }}}
  *
- * @see [[https://ziohttp.com/reference/template/ Template DSL]]
- * @see [[https://html.spec.whatwg.org/multipage/syntax.html#void-elements Void elements]] in the HTML standard
+ * @see
+ *   [[https://ziohttp.com/reference/template/ Template DSL]]
+ * @see
+ *   [[https://html.spec.whatwg.org/multipage/syntax.html#void-elements Void elements]]
+ *   in the HTML standard
  */
 sealed trait Dom { self =>
 
-  /** Renders this node as an HTML string, without line breaks or indentation. */
+  /**
+   * Renders this node as an HTML string, without line breaks or indentation.
+   */
   def encode: CharSequence =
     encode(EncodingState.NoIndentation)
 
   /**
-   * Renders this node as an HTML string with line breaks: each child node of an element goes on its own line, indented by `spaces` spaces per level of nesting. An element whose only child is a text node stays on one line.
+   * Renders this node as an HTML string with line breaks: each child node of an
+   * element goes on its own line, indented by `spaces` spaces per level of
+   * nesting. An element whose only child is a text node stays on one line.
    */
   def encode(spaces: Int): CharSequence =
     encode(EncodingState.Indentation(0, spaces))
@@ -101,17 +116,23 @@ sealed trait Dom { self =>
   }
 }
 
-/** Constructors for [[Dom]] nodes, and the `Schema` and `HttpContentCodec` of [[Dom]]. */
+/**
+ * Constructors for [[Dom]] nodes, and the `Schema` and `HttpContentCodec` of
+ * [[Dom]].
+ */
 object Dom {
 
   /**
-   * A `Schema` that represents a [[Dom]] as a string: encoding renders the node with `encode`, and decoding gives a node that renders as the decoded string, unchanged.
+   * A `Schema` that represents a [[Dom]] as a string: encoding renders the node
+   * with `encode`, and decoding gives a node that renders as the decoded
+   * string, unchanged.
    */
   implicit val schema: Schema[Dom] =
     Schema[String].transform(Dom.raw, _.encode.toString)
 
   /**
-   * The `HttpContentCodec` of [[Dom]], with the single media type `text/html`. It writes the rendered node as the body, and reads a body with `schema`.
+   * The `HttpContentCodec` of [[Dom]], with the single media type `text/html`.
+   * It writes the rendered node as the body, and reads a body with `schema`.
    */
   implicit val htmlCodec: HttpContentCodec[Dom] = {
     HttpContentCodec(
@@ -123,27 +144,42 @@ object Dom {
   }
 
   /**
-   * Creates an attribute node. As a child of an element it becomes an attribute of that element, rendered as `name="value"` with the value escaped.
+   * Creates an attribute node. As a child of an element it becomes an attribute
+   * of that element, rendered as `name="value"` with the value escaped.
    */
   def attr(name: CharSequence, value: CharSequence): Dom = Dom.Attribute(name, value)
 
   /**
-   * Creates a boolean attribute node. With `None` it renders as the bare name, such as `disabled`. With `Some(b)` it renders as `name="true"` or `name="false"`, so `Some(false)` still writes the attribute.
+   * Creates a boolean attribute node. With `None` it renders as the bare name,
+   * such as `disabled`. With `Some(b)` it renders as `name="true"` or
+   * `name="false"`, so `Some(false)` still writes the attribute.
    */
   def booleanAttr(name: CharSequence, value: Option[Boolean] = None): Dom = Dom.BooleanAttribute(name, value)
 
   /**
-   * Creates an element with the tag `name` and the given children. Attribute nodes among the children become the element's attributes, in order. Element, text and raw nodes become its content, in order, and empty nodes are left out.
+   * Creates an element with the tag `name` and the given children. Attribute
+   * nodes among the children become the element's attributes, in order.
+   * Element, text and raw nodes become its content, in order, and empty nodes
+   * are left out.
    */
   def element(name: CharSequence, children: Dom*): Dom = Dom.Element(name, children)
 
-  /** Returns the empty node, which renders as an empty string and is left out when it is a child of an element. */
+  /**
+   * Returns the empty node, which renders as an empty string and is left out
+   * when it is a child of an element.
+   */
   def empty: Dom = Empty
 
-  /** Creates a text node. Its text is escaped when rendered, except inside a `script` or `style` element. */
+  /**
+   * Creates a text node. Its text is escaped when rendered, except inside a
+   * `script` or `style` element.
+   */
   def text(data: CharSequence): Dom = Dom.Text(data)
 
-  /** Creates a node whose content is written to the output as is, without escaping. */
+  /**
+   * Creates a node whose content is written to the output as is, without
+   * escaping.
+   */
   def raw(raw: CharSequence): Dom = Dom.Raw(raw)
 
   private[zio] final case class Element(name: CharSequence, children: Seq[Dom]) extends Dom

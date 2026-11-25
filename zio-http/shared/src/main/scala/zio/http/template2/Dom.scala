@@ -26,7 +26,14 @@ import zio.http.codec.{BinaryCodecWithSchema, HttpContentCodec, TextBinaryCodec}
 import zio.http.internal.ThreadLocals
 
 /**
- * A node of an HTML document tree in the template2 DSL: an element, a text node, raw HTML, a fragment of several nodes, or nothing. Build nodes with the element values of `zio.http.template2` (`div`, `p`, ...) or with `Dom.element`, `Dom.text` and `Dom.raw`, and turn a tree into an HTML string with `render`. A `Dom` is also a [[Modifier]], so a node can be passed to an element as a child. Text nodes are rendered with `&`, `<`, `>`, `"` and `'` replaced by character references, except inside `script` and `style` elements.
+ * A node of an HTML document tree in the template2 DSL: an element, a text
+ * node, raw HTML, a fragment of several nodes, or nothing. Build nodes with the
+ * element values of `zio.http.template2` (`div`, `p`, ...) or with
+ * `Dom.element`, `Dom.text` and `Dom.raw`, and turn a tree into an HTML string
+ * with `render`. A `Dom` is also a [[Modifier]], so a node can be passed to an
+ * element as a child. Text nodes are rendered with `&`, `<`, `>`, `"` and `'`
+ * replaced by character references, except inside `script` and `style`
+ * elements.
  *
  * {{{
  * val card: Dom = div(b("Orders"), p("3 items & 1 coupon"))
@@ -34,12 +41,16 @@ import zio.http.internal.ThreadLocals
  * // <div><b>Orders</b><p>3 items &amp; 1 coupon</p></div>
  * }}}
  *
- * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+ * @see
+ *   [[https://ziohttp.com/reference/template/ Template DSL]]
  */
 sealed trait Dom extends Modifier with Product with Serializable { self =>
 
   /**
-   * Returns this node and its descendants for which `predicate` is defined, in depth-first order with this node first. It returns the matching nodes themselves: the result of `predicate` is not used. It looks inside the children of elements, but not inside a `Dom.Fragment`.
+   * Returns this node and its descendants for which `predicate` is defined, in
+   * depth-first order with this node first. It returns the matching nodes
+   * themselves: the result of `predicate` is not used. It looks inside the
+   * children of elements, but not inside a `Dom.Fragment`.
    */
   def collect(predicate: PartialFunction[Dom, Dom]): List[Dom] = {
     val current = if (predicate.isDefinedAt(self)) List(self) else Nil
@@ -50,7 +61,12 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
   }
 
   /**
-   * Returns a copy of this tree without the descendants for which `predicate` is false. On an element, it keeps the element itself, removes each child for which `predicate` is false, and filters the kept children the same way. On any other node, it returns the node when `predicate` is true and `Dom.Empty` otherwise. It does not look inside a `Dom.Fragment`: a kept fragment keeps all its children.
+   * Returns a copy of this tree without the descendants for which `predicate`
+   * is false. On an element, it keeps the element itself, removes each child
+   * for which `predicate` is false, and filters the kept children the same way.
+   * On any other node, it returns the node when `predicate` is true and
+   * `Dom.Empty` otherwise. It does not look inside a `Dom.Fragment`: a kept
+   * fragment keeps all its children.
    */
   def filter(predicate: Dom => Boolean): Dom = self match {
     case element: Dom.Element =>
@@ -66,7 +82,9 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
   }
 
   /**
-   * Returns the first node for which `predicate` is true, in depth-first order with this node first, or `None`. It looks inside the children of elements, but not inside a `Dom.Fragment`.
+   * Returns the first node for which `predicate` is true, in depth-first order
+   * with this node first, or `None`. It looks inside the children of elements,
+   * but not inside a `Dom.Fragment`.
    */
   def find(predicate: Dom => Boolean): Option[Dom] = {
     if (predicate(self)) Some(self)
@@ -78,7 +96,10 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
   }
 
   /**
-   * Returns true for `Dom.Empty` and for a `Dom.Fragment` whose children are all empty, including a fragment with no children. Returns false for the other nodes, including an element with no children and a text node with empty content.
+   * Returns true for `Dom.Empty` and for a `Dom.Fragment` whose children are
+   * all empty, including a fragment with no children. Returns false for the
+   * other nodes, including an element with no children and a text node with
+   * empty content.
    */
   def isEmpty: Boolean = self match {
     case Dom.Empty          => true
@@ -87,12 +108,17 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
   }
 
   /**
-   * Renders this tree to an HTML string, without adding line breaks or indentation. It is the same as `render(false)`.
+   * Renders this tree to an HTML string, without adding line breaks or
+   * indentation. It is the same as `render(false)`.
    */
   def render: String = render(indentation = false)
 
   /**
-   * Renders this tree to an HTML string. With `indentation = true`, the children of an element go on their own lines, indented by two spaces per level, unless the element's only child is a text node: then the element stays on one line. With `indentation = false`, no line breaks or indentation are added.
+   * Renders this tree to an HTML string. With `indentation = true`, the
+   * children of an element go on their own lines, indented by two spaces per
+   * level, unless the element's only child is a text node: then the element
+   * stays on one line. With `indentation = false`, no line breaks or
+   * indentation are added.
    */
   def render(indentation: Boolean): String = {
     val state = if (indentation) RenderState.withIndentation else RenderState.noIndentation
@@ -110,7 +136,8 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
   }
 
   /**
-   * Renders this tree to an HTML string, without adding line breaks or indentation. The output is the same as `render`.
+   * Renders this tree to an HTML string, without adding line breaks or
+   * indentation. The output is the same as `render`.
    */
   def renderMinified: String = {
     val state = RenderState.Minified
@@ -125,7 +152,12 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
 }
 
 /**
- * A value that can be applied to an element: an attribute (a [[Dom.Attribute]]), a child node (a [[Dom]]), or a group of modifiers. The `apply` methods of an element take modifiers, so attributes and children can be passed in one call. The implicit conversions of `zio.http.template2` turn a `String` into a text node, so a string can be passed where a modifier is expected.
+ * A value that can be applied to an element: an attribute (a
+ * [[Dom.Attribute]]), a child node (a [[Dom]]), or a group of modifiers. The
+ * `apply` methods of an element take modifiers, so attributes and children can
+ * be passed in one call. The implicit conversions of `zio.http.template2` turn
+ * a `String` into a text node, so a string can be passed where a modifier is
+ * expected.
  *
  * {{{
  * val mods: List[Modifier] = List(id := "cart", "2 items")
@@ -133,12 +165,14 @@ sealed trait Dom extends Modifier with Product with Serializable { self =>
  * // <span id="cart">2 items</span>
  * }}}
  *
- * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+ * @see
+ *   [[https://ziohttp.com/reference/template/ Template DSL]]
  */
 sealed trait Modifier extends Product with Serializable {
 
   /**
-   * Applies this modifier to `element` and returns the new element. For an attribute or a node, it is the same as `element(this)`.
+   * Applies this modifier to `element` and returns the new element. For an
+   * attribute or a node, it is the same as `element(this)`.
    */
   def modify(element: Dom.Element): Dom.Element = element.apply(this)
 }
@@ -169,35 +203,44 @@ object Modifier {
   }
 
   /**
-   * Converts a collection of modifiers to one modifier. When it is passed to the `apply` method of an element, the attributes and nodes in `modifiers` are added to the element, and then every child that is equal to an earlier child of the element is removed.
+   * Converts a collection of modifiers to one modifier. When it is passed to
+   * the `apply` method of an element, the attributes and nodes in `modifiers`
+   * are added to the element, and then every child that is equal to an earlier
+   * child of the element is removed.
    */
   implicit def iterableToModifier(modifiers: Iterable[Modifier]): Modifier =
     IterableModifier(modifiers)
 }
 
 /**
- * Constructors of [[Dom]] nodes and attributes, the node and attribute types, and the `Schema` and HTTP codec of `Dom`.
+ * Constructors of [[Dom]] nodes and attributes, the node and attribute types,
+ * and the `Schema` and HTTP codec of `Dom`.
  */
 object Dom {
 
   /**
-   * An empty `script` element. Add content and attributes with its methods, such as `inlineJs` or `externalJs`.
+   * An empty `script` element. Add content and attributes with its methods,
+   * such as `inlineJs` or `externalJs`.
    */
-  val script: Element.Script                    = Element.Script()
+  val script: Element.Script = Element.Script()
 
   /**
-   * An empty `style` element. Add CSS and attributes with its methods, such as `inlineCss`.
+   * An empty `style` element. Add CSS and attributes with its methods, such as
+   * `inlineCss`.
    */
-  val style: Element.Style                      = Element.Style()
+  val style: Element.Style = Element.Style()
 
   /**
-   * A `Schema` that encodes a `Dom` as its rendered HTML (`render`) and decodes a string as a `Dom.RawHtml` node, without parsing it.
+   * A `Schema` that encodes a `Dom` as its rendered HTML (`render`) and decodes
+   * a string as a `Dom.RawHtml` node, without parsing it.
    */
-  implicit val schema: Schema[Dom]              =
+  implicit val schema: Schema[Dom] =
     Schema[String].transform(raw, _.render)
 
   /**
-   * An `HttpContentCodec` for the `text/html` media type, built from `schema`: it encodes a `Dom` as its rendered HTML and decodes a body as a `Dom.RawHtml` node.
+   * An `HttpContentCodec` for the `text/html` media type, built from `schema`:
+   * it encodes a `Dom` as its rendered HTML and decodes a body as a
+   * `Dom.RawHtml` node.
    */
   implicit val htmlCodec: HttpContentCodec[Dom] = {
     HttpContentCodec(
@@ -225,7 +268,12 @@ object Dom {
   )
 
   /**
-   * Creates an element with the tag name `tag` and no attributes or children. Use it for tags that `zio.http.template2` has no value for, such as custom elements. The tag name is rendered as given. The void tags `area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`, `param`, `source`, `track` and `wbr`, in any letter case, render as a single self-closing tag that ends with `/>`, without their children.
+   * Creates an element with the tag name `tag` and no attributes or children.
+   * Use it for tags that `zio.http.template2` has no value for, such as custom
+   * elements. The tag name is rendered as given. The void tags `area`, `base`,
+   * `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`, `param`,
+   * `source`, `track` and `wbr`, in any letter case, render as a single
+   * self-closing tag that ends with `/>`, without their children.
    *
    * {{{
    * val badge = Dom.element("x-badge")(Dom.attr("level", "gold"), "VIP")
@@ -233,36 +281,45 @@ object Dom {
    * // <x-badge level="gold">VIP</x-badge>
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
   def element(tag: String): Element.Generic = Element.Generic(tag)
 
   /**
-   * Creates a text node. When it is rendered, the characters `&`, `<`, `>`, `"` and `'` are replaced by HTML character references. Inside a `script` or `style` element the text is rendered as is. The implicit conversions of `zio.http.template2` create a text node from a `String` passed where a [[Dom]] or a [[Modifier]] is expected.
+   * Creates a text node. When it is rendered, the characters `&`, `<`, `>`, `"`
+   * and `'` are replaced by HTML character references. Inside a `script` or
+   * `style` element the text is rendered as is. The implicit conversions of
+   * `zio.http.template2` create a text node from a `String` passed where a
+   * [[Dom]] or a [[Modifier]] is expected.
    *
    * {{{
    * Dom.text("Tom & Jerry <3").render
    * // Tom &amp; Jerry &lt;3
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
   def text(content: String): Text = Text(content)
 
   /**
-   * Creates a node whose `content` is rendered as is, without escaping. Use it for HTML that is already rendered, for example by another template engine.
+   * Creates a node whose `content` is rendered as is, without escaping. Use it
+   * for HTML that is already rendered, for example by another template engine.
    *
    * {{{
    * Dom.raw("<em>pre-rendered</em>").render
    * // <em>pre-rendered</em>
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
   def raw(content: String): RawHtml = RawHtml(content)
 
   /**
-   * Returns `Dom.Empty`, a node that renders as an empty string. Use it where a branch of a template has nothing to show.
+   * Returns `Dom.Empty`, a node that renders as an empty string. Use it where a
+   * branch of a template has nothing to show.
    *
    * {{{
    * def banner(message: Option[String]): Dom = message.fold(Dom.empty)(m => p(m))
@@ -270,17 +327,20 @@ object Dom {
    * // <div></div>
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
   def empty: Dom = Empty
 
   /**
-   * Creates a `Dom.Fragment` that renders `children` one after another, with no element around them.
+   * Creates a `Dom.Fragment` that renders `children` one after another, with no
+   * element around them.
    */
   def fragment(children: Dom*): Fragment = Fragment(children.toVector)
 
   /**
-   * Creates an attribute named `name` that still needs a value. Give it one with `:=` or `apply`, for example `Dom.attr("data-id") := "42"`.
+   * Creates an attribute named `name` that still needs a value. Give it one
+   * with `:=` or `apply`, for example `Dom.attr("data-id") := "42"`.
    */
   def attr(name: String): PartialAttribute = PartialAttribute(name)
 
@@ -290,29 +350,38 @@ object Dom {
   def attr(name: String, value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
 
   /**
-   * Creates an attribute named `name` with the string value `value`. The value is rendered with `&`, `<`, `>`, `"` and `'` replaced by character references.
+   * Creates an attribute named `name` with the string value `value`. The value
+   * is rendered with `&`, `<`, `>`, `"` and `'` replaced by character
+   * references.
    */
   def attr(name: String, value: String): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value))
 
   /**
-   * Creates a boolean attribute such as `disabled`. When `enabled` is true it renders as its name alone, with no value; when it is false the attribute is not rendered.
+   * Creates a boolean attribute such as `disabled`. When `enabled` is true it
+   * renders as its name alone, with no value; when it is false the attribute is
+   * not rendered.
    */
   def boolAttr(name: String, enabled: Boolean = true): BooleanAttribute = BooleanAttribute(name, enabled)
 
   /**
-   * Creates an attribute named `name` that takes several values, joined by a space when it is rendered, for example `Dom.multiAttr("class") := ("card", "wide")`.
+   * Creates an attribute named `name` that takes several values, joined by a
+   * space when it is rendered, for example
+   * `Dom.multiAttr("class") := ("card", "wide")`.
    */
   def multiAttr(name: String): PartialMultiAttribute =
     PartialMultiAttribute(name, AttributeSeparator.Space)
 
   /**
-   * Creates an attribute named `name` that takes several values, joined by `separator` when it is rendered.
+   * Creates an attribute named `name` that takes several values, joined by
+   * `separator` when it is rendered.
    */
   def multiAttr(name: String, separator: AttributeSeparator): PartialMultiAttribute =
     PartialMultiAttribute(name, separator)
 
   /**
-   * Creates an attribute named `name` whose value is `values` joined by `separator`, a space by default. With no values, the attribute is not rendered.
+   * Creates an attribute named `name` whose value is `values` joined by
+   * `separator`, a space by default. With no values, the attribute is not
+   * rendered.
    */
   def multiAttr(
     name: String,
@@ -322,7 +391,8 @@ object Dom {
     CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
 
   /**
-   * Creates an attribute named `name` whose value is `values` joined by `separator`. With no values, the attribute is not rendered.
+   * Creates an attribute named `name` whose value is `values` joined by
+   * `separator`. With no values, the attribute is not rendered.
    */
   def multiAttr(name: String, separator: AttributeSeparator, values: String*): CompleteAttribute =
     CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
@@ -337,7 +407,10 @@ object Dom {
   }
 
   /**
-   * An HTML element: a tag name, attributes and child nodes. The methods that add or change attributes and children return a new element. Its `selector` is the CSS type selector of its tag, and an element converts implicitly to a [[CssSelector]].
+   * An HTML element: a tag name, attributes and child nodes. The methods that
+   * add or change attributes and children return a new element. Its `selector`
+   * is the CSS type selector of its tag, and an element converts implicitly to
+   * a [[CssSelector]].
    */
   sealed trait Element extends Dom with CssSelectable {
 
@@ -345,12 +418,14 @@ object Dom {
       CssSelector.element(tag)
 
     /**
-     * Returns this element with `attributes` added. An attribute replaces an existing attribute with the same name.
+     * Returns this element with `attributes` added. An attribute replaces an
+     * existing attribute with the same name.
      */
     def addAttributes(attributes: Iterable[Attribute]): Element
 
     /**
-     * Returns this element with the given attributes added. An attribute replaces an existing attribute with the same name.
+     * Returns this element with the given attributes added. An attribute
+     * replaces an existing attribute with the same name.
      */
     def addAttributes(attribute: Attribute, attributes: Attribute*): Element =
       addAttributes(attribute +: attributes)
@@ -362,29 +437,36 @@ object Dom {
       replaceChildren(this.children ++ children: _*)
 
     /**
-     * Returns this element with the given nodes added after its existing children.
+     * Returns this element with the given nodes added after its existing
+     * children.
      */
     def addChildren(child: Dom, children: Dom*): Element =
       addChildren(child +: children)
 
     /**
-     * Returns this element with the modifiers applied in order: an attribute is added, replacing an attribute with the same name, and a node is added as the last child.
+     * Returns this element with the modifiers applied in order: an attribute is
+     * added, replacing an attribute with the same name, and a node is added as
+     * the last child.
      */
     def apply(modifier: Modifier, modifiers: Modifier*): Element =
       apply(modifier +: modifiers)
 
     /**
-     * Returns this element with `modifiers` applied in order: an attribute is added, replacing an attribute with the same name, and a node is added as the last child.
+     * Returns this element with `modifiers` applied in order: an attribute is
+     * added, replacing an attribute with the same name, and a node is added as
+     * the last child.
      */
     def apply(modifiers: Iterable[Modifier]): Element
 
     /**
-     * Returns this element with the attribute `name` set to `value`, replacing an existing value.
+     * Returns this element with the attribute `name` set to `value`, replacing
+     * an existing value.
      */
     def attr(name: String, value: AttributeValue): Element
 
     /**
-     * Returns this element with the attribute `name` set to the string `value`, replacing an existing value.
+     * Returns this element with the attribute `name` set to the string `value`,
+     * replacing an existing value.
      */
     def attr(name: String, value: String): Element
 
@@ -414,12 +496,14 @@ object Dom {
     def tag: String
 
     /**
-     * Returns this element with `modifiers` applied when `condition` is true, and this element unchanged otherwise.
+     * Returns this element with `modifiers` applied when `condition` is true,
+     * and this element unchanged otherwise.
      */
     def when(condition: Boolean)(modifiers: Modifier*): Element
 
     /**
-     * Returns this element with the modifiers `f(value)` applied when `option` is `Some(value)`, and this element unchanged when it is `None`.
+     * Returns this element with the modifiers `f(value)` applied when `option`
+     * is `Some(value)`, and this element unchanged when it is `None`.
      */
     def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Element
 
@@ -470,7 +554,12 @@ object Dom {
   }
 
   /**
-   * An HTML attribute: a name and a value. An attribute is a [[Modifier]], so it is passed to an element together with the element's children, and it replaces an earlier attribute of that element with the same name. The two kinds are `Dom.CompleteAttribute` and `Dom.BooleanAttribute`; the attribute values of `zio.http.template2`, such as `id` and `href`, create them with `:=`.
+   * An HTML attribute: a name and a value. An attribute is a [[Modifier]], so
+   * it is passed to an element together with the element's children, and it
+   * replaces an earlier attribute of that element with the same name. The two
+   * kinds are `Dom.CompleteAttribute` and `Dom.BooleanAttribute`; the attribute
+   * values of `zio.http.template2`, such as `id` and `href`, create them with
+   * `:=`.
    *
    * {{{
    * val attrs: List[Dom.Attribute] = List(Dom.attr("lang", "fa"), Dom.boolAttr("hidden"))
@@ -478,7 +567,8 @@ object Dom {
    * // <div lang="fa" hidden></div>
    * }}}
    *
-   * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+   * @see
+   *   [[https://ziohttp.com/reference/template/ Template DSL]]
    */
   sealed trait Attribute extends Modifier {
 
@@ -494,7 +584,9 @@ object Dom {
   }
 
   /**
-   * A text node. Its `content` is rendered with `&`, `<`, `>`, `"` and `'` replaced by character references, except inside a `script` or `style` element, where it is rendered as is.
+   * A text node. Its `content` is rendered with `&`, `<`, `>`, `"` and `'`
+   * replaced by character references, except inside a `script` or `style`
+   * element, where it is rendered as is.
    */
   final case class Text(content: String) extends Dom {
     private[template2] def renderInternal(state: RenderState): CharSequence =
@@ -509,7 +601,8 @@ object Dom {
   }
 
   /**
-   * A group of nodes that are rendered one after another, with no element around them.
+   * A group of nodes that are rendered one after another, with no element
+   * around them.
    */
   final case class Fragment(children: Iterable[Dom]) extends Dom {
 
@@ -524,7 +617,9 @@ object Dom {
   }
 
   /**
-   * An attribute with a name and a value. Its `selector` is `.value` for the `class` attribute, `#value` for `id`, and `*[name="value"]` for other names, with the value as it renders.
+   * An attribute with a name and a value. Its `selector` is `.value` for the
+   * `class` attribute, `#value` for `id`, and `*[name="value"]` for other
+   * names, with the value as it renders.
    */
   final case class CompleteAttribute(name: String, value: AttributeValue) extends Attribute with CssSelectable {
     override val selector: CssSelector =
@@ -536,7 +631,8 @@ object Dom {
   }
 
   /**
-   * An attribute name that still needs a value, as in `href := "/docs"`. The `:=` and `apply` methods return the complete attribute.
+   * An attribute name that still needs a value, as in `href := "/docs"`. The
+   * `:=` and `apply` methods return the complete attribute.
    */
   final case class PartialAttribute(name: String) {
 
@@ -544,18 +640,22 @@ object Dom {
     def :=(value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
 
     /**
-     * Returns this attribute with a boolean value: when `value` is true it renders as its name alone, and when it is false it is not rendered.
+     * Returns this attribute with a boolean value: when `value` is true it
+     * renders as its name alone, and when it is false it is not rendered.
      */
-    def :=(value: Boolean): CompleteAttribute        = CompleteAttribute(name, AttributeValue.BooleanValue(value))
+    def :=(value: Boolean): CompleteAttribute = CompleteAttribute(name, AttributeValue.BooleanValue(value))
 
     /** Returns this attribute with `value.toString` as its string value. */
     def :=(value: Double): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
 
     /** Returns this attribute with `value.toString` as its string value. */
-    def :=(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+    def :=(value: Int): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
 
-    /** Returns this attribute with the JavaScript code `value`, for event handlers such as `onclick`. */
-    def :=(value: Js): CompleteAttribute     = CompleteAttribute(name, AttributeValue.JsValue(value))
+    /**
+     * Returns this attribute with the JavaScript code `value`, for event
+     * handlers such as `onclick`.
+     */
+    def :=(value: Js): CompleteAttribute = CompleteAttribute(name, AttributeValue.JsValue(value))
 
     /** Returns this attribute with the string value `value`. */
     def :=(value: String): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value))
@@ -564,22 +664,24 @@ object Dom {
     def apply(value: AttributeValue): CompleteAttribute = CompleteAttribute(name, value)
 
     /** Returns this attribute with the string value `value`. */
-    def apply(value: String): CompleteAttribute         = CompleteAttribute(name, AttributeValue.StringValue(value))
+    def apply(value: String): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value))
 
     /**
-     * Returns this attribute with a boolean value: when `value` is true it renders as its name alone, and when it is false it is not rendered.
+     * Returns this attribute with a boolean value: when `value` is true it
+     * renders as its name alone, and when it is false it is not rendered.
      */
-    def apply(value: Boolean): CompleteAttribute        = CompleteAttribute(name, AttributeValue.BooleanValue(value))
+    def apply(value: Boolean): CompleteAttribute = CompleteAttribute(name, AttributeValue.BooleanValue(value))
 
     /** Returns this attribute with `value.toString` as its string value. */
-    def apply(value: Int): CompleteAttribute    = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
+    def apply(value: Int): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
 
     /** Returns this attribute with `value.toString` as its string value. */
     def apply(value: Double): CompleteAttribute = CompleteAttribute(name, AttributeValue.StringValue(value.toString))
   }
 
   /**
-   * A boolean attribute, such as `disabled` or `checked`. When `enabled` is true it renders as its name alone; when it is false it is not rendered.
+   * A boolean attribute, such as `disabled` or `checked`. When `enabled` is
+   * true it renders as its name alone; when it is false it is not rendered.
    */
   final case class BooleanAttribute(name: String, enabled: Boolean = true) extends Attribute {
 
@@ -590,20 +692,22 @@ object Dom {
   }
 
   /**
-   * An attribute name that still needs one or more values, as in `className := ("foo", "bar")`. The values are joined by `separator` when the attribute is rendered.
+   * An attribute name that still needs one or more values, as in
+   * `className := ("foo", "bar")`. The values are joined by `separator` when
+   * the attribute is rendered.
    */
   final case class PartialMultiAttribute(name: String, separator: AttributeSeparator = AttributeSeparator.Space) {
 
     /** Returns this attribute with the values `values`. */
-    def :=(values: String*): CompleteAttribute             =
+    def :=(values: String*): CompleteAttribute =
       CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
 
     /** Returns this attribute with the values `values`. */
-    def :=(values: Iterable[String]): CompleteAttribute    =
+    def :=(values: Iterable[String]): CompleteAttribute =
       CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
 
     /** Returns this attribute with the values `values`. */
-    def apply(values: String*): CompleteAttribute          =
+    def apply(values: String*): CompleteAttribute =
       CompleteAttribute(name, AttributeValue.MultiValue(values.toVector, separator))
 
     /** Returns this attribute with the values `values`. */
@@ -612,18 +716,21 @@ object Dom {
   }
 
   /**
-   * The element types, and the implicit conversion of an element to its CSS selector.
+   * The element types, and the implicit conversion of an element to its CSS
+   * selector.
    */
   object Element {
 
     /**
-     * Converts an element to its CSS type selector, so an element such as `div` can be used where a [[CssSelector]] is expected.
+     * Converts an element to its CSS type selector, so an element such as `div`
+     * can be used where a [[CssSelector]] is expected.
      */
     implicit def toCssSelector(partialElement: Element): CssSelector =
       partialElement.selector
 
     /**
-     * An element with any tag name. Its text children are rendered with `&`, `<`, `>`, `"` and `'` replaced by character references.
+     * An element with any tag name. Its text children are rendered with `&`,
+     * `<`, `>`, `"` and `'` replaced by character references.
      */
     final case class Generic(
       tag: String,
@@ -632,7 +739,8 @@ object Dom {
     ) extends Element {
 
       /**
-       * Returns this element with `attributes` added. An attribute replaces an existing attribute with the same name.
+       * Returns this element with `attributes` added. An attribute replaces an
+       * existing attribute with the same name.
        */
       def addAttributes(attributes: Iterable[Attribute]): Generic =
         copy(
@@ -643,7 +751,9 @@ object Dom {
         apply(modifier +: modifiers)
 
       /**
-       * Returns this element with `modifiers` applied in order: an attribute is added, replacing an attribute with the same name, and a node is added as the last child.
+       * Returns this element with `modifiers` applied in order: an attribute is
+       * added, replacing an attribute with the same name, and a node is added
+       * as the last child.
        */
       def apply(modifiers: Iterable[Modifier]): Generic = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
@@ -661,13 +771,15 @@ object Dom {
       }
 
       /**
-       * Returns this element with the attribute `name` set to `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to `value`,
+       * replacing an existing value.
        */
       def attr(name: String, value: AttributeValue): Generic =
         copy(attributes = attributes + (name -> value))
 
       /**
-       * Returns this element with the attribute `name` set to the string `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to the string
+       * `value`, replacing an existing value.
        */
       def attr(name: String, value: String): Generic =
         copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
@@ -685,13 +797,16 @@ object Dom {
         copy(children = children.toVector)
 
       /**
-       * Returns this element with `modifiers` applied when `condition` is true, and this element unchanged otherwise.
+       * Returns this element with `modifiers` applied when `condition` is true,
+       * and this element unchanged otherwise.
        */
       def when(condition: Boolean)(modifiers: Modifier*): Generic =
         if (condition) apply(modifiers) else this
 
       /**
-       * Returns this element with the modifiers `f(value)` applied when `option` is `Some(value)`, and this element unchanged when it is `None`.
+       * Returns this element with the modifiers `f(value)` applied when
+       * `option` is `Some(value)`, and this element unchanged when it is
+       * `None`.
        */
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Generic =
         option.fold(this)(value => apply(f(value)))
@@ -704,7 +819,8 @@ object Dom {
     }
 
     /**
-     * A `script` element, with methods that set its JavaScript content and its attributes. Its text children are rendered as is, without escaping.
+     * A `script` element, with methods that set its JavaScript content and its
+     * attributes. Its text children are rendered as is, without escaping.
      */
     final case class Script(
       attributes: Map[String, AttributeValue] = Map.empty,
@@ -717,7 +833,8 @@ object Dom {
       def tag: String = "script"
 
       /**
-       * Returns this element with `attributes` added. An attribute replaces an existing attribute with the same name.
+       * Returns this element with `attributes` added. An attribute replaces an
+       * existing attribute with the same name.
        */
       def addAttributes(attributes: Iterable[Attribute]): Script =
         copy(
@@ -742,7 +859,8 @@ object Dom {
       }
 
       /**
-       * Returns this element with the code `Js` added as the last text child, and then `modifiers` applied.
+       * Returns this element with the code `Js` added as the last text child,
+       * and then `modifiers` applied.
        */
       def apply(Js: Js, modifiers: Modifier*): Script = {
         copy(children = children :+ Dom.text(Js.value)).apply(modifiers)
@@ -754,19 +872,22 @@ object Dom {
       def async: Script = attr("async", true)
 
       /**
-       * Returns this element with the attribute `name` set to `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to `value`,
+       * replacing an existing value.
        */
       def attr(name: String, value: AttributeValue): Script =
         copy(attributes = attributes + (name -> value))
 
       /**
-       * Returns this element with the attribute `name` set to the string `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to the string
+       * `value`, replacing an existing value.
        */
       def attr(name: String, value: String): Script =
         copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
 
       /**
-       * Returns this element with the `crossorigin` attribute set to `value`, such as `anonymous`.
+       * Returns this element with the `crossorigin` attribute set to `value`,
+       * such as `anonymous`.
        */
       def crossOrigin(value: String): Script = attr("crossorigin", AttributeValue.StringValue(value))
 
@@ -776,27 +897,37 @@ object Dom {
       def defer: Script = attr("defer", true)
 
       /**
-       * Returns this element with `src` set to `url` and `type` set to `text/javascript`.
+       * Returns this element with `src` set to `url` and `type` set to
+       * `text/javascript`.
        */
       def externalJs(url: String): Script = src(url).`type`("text/javascript")
 
       /**
-       * Returns this element with `src` set to `url` and `type` set to `module`.
+       * Returns this element with `src` set to `url` and `type` set to
+       * `module`.
        */
       def externalModule(url: String): Script = src(url).`type`("module")
 
       /**
-       * Returns this element with `type` set to `text/javascript` and `code` added as the last text child.
+       * Returns this element with `type` set to `text/javascript` and `code`
+       * added as the last text child.
        */
       def inlineJs(code: String): Script = `type`("text/javascript").javascript(code)
 
       /**
-       * Returns this element with `type` set to `text/javascript` and `code` added as the last text child.
+       * Returns this element with `type` set to `text/javascript` and `code`
+       * added as the last text child.
        */
       def inlineJs(code: Js): Script = `type`("text/javascript").javascript(code)
 
       /**
-       * Returns a `script` element with `type` set to `text/javascript` and the text of the classpath resource `file`, read with `classLoader`, as its content. The result starts from an empty `script` element: the attributes and children of this element are not kept. The resource is read when the method is called; when it does not exist, the method throws a `java.io.FileNotFoundException` on Scala 2.13 and 3, and a `java.lang.NullPointerException` on Scala 2.12.
+       * Returns a `script` element with `type` set to `text/javascript` and the
+       * text of the classpath resource `file`, read with `classLoader`, as its
+       * content. The result starts from an empty `script` element: the
+       * attributes and children of this element are not kept. The resource is
+       * read when the method is called; when it does not exist, the method
+       * throws a `java.io.FileNotFoundException` on Scala 2.13 and 3, and a
+       * `java.lang.NullPointerException` on Scala 2.12.
        */
       def inlineResource(
         file: String,
@@ -808,7 +939,8 @@ object Dom {
       }
 
       /**
-       * Returns this element with the `integrity` attribute set to `value`, a hash such as `sha384-...`.
+       * Returns this element with the `integrity` attribute set to `value`, a
+       * hash such as `sha384-...`.
        */
       def integrity(value: String): Script = attr("integrity", AttributeValue.StringValue(value))
 
@@ -823,12 +955,14 @@ object Dom {
       def javascript(code: Js): Script = apply(Dom.text(code.value))
 
       /**
-       * Returns this element with `type` set to `module` and `code` added as the last text child.
+       * Returns this element with `type` set to `module` and `code` added as
+       * the last text child.
        */
       def module(code: String): Script = `type`("module").javascript(code)
 
       /**
-       * Returns this element with `type` set to `module` and `code` added as the last text child.
+       * Returns this element with `type` set to `module` and `code` added as
+       * the last text child.
        */
       def module(code: Js): Script = `type`("module").javascript(code)
 
@@ -838,7 +972,8 @@ object Dom {
       def noModule: Script = attr("nomodule", true)
 
       /**
-       * Returns this element with the `referrerpolicy` attribute set to `value`, such as `no-referrer`.
+       * Returns this element with the `referrerpolicy` attribute set to
+       * `value`, such as `no-referrer`.
        */
       def referrerPolicy(value: String): Script = attr("referrerpolicy", AttributeValue.StringValue(value))
 
@@ -860,18 +995,22 @@ object Dom {
       def src(url: String): Script = attr("src", AttributeValue.StringValue(url))
 
       /**
-       * Returns this element with the `type` attribute set to `scriptType`, such as `module`.
+       * Returns this element with the `type` attribute set to `scriptType`,
+       * such as `module`.
        */
       def `type`(scriptType: String): Script = attr("type", AttributeValue.StringValue(scriptType))
 
       /**
-       * Returns this element with `modifiers` applied when `condition` is true, and this element unchanged otherwise.
+       * Returns this element with `modifiers` applied when `condition` is true,
+       * and this element unchanged otherwise.
        */
       def when(condition: Boolean)(modifiers: Modifier*): Script =
         if (condition) apply(modifiers) else this
 
       /**
-       * Returns this element with the modifiers `f(value)` applied when `option` is `Some(value)`, and this element unchanged when it is `None`.
+       * Returns this element with the modifiers `f(value)` applied when
+       * `option` is `Some(value)`, and this element unchanged when it is
+       * `None`.
        */
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Script =
         option.fold(this)(value => apply(f(value)))
@@ -883,7 +1022,8 @@ object Dom {
     }
 
     /**
-     * A `style` element, with methods that set its CSS content and its attributes. Its text children are rendered as is, without escaping.
+     * A `style` element, with methods that set its CSS content and its
+     * attributes. Its text children are rendered as is, without escaping.
      */
     final case class Style(
       attributes: Map[String, AttributeValue] = Map.empty,
@@ -896,7 +1036,8 @@ object Dom {
       def tag: String = "style"
 
       /**
-       * Returns this element with `attributes` added. An attribute replaces an existing attribute with the same name.
+       * Returns this element with `attributes` added. An attribute replaces an
+       * existing attribute with the same name.
        */
       def addAttributes(attributes: Iterable[Attribute]): Style =
         copy(
@@ -907,7 +1048,9 @@ object Dom {
         apply(modifier +: modifiers)
 
       /**
-       * Returns this element with `modifiers` applied in order: an attribute is added, replacing an attribute with the same name, and a node is added as the last child.
+       * Returns this element with `modifiers` applied in order: an attribute is
+       * added, replacing an attribute with the same name, and a node is added
+       * as the last child.
        */
       def apply(modifiers: Iterable[Modifier]): Style = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
@@ -924,7 +1067,8 @@ object Dom {
       }
 
       /**
-       * Returns this element with `modifiers` applied, and then the code `Css` added as the last text child.
+       * Returns this element with `modifiers` applied, and then the code `Css`
+       * added as the last text child.
        */
       def apply(Css: Css, modifiers: Modifier*): Style = {
         val (attrs, kids) = modifiers.foldLeft((attributes, children)) {
@@ -941,13 +1085,15 @@ object Dom {
       }
 
       /**
-       * Returns this element with the attribute `name` set to `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to `value`,
+       * replacing an existing value.
        */
       def attr(name: String, value: AttributeValue): Style =
         copy(attributes = attributes + (name -> value))
 
       /**
-       * Returns this element with the attribute `name` set to the string `value`, replacing an existing value.
+       * Returns this element with the attribute `name` set to the string
+       * `value`, replacing an existing value.
        */
       def attr(name: String, value: String): Style =
         copy(attributes = attributes + (name -> AttributeValue.StringValue(value)))
@@ -963,17 +1109,25 @@ object Dom {
       def css(code: Css): Style = apply(Dom.text(code.value))
 
       /**
-       * Returns this element with `type` set to `text/css` and `code` added as the last text child.
+       * Returns this element with `type` set to `text/css` and `code` added as
+       * the last text child.
        */
       def inlineCss(code: String): Style = `type`("text/css").css(code)
 
       /**
-       * Returns this element with `type` set to `text/css` and `code` added as the last text child.
+       * Returns this element with `type` set to `text/css` and `code` added as
+       * the last text child.
        */
       def inlineCss(code: Css): Style = `type`("text/css").css(code.value)
 
       /**
-       * Returns a `style` element with `type` set to `text/css` and the text of the classpath resource `file`, read with `classLoader`, as its content. The result starts from an empty `style` element: the attributes and children of this element are not kept. The resource is read when the method is called; when it does not exist, the method throws a `java.io.FileNotFoundException` on Scala 2.13 and 3, and a `java.lang.NullPointerException` on Scala 2.12.
+       * Returns a `style` element with `type` set to `text/css` and the text of
+       * the classpath resource `file`, read with `classLoader`, as its content.
+       * The result starts from an empty `style` element: the attributes and
+       * children of this element are not kept. The resource is read when the
+       * method is called; when it does not exist, the method throws a
+       * `java.io.FileNotFoundException` on Scala 2.13 and 3, and a
+       * `java.lang.NullPointerException` on Scala 2.12.
        */
       def inlineResource(
         file: String,
@@ -985,7 +1139,8 @@ object Dom {
       }
 
       /**
-       * Returns this element with the `media` attribute set to `value`, a media query such as `print`.
+       * Returns this element with the `media` attribute set to `value`, a media
+       * query such as `print`.
        */
       def media(value: String): Style = attr("media", AttributeValue.StringValue(value))
 
@@ -1007,18 +1162,22 @@ object Dom {
       def scoped: Style = attr("scoped", true)
 
       /**
-       * Returns this element with the `type` attribute set to `value`, such as `text/css`.
+       * Returns this element with the `type` attribute set to `value`, such as
+       * `text/css`.
        */
       def `type`(value: String): Style = attr("type", AttributeValue.StringValue(value))
 
       /**
-       * Returns this element with `modifiers` applied when `condition` is true, and this element unchanged otherwise.
+       * Returns this element with `modifiers` applied when `condition` is true,
+       * and this element unchanged otherwise.
        */
       def when(condition: Boolean)(modifiers: Modifier*): Style =
         if (condition) apply(modifiers) else this
 
       /**
-       * Returns this element with the modifiers `f(value)` applied when `option` is `Some(value)`, and this element unchanged when it is `None`.
+       * Returns this element with the modifiers `f(value)` applied when
+       * `option` is `Some(value)`, and this element unchanged when it is
+       * `None`.
        */
       def whenSome[T](option: Option[T])(f: T => Seq[Modifier]): Style =
         option.fold(this)(value => apply(f(value)))
@@ -1038,12 +1197,14 @@ object Dom {
   }
 
   /**
-   * The value of an attribute: a string, several strings joined by a separator, a boolean, or JavaScript code.
+   * The value of an attribute: a string, several strings joined by a separator,
+   * a boolean, or JavaScript code.
    */
   sealed trait AttributeValue extends Product with Serializable
 
   /**
-   * The attribute value types, and implicit conversions to `Dom.AttributeValue` from `Boolean`, `Int`, `Double`, `zio.http.URL` and `java.util.UUID`.
+   * The attribute value types, and implicit conversions to `Dom.AttributeValue`
+   * from `Boolean`, `Int`, `Double`, `zio.http.URL` and `java.util.UUID`.
    */
   object AttributeValue {
 
@@ -1058,12 +1219,14 @@ object Dom {
     implicit def fromInt(value: Int): AttributeValue = StringValue(String.valueOf(value))
 
     /**
-     * Converts a `Double` to a `StringValue` of `String.valueOf(value)`, such as `2.5`.
+     * Converts a `Double` to a `StringValue` of `String.valueOf(value)`, such
+     * as `2.5`.
      */
     implicit def fromDouble(value: Double): AttributeValue = StringValue(String.valueOf(value))
 
     /**
-     * Converts a `URL` to a `StringValue` of its encoded form (`value.encode`), such as `/docs/a%20b?q=x+y`.
+     * Converts a `URL` to a `StringValue` of its encoded form (`value.encode`),
+     * such as `/docs/a%20b?q=x+y`.
      */
     implicit def fromUrl(value: zio.http.URL): AttributeValue = StringValue(value.encode)
 
@@ -1073,7 +1236,8 @@ object Dom {
     implicit def fromUuid(value: java.util.UUID): AttributeValue = StringValue(value.toString)
 
     /**
-     * A boolean attribute value. When it is true, the attribute renders as its name alone; when it is false, the attribute is not rendered.
+     * A boolean attribute value. When it is true, the attribute renders as its
+     * name alone; when it is false, the attribute is not rendered.
      */
     sealed trait BooleanValue extends AttributeValue with Serializable {
 
@@ -1103,21 +1267,25 @@ object Dom {
     }
 
     /**
-     * An attribute value that holds JavaScript code, for an event handler such as `onclick`. It renders as `js.value`.
+     * An attribute value that holds JavaScript code, for an event handler such
+     * as `onclick`. It renders as `js.value`.
      */
     final case class JsValue(js: Js) extends AttributeValue {
       override def toString: String = js.value
     }
 
     /**
-     * An attribute value made of several strings, for attributes such as `class` and `rel`. When it is rendered, `values` are joined by `separator`; with no values, the attribute is not rendered.
+     * An attribute value made of several strings, for attributes such as
+     * `class` and `rel`. When it is rendered, `values` are joined by
+     * `separator`; with no values, the attribute is not rendered.
      */
     final case class MultiValue(values: Vector[String], separator: AttributeSeparator) extends AttributeValue {
       override def toString: String = values.mkString(separator.render)
     }
 
     /**
-     * A string attribute value. It is rendered with `&`, `<`, `>`, `"` and `'` replaced by character references.
+     * A string attribute value. It is rendered with `&`, `<`, `>`, `"` and `'`
+     * replaced by character references.
      */
     final case class StringValue(value: String) extends AttributeValue {
       override def toString: String = value
@@ -1139,7 +1307,8 @@ sealed trait AttributeSeparator {
 }
 
 /**
- * The separators `Space`, `Comma` and `Semicolon`, and `Custom` for any other text.
+ * The separators `Space`, `Comma` and `Semicolon`, and `Custom` for any other
+ * text.
  */
 object AttributeSeparator {
 
