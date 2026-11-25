@@ -243,19 +243,22 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:afterprint`. htmx runs
-   * the attribute's script when the `afterprint` event fires on the element.
+   * the attribute's script when the `afterprint` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnAfterPrintAttr: PartialAttribute[String] = PartialAttribute("hx-on:afterprint")
 
   /**
    * Returns a partial attribute that renders as `hx-on:beforeprint`. htmx runs
-   * the attribute's script when the `beforeprint` event fires on the element.
+   * the attribute's script when the `beforeprint` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnBeforePrintAttr: PartialAttribute[String] = PartialAttribute("hx-on:beforeprint")
 
   /**
    * Returns a partial attribute that renders as `hx-on:beforeunload`. htmx runs
-   * the attribute's script when the `beforeunload` event fires on the element.
+   * the attribute's script when the `beforeunload` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnBeforeUnloadAttr: PartialAttribute[String] = PartialAttribute("hx-on:beforeunload")
 
@@ -395,7 +398,8 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:hashchange`. htmx runs
-   * the attribute's script when the `hashchange` event fires on the element.
+   * the attribute's script when the `hashchange` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnHashChangeAttr: PartialAttribute[String] = PartialAttribute("hx-on:hashchange")
 
@@ -492,25 +496,29 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:offline`. htmx runs the
-   * attribute's script when the `offline` event fires on the element.
+   * attribute's script when the `offline` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnOfflineAttr: PartialAttribute[String] = PartialAttribute("hx-on:offline")
 
   /**
    * Returns a partial attribute that renders as `hx-on:online`. htmx runs the
-   * attribute's script when the `online` event fires on the element.
+   * attribute's script when the `online` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnOnlineAttr: PartialAttribute[String] = PartialAttribute("hx-on:online")
 
   /**
    * Returns a partial attribute that renders as `hx-on:pagehide`. htmx runs the
-   * attribute's script when the `pagehide` event fires on the element.
+   * attribute's script when the `pagehide` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnPageHideAttr: PartialAttribute[String] = PartialAttribute("hx-on:pagehide")
 
   /**
    * Returns a partial attribute that renders as `hx-on:pageshow`. htmx runs the
-   * attribute's script when the `pageshow` event fires on the element.
+   * attribute's script when the `pageshow` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnPageShowAttr: PartialAttribute[String] = PartialAttribute("hx-on:pageshow")
 
@@ -540,7 +548,8 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:popstate`. htmx runs the
-   * attribute's script when the `popstate` event fires on the element.
+   * attribute's script when the `popstate` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnPopStateAttr: PartialAttribute[String] = PartialAttribute("hx-on:popstate")
 
@@ -564,7 +573,8 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:resize`. htmx runs the
-   * attribute's script when the `resize` event fires on the element.
+   * attribute's script when the `resize` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnResizeAttr: PartialAttribute[String] = PartialAttribute("hx-on:resize")
 
@@ -606,7 +616,8 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:storage`. htmx runs the
-   * attribute's script when the `storage` event fires on the element.
+   * attribute's script when the `storage` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnStorageAttr: PartialAttribute[String] = PartialAttribute("hx-on:storage")
 
@@ -636,7 +647,8 @@ trait Attributes {
 
   /**
    * Returns a partial attribute that renders as `hx-on:unload`. htmx runs the
-   * attribute's script when the `unload` event fires on the element.
+   * attribute's script when the `unload` event fires. The browser dispatches it on
+   * `window`, not on the element, so this attribute on an element never sees it.
    */
   final def hxOnUnloadAttr: PartialAttribute[String] = PartialAttribute("hx-on:unload")
 
