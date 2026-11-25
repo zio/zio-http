@@ -31,22 +31,39 @@ import zio.http.internal.CookieEncoding
  * Cookie is an immutable and type-safe representation of an HTTP cookie. There
  * are two types of cookies: request cookies and response cookies. These can be
  * created with the constructors in the companion object of Cookie.
+ *
+ * {{{
+ * val cookie  = Cookie.Response("session", "abc", path = Some(Path("/")), isHttpOnly = true)
+ * val header  = cookie.encode // Right(session=abc; Path=/; HTTPOnly)
+ * val request = Cookie.Request("theme", "dark")
+ * val decoded = Cookie.decodeRequest("theme=dark; lang=en") // Right(Chunk(Request(theme,dark), Request(lang,en)))
+ * }}}
+ *
+ * @see [[https://zio.dev/zio-http/reference/headers/session/cookies/ Cookies]]
  */
 sealed trait Cookie { self =>
+  /** The name of the cookie. */
   def name: String
 
+  /** The value of the cookie. */
   def content: String
 
   /**
    * Encodes the cookie into a string, or fails with an exception if there was a
    * problem during encoding. This encoding method performs no validation.
+   * A request cookie is encoded as `name=content`. A response cookie adds
+   * `Domain`, `Path`, `Max-Age` (in whole seconds), `Secure`, `HTTPOnly` and
+   * `SameSite` attributes, separated by `; `, for the parts that are set. A
+   * `null` content gives a `Left`.
    */
   final def encode: Either[Exception, String] = encodeValidate(false)
 
   /**
    * Encodes the cookie into a string, or fails with an exception if there was a
    * problem during encoding. This encoding method performs validation as
-   * specified.
+   * specified. With `validate` set to `true`, a name or a content that has a
+   * character outside the allowed set gives a `Left` with an
+   * `IllegalArgumentException`. With `false` it is the same as `encode`.
    */
   def encodeValidate(validate: Boolean): Either[Exception, String]
 
@@ -95,6 +112,9 @@ sealed trait Cookie { self =>
   def name(name: String): Cookie
 }
 
+/**
+ * Constructors and decoders for cookies.
+ */
 object Cookie {
 
   /**
@@ -102,9 +122,26 @@ object Cookie {
    */
   def clear(name: String): Cookie.Response = Cookie.Response(name, "", maxAge = Some(Duration.Zero))
 
+  /**
+   * Decodes the value of a `Cookie` request header into request cookies. The
+   * header is split at `;`, each part is trimmed, and a part is split at the
+   * first `=` into a name and a content. Parts without an `=` are skipped, and
+   * with `validate` set to `true` so are the parts whose name or content has a
+   * character outside the allowed set.
+   */
   def decodeRequest(header: String, validate: Boolean = false): Either[Exception, Chunk[Cookie.Request]] =
     Cookie.Request.decode(header, validate)
 
+  /**
+   * Decodes the value of a `Set-Cookie` response header into a response
+   * cookie. The first part must have the form `name=content`, otherwise the
+   * result is a `Left` with an `IllegalArgumentException` whose message is
+   * `Invalid Set-Cookie header`. The attributes `Domain`, `Path`, `Max-Age`,
+   * `Secure`, `HttpOnly` and `SameSite` are read ignoring case, and other
+   * attributes, such as `Expires`, and a `Max-Age` that is not a number are
+   * ignored. With `validate` set to `true`, a name or content with a character
+   * outside the allowed set, or an unknown `SameSite` value, gives a `Left`.
+   */
   def decodeResponse(header: String, validate: Boolean = false): Either[Exception, Cookie.Response] =
     Cookie.Response.decode(header, validate)
 
@@ -119,6 +156,26 @@ object Cookie {
     getEncoder.encodeToString(mda.digest(signed))
   }
 
+  /**
+   * A cookie sent by a server in a `Set-Cookie` header.
+   *
+   * @param name
+   *   the name of the cookie
+   * @param content
+   *   the value of the cookie
+   * @param domain
+   *   the `Domain` attribute
+   * @param path
+   *   the `Path` attribute
+   * @param isSecure
+   *   whether the `Secure` attribute is set
+   * @param isHttpOnly
+   *   whether the `HTTPOnly` attribute is set
+   * @param maxAge
+   *   the `Max-Age` attribute
+   * @param sameSite
+   *   the `SameSite` attribute
+   */
   final case class Response(
     name: String,
     content: String,
@@ -152,6 +209,7 @@ object Cookie {
 
     override def content(content: String): Cookie.Response = copy(content = content)
   }
+  /** Decoder for response cookies. */
   object Response {
 
     /**
@@ -167,6 +225,14 @@ object Cookie {
     }
   }
 
+  /**
+   * A cookie sent by a client in a `Cookie` header.
+   *
+   * @param name
+   *   the name of the cookie
+   * @param content
+   *   the value of the cookie
+   */
   final case class Request(name: String, content: String) extends Cookie { self =>
     override def encodeValidate(validate: Boolean): Either[Exception, String] =
       try {
@@ -190,6 +256,7 @@ object Cookie {
     override def content(content: String): Cookie.Request = copy(content = content)
 
   }
+  /** Decoder for request cookies. */
   object Request {
 
     /**
@@ -205,12 +272,21 @@ object Cookie {
     }
   }
 
+  /** The value of the `SameSite` attribute of a response cookie. */
   sealed trait SameSite
+
+  /** The `SameSite` values. */
   object SameSite {
+    /** The `SameSite=Strict` attribute. */
     case object Strict extends SameSite
+
+    /** The `SameSite=Lax` attribute. */
     case object Lax    extends SameSite
+
+    /** The `SameSite=None` attribute. */
     case object None   extends SameSite
 
+    /** Returns `Strict`, `Lax` and `None`, in this order. */
     def values: List[SameSite] = List(Strict, Lax, None)
   }
 }
