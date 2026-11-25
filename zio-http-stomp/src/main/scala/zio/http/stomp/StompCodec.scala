@@ -27,6 +27,12 @@ import zio.schema.codec._
  */
 object StompCodec {
 
+  /**
+   * A `BinaryCodec` for `StompFrame` that uses `StompFrame.decode`,
+   * `StompFrame.encode` and the stream pipelines of `StompFrame`. A decoding
+   * failure is reported as a `DecodeError.ReadError` that carries the message
+   * of the `Left` from `StompFrame.decode`.
+   */
   implicit val binaryCodec: BinaryCodec[StompFrame] = new BinaryCodec[StompFrame] {
 
     override def decode(whole: Chunk[Byte]): Either[DecodeError, StompFrame] =

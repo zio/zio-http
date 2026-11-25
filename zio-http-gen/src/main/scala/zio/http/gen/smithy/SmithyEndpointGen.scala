@@ -16,7 +16,10 @@ import zio.http.gen.scala.{Code, CodeGen}
  *   - Endpoint definitions for operations with @http traits
  *   - Case classes for structure shapes
  *   - Sealed traits for union shapes
- *   - Type aliases for simple shapes
+ *   - Sealed traits with one case per member for enum shapes
+ *
+ * Simple, list and map shapes generate no file of their own: a reference to
+ * them becomes the corresponding Scala type.
  */
 object SmithyEndpointGen {
 
@@ -70,7 +73,8 @@ object SmithyEndpointGen {
    * @param config
    *   Configuration options for code generation
    * @param validate
-   *   Whether to validate the model before generation (overrides config)
+   *   Whether to validate the model before generation. The model is validated
+   *   only when both `validate` and `config.validateBeforeGeneration` are true.
    * @return
    *   Either validation errors or the generated code files
    */
@@ -136,14 +140,18 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Read all .smithy files from a directory and generate combined Code.Files
-   * using default config
+   * Read all .smithy files from a directory, including its subdirectories, and
+   * generate combined Code.Files using default config
    */
   def fromDirectory(dir: Path): Either[String, Code.Files] =
     fromDirectory(dir, SmithyConfig.default)
 
   /**
-   * Read all .smithy files from a directory and generate combined Code.Files
+   * Read all .smithy files from a directory, including its subdirectories, and
+   * generate combined Code.Files. The models are merged by shape name; when
+   * several files define a shape with the same name, the shape from the file
+   * that is read last is kept. That is the last file in the order of
+   * `Files.walk`, which is not sorted and depends on the file system.
    *
    * @param dir
    *   Directory containing .smithy files
@@ -298,8 +306,9 @@ object SmithyEndpointGen {
   }
 
   /**
-   * Merge multiple SmithyModels into one Uses the namespace from the first
-   * model
+   * Merges multiple SmithyModels into one. The version and namespace come from
+   * the first model. Shapes and metadata are merged by name, and the entry from
+   * the later model wins when two models use the same name.
    */
   private def mergeModels(models: List[SmithyModel]): SmithyModel = {
     if (models.isEmpty) {
@@ -321,9 +330,19 @@ object SmithyEndpointGen {
   }
 }
 
+/**
+ * Generates code files from `model` using `config`. The methods of the
+ * companion object create instances of it.
+ */
 final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
   import SmithyEndpointGen._
 
+  /**
+   * Returns the generated files: one file under `component` for each structure,
+   * union and enum shape, and an `Endpoints.scala` file with an `Endpoints`
+   * object when the model has operations with an `@http` trait. It does not
+   * validate the model.
+   */
   def generate(): Code.Files = {
     val componentFiles = generateComponents()
     val endpointFiles  = generateEndpoints()
@@ -576,7 +595,8 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
   }
 
   /**
-   * Check if a shape reference points to a streaming blob
+   * Returns true when the referenced shape has the `Streaming` or `EventStream`
+   * trait.
    */
   private def isStreamingShape(shapeRef: Option[ShapeId]): Boolean = {
     shapeRef.exists { ref =>
@@ -593,7 +613,8 @@ final class SmithyEndpointGen(model: SmithyModel, config: SmithyConfig) {
   }
 
   /**
-   * Determine media type from shape traits
+   * Returns the value of the `MediaType` trait of the structure, or
+   * `application/json` when there is no such trait or no structure.
    */
   private def determineMediaType(shape: Option[Shape.StructureShape]): Option[String] = {
     shape.flatMap { s =>

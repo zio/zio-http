@@ -25,61 +25,151 @@ package zio.http.stomp
  *   - STOMP 1.2: https://stomp.github.io/stomp-specification-1.2.html
  */
 sealed trait StompVersion {
+
+  /**
+   * The version as text: `1.0`, `1.1` or `1.2`. `StompVersion.fromString`
+   * parses it back.
+   */
   def versionString: String
+
+  /**
+   * Whether this version of the protocol has header escaping.
+   * `StompFrame.encode` and `StompFrame.decode` do not read this flag.
+   */
   def supportsHeaderEscaping: Boolean
+
+  /**
+   * Whether this version of the protocol has the `NACK` command.
+   * `StompFrame.nack` does not read this flag.
+   */
   def supportsNack: Boolean
+
+  /**
+   * Whether this version of the protocol requires a `content-length` header.
+   * `StompFrame.encode` and `StompFrame.decode` do not read this flag.
+   */
   def requiresContentLength: Boolean
+
+  /**
+   * Whether this version of the protocol has heart-beating.
+   * `StompFrame.heartbeat` does not read this flag.
+   */
   def supportsHeartbeat: Boolean
 }
 
+/**
+ * The `StompVersion` cases (STOMP 1.0, 1.1 and 1.2), the list of all of them,
+ * parsing from text and version negotiation.
+ */
 object StompVersion {
 
   /**
-   * STOMP 1.0 - Original specification
-   *   - No header escaping
-   *   - No NACK command
-   *   - No heartbeat support
-   *   - Content-length is optional
+   * STOMP 1.0. Its flags say: no header escaping, no `NACK` command, no
+   * heart-beating, and `content-length` not required.
    */
   case object V1_0 extends StompVersion {
-    val versionString          = "1.0"
+
+    /**
+     * The version text, `"1.0"`.
+     */
+    val versionString = "1.0"
+
+    /**
+     * `false`.
+     */
     val supportsHeaderEscaping = false
-    val supportsNack           = false
-    val requiresContentLength  = false
-    val supportsHeartbeat      = false
+
+    /**
+     * `false`.
+     */
+    val supportsNack = false
+
+    /**
+     * `false`.
+     */
+    val requiresContentLength = false
+
+    /**
+     * `false`.
+     */
+    val supportsHeartbeat = false
   }
 
   /**
-   * STOMP 1.1 - Added features
-   *   - Header escaping added
-   *   - NACK command added
-   *   - Heartbeat support added
-   *   - Content-length is recommended
+   * STOMP 1.1. Its flags say: header escaping, the `NACK` command and
+   * heart-beating are supported, and `content-length` is not required.
    */
   case object V1_1 extends StompVersion {
-    val versionString          = "1.1"
+
+    /**
+     * The version text, `"1.1"`.
+     */
+    val versionString = "1.1"
+
+    /**
+     * `true`.
+     */
     val supportsHeaderEscaping = true
-    val supportsNack           = true
-    val requiresContentLength  = false
-    val supportsHeartbeat      = true
+
+    /**
+     * `true`.
+     */
+    val supportsNack = true
+
+    /**
+     * `false`.
+     */
+    val requiresContentLength = false
+
+    /**
+     * `true`.
+     */
+    val supportsHeartbeat = true
   }
 
   /**
-   * STOMP 1.2 - Latest specification (default)
-   *   - All features from 1.1
-   *   - Improved header escaping rules
-   *   - Content-length is mandatory for binary data
+   * STOMP 1.2, the newest of the three versions. Its flags say: header
+   * escaping, the `NACK` command and heart-beating are supported, and
+   * `content-length` is required. `StompFrame.connect` and
+   * `StompFrame.connected` write `1.2` by default.
    */
   case object V1_2 extends StompVersion {
-    val versionString          = "1.2"
+
+    /**
+     * The version text, `"1.2"`.
+     */
+    val versionString = "1.2"
+
+    /**
+     * `true`.
+     */
     val supportsHeaderEscaping = true
-    val supportsNack           = true
-    val requiresContentLength  = true
-    val supportsHeartbeat      = true
+
+    /**
+     * `true`.
+     */
+    val supportsNack = true
+
+    /**
+     * `true`.
+     */
+    val requiresContentLength = true
+
+    /**
+     * `true`.
+     */
+    val supportsHeartbeat = true
   }
 
+  /**
+   * The supported versions, `V1_0`, `V1_1` and `V1_2`, in that order.
+   */
   val all: List[StompVersion] = List(V1_0, V1_1, V1_2)
 
+  /**
+   * Returns the version whose text is exactly `1.0`, `1.1` or `1.2`, and `None`
+   * for any other text, including text with surrounding spaces.
+   */
   def fromString(s: String): Option[StompVersion] = s match {
     case "1.0" => Some(V1_0)
     case "1.1" => Some(V1_1)
@@ -88,7 +178,9 @@ object StompVersion {
   }
 
   /**
-   * Parse accept-version header to get list of supported versions
+   * Parses the value of an `accept-version` header. It splits `acceptVersion`
+   * at commas, trims each part and keeps the parts that `fromString` accepts,
+   * in their original order; unknown parts are dropped.
    */
   def parseAcceptVersions(acceptVersion: String): List[StompVersion] = {
     acceptVersion
@@ -99,8 +191,9 @@ object StompVersion {
   }
 
   /**
-   * Negotiate version between client accepted versions and server supported
-   * versions Returns the highest mutually supported version
+   * Returns the highest version that is in both `clientAcceptVersions` and
+   * `serverSupportedVersions` (`1.2` above `1.1` above `1.0`), or `None` when
+   * no version is in both. `serverSupportedVersions` defaults to `all`.
    */
   def negotiate(
     clientAcceptVersions: List[StompVersion],

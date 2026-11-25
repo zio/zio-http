@@ -16,6 +16,12 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.template2._
 
+/**
+ * The members of the `zio.http.datastar` package object: the `data-*` attribute
+ * builders, the functions that turn handlers into Datastar responses (`event`
+ * and `events`), the endpoint helpers, the page helpers (`datastarScript`,
+ * `mainPage`) and aliases for the signal and request types.
+ */
 trait DatastarPackageBase extends Attributes {
   self =>
   private val headers = Headers(
@@ -32,7 +38,7 @@ trait DatastarPackageBase extends Attributes {
    * zio-http-datastar-sdk was built against.
    *
    * @example
-   *   {{{head( datastarScript() )}}}
+   *   {{{head( datastarScript )}}}
    */
   def datastarScript: Dom.Element.Script = datastarScript(DefaultDatastarVersion)
 
@@ -59,7 +65,7 @@ trait DatastarPackageBase extends Attributes {
    * @param language
    *   Language attribute for the html element
    * @example
-   *   {{{ mainPage( headContent = Seq( title("My App"), meta.charset("UTF-8")
+   *   {{{ mainPage( headContent = Seq( title("My App"), meta(charset("UTF-8"))
    *   ), bodyContent = Seq( div("Hello, Datastar!") ), datastarVersion =
    *   "1.0.1", language = Some("en") ) }}}
    */
@@ -75,27 +81,110 @@ trait DatastarPackageBase extends Attributes {
       body(bodyContent),
     )
 
-  val Signal: zio.http.datastar.signal.Signal.type                  = zio.http.datastar.signal.Signal
-  val SignalUpdate: zio.http.datastar.signal.SignalUpdate.type      = zio.http.datastar.signal.SignalUpdate
-  val SignalName: zio.http.datastar.signal.SignalName.type          = zio.http.datastar.signal.SignalName
+  /**
+   * The companion object `zio.http.datastar.signal.Signal`, available directly
+   * from the package object.
+   */
+  val Signal: zio.http.datastar.signal.Signal.type = zio.http.datastar.signal.Signal
+
+  /**
+   * The companion object `zio.http.datastar.signal.SignalUpdate`, available
+   * directly from the package object.
+   */
+  val SignalUpdate: zio.http.datastar.signal.SignalUpdate.type = zio.http.datastar.signal.SignalUpdate
+
+  /**
+   * The companion object `zio.http.datastar.signal.SignalName`, available
+   * directly from the package object.
+   */
+  val SignalName: zio.http.datastar.signal.SignalName.type = zio.http.datastar.signal.SignalName
+
+  /**
+   * The companion object `zio.http.datastar.model.DatastarRequest`, available
+   * directly from the package object.
+   */
   val DatastarRequest: zio.http.datastar.model.DatastarRequest.type = zio.http.datastar.model.DatastarRequest
-  val DatastarRequestOptions: zio.http.datastar.model.DatastarRequestOptions.type           =
+
+  /**
+   * The companion object `zio.http.datastar.model.DatastarRequestOptions`,
+   * available directly from the package object.
+   */
+  val DatastarRequestOptions: zio.http.datastar.model.DatastarRequestOptions.type =
     zio.http.datastar.model.DatastarRequestOptions
-  val DatastarSignalFilter: zio.http.datastar.model.DatastarSignalFilter.type               =
+
+  /**
+   * The companion object `zio.http.datastar.model.DatastarSignalFilter`,
+   * available directly from the package object.
+   */
+  val DatastarSignalFilter: zio.http.datastar.model.DatastarSignalFilter.type =
     zio.http.datastar.model.DatastarSignalFilter
+
+  /**
+   * The companion object `zio.http.datastar.model.DatastarRequestCancellation`,
+   * available directly from the package object.
+   */
   val DatastarRequestCancellation: zio.http.datastar.model.DatastarRequestCancellation.type =
     zio.http.datastar.model.DatastarRequestCancellation
+
+  /**
+   * The companion object `zio.http.datastar.model.ValueOrSignal`, available
+   * directly from the package object.
+   */
   val ValueOrSignal: zio.http.datastar.model.ValueOrSignal.type = zio.http.datastar.model.ValueOrSignal
 
-  type Signal[A]                   = zio.http.datastar.signal.Signal[A]
-  type SignalUpdate[A]             = zio.http.datastar.signal.SignalUpdate[A]
-  type SignalName                  = zio.http.datastar.signal.SignalName
-  type DatastarRequest             = zio.http.datastar.model.DatastarRequest
-  type DatastarRequestOptions      = zio.http.datastar.model.DatastarRequestOptions
-  type DatastarSignalFilter        = zio.http.datastar.model.DatastarSignalFilter
-  type DatastarRequestCancellation = zio.http.datastar.model.DatastarRequestCancellation
-  type ValueOrSignal[A]            = zio.http.datastar.model.ValueOrSignal[A]
+  /**
+   * An alias for `zio.http.datastar.signal.Signal`, available directly from the
+   * package object.
+   */
+  type Signal[A] = zio.http.datastar.signal.Signal[A]
 
+  /**
+   * An alias for `zio.http.datastar.signal.SignalUpdate`, available directly
+   * from the package object.
+   */
+  type SignalUpdate[A] = zio.http.datastar.signal.SignalUpdate[A]
+
+  /**
+   * An alias for `zio.http.datastar.signal.SignalName`, available directly from
+   * the package object.
+   */
+  type SignalName = zio.http.datastar.signal.SignalName
+
+  /**
+   * An alias for `zio.http.datastar.model.DatastarRequest`, available directly
+   * from the package object.
+   */
+  type DatastarRequest = zio.http.datastar.model.DatastarRequest
+
+  /**
+   * An alias for `zio.http.datastar.model.DatastarRequestOptions`, available
+   * directly from the package object.
+   */
+  type DatastarRequestOptions = zio.http.datastar.model.DatastarRequestOptions
+
+  /**
+   * An alias for `zio.http.datastar.model.DatastarSignalFilter`, available
+   * directly from the package object.
+   */
+  type DatastarSignalFilter = zio.http.datastar.model.DatastarSignalFilter
+
+  /**
+   * An alias for `zio.http.datastar.model.DatastarRequestCancellation`,
+   * available directly from the package object.
+   */
+  type DatastarRequestCancellation = zio.http.datastar.model.DatastarRequestCancellation
+
+  /**
+   * An alias for `zio.http.datastar.model.ValueOrSignal`, available directly
+   * from the package object.
+   */
+  type ValueOrSignal[A] = zio.http.datastar.model.ValueOrSignal[A]
+
+  /**
+   * A response codec for a stream of `ServerSentEvent[String]` values. It also
+   * sets the headers `Content-Type: text/event-stream`,
+   * `Cache-Control: no-cache` and `Connection: keep-alive`.
+   */
   val datastarCodec =
     HttpCodec.contentStream[ServerSentEvent[String]] ++
       HttpCodec
@@ -183,6 +272,12 @@ trait DatastarPackageBase extends Attributes {
     Header.Accept.MediaTypeWithQFactor(MediaType.text.`javascript`, None),
   )
 
+  /**
+   * A response codec for one `DatastarEvent`. The content type and the
+   * `datastar-*` headers depend on the kind of event: element patches are sent
+   * as `text/html`, scripts as `text/javascript` and signal patches as
+   * `application/json`. Only encoding is implemented; decoding fails.
+   */
   val datastarEventCodec =
     ((patchElementsCodec | executeScriptCodec).transform(_.merge) {
       case e: DatastarEvent.PatchElements => Left(e)
@@ -194,7 +289,15 @@ trait DatastarPackageBase extends Attributes {
       case e: DatastarEvent.PatchSignals  => Right(e)
     }
 
+  /** Adds the Datastar endpoint constructors to the `Endpoint` object. */
   implicit class EndpointExtensions(endpoint: Endpoint.type) {
+
+    /**
+     * Returns an endpoint for `route` whose response is a stream of
+     * `DatastarEvent` values, sent as server-sent events with the headers of
+     * `datastarCodec`. The endpoint has no authentication, and its error type
+     * is `ZNothing`.
+     */
     def datastarEvents[Input](
       route: RoutePattern[Input],
     ): Endpoint[Input, Input, ZNothing, ZStream[Any, Nothing, DatastarEvent], AuthType.None.type] =
@@ -208,6 +311,11 @@ trait DatastarPackageBase extends Attributes {
         AuthType.None,
       )
 
+    /**
+     * Returns an endpoint for `route` whose response is one `DatastarEvent`,
+     * encoded with `datastarEventCodec`. The endpoint has no authentication,
+     * and its error type is `ZNothing`.
+     */
     def datastarEvent[Input](
       route: RoutePattern[Input],
     ): Endpoint[Input, Input, ZNothing, DatastarEvent, AuthType.None.type] =
@@ -221,6 +329,11 @@ trait DatastarPackageBase extends Attributes {
         AuthType.None,
       )
 
+    /**
+     * Returns an endpoint for `route` whose response is a stream of
+     * `ServerSentEvent[String]` values, encoded with `datastarCodec`. The
+     * endpoint has no authentication, and its error type is `ZNothing`.
+     */
     def datastar[Input](
       route: RoutePattern[Input],
     ): Endpoint[Input, Input, ZNothing, ZStream[Any, Nothing, ServerSentEvent[String]], AuthType.None.type] =
@@ -235,14 +348,28 @@ trait DatastarPackageBase extends Attributes {
       )
   }
 
+  /** Adds `signalHeader` to the `Header` object. */
   implicit class DatastarHeaderOps(header: Header.type) {
+
+    /**
+     * Returns the header `datastar-signal` whose value is the reference of
+     * `signalName`, for example `\$a.b`.
+     */
     def signalHeader(signalName: SignalName): Header =
       Header.Custom("datastar-signal", signalName.ref)
 
+    /**
+     * Returns the header `datastar-signal` whose value is the reference of
+     * `signal`, for example `\$a.b`.
+     */
     def signalHeader(signal: Signal[_]): Header =
       Header.Custom("datastar-signal", signal.name.ref)
   }
 
+  /**
+   * Adds `datastarRequest` to an endpoint. It builds a `DatastarRequest` for
+   * the endpoint's HTTP method and path.
+   */
   implicit class DatastarEndpointOps[PathInput](
     endpoint: Endpoint[PathInput, _, _, _, _],
   ) {
@@ -300,6 +427,14 @@ trait DatastarPackageBase extends Attributes {
       DatastarRequest(endpoint.route.method, URL(Path(url)))
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path.
+     * `input` is a plain path value or a `Signal`; a signal replaces each
+     * placeholder in the path with its reference, for example `/users/\$uid`.
+     * Throws a `java.lang.IllegalArgumentException` with the message
+     * `Failed to encode path input.` when a plain value cannot be encoded into
+     * the path.
+     */
     def datastarRequest(input: ValueOrSignal[PathInput]): DatastarRequest = {
       val url = input match {
         case zio.http.datastar.model.ValueOrSignal.Value(value: PathInput @unchecked) =>
@@ -315,6 +450,16 @@ trait DatastarPackageBase extends Attributes {
       DatastarRequest(endpoint.route.method, URL(Path(url)))
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from two path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B](a: ValueOrSignal[A], b: ValueOrSignal[B])(implicit
       ev: (A, B) <:< PathInput,
     ): DatastarRequest =
@@ -334,6 +479,16 @@ trait DatastarPackageBase extends Attributes {
         makeRequest(valuesIt)
       }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from three path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -359,6 +514,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from four path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -386,6 +551,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from five path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -415,6 +590,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from six path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -446,6 +631,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from seven path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -479,6 +674,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from eight path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -514,6 +719,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from nine path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -553,6 +768,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from ten path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -594,6 +819,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from eleven path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -637,6 +872,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from twelve path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -682,6 +927,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from thirteen path values. Each argument is a plain value or a `Signal`;
+     * a signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -729,6 +984,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from fourteen path values. Each argument is a plain value or a `Signal`;
+     * a signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -778,6 +1043,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from fifteen path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -829,6 +1104,16 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+    /**
+     * Returns a `DatastarRequest` for this endpoint's HTTP method and path,
+     * from sixteen path values. Each argument is a plain value or a `Signal`; a
+     * signal is written into the path as its reference, for example
+     * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
+     * values cannot be encoded into the path, or when a segment has a
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
+     */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
       a: ValueOrSignal[A],
       b: ValueOrSignal[B],
@@ -884,6 +1169,13 @@ trait DatastarPackageBase extends Attributes {
     }
   }
 
+  /**
+   * Returns a handler that answers with one Datastar event as a plain response,
+   * not as an event stream. The content type depends on the event: `text/html`
+   * for an element patch, `text/javascript` for a script and `application/json`
+   * for a signal patch. The options of the event are sent in `datastar-*`
+   * headers.
+   */
   def event[R, In](h: Handler[R, Response, In, DatastarEvent]): Handler[R, Response, In, Response] =
     Handler.scoped[R] {
       handler { (in: In) =>
@@ -899,6 +1191,24 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+  /**
+   * Returns a handler that streams Datastar events to the browser as
+   * server-sent events. It runs `h` in the background with a `Datastar` in its
+   * environment. Each `ServerSentEventGenerator` call inside `h` queues one
+   * event, and the response ends when `h` completes. The response has the
+   * content type `text/event-stream` and the headers `Cache-Control: no-cache`
+   * and `Connection: keep-alive`.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.datastar._
+   * import zio.http.template2._
+   *
+   * val routes = Routes(Method.GET / "clock" -> events {
+   *   handler(ServerSentEventGenerator.patchElements(div(id("time"), "12:00")))
+   * })
+   * }}}
+   */
   def events[R, R1, In](
     h: Handler[R, Nothing, In, Unit],
   )(implicit ev: R <:< R1 with Datastar): Handler[R1, Nothing, In, Response] =
@@ -918,12 +1228,19 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+  /** Deprecated alias for the `events` overload that takes a `ZIO`. */
   @deprecated("Use events instead", "3.6.0")
   def eventStream[R, R1](
     e: ZIO[R, Nothing, Unit],
   )(implicit ev: R <:< R1 with Datastar): ZIO[R1 with Scope, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
     events[R, R1](e)
 
+  /**
+   * Runs `e` in the background with a `Datastar` in its environment, and
+   * returns the events that it queues as a stream of server-sent events. The
+   * stream ends when `e` completes, and the background fiber is tied to the
+   * returned `Scope`.
+   */
   def events[R, R1](
     e: ZIO[R, Nothing, Unit],
   )(implicit ev: R <:< R1 with Datastar): ZIO[R1 with Scope, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
@@ -935,11 +1252,20 @@ trait DatastarPackageBase extends Attributes {
       ) *> queue.offer(Datastar.done)).forkScoped
     } yield ZStream.fromQueue(queue).takeWhile(_ ne Datastar.done)
 
+  /**
+   * Returns the events of `e` as a stream of server-sent events. The
+   * environment `R` is taken when the effect runs.
+   */
   def events[R](
     e: ZStream[R, Nothing, DatastarEvent],
   ): ZIO[R, Nothing, ZStream[Any, Nothing, ServerSentEvent[String]]] =
     ZIO.environmentWith[R](e.map(_.toServerSentEvent).provideEnvironment(_))
 
+  /**
+   * Returns a handler that sends the events of the stream that `h` returns as
+   * server-sent events. The response has the same content type and headers as
+   * the one built by the `events` overload that takes a handler of `Unit`.
+   */
   def events[R, R1, In](
     h: Handler[R, Nothing, In, ZStream[R1, Nothing, DatastarEvent]],
   ): Handler[R with R1, Nothing, In, Response] =
@@ -957,6 +1283,13 @@ trait DatastarPackageBase extends Attributes {
       }
     }
 
+  /**
+   * Reads the signals that Datastar sent with `request` and decodes them as
+   * `T`. For a `GET` request the signals are the JSON in the `datastar` query
+   * parameter, and the effect fails with `Missing 'datastar' query parameter`
+   * when it is absent. For other methods the body is read as JSON. The error is
+   * a message string.
+   */
   def readSignals[T: Schema](request: Request): IO[String, T] =
     if (request.method == Method.GET) {
       ZIO.fromEither {
@@ -969,7 +1302,10 @@ trait DatastarPackageBase extends Attributes {
       request.body.asJson[T].mapError(_.getMessage)
     }
 
+  /** Adds `readSignals` to `Request`. */
   implicit class RequestOps(req: Request) {
+
+    /** Reads the signals of this request, as `readSignals(request)` does. */
     def readSignals[T: Schema]: IO[String, T] = self.readSignals[T](req)
   }
 }

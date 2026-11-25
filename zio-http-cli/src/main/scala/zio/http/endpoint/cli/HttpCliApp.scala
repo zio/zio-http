@@ -8,13 +8,33 @@ import zio.http._
 import zio.http.endpoint._
 
 /**
- * Command-line interface for an HTTP application.
+ * Command-line interface for an HTTP application. It wraps a `CliApp` whose
+ * commands send HTTP requests and print the responses.
  */
 final case class HttpCliApp[-R, +E, +Model](cliApp: CliApp[R, E, Model])
+
+/** Constructor for [[HttpCliApp]]. */
 object HttpCliApp {
 
   /**
-   * Generates a [[HttpCliApp]] from the given endpoints.
+   * Generates a [[HttpCliApp]] from the given endpoints. Each endpoint becomes
+   * one command. The app sends the request to `host` and `port`, prints the
+   * status of the response, and then prints its body. The output has a `Got
+   * response` line, a `Status:` line and a `Body:` line, which shows `<empty>`
+   * for an empty body.
+   *
+   * {{{
+   * import zio._
+   * import zio.cli.HelpDoc
+   * import zio.http._
+   * import zio.http.endpoint._
+   *
+   * val hello = Endpoint(Method.GET / "hello").out[String]
+   *
+   * // The app has one command, `get-hello`, that sends GET http://localhost:8080/hello
+   * val app: HttpCliApp[Any, Throwable, Response] =
+   *   HttpCliApp.fromEndpoints("hello-cli", "1.0.0", HelpDoc.Span.text("Calls the hello endpoint"), Chunk(hello), "localhost", 8080)
+   * }}}
    *
    * @param name
    *   The name of the generated CLI
@@ -35,8 +55,16 @@ object HttpCliApp {
    * @param figFont
    *   FigFont to use for man pages of the generated CLI
    * @param cliStyle
-   *   Style of commands of the generated CLI: true for CLI idiomatic interface,
-   *   false for HTTP-like interface
+   *   Style of commands of the generated CLI: true for CLI idiomatic interface
+   *   (the lowercase method, `create` for POST and `update` for PUT, followed
+   *   by the literal path segments, joined with `-`, as in `get-hello`), false
+   *   for HTTP-like interface (the same method word, a space, then `/` and the
+   *   literal path segments joined with `-`, as in `get /hello`; path
+   *   parameters do not appear in the name, so `POST /users/{id}/posts` is
+   *   `create /users-posts` here and `create-users-posts` with `cliStyle` true)
+   * @param client
+   *   The client that the generated CLI uses to send the request and to read
+   *   body parts from URLs. The default uses `Client.default`.
    * @return
    *   a [[HttpCliApp]]
    */

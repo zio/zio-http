@@ -16,6 +16,12 @@ import zio.http._
 import zio.http.internal.{HeaderOps, QueryOps, QueryParamEncoding, ThreadLocals}
 import zio.http.template2.{CssSelector, Js}
 
+/**
+ * A call of a Datastar action, such as `@get('/users')`: an HTTP method, a URL
+ * and the options of the call. `render` returns the action text, and an
+ * implicit conversion turns a request into `Js`, so it can be used as the value
+ * of an attribute such as `dataOn.click`.
+ */
 final case class DatastarRequest(
   method: Method,
   url: URL,
@@ -23,10 +29,26 @@ final case class DatastarRequest(
 ) extends QueryOps[DatastarRequest]
     with HeaderOps[DatastarRequest] {
 
+  /**
+   * Returns a copy that takes its location kind from `url` (relative, or
+   * absolute with a scheme, host and port) and keeps the path, query parameters
+   * and fragment of this request.
+   */
   def baseUrl(url: URL): DatastarRequest = this.copy(url = this.url.copy(kind = url.kind))
 
+  /**
+   * Returns the URL as it is written in the rendered action: the path, the
+   * query string, the fragment and, for an absolute URL, the scheme, host and
+   * port.
+   */
   def renderUrl: String = DatastarRequest.encodeUrl(url)
 
+  /**
+   * Returns the action text, for example `@get('/a/b')`. The method name is
+   * written in lower case. When the options differ from the defaults, they
+   * follow the URL as a JSON object that holds only the fields that differ, for
+   * example `@get('/a', {"openWhenHidden":true})`.
+   */
   def render: String =
     if (options == DatastarRequestOptions.default) s"""@${method.name.toLowerCase}('$renderUrl')"""
     else s"""@${method.name.toLowerCase}('$renderUrl', ${options.toJson})"""
@@ -53,8 +75,10 @@ final case class DatastarRequest(
   override def queryParameters: QueryParams = url.queryParams
 }
 
+/** Constructors and conversions for `DatastarRequest`. */
 object DatastarRequest {
 
+  /** Converts a request to `Js` that holds the text of `render`. */
   implicit def toJsExpr(request: DatastarRequest): Js =
     Js(request.render)
 
@@ -114,10 +138,26 @@ object DatastarRequest {
     }
   }
 
+  /**
+   * Returns a request for `method` and `url` with
+   * `DatastarRequestOptions.default`.
+   */
   def apply(method: Method, url: URL): DatastarRequest =
     DatastarRequest(method, url, DatastarRequestOptions.default)
 }
 
+/**
+ * The options of a Datastar action call. They are rendered as a JSON object
+ * that has one field per option and leaves out the fields that still have their
+ * default value.
+ *
+ * @param hdrs
+ *   The request headers. They are written under the name `headers`.
+ * @param payload
+ *   A JavaScript expression, written to the JSON object as a string.
+ * @param cleanup
+ *   A JavaScript expression, written to the JSON object as a string.
+ */
 final case class DatastarRequestOptions(
   contentType: MediaType = MediaType.application.json,
   filterSignals: Option[DatastarSignalFilter] = None,
@@ -148,20 +188,29 @@ final case class DatastarRequestOptions(
     this.copy(hdrs = update(this.headers))
 }
 
+/** Codecs and schemas for `DatastarRequestOptions`. */
 object DatastarRequestOptions {
+
+  /** Options with every field at its default value. */
   val default: DatastarRequestOptions = DatastarRequestOptions()
 
+  /**
+   * A schema that reads and writes `Headers` as a map from header name to
+   * header value.
+   */
   implicit val headersSchema: Schema[Headers] =
     Schema[Map[String, String]].transform[Headers](
       map => Headers.fromIterable(map.map { case (k, v) => Header.Custom(k, v) }),
       headers => headers.map(h => h.headerName -> h.renderedValue).toMap,
     )
 
+  /** A schema that reads and writes `Js` as its source text. */
   implicit val jsSchema: Schema[Js] = Schema[String].transform[Js](
     Js(_),
     _.value,
   )
 
+  /** The schema of `DatastarRequestOptions`, derived from its fields. */
   implicit val schema: Schema[DatastarRequestOptions] = DeriveSchema.gen
 
   private val fullCodec: JsonCodec[DatastarRequestOptions] = jsonCodec(schema)
@@ -172,6 +221,11 @@ object DatastarRequestOptions {
       case _                       => Map.empty
     }
 
+  /**
+   * Encodes options as a JSON object that holds only the fields whose value
+   * differs from `DatastarRequestOptions.default`, so the default options
+   * encode as `{}`.
+   */
   implicit val jsonEncoder: JsonEncoder[DatastarRequestOptions] =
     JsonEncoder[Json].contramap[DatastarRequestOptions] { a =>
       fullCodec.encoder.toJsonAST(a) match {
@@ -182,26 +236,60 @@ object DatastarRequestOptions {
       }
     }
 
+  /**
+   * Decodes options from a JSON object. Fields that are missing take their
+   * default values.
+   */
   implicit val jsonDecoder: JsonDecoder[DatastarRequestOptions] = fullCodec.decoder
 
+  /**
+   * A JSON codec for `DatastarRequestOptions` that combines `jsonEncoder` and
+   * `jsonDecoder`.
+   */
   implicit val json: JsonCodec[DatastarRequestOptions] = JsonCodec(jsonEncoder, jsonDecoder)
 }
 
+/**
+ * A filter for the signals that a request sends: `include` is a pattern and
+ * `exclude`, when defined, a second one. Both are passed to Datastar as
+ * strings.
+ */
 final case class DatastarSignalFilter(
   include: String,
   exclude: Option[String] = None,
 )
 
+/** Schemas for `DatastarSignalFilter`. */
 object DatastarSignalFilter {
+
+  /** The schema of `DatastarSignalFilter`, derived from its fields. */
   implicit val schema: Schema[DatastarSignalFilter] = DeriveSchema.gen
 }
 
+/**
+ * The value of the `requestCancellation` option. It is written as the string
+ * `auto` for `Auto`, `disabled` for `Disabled`, and the text of the script for
+ * `Custom`.
+ */
 sealed trait DatastarRequestCancellation
+
+/** Schemas and cases of `DatastarRequestCancellation`. */
 object DatastarRequestCancellation {
-  case object Auto             extends DatastarRequestCancellation
-  case object Disabled         extends DatastarRequestCancellation
+
+  /** Written as `auto`. */
+  case object Auto extends DatastarRequestCancellation
+
+  /** Written as `disabled`. */
+  case object Disabled extends DatastarRequestCancellation
+
+  /** Written as the text of `value`. */
   case class Custom(value: Js) extends DatastarRequestCancellation
 
+  /**
+   * A schema that reads and writes a cancellation value as a string. Reading
+   * `auto` or `disabled` gives `Auto` or `Disabled`, and any other string gives
+   * a `Custom` with that text.
+   */
   implicit val schema: Schema[DatastarRequestCancellation] = Schema[String].transform[DatastarRequestCancellation](
     {
       case "auto"     => Auto
@@ -216,13 +304,33 @@ object DatastarRequestCancellation {
   )
 }
 
+/**
+ * The value of the `retry` option. It is written as the lower-case name of the
+ * case: `auto`, `error`, `always` or `never`.
+ */
 sealed trait DatastarRetry
-object DatastarRetry {
-  case object Auto   extends DatastarRetry
-  case object Error  extends DatastarRetry
-  case object Always extends DatastarRetry
-  case object Never  extends DatastarRetry
 
+/** Cases and schema of `DatastarRetry`. */
+object DatastarRetry {
+
+  /** Written as `auto`. */
+  case object Auto extends DatastarRetry
+
+  /** Written as `error`. */
+  case object Error extends DatastarRetry
+
+  /** Written as `always`. */
+  case object Always extends DatastarRetry
+
+  /** Written as `never`. */
+  case object Never extends DatastarRetry
+
+  /**
+   * A schema that reads and writes a retry value as its lower-case name.
+   * Reading any other string fails with a message that starts with
+   * `Invalid DatastarRetry value:`, repeats the string and ends with
+   * `Expected 'auto', 'error', 'always', or 'never'.`
+   */
   implicit val schema: Schema[DatastarRetry] = Schema[String].transformOrFail[DatastarRetry](
     {
       case "auto"   => Right(Auto)
