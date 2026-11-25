@@ -61,8 +61,7 @@ object HttpCliApp {
    *   for HTTP-like interface (the same method word, a space, then `/` and the
    *   literal path segments joined with `-`, as in `get /hello`; path
    *   parameters do not appear in the name, so `POST /users/{id}/posts` is
-   *   `create /users-posts` here and `create-users-posts` with `cliStyle`
-   *   true)
+   *   `create /users-posts` here and `create-users-posts` with `cliStyle` true)
    * @param client
    *   The client that the generated CLI uses to send the request and to read
    *   body parts from URLs. The default uses `Client.default`.

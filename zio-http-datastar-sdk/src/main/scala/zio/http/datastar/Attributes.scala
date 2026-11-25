@@ -1394,7 +1394,8 @@ object Attributes {
 
     /**
      * The suffix this modifier adds to the attribute name, such as
-     * `__duration.1000ms`. It is an empty string when the modifier adds nothing.
+     * `__duration.1000ms`. It is an empty string when the modifier adds
+     * nothing.
      */
     val render: String
 

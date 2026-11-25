@@ -50,7 +50,9 @@ final case class Signal[A](
     name.ref
   }
 
-  /** The same as `ref`, so it throws in the same way for a non-primitive schema. */
+  /**
+   * The same as `ref`, so it throws in the same way for a non-primitive schema.
+   */
   override def toString: String = ref
 
   /**

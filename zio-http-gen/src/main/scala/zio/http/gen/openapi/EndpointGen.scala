@@ -77,8 +77,8 @@ object EndpointGen {
 
 /**
  * A generator that converts OpenAPI documents into `Code` models using
- * `config`. `EndpointGen.fromOpenAPI` creates a new instance for each call.
- * An instance keeps a private `anonymousTypes` map between calls, so use one
+ * `config`. `EndpointGen.fromOpenAPI` creates a new instance for each call. An
+ * instance keeps a private `anonymousTypes` map between calls, so use one
  * instance per document.
  */
 final case class EndpointGen(config: Config) {

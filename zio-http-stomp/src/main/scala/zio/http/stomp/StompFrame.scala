@@ -150,10 +150,11 @@ object StompFrame {
   implicit val schema: Schema[StompFrame] = DeriveSchema.gen[StompFrame]
 
   /**
-   * Parses one frame from `bytes`. The bytes are read as UTF-8 text. The text is
-   * cut at the byte offset of the first NUL byte, which is then used as a
-   * character offset; with multi-byte characters before the NUL byte, the parsed
-   * part runs past it, or `decode` throws `StringIndexOutOfBoundsException`.
+   * Parses one frame from `bytes`. The bytes are read as UTF-8 text. The text
+   * is cut at the byte offset of the first NUL byte, which is then used as a
+   * character offset; with multi-byte characters before the NUL byte, the
+   * parsed part runs past it, or `decode` throws
+   * `StringIndexOutOfBoundsException`.
    *
    * Returns `Left("Invalid STOMP frame: missing NULL terminator")` when `bytes`
    * has no NUL byte, and `Left("Invalid STOMP command: ...")` when the trimmed
@@ -250,10 +251,10 @@ object StompFrame {
 
   /**
    * A pipeline that splits a byte stream after each NUL byte and decodes every
-   * piece with `decode`. Pieces for which `decode` returns a `Left` are dropped,
-   * so the error channel never carries a failure; an exception from `decode`
-   * ends the stream with a defect. Bytes after the last NUL byte are not
-   * emitted.
+   * piece with `decode`. Pieces for which `decode` returns a `Left` are
+   * dropped, so the error channel never carries a failure; an exception from
+   * `decode` ends the stream with a defect. Bytes after the last NUL byte are
+   * not emitted.
    *
    * Bytes between frames are not skipped: a newline in front of a command line
    * stays in that piece, and `decode` then rejects it.

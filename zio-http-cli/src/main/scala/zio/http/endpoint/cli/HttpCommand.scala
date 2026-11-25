@@ -20,9 +20,10 @@ object HttpCommand {
    */
   /**
    * Returns the command for `endpoint`. Its options come from the path, query
-   * parameters, headers and body of the endpoint (for example `--page <integer>`
-   * for an integer query parameter `page`), and its help text is the doc of the endpoint.
-   * `cliStyle` selects the command name, as in `HttpCliApp.fromEndpoints`.
+   * parameters, headers and body of the endpoint (for example
+   * `--page <integer>` for an integer query parameter `page`), and its help
+   * text is the doc of the endpoint. `cliStyle` selects the command name, as in
+   * `HttpCliApp.fromEndpoints`.
    */
   def getCommand(endpoint: Endpoint[_, _, _, _, _], cliStyle: Boolean): Command[CliRequest] = {
     val cliEndpoint = CliEndpoint.fromEndpoint(endpoint)

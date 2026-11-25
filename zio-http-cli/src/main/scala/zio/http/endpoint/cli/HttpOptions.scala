@@ -46,8 +46,8 @@ private[cli] sealed trait HttpOptions {
 private[cli] object HttpOptions {
 
   /**
-   * An option with a fixed value (`HeaderConstant` and `QueryConstant`). It adds
-   * its value to the request and parses nothing from the command line.
+   * An option with a fixed value (`HeaderConstant` and `QueryConstant`). It
+   * adds its value to the request and parses nothing from the command line.
    */
   sealed trait Constant extends HttpOptions
 

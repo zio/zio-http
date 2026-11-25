@@ -63,9 +63,8 @@ object Code {
 
     /**
      * The `Unit` type, used for a `null` schema of an OpenAPI document and for
-     * a `Unit` type of a Smithy model. `CodeGen.render` has no
-     * rendering for it and throws an exception; `Primitive.ScalaUnit` is
-     * rendered as `Unit`.
+     * a `Unit` type of a Smithy model. `CodeGen.render` has no rendering for it
+     * and throws an exception; `Primitive.ScalaUnit` is rendered as `Unit`.
      */
     case object Unit extends ScalaType
 
@@ -89,9 +88,9 @@ object Code {
 
   /**
    * The source files to generate, as returned by `EndpointGen.fromOpenAPI`, by
-   * the gRPC `EndpointGen.fromProtobuf` and by `SmithyEndpointGen`.
-   * Render them with `CodeGen.renderedFiles` or `CodeGen.writeFiles`;
-   * `CodeGen.render` throws an exception for a `Files` value.
+   * the gRPC `EndpointGen.fromProtobuf` and by `SmithyEndpointGen`. Render them
+   * with `CodeGen.renderedFiles` or `CodeGen.writeFiles`; `CodeGen.render`
+   * throws an exception for a `Files` value.
    */
   final case class Files(files: List[File]) extends Code
 
@@ -306,8 +305,8 @@ object Code {
    *   the case classes that extend the trait
    * @param caseNames
    *   the values of the `@caseName` annotations of the cases, in the order of
-   *   `cases`; no annotations are rendered when it is empty. When it is
-   *   shorter than `cases`, the cases without a name are not rendered
+   *   `cases`; no annotations are rendered when it is empty. When it is shorter
+   *   than `cases`, the cases without a name are not rendered
    * @param discriminator
    *   the value of the `@discriminatorName` annotation, if defined
    * @param noDiscriminator
