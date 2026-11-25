@@ -43,7 +43,10 @@ sealed trait FormDecodingError extends Exception { self =>
  */
 object FormDecodingError {
 
-  /** An exception that carries a `FormDecodingError` in `error`. Its `getMessage` is `null`. */
+  /**
+   * An exception that carries a `FormDecodingError` in `error`. Its
+   * `getMessage` is `null`.
+   */
   final case class FormDecodingException(error: FormDecodingError) extends Exception
 
   /** A part has a `Content-Disposition` header without a `name`. */
@@ -52,7 +55,10 @@ object FormDecodingError {
   /** A part has no `Content-Disposition` header. */
   case object FormDataMissingContentDisposition extends FormDecodingError
 
-  /** The charset of a part, or of the URL encoded data, is not supported. `msg` is the reason. */
+  /**
+   * The charset of a part, or of the URL encoded data, is not supported. `msg`
+   * is the reason.
+   */
   final case class InvalidCharset(msg: String) extends FormDecodingError
 
   /** The URL encoded data could not be decoded. `msg` is the reason. */

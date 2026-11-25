@@ -21,12 +21,14 @@ import java.net.InetSocketAddress
 import zio.{Duration, Scope, Trace, ZIO}
 
 /**
- * A pool of client connections. The client driver gets a connection for each request with `get` and gives a broken one back with `invalidate`.
+ * A pool of client connections. The client driver gets a connection for each
+ * request with `get` and gives a broken one back with `invalidate`.
  */
 trait ConnectionPool[Connection] {
 
   /**
-   * Returns a connection to `location`, taking one from the pool when it has an open one. The connection is released when the `Scope` closes.
+   * Returns a connection to `location`, taking one from the pool when it has an
+   * open one. The connection is released when the `Scope` closes.
    *
    * @param location
    *   the destination: scheme, host and port

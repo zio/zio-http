@@ -28,9 +28,9 @@ import zio.http.internal.{HeaderOps, QueryOps}
  * remote address and TLS certificate of the client when the server knows them.
  *
  * A handler receives a `Request` on the server; a client builds one and sends
- * it. The companion has constructors per method (`Request.get`,
- * `Request.post`, ...), and the header and query parameter operations come
- * from `HeaderOps` and `QueryOps`.
+ * it. The companion has constructors per method (`Request.get`, `Request.post`,
+ * ...), and the header and query parameter operations come from `HeaderOps` and
+ * `QueryOps`.
  *
  * {{{
  * val request: Request =
@@ -127,8 +127,7 @@ final case class Request(
   def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
 
   /**
-   * Collects the potentially streaming body of the request into a single
-   * chunk.
+   * Collects the potentially streaming body of the request into a single chunk.
    *
    * Any errors that occur from the collection of the body will be caught and
    * propagated to the Body: reading the new body fails with the same error.
@@ -268,13 +267,17 @@ object Request {
   /** Headers and query parameters to add to a request with `Request#patch`. */
   final case class Patch(addHeaders: Headers, addQueryParams: QueryParams) { self =>
 
-    /** Combines two patches: the result adds the headers and query parameters of both. */
+    /**
+     * Combines two patches: the result adds the headers and query parameters of
+     * both.
+     */
     def ++(that: Patch): Patch =
       Patch(self.addHeaders ++ that.addHeaders, self.addQueryParams ++ that.addQueryParams)
   }
 
   /**
-   * Creates a `DELETE` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `DELETE` request for `path`, with an empty body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def delete(path: String): Request = Request(method = Method.DELETE, url = pathOrUrl(path))
 
@@ -282,7 +285,8 @@ object Request {
   def delete(url: URL): Request = Request(method = Method.DELETE, url = url)
 
   /**
-   * Creates a `GET` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `GET` request for `path`, with an empty body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def get(path: String): Request = Request(method = Method.GET, url = pathOrUrl(path))
 
@@ -290,7 +294,8 @@ object Request {
   def get(url: URL): Request = Request(method = Method.GET, url = url)
 
   /**
-   * Creates a `HEAD` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `HEAD` request for `path`, with an empty body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def head(path: String): Request = Request(method = Method.HEAD, url = pathOrUrl(path))
 
@@ -298,7 +303,8 @@ object Request {
   def head(url: URL): Request = Request(method = Method.HEAD, url = url)
 
   /**
-   * Creates a `OPTIONS` request for `path`, with an empty body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `OPTIONS` request for `path`, with an empty body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def options(path: String): Request = Request(method = Method.OPTIONS, url = pathOrUrl(path))
 
@@ -306,7 +312,8 @@ object Request {
   def options(url: URL): Request = Request(method = Method.OPTIONS, url = url)
 
   /**
-   * Creates a `PATCH` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `PATCH` request for `path` with the given body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def patch(path: String, body: Body): Request = Request(method = Method.PATCH, url = pathOrUrl(path), body = body)
 
@@ -314,7 +321,8 @@ object Request {
   def patch(url: URL, body: Body): Request = Request(method = Method.PATCH, url = url, body = body)
 
   /**
-   * Creates a `POST` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `POST` request for `path` with the given body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def post(path: String, body: Body): Request = Request(method = Method.POST, url = pathOrUrl(path), body = body)
 
@@ -322,7 +330,8 @@ object Request {
   def post(url: URL, body: Body): Request = Request(method = Method.POST, url = url, body = body)
 
   /**
-   * Creates a `PUT` request for `path` with the given body. A `path` that starts with `http://` or `https://` is parsed as a full URL.
+   * Creates a `PUT` request for `path` with the given body. A `path` that
+   * starts with `http://` or `https://` is parsed as a full URL.
    */
   def put(path: String, body: Body): Request = Request(method = Method.PUT, url = pathOrUrl(path), body = body)
 

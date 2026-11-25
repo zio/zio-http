@@ -25,9 +25,18 @@ import zio.http.Routes.ApplyContextAspect
 import zio.http.codec.PathCodec
 
 /**
- * A `Routes[Env, Err]` is a collection of [[Route]] values, the HTTP application that a [[Server]] serves. Each route matches requests by method and path with a [[RoutePattern]] and answers them with a [[Handler]]. `Err` is the type of the errors that the routes have not converted into responses yet: routes can be served or run with `runZIO` once `Err` is [[Response]] (or `Nothing`), for example after `handleError` or `sandbox`.
+ * A `Routes[Env, Err]` is a collection of [[Route]] values, the HTTP
+ * application that a [[Server]] serves. Each route matches requests by method
+ * and path with a [[RoutePattern]] and answers them with a [[Handler]]. `Err`
+ * is the type of the errors that the routes have not converted into responses
+ * yet: routes can be served or run with `runZIO` once `Err` is [[Response]] (or
+ * `Nothing`), for example after `handleError` or `sandbox`.
  *
- * A request is dispatched through a tree of the route patterns. A route with a literal path segment is chosen over a route that matches any path, whatever their order. When two routes have the same pattern, the last one is used and a warning is logged. A request that matches no route gets the response of `notFound`, which is 404 Not Found by default.
+ * A request is dispatched through a tree of the route patterns. A route with a
+ * literal path segment is chosen over a route that matches any path, whatever
+ * their order. When two routes have the same pattern, the last one is used and
+ * a warning is logged. A request that matches no route gets the response of
+ * `notFound`, which is 404 Not Found by default.
  *
  * {{{
  * import zio._
@@ -45,7 +54,8 @@ import zio.http.codec.PathCodec
  *   routes.runZIO(Request.get(URL(Path("/users/42"))))
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
  */
 final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
   private var _tree: Routes.Tree[_] =
@@ -55,7 +65,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     null.asInstanceOf[Handler[Any, Nothing, Request, Response]]
 
   /**
-   * The handler that answers requests that match no route. It responds with 404 Not Found, like `Handler.notFound`, unless it is replaced. `transform`, and so `@@` with a [[HandlerAspect]], also applies to it.
+   * The handler that answers requests that match no route. It responds with 404
+   * Not Found, like `Handler.notFound`, unless it is replaced. `transform`, and
+   * so `@@` with a [[HandlerAspect]], also applies to it.
    */
   var notFound: Handler[Any, Nothing, Request, Response] =
     Handler.notFound(self)
@@ -67,13 +79,16 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     aspect(self)
 
   /**
-   * Applies a [[HandlerAspect]] that provides no context to every route and to the not-found handler.
+   * Applies a [[HandlerAspect]] that provides no context to every route and to
+   * the not-found handler.
    */
   def @@[Env0](aspect: HandlerAspect[Env0, Unit]): Routes[Env with Env0, Err] =
     aspect(self)
 
   /**
-   * Applies a [[HandlerAspect]] that produces a context of type `Ctx` to every route, and provides that context to the handlers as a service of their environment. The result no longer needs `Ctx`.
+   * Applies a [[HandlerAspect]] that produces a context of type `Ctx` to every
+   * route, and provides that context to the handlers as a service of their
+   * environment. The result no longer needs `Ctx`.
    */
   def @@[Env0, Ctx <: Env](
     aspect: HandlerAspect[Env0, Ctx],
@@ -81,7 +96,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     self.transform(_ @@ aspect)
 
   /**
-   * Starts applying a context-providing [[HandlerAspect]] while keeping `Env0` as the environment that is still required: `routes.@@[Env0](aspect)` provides the aspect's context and leaves `Env0` for later.
+   * Starts applying a context-providing [[HandlerAspect]] while keeping `Env0`
+   * as the environment that is still required: `routes.@@[Env0](aspect)`
+   * provides the aspect's context and leaves `Env0` for later.
    */
   def @@[Env0]: ApplyContextAspect[Env, Err, Env0] =
     new ApplyContextAspect[Env, Err, Env0](self)
@@ -106,7 +123,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes = routes :+ route)
 
   /**
-   * Runs these routes on `request`. Same as `runZIO`: an error response of a route is the success value of the effect, so the effect does not fail with a `Response`, although its type allows it.
+   * Runs these routes on `request`. Same as `runZIO`: an error response of a
+   * route is the success value of the effect, so the effect does not fail with
+   * a `Response`, although its type allows it.
    */
   def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Scope & Env, Response, Response] =
     runZIO(request)
@@ -120,7 +139,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes.map(_.handleError(f)))
 
   /**
-   * Handles all typed errors in the routes by converting them into responses with the effect `f`. Defects are not passed to `f`.
+   * Handles all typed errors in the routes by converting them into responses
+   * with the effect `f`. Defects are not passed to `f`.
    */
   def handleErrorZIO[Env1 <: Env](f: Err => ZIO[Env1, Nothing, Response])(implicit
     trace: Trace,
@@ -157,19 +177,25 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes.map(_.tapErrorCauseZIO(f)))
 
   /**
-   * Handles the typed errors of routes that have not handled them yet with the effect `fxn`: when `fxn` succeeds, its response becomes the response of the route, and when it fails, its error becomes the new error of the route. Routes that have already handled their errors are not changed.
+   * Handles the typed errors of routes that have not handled them yet with the
+   * effect `fxn`: when `fxn` succeeds, its response becomes the response of the
+   * route, and when it fails, its error becomes the new error of the route.
+   * Routes that have already handled their errors are not changed.
    */
   def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Routes[Env, Err1] =
     withRoutes(routes.map(_.mapErrorZIO(fxn)))
 
   /**
-   * Maps the typed errors of routes that have not handled them yet with `fxn`. Routes that have already handled their errors are not changed.
+   * Maps the typed errors of routes that have not handled them yet with `fxn`.
+   * Routes that have already handled their errors are not changed.
    */
   def mapError[Err1](fxn: Err => Err1): Routes[Env, Err1] =
     withRoutes(routes.map(_.mapError(fxn)))
 
   /**
-   * Returns these routes with `prefix` added in front of the path of every route pattern, so `Method.GET / "users"` nested under `"api"` matches `/api/users`.
+   * Returns these routes with `prefix` added in front of the path of every
+   * route pattern, so `Method.GET / "users"` nested under `"api"` matches
+   * `/api/users`.
    */
   def nest(prefix: PathCodec[Unit])(implicit trace: Trace): Routes[Env, Err] =
     withRoutes(self.routes.map(_.nest(prefix)))
@@ -215,7 +241,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     tree(Trace.empty, ev).get(request.method, request.path) != null
 
   /**
-   * Provides the single service `env` to these routes, returning routes that have no environmental requirements.
+   * Provides the single service `env` to these routes, returning routes that
+   * have no environmental requirements.
    */
   def provide[Env1 <: Env](env: Env1)(implicit tag: Tag[Env1]): Routes[Any, Err] =
     provideEnvironment(ZEnvironment(env))
@@ -228,7 +255,11 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     withRoutes(routes = routes.map(_.provideEnvironment(env)))
 
   /**
-   * Runs these routes on `request`, without requiring their errors to be handled. A request that matches no route succeeds with the not-found response. Although the error type is `Either[Err, Response]`, an error or a defect of a route is turned into a response with status 500 Internal Server Error that the effect succeeds with, even when the error is a `Response`.
+   * Runs these routes on `request`, without requiring their errors to be
+   * handled. A request that matches no route succeeds with the not-found
+   * response. Although the error type is `Either[Err, Response]`, an error or a
+   * defect of a route is turned into a response with status 500 Internal Server
+   * Error that the effect succeeds with, even when the error is a `Response`.
    */
   def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] = {
 
@@ -263,7 +294,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     routes.filterNot(_.routePattern == RoutePattern.any)
 
   /**
-   * Runs these routes on a [[Request]] built from `method`, `path`, `headers` and `body`, like `runZIO`. The request URL is relative (it has no scheme or host).
+   * Runs these routes on a [[Request]] built from `method`, `path`, `headers`
+   * and `body`, like `runZIO`. The request URL is relative (it has no scheme or
+   * host).
    */
   def run(
     method: Method = Method.GET,
@@ -274,19 +307,28 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body))
 
   /**
-   * Runs these routes on `request` and succeeds with the response: the response or error response of the matching route, a 500 Internal Server Error response for a defect, or the response of `notFound` when no route matches.
+   * Runs these routes on `request` and succeeds with the response: the response
+   * or error response of the matching route, a 500 Internal Server Error
+   * response for a defect, or the response of `notFound` when no route matches.
    */
   def runZIO(request: Request)(implicit ev: Err <:< Response): ZIO[Scope & Env, Nothing, Response] =
     toHandler(ev)(request)
 
   /**
-   * Returns new routes that translate all failures, including defects, into responses, using best-effort heuristics to determine the HTTP status code from the class of the error (for example 400 Bad Request for an `IllegalArgumentException`, 500 Internal Server Error for other errors). Whether the body contains the error message and stack trace depends on the current [[ErrorResponseConfig]]. Failures that are not already responses are logged at the error level.
+   * Returns new routes that translate all failures, including defects, into
+   * responses, using best-effort heuristics to determine the HTTP status code
+   * from the class of the error (for example 400 Bad Request for an
+   * `IllegalArgumentException`, 500 Internal Server Error for other errors).
+   * Whether the body contains the error message and stack trace depends on the
+   * current [[ErrorResponseConfig]]. Failures that are not already responses
+   * are logged at the error level.
    */
   def sandbox(implicit trace: Trace): Routes[Env, Nothing] =
     withRoutes(routes.map(_.sandbox))
 
   /**
-   * Installs these routes in the [[Server]] from the environment and never returns. Same as `Server.serve(routes)`.
+   * Installs these routes in the [[Server]] from the environment and never
+   * returns. Same as `Server.serve(routes)`.
    */
   def serve[Env1 <: Env](implicit
     ev: Err <:< Response,
@@ -297,7 +339,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   }
 
   /**
-   * Returns new routes whose handlers are interrupted when they don't complete within `duration`. A request that times out gets a response with status 408 Request Timeout.
+   * Returns new routes whose handlers are interrupted when they don't complete
+   * within `duration`. A request that times out gets a response with status 408
+   * Request Timeout.
    */
   def timeout(duration: Duration)(implicit trace: Trace): Routes[Env, Err] =
     self @@ Middleware.timeout(duration)
@@ -420,7 +464,8 @@ object Routes extends RoutesCompanionVersionSpecific {
     Routes(Chunk.fromIterable(routes))
 
   /**
-   * Creates routes with one route that matches every method and path. The handler receives the request path and the request.
+   * Creates routes with one route that matches every method and path. The
+   * handler receives the request path and the request.
    */
   def singleton[Env, Err](h: Handler[Env, Err, (Path, Request), Response])(implicit trace: Trace): Routes[Env, Err] =
     Routes(Route.route(RoutePattern.any)(h))

@@ -29,7 +29,10 @@ sealed trait Version { self =>
    */
   def ordinal: Int
 
-  /** Returns the version with the higher `ordinal`, which is `that` when both have the same `ordinal`. */
+  /**
+   * Returns the version with the higher `ordinal`, which is `that` when both
+   * have the same `ordinal`.
+   */
   def ++(that: Version): Version =
     if (self.ordinal > that.ordinal) self else that
 
@@ -47,8 +50,10 @@ sealed trait Version { self =>
  * The HTTP versions that the library models.
  */
 object Version {
+
   /** An alias of `Version.Http_1_0`. */
   val `HTTP/1.0`: Version = Http_1_0
+
   /** An alias of `Version.Http_1_1`. */
   val `HTTP/1.1`: Version = Http_1_1
 
@@ -56,18 +61,21 @@ object Version {
    * Indicates no preference for version. The default version will be used.
    */
   case object Default extends Version {
+
     /** `0`, the lowest value. */
     val ordinal = 0
   }
 
   /** HTTP version 1.0, with `ordinal` 1. */
   case object Http_1_0 extends Version {
+
     /** `1`. */
     val ordinal = 1
   }
 
   /** HTTP version 1.1, with `ordinal` 2. */
   case object Http_1_1 extends Version {
+
     /** `2`. */
     val ordinal = 2
   }

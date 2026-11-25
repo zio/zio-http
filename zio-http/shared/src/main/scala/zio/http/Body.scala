@@ -38,9 +38,9 @@ import zio.http.multipart.mixed.MultipartMixed
  *
  * The companion builds bodies (`Body.fromString`, `Body.fromChunk`,
  * `Body.fromStream...`, `Body.fromFile`, `Body.json`, forms); the `as...`
- * methods read a body back as bytes, a string, a stream, a form or JSON. A
- * body may carry a [[Body.ContentType]], which becomes the `Content-Type`
- * header of the request or response that holds it.
+ * methods read a body back as bytes, a string, a stream, a form or JSON. A body
+ * may carry a [[Body.ContentType]], which becomes the `Content-Type` header of
+ * the request or response that holds it.
  *
  * {{{
  * import zio._
@@ -76,8 +76,8 @@ trait Body { self =>
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
 
   /**
-   * Decodes the content of the body as JSON using zio-schema. A decoding
-   * error fails the effect with a `RuntimeException` whose message starts with
+   * Decodes the content of the body as JSON using zio-schema. A decoding error
+   * fails the effect with a `RuntimeException` whose message starts with
    * "Failed to decode JSON: ".
    *
    * Example:
@@ -195,8 +195,8 @@ trait Body { self =>
    * that attempting to decode a large stream of bytes into a string could
    * result in an out of memory error.
    *
-   * The default charset is UTF-8; the charset of the body's content type is
-   * not used. Use the overload that takes a `Charset` for other encodings.
+   * The default charset is UTF-8; the charset of the body's content type is not
+   * used. Use the overload that takes a `Charset` for other encodings.
    */
   final def asString(implicit trace: Trace): Task[String] =
     asArray.map(new String(_, Charsets.Http))
@@ -243,8 +243,8 @@ trait Body { self =>
   def contentType: Option[Body.ContentType]
 
   /**
-   * Returns a body with the given content type. The empty body, a failed
-   * body and a WebSocket body ignore it and return themselves.
+   * Returns a body with the given content type. The empty body, a failed body
+   * and a WebSocket body ignore it and return themselves.
    */
   def contentType(newContentType: Body.ContentType): Body
 
@@ -392,9 +392,9 @@ object Body {
   def fromArray(data: Array[Byte]): Body = ArrayBody(data)
 
   /**
-   * Constructs a [[zio.http.Body]] from a char sequence, encoded with
-   * `charset` (UTF-8 by default). An empty char sequence with the default
-   * charset gives `Body.empty`.
+   * Constructs a [[zio.http.Body]] from a char sequence, encoded with `charset`
+   * (UTF-8 by default). An empty char sequence with the default charset gives
+   * `Body.empty`.
    */
   def fromCharSequence(
     charSequence: CharSequence,
@@ -672,8 +672,7 @@ object Body {
 
   /**
    * Constructs a body that carries a WebSocket app. It holds no bytes; a
-   * response with this body switches the connection to the WebSocket
-   * protocol.
+   * response with this body switches the connection to the WebSocket protocol.
    */
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)

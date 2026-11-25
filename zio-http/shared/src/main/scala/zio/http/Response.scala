@@ -290,10 +290,9 @@ object Response {
    * A typed failure that is a `Response` is returned as is, a `Throwable` goes
    * through `fromThrowable`, and a nested `Cause` is handled the same way.
    * Anything else gives 408 Request Timeout when the cause holds only
-   * interruptions (or nothing at all), and 500 Internal Server Error
-   * otherwise; a defect is not passed to `fromThrowable`. With
-   * `config.withErrorBody`, those last two get the pretty-printed cause as a
-   * `text/plain` body.
+   * interruptions (or nothing at all), and 500 Internal Server Error otherwise;
+   * a defect is not passed to `fromThrowable`. With `config.withErrorBody`,
+   * those last two get the pretty-printed cause as a `text/plain` body.
    */
   @tailrec
   def fromCause(cause: Cause[Any], config: ErrorResponseConfig): Response =
@@ -337,8 +336,8 @@ object Response {
 
   /**
    * Creates a response with content-type set to text/event-stream whose body
-   * holds all of the given events, encoded with the default codec for `T`.
-   * Each encoded event is followed by one more line break.
+   * holds all of the given events, encoded with the default codec for `T`. Each
+   * encoded event is followed by one more line break.
    */
   def fromServerSentEvents[T: Schema](
     data: Iterable[ServerSentEvent[T]],
@@ -359,8 +358,8 @@ object Response {
   }
 
   /**
-   * Creates a response with content-type set to text/event-stream whose body
-   * is the single event `data`, encoded with the default codec for `T`.
+   * Creates a response with content-type set to text/event-stream whose body is
+   * the single event `data`, encoded with the default codec for `T`.
    *
    * {{{
    * val tick: Response = Response.fromServerSentEvent(ServerSentEvent("12:00", eventType = Some("tick")))
@@ -378,8 +377,7 @@ object Response {
 
   /**
    * Creates a new response for the provided socket app: status 101 Switching
-   * Protocols, with the app, given the environment of this effect, as the
-   * body.
+   * Protocols, with the app, given the environment of this effect, as the body.
    */
   def fromSocketApp[R](app: WebSocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
@@ -403,8 +401,8 @@ object Response {
    * Creates a new response for the specified throwable. Note that this method
    * relies on the runtime class of the throwable.
    *
-   * The status is 403 for `AccessDeniedException`, `IllegalAccessException`
-   * and `IllegalAccessError`; 400 for `NotDirectoryException` and
+   * The status is 403 for `AccessDeniedException`, `IllegalAccessException` and
+   * `IllegalAccessError`; 400 for `NotDirectoryException` and
    * `IllegalArgumentException`; 404 for `FileNotFoundException`; 503 for
    * `ConnectException`; 504 for `SocketTimeoutException`; and 500 for anything
    * else. With `config.withErrorBody`, the body shows the status and the
@@ -540,8 +538,8 @@ object Response {
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
 
   /**
-   * Creates a response with status 505 HTTP Version Not Supported and a body made from
-   * `message`. No `Content-Type` header is set.
+   * Creates a response with status 505 HTTP Version Not Supported and a body
+   * made from `message`. No `Content-Type` header is set.
    */
   def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
 
@@ -549,8 +547,8 @@ object Response {
   def internalServerError: Response = error(Status.InternalServerError)
 
   /**
-   * Creates a response with status 500 Internal Server Error and a body made from
-   * `message`. No `Content-Type` header is set.
+   * Creates a response with status 500 Internal Server Error and a body made
+   * from `message`. No `Content-Type` header is set.
    */
   def internalServerError(message: String): Response = error(Status.InternalServerError, message)
 
@@ -575,12 +573,14 @@ object Response {
       Body.fromCharSequence(data),
     )
 
-  /** Creates an empty response with status 511 Network Authentication Required. */
+  /**
+   * Creates an empty response with status 511 Network Authentication Required.
+   */
   def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
 
   /**
-   * Creates a response with status 511 Network Authentication Required and a body made from
-   * `message`. No `Content-Type` header is set.
+   * Creates a response with status 511 Network Authentication Required and a
+   * body made from `message`. No `Content-Type` header is set.
    */
   def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
 

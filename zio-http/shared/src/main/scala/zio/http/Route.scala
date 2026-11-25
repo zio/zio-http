@@ -21,27 +21,41 @@ import zio.http.Route.CheckResponse
 import zio.http.codec.PathCodec
 
 /**
- * Represents a single route, which has either handled its errors by converting them into responses, or which has polymorphic errors, which must later be converted into responses before the route can be executed.
+ * Represents a single route, which has either handled its errors by converting
+ * them into responses, or which has polymorphic errors, which must later be
+ * converted into responses before the route can be executed.
  *
- * A route pairs a [[RoutePattern]] with a [[Handler]], and is usually built with `->` on a route pattern: `Method.GET / "users" -> handler(...)`. When the handler's error type is [[Response]], the route has handled its errors; otherwise, `handleError`, `handleErrorCause` or `sandbox` convert them into responses. The handler returned by `toHandler` converts defects into responses too, and fails with a [[Response]] when the route's handler does.
+ * A route pairs a [[RoutePattern]] with a [[Handler]], and is usually built
+ * with `->` on a route pattern: `Method.GET / "users" -> handler(...)`. When
+ * the handler's error type is [[Response]], the route has handled its errors;
+ * otherwise, `handleError`, `handleErrorCause` or `sandbox` convert them into
+ * responses. The handler returned by `toHandler` converts defects into
+ * responses too, and fails with a [[Response]] when the route's handler does.
  *
  * Individual routes can be aggregated using [[zio.http.Routes]].
  *
- * @see [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
  */
 sealed trait Route[-Env, +Err] { self =>
   import Route.{Augmented, Handled, Provided, Unhandled}
 
   /**
-   * Applies the route to the specified request. Note that you may only call this function when you have handled all errors produced by the route, converting them into responses.
+   * Applies the route to the specified request. Note that you may only call
+   * this function when you have handled all errors produced by the route,
+   * converting them into responses.
    *
-   * A request that does not match the route pattern is not answered with 404: depending on how the route was built, the handler runs anyway, or the effect fails with a 500 Internal Server Error response. Defects become 500 responses in the error channel.
+   * A request that does not match the route pattern is not answered with 404:
+   * depending on how the route was built, the handler runs anyway, or the
+   * effect fails with a 500 Internal Server Error response. Defects become 500
+   * responses in the error channel.
    */
   final def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Scope & Env, Response, Response] =
     toHandler.apply(request)
 
   /**
-   * Changes the error type to `Err2`, given evidence that `Err` is a subtype of `Err2`. The route is not changed.
+   * Changes the error type to `Err2`, given evidence that `Err` is a subtype of
+   * `Err2`. The route is not changed.
    */
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
 
@@ -200,7 +214,8 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
-   * Maps the typed errors of the route with `fxn`. A route that has already handled its errors is not changed.
+   * Maps the typed errors of the route with `fxn`. A route that has already
+   * handled its errors is not changed.
    */
   final def mapError[Err1](fxn: Err => Err1)(implicit trace: Trace): Route[Env, Err1] = {
     self match {
@@ -213,7 +228,10 @@ sealed trait Route[-Env, +Err] { self =>
   }
 
   /**
-   * Handles the typed errors of the route with the effect `fxn`: when `fxn` succeeds, its response becomes the response of the route, and when it fails, its error becomes the new error of the route. A route that has already handled its errors is not changed.
+   * Handles the typed errors of the route with the effect `fxn`: when `fxn`
+   * succeeds, its response becomes the response of the route, and when it
+   * fails, its error becomes the new error of the route. A route that has
+   * already handled its errors is not changed.
    */
   final def mapErrorZIO[Err1](fxn: Err => ZIO[Any, Err1, Response])(implicit trace: Trace): Route[Env, Err1] =
     self match {
@@ -373,7 +391,8 @@ sealed trait Route[-Env, +Err] { self =>
   def location: Trace
 
   /**
-   * Returns this route with `prefix` added in front of the path of its route pattern.
+   * Returns this route with `prefix` added in front of the path of its route
+   * pattern.
    */
   def nest(prefix: PathCodec[Unit]): Route[Env, Err] =
     self match {
@@ -386,7 +405,8 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
-   * Provides the environment `env` to this route, returning a route that has no environmental requirements.
+   * Provides the environment `env` to this route, returning a route that has no
+   * environmental requirements.
    */
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
     Route.Provided(self, env)
@@ -398,7 +418,11 @@ sealed trait Route[-Env, +Err] { self =>
   def routePattern: RoutePattern[_]
 
   /**
-   * Runs this route on `request`, without requiring its errors to be handled, like `Routes.run`. A request that does not match the route succeeds with a 404 Not Found response. Although the error type is `Either[Err, Response]`, an error or a defect of the route is turned into a response with status 500 Internal Server Error that the effect succeeds with.
+   * Runs this route on `request`, without requiring its errors to be handled,
+   * like `Routes.run`. A request that does not match the route succeeds with a
+   * 404 Not Found response. Although the error type is `Either[Err, Response]`,
+   * an error or a defect of the route is turned into a response with status 500
+   * Internal Server Error that the effect succeeds with.
    */
   final def run(request: Request)(implicit trace: Trace): ZIO[Scope & Env, Either[Err, Response], Response] =
     Routes(self).run(request)
@@ -425,7 +449,12 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
-   * Converts this route, whose errors are responses, into a request handler. The handler converts defects into responses, and fails with a [[Response]] when the route's handler does. A request that does not match the route pattern is not answered with 404: depending on how the route was built, the handler runs anyway, or the handler fails with a 500 Internal Server Error response.
+   * Converts this route, whose errors are responses, into a request handler.
+   * The handler converts defects into responses, and fails with a [[Response]]
+   * when the route's handler does. A request that does not match the route
+   * pattern is not answered with 404: depending on how the route was built, the
+   * handler runs anyway, or the handler fails with a 500 Internal Server Error
+   * response.
    */
   def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
@@ -445,20 +474,27 @@ sealed trait Route[-Env, +Err] { self =>
   final def toRoutes: Routes[Env, Err] = Routes(self)
 
   /**
-   * Returns a route whose request handler is transformed by `f`. The handler that `f` receives does not convert defects into responses yet, so `f` can see them; the result of `f` does.
+   * Returns a route whose request handler is transformed by `f`. The handler
+   * that `f` receives does not convert defects into responses yet, so `f` can
+   * see them; the result of `f` does.
    */
   def transform[Env1](
     f: Handler[Env, Response, Request, Response] => Handler[Env1, Response, Request, Response],
   ): Route[Env1, Err] =
     Route.Augmented(self, f)
 }
+
 /**
- * Constructors of [[Route]] values. Most routes are built with `->` on a [[RoutePattern]] instead.
+ * Constructors of [[Route]] values. Most routes are built with `->` on a
+ * [[RoutePattern]] instead.
  */
-object Route                   {
+object Route {
 
   /**
-   * Creates a route from `routePattern` and a request handler whose errors are responses. The handler receives the request only; the parameters of the pattern are not decoded. `RoutePattern#->` uses it for handlers of type `Handler[Env, Response, Request, Response]`.
+   * Creates a route from `routePattern` and a request handler whose errors are
+   * responses. The handler receives the request only; the parameters of the
+   * pattern are not decoded. `RoutePattern#->` uses it for handlers of type
+   * `Handler[Env, Response, Request, Response]`.
    */
   def handledIgnoreParams[Env](
     routePattern: RoutePattern[_],
@@ -466,19 +502,25 @@ object Route                   {
     Route.Handled(routePattern, handler((_: RoutePattern[_]) => handler0), Trace.empty)
 
   /**
-   * Returns a builder for a route on `rpm` whose handler fails with [[Response]]. The handler receives the decoded parameters of the pattern together with the request.
+   * Returns a builder for a route on `rpm` whose handler fails with
+   * [[Response]]. The handler receives the decoded parameters of the pattern
+   * together with the request.
    */
   def handled[Params, Env](rpm: RoutePattern[Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
 
   /**
-   * A route that matches every method and path and responds with 404 Not Found, like `Handler.notFound`.
+   * A route that matches every method and path and responds with 404 Not Found,
+   * like `Handler.notFound`.
    */
   val notFound: Route[Any, Nothing] =
     Handled(RoutePattern.any, handler((_: RoutePattern[_]) => Handler.notFound), Trace.empty)
 
   /**
-   * Returns a builder for a route on `rpm` whose handler may fail with any error type. The handler receives the decoded parameters of the pattern together with the request. `RoutePattern#->` uses it for handlers that take the parameters.
+   * Returns a builder for a route on `rpm` whose handler may fail with any
+   * error type. The handler receives the decoded parameters of the pattern
+   * together with the request. `RoutePattern#->` uses it for handlers that take
+   * the parameters.
    */
   def route[Params, Env](rpm: RoutePattern[Params]): UnhandledConstructor[Env, Params] =
     new UnhandledConstructor[Env, Params](rpm)
@@ -487,8 +529,10 @@ object Route                   {
    * Builder returned by `Route.handled`.
    */
   final class HandledConstructor[-Env, Params](val pattern: RoutePattern[Params]) extends AnyVal {
+
     /**
-     * Creates the route from `handler0`, whose input `In` is made of the decoded parameters and the request.
+     * Creates the route from `handler0`, whose input `In` is made of the
+     * decoded parameters and the request.
      */
     def apply[Env1 <: Env, In](
       handler0: Handler[Env1, Response, In, Response],
@@ -514,8 +558,10 @@ object Route                   {
    * Builder returned by `Route.route`.
    */
   final class UnhandledConstructor[-Env, Params](val rpm: RoutePattern[Params]) extends AnyVal {
+
     /**
-     * Creates the route from `handler`, whose input `Input` is made of the decoded parameters and the request.
+     * Creates the route from `handler`, whose input `Input` is made of the
+     * decoded parameters and the request.
      */
     def apply[Env1 <: Env, Err, Input](
       handler: Handler[Env1, Err, Input, Response],
@@ -622,13 +668,16 @@ object Route                   {
   }
 
   /**
-   * Evidence of whether the error type `A` is [[Response]]: `isResponse` is true for the `Response` instance and false for all other types.
+   * Evidence of whether the error type `A` is [[Response]]: `isResponse` is
+   * true for the `Response` instance and false for all other types.
    */
   sealed trait CheckResponse[-A] { def isResponse: Boolean }
+
   /**
    * Instances of [[Route.CheckResponse]].
    */
-  object CheckResponse           {
+  object CheckResponse {
+
     /**
      * The instance for [[Response]], whose `isResponse` is true.
      */
@@ -640,9 +689,10 @@ object Route                   {
     private val otherInstance: CheckResponse[Nothing] = new CheckResponse[Nothing] {
       val isResponse = false
     }
+
     /**
      * The instance for any other type, whose `isResponse` is false.
      */
-    implicit def other[A]: CheckResponse[A]           = otherInstance.asInstanceOf[CheckResponse[A]]
+    implicit def other[A]: CheckResponse[A] = otherInstance.asInstanceOf[CheckResponse[A]]
   }
 }

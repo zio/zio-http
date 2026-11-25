@@ -39,9 +39,11 @@ import zio.http.internal.CookieEncoding
  * val decoded = Cookie.decodeRequest("theme=dark; lang=en") // Right(Chunk(Request(theme,dark), Request(lang,en)))
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/headers/session/cookies/ Cookies]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/headers/session/cookies/ Cookies]]
  */
 sealed trait Cookie { self =>
+
   /** The name of the cookie. */
   def name: String
 
@@ -50,8 +52,8 @@ sealed trait Cookie { self =>
 
   /**
    * Encodes the cookie into a string, or fails with an exception if there was a
-   * problem during encoding. This encoding method performs no validation.
-   * A request cookie is encoded as `name=content`. A response cookie adds
+   * problem during encoding. This encoding method performs no validation. A
+   * request cookie is encoded as `name=content`. A response cookie adds
    * `Domain`, `Path`, `Max-Age` (in whole seconds), `Secure`, `HTTPOnly` and
    * `SameSite` attributes, separated by `; `, for the parts that are set. A
    * `null` content gives a `Left`.
@@ -133,9 +135,9 @@ object Cookie {
     Cookie.Request.decode(header, validate)
 
   /**
-   * Decodes the value of a `Set-Cookie` response header into a response
-   * cookie. The first part must have the form `name=content`, otherwise the
-   * result is a `Left` with an `IllegalArgumentException` whose message is
+   * Decodes the value of a `Set-Cookie` response header into a response cookie.
+   * The first part must have the form `name=content`, otherwise the result is a
+   * `Left` with an `IllegalArgumentException` whose message is
    * `Invalid Set-Cookie header`. The attributes `Domain`, `Path`, `Max-Age`,
    * `Secure`, `HttpOnly` and `SameSite` are read ignoring case, and other
    * attributes, such as `Expires`, and a `Max-Age` that is not a number are
@@ -209,6 +211,7 @@ object Cookie {
 
     override def content(content: String): Cookie.Response = copy(content = content)
   }
+
   /** Decoder for response cookies. */
   object Response {
 
@@ -256,6 +259,7 @@ object Cookie {
     override def content(content: String): Cookie.Request = copy(content = content)
 
   }
+
   /** Decoder for request cookies. */
   object Request {
 
@@ -277,14 +281,15 @@ object Cookie {
 
   /** The `SameSite` values. */
   object SameSite {
+
     /** The `SameSite=Strict` attribute. */
     case object Strict extends SameSite
 
     /** The `SameSite=Lax` attribute. */
-    case object Lax    extends SameSite
+    case object Lax extends SameSite
 
     /** The `SameSite=None` attribute. */
-    case object None   extends SameSite
+    case object None extends SameSite
 
     /** Returns `Strict`, `Lax` and `None`, in this order. */
     def values: List[SameSite] = List(Strict, Lax, None)

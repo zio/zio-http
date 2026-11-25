@@ -21,7 +21,9 @@ import zio.http.codec.PathCodec
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
  *
- * `Method.ANY` matches every method. `Method.CUSTOM` holds a method name that has no predefined constant, and `Method.Methods` is a set of methods built with `#|`.
+ * `Method.ANY` matches every method. `Method.CUSTOM` holds a method name that
+ * has no predefined constant, and `Method.Methods` is a set of methods built
+ * with `#|`.
  *
  * {{{
  * val get: Method  = Method.fromString("get")
@@ -30,7 +32,8 @@ import zio.http.codec.PathCodec
  * val matchesPut   = either.matches(Method.PUT)  // false
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
  */
 sealed trait Method { self: Product =>
 
@@ -44,11 +47,10 @@ sealed trait Method { self: Product =>
     else that
 
   /**
-   * Combines two methods into one that matches either of them. If either
-   * method is `Method.ANY`, the result is `Method.ANY`. If both methods are
-   * equal, the result is that method. Otherwise the result is a
-   * `Method.Methods` holding both, and `Method.Methods` operands are merged
-   * into it.
+   * Combines two methods into one that matches either of them. If either method
+   * is `Method.ANY`, the result is `Method.ANY`. If both methods are equal, the
+   * result is that method. Otherwise the result is a `Method.Methods` holding
+   * both, and `Method.Methods` operands are merged into it.
    */
   def #|(that: Method): Method =
     if (self == Method.ANY || that == Method.ANY) Method.ANY
@@ -63,18 +65,18 @@ sealed trait Method { self: Product =>
 
   /**
    * Returns a `RoutePattern` that matches this method followed by the path
-   * described by `that`. With `PathCodec.empty`, the pattern has the method
-   * and no path segments.
+   * described by `that`. With `PathCodec.empty`, the pattern has the method and
+   * no path segments.
    */
   def /[A](that: PathCodec[A]): RoutePattern[A] =
     if (that == PathCodec.empty) RoutePattern.fromMethod(self).asInstanceOf[RoutePattern[A]]
     else RoutePattern.fromMethod(self) / that
 
   /**
-   * Returns `true` when this method and `that` match. `Method.ANY` matches every
-   * method, a `Method.Methods` matches when any of its members matches, and any
-   * other pair matches when the two methods are equal (a `Method.CUSTOM` name
-   * is compared case-sensitively).
+   * Returns `true` when this method and `that` match. `Method.ANY` matches
+   * every method, a `Method.Methods` matches when any of its members matches,
+   * and any other pair matches when the two methods are equal (a
+   * `Method.CUSTOM` name is compared case-sensitively).
    */
   def matches(that: Method): Boolean =
     if (self == Method.ANY) true
@@ -90,9 +92,9 @@ sealed trait Method { self: Product =>
       }
 
   /**
-   * The name of the method, as it appears in the HTTP request. `Method.ANY`
-   * has the name `GET`, and a `Method.Methods` has the names of its members
-   * sorted and joined with `#|`.
+   * The name of the method, as it appears in the HTTP request. `Method.ANY` has
+   * the name `GET`, and a `Method.Methods` has the names of its members sorted
+   * and joined with `#|`.
    */
   val name: String
 
@@ -136,29 +138,41 @@ object Method {
 
   /** A set of methods, built by combining methods with `#|`. */
   final case class Methods(methods: Set[Method]) extends Method {
+
     /** The names of the members, sorted and joined with `#|`. */
     val name: String = methods.toList.sortBy(_.render).map(_.render).mkString("#|")
   }
 
   /** The `OPTIONS` method. */
   case object OPTIONS extends Method { val name = "OPTIONS" }
+
   /** The `GET` method. */
-  case object GET     extends Method { val name = "GET"     }
+  case object GET extends Method { val name = "GET" }
+
   /** The `HEAD` method. */
-  case object HEAD    extends Method { val name = "HEAD"    }
+  case object HEAD extends Method { val name = "HEAD" }
+
   /** The `POST` method. */
-  case object POST    extends Method { val name = "POST"    }
+  case object POST extends Method { val name = "POST" }
+
   /** The `PUT` method. */
-  case object PUT     extends Method { val name = "PUT"     }
+  case object PUT extends Method { val name = "PUT" }
+
   /** The `PATCH` method. */
-  case object PATCH   extends Method { val name = "PATCH"   }
+  case object PATCH extends Method { val name = "PATCH" }
+
   /** The `DELETE` method. */
-  case object DELETE  extends Method { val name = "DELETE"  }
+  case object DELETE extends Method { val name = "DELETE" }
+
   /** The `TRACE` method. */
-  case object TRACE   extends Method { val name = "TRACE"   }
+  case object TRACE extends Method { val name = "TRACE" }
+
   /** The `CONNECT` method. */
   case object CONNECT extends Method { val name = "CONNECT" }
 
-  /** A method that matches every method. Its `name` is `GET`, and `render` gives `*`. */
+  /**
+   * A method that matches every method. Its `name` is `GET`, and `render` gives
+   * `*`.
+   */
   case object ANY extends Method { val name = "GET" }
 }

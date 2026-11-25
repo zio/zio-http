@@ -36,11 +36,16 @@ import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderOps}
  * defined here. A better place would be one of the traits extended by
  * `HeaderOps`.
  *
- * @see [[https://zio.dev/zio-http/reference/headers/ Headers]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/headers/ Headers]]
  */
 sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
   self =>
-  /** Returns the headers of this collection followed by the headers of `other`. It is the same as `combine`. */
+
+  /**
+   * Returns the headers of this collection followed by the headers of `other`.
+   * It is the same as `combine`.
+   */
   final def ++(other: Headers): Headers = self.combine(other)
 
   /**
@@ -51,20 +56,36 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
   final def combine(other: Headers): Headers =
     Headers.Concat(self, other)
 
-  /** Returns the result of `this ++ other` when `cond` is `true`, and this collection otherwise. */
+  /**
+   * Returns the result of `this ++ other` when `cond` is `true`, and this
+   * collection otherwise.
+   */
   final def combineIf(cond: Boolean)(other: Headers): Headers =
     if (cond) self ++ other else self
 
-  /** Returns `true` when a header with the given name exists. The name is matched ignoring case. */
+  /**
+   * Returns `true` when a header with the given name exists. The name is
+   * matched ignoring case.
+   */
   def contains(key: CharSequence): Boolean
 
-  /** Returns the value of the first header with the given name, matched ignoring case, or `None` when there is none. For `Headers` built with `++`, a value from the right operand is preferred. */
+  /**
+   * Returns the value of the first header with the given name, matched ignoring
+   * case, or `None` when there is none. For `Headers` built with `++`, a value
+   * from the right operand is preferred.
+   */
   final def get(key: CharSequence): Option[String] = Option(getUnsafe(key))
 
-  /** Returns the value of the first header with the name of the given type, parsed as that type, or `None` when there is none or it cannot be parsed. */
+  /**
+   * Returns the value of the first header with the name of the given type,
+   * parsed as that type, or `None` when there is none or it cannot be parsed.
+   */
   final def get(headerType: Header.HeaderType): Option[headerType.HeaderValue] = header(headerType)
 
-  /** Returns the parsed values of all headers with the name of the given type, in order. A header that cannot be parsed is skipped. */
+  /**
+   * Returns the parsed values of all headers with the name of the given type,
+   * in order. A header that cannot be parsed is skipped.
+   */
   final def getAll(headerType: Header.HeaderType): Chunk[headerType.HeaderValue] = headers(headerType)
 
   /**
@@ -88,7 +109,9 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
   /** Returns the result of applying `update` to this collection. */
   override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Headers = update(self)
 
-  /** Returns this collection when `cond` is `true`, and empty headers otherwise. */
+  /**
+   * Returns this collection when `cond` is `true`, and empty headers otherwise.
+   */
   final def when(cond: Boolean): Headers = if (cond) self else Headers.Empty
 
 }
@@ -168,10 +191,15 @@ object Headers {
   /** Creates headers with one custom header of the given name and value. */
   def apply(name: CharSequence, value: CharSequence): Headers = Headers.FromIterable(Chunk(Header.Custom(name, value)))
 
-  /** Creates headers with one custom header from a pair of a name and a value. */
+  /**
+   * Creates headers with one custom header from a pair of a name and a value.
+   */
   def apply(tuple2: (CharSequence, CharSequence)): Headers = apply(tuple2._1, tuple2._2)
 
-  /** Creates headers with one custom header for each pair of a name and a value, in order. */
+  /**
+   * Creates headers with one custom header for each pair of a name and a value,
+   * in order.
+   */
   def apply(value: (CharSequence, CharSequence), values: (CharSequence, CharSequence)*): Headers =
     Headers.FromIterable((value +: values).map { case (k, v) => Header.Custom(k, v) })
 
@@ -187,10 +215,16 @@ object Headers {
   /** Creates headers from the given headers, in order. */
   def fromIterable(iter: Iterable[Header]): Headers = FromIterable(iter)
 
-  /** Returns `onTrue` when `cond` is `true` and `onFalse` otherwise. Only the chosen argument is evaluated. */
+  /**
+   * Returns `onTrue` when `cond` is `true` and `onFalse` otherwise. Only the
+   * chosen argument is evaluated.
+   */
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
 
-  /** Returns `headers` when `cond` is `true` and empty headers otherwise. `headers` is evaluated only when `cond` is `true`. */
+  /**
+   * Returns `headers` when `cond` is `true` and empty headers otherwise.
+   * `headers` is evaluated only when `cond` is `true`.
+   */
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Empty
 
 }

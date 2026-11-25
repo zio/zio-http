@@ -20,7 +20,8 @@ import zio.Unsafe
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
- * The scheme of a URL, such as `http`, `https`, `ws` or `wss`. Any other scheme is a `Scheme.Custom`.
+ * The scheme of a URL, such as `http`, `https`, `ws` or `wss`. Any other scheme
+ * is a `Scheme.Custom`.
  *
  * {{{
  * val scheme: Option[Scheme] = Scheme.decode("wss")
@@ -29,7 +30,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * }}}
  */
 sealed trait Scheme { self =>
-  /** Returns the scheme as a string: `http`, `https`, `ws` or `wss` for the predefined schemes, and the stored text for a `Scheme.Custom`. */
+
+  /**
+   * Returns the scheme as a string: `http`, `https`, `ws` or `wss` for the
+   * predefined schemes, and the stored text for a `Scheme.Custom`.
+   */
   def encode: String = self match {
     case Scheme.HTTP           => "http"
     case Scheme.HTTPS          => "https"
@@ -51,14 +56,20 @@ sealed trait Scheme { self =>
     case _          => false
   }
 
-  /** Returns `Some(true)` for `Scheme.HTTPS` and `Scheme.WSS`, `Some(false)` for `Scheme.HTTP` and `Scheme.WS`, and `None` for a `Scheme.Custom`. */
+  /**
+   * Returns `Some(true)` for `Scheme.HTTPS` and `Scheme.WSS`, `Some(false)` for
+   * `Scheme.HTTP` and `Scheme.WS`, and `None` for a `Scheme.Custom`.
+   */
   def isSecure: Option[Boolean] = self match {
     case Scheme.HTTPS | Scheme.WSS => Some(true)
     case Scheme.HTTP | Scheme.WS   => Some(false)
     case _                         => None
   }
 
-  /** Returns the default port for `Scheme.HTTP` (80), `Scheme.HTTPS` (443), `Scheme.WS` (80) and `Scheme.WSS` (443), and `None` for a `Scheme.Custom`. */
+  /**
+   * Returns the default port for `Scheme.HTTP` (80), `Scheme.HTTPS` (443),
+   * `Scheme.WS` (80) and `Scheme.WSS` (443), and `None` for a `Scheme.Custom`.
+   */
   def defaultPort: Option[Int] = self match {
     case Scheme.HTTP      => Some(Scheme.defaultPortForHTTP)
     case Scheme.HTTPS     => Some(Scheme.defaultPortForHTTPS)
@@ -77,10 +88,9 @@ object Scheme {
   /**
    * Decodes a string to an Option of Scheme. Returns `None` when the string is
    * `null` or empty. The exact lowercase strings `http`, `https`, `ws` and
-   * `wss` give the predefined schemes. Any other string gives a
-   * `Scheme.Custom` holding the string in lowercase, without checking its
-   * characters, so `HTTP` gives a `Scheme.Custom` with the text `http`, not
-   * `Scheme.HTTP`.
+   * `wss` give the predefined schemes. Any other string gives a `Scheme.Custom`
+   * holding the string in lowercase, without checking its characters, so `HTTP`
+   * gives a `Scheme.Custom` with the text `http`, not `Scheme.HTTP`.
    *
    * The scheme should be lowercase and follow this syntax:
    *   - Scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
@@ -124,11 +134,14 @@ object Scheme {
   sealed abstract case class Custom private[http] (scheme: String) extends Scheme
 
   /** The default port of `Scheme.HTTP`: 80. */
-  def defaultPortForHTTP  = 80
+  def defaultPortForHTTP = 80
+
   /** The default port of `Scheme.HTTPS`: 443. */
   def defaultPortForHTTPS = 443
+
   /** The default port of `Scheme.WS`: 80. */
-  def defaultPortForWS    = 80
+  def defaultPortForWS = 80
+
   /** The default port of `Scheme.WSS`: 443. */
-  def defaultPortForWSS   = 443
+  def defaultPortForWSS = 443
 }

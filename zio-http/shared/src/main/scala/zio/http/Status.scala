@@ -32,22 +32,28 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * val isClient       = status.isClientError // true
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/response/ Response]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/response/ Response]]
  */
 sealed trait Status extends Product with Serializable { self =>
 
   /** Returns `true` when the code is in the range 100 to 199. */
   def isInformational: Boolean = code >= 100 && code < 200
+
   /** Returns `true` when the code is in the range 200 to 299. */
-  def isSuccess: Boolean       = code >= 200 && code < 300
+  def isSuccess: Boolean = code >= 200 && code < 300
+
   /** Returns `true` when the code is in the range 300 to 399. */
-  def isRedirection: Boolean   = code >= 300 && code < 400
+  def isRedirection: Boolean = code >= 300 && code < 400
+
   /** Returns `true` when the code is in the range 400 to 499. */
-  def isClientError: Boolean   = code >= 400 && code < 500
+  def isClientError: Boolean = code >= 400 && code < 500
+
   /** Returns `true` when the code is in the range 500 to 599. */
-  def isServerError: Boolean   = code >= 500 && code < 600
+  def isServerError: Boolean = code >= 500 && code < 600
+
   /** Returns `true` when the code is in the range 400 to 599. */
-  def isError: Boolean         = isClientError | isServerError
+  def isError: Boolean = isClientError | isServerError
 
   /**
    * Returns the status code.
@@ -57,8 +63,8 @@ sealed trait Status extends Product with Serializable { self =>
   /**
    * The reason phrase of the status. For the predefined constants it is the
    * constant name split into words (`Status.NotFound` gives `Not Found`,
-   * `Status.Ok` gives `Ok`). For `Status.Custom` it is the value given when
-   * the status was created.
+   * `Status.Ok` gives `Ok`). For `Status.Custom` it is the value given when the
+   * status was created.
    */
   val reasonPhrase: String =
     self.productPrefix.flatMap { c => if (c.isUpper) s" $c" else s"$c" }.drop(1)
@@ -67,7 +73,8 @@ sealed trait Status extends Product with Serializable { self =>
   lazy val text: String = code.toString
 
   /**
-   * Returns a `Routes[Any, Nothing]` that responds to every request with this status code.
+   * Returns a `Routes[Any, Nothing]` that responds to every request with this
+   * status code.
    */
   def toRoutes(implicit trace: Trace): Routes[Any, Nothing] =
     Handler.status(self).toRoutes
@@ -82,6 +89,7 @@ sealed trait Status extends Product with Serializable { self =>
  * Predefined statuses and conversions from status codes.
  */
 object Status {
+
   /** A status with a code from 100 to 199. */
   sealed trait Informational extends Status // 100 – 199
   /** A status with a code from 200 to 299. */
@@ -113,7 +121,10 @@ object Status {
   /** The 202 status code, with the reason phrase `Accepted`. */
   case object Accepted extends Success { override val code: Int = 202 }
 
-  /** The 203 status code, with the reason phrase `Non Authoritative Information`. */
+  /**
+   * The 203 status code, with the reason phrase
+   * `Non Authoritative Information`.
+   */
   case object NonAuthoritativeInformation extends Success { override val code: Int = 203 }
 
   /** The 204 status code, with the reason phrase `No Content`. */
@@ -173,7 +184,10 @@ object Status {
   /** The 406 status code, with the reason phrase `Not Acceptable`. */
   case object NotAcceptable extends ClientError { override val code: Int = 406 }
 
-  /** The 407 status code, with the reason phrase `Proxy Authentication Required`. */
+  /**
+   * The 407 status code, with the reason phrase
+   * `Proxy Authentication Required`.
+   */
   case object ProxyAuthenticationRequired extends ClientError { override val code: Int = 407 }
 
   /** The 408 status code, with the reason phrase `Request Timeout`. */
@@ -200,7 +214,10 @@ object Status {
   /** The 415 status code, with the reason phrase `Unsupported Media Type`. */
   case object UnsupportedMediaType extends ClientError { override val code: Int = 415 }
 
-  /** The 416 status code, with the reason phrase `Requested Range Not Satisfiable`. */
+  /**
+   * The 416 status code, with the reason phrase
+   * `Requested Range Not Satisfiable`.
+   */
   case object RequestedRangeNotSatisfiable extends ClientError { override val code: Int = 416 }
 
   /** The 417 status code, with the reason phrase `Expectation Failed`. */
@@ -230,7 +247,10 @@ object Status {
   /** The 429 status code, with the reason phrase `Too Many Requests`. */
   case object TooManyRequests extends ClientError { override val code: Int = 429 }
 
-  /** The 431 status code, with the reason phrase `Request Header Fields Too Large`. */
+  /**
+   * The 431 status code, with the reason phrase
+   * `Request Header Fields Too Large`.
+   */
   case object RequestHeaderFieldsTooLarge extends ClientError { override val code: Int = 431 }
 
   /** The 500 status code, with the reason phrase `Internal Server Error`. */
@@ -248,7 +268,9 @@ object Status {
   /** The 504 status code, with the reason phrase `Gateway Timeout`. */
   case object GatewayTimeout extends ServerError { override val code: Int = 504 }
 
-  /** The 505 status code, with the reason phrase `Http Version Not Supported`. */
+  /**
+   * The 505 status code, with the reason phrase `Http Version Not Supported`.
+   */
   case object HttpVersionNotSupported extends ServerError { override val code: Int = 505 }
 
   /** The 506 status code, with the reason phrase `Variant Also Negotiates`. */
@@ -260,17 +282,30 @@ object Status {
   /** The 510 status code, with the reason phrase `Not Extended`. */
   case object NotExtended extends ServerError { override val code: Int = 510 }
 
-  /** The 511 status code, with the reason phrase `Network Authentication Required`. */
+  /**
+   * The 511 status code, with the reason phrase
+   * `Network Authentication Required`.
+   */
   case object NetworkAuthenticationRequired extends ServerError { override val code: Int = 511 }
 
-  /** A status with an arbitrary code and reason phrase, for codes that have no predefined constant. The reason phrase defaults to the empty string. */
+  /**
+   * A status with an arbitrary code and reason phrase, for codes that have no
+   * predefined constant. The reason phrase defaults to the empty string.
+   */
   final case class Custom(override val code: Int, override val reasonPhrase: String = "") extends Status
 
-  /** Parses the string as an `Int` and returns the matching status, or `None` when it is not an integer. A code without a predefined constant gives a `Status.Custom`. */
+  /**
+   * Parses the string as an `Int` and returns the matching status, or `None`
+   * when it is not an integer. A code without a predefined constant gives a
+   * `Status.Custom`.
+   */
   def fromString(code: String): Option[Status] =
     Try(code.toInt).toOption.map(fromInt)
 
-  /** Returns the predefined status for the code, or `Status.Custom(code, "")` when there is none (306 and 299 are examples). */
+  /**
+   * Returns the predefined status for the code, or `Status.Custom(code, "")`
+   * when there is none (306 and 299 are examples).
+   */
   def fromInt(code: Int): Status = {
     (code: @annotation.switch) match {
       case 100 => Status.Continue

@@ -35,14 +35,14 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * @param subprotocols
  *   the WebSocket sub-protocol name; with `None`, no sub-protocol is set
  * @param handshakeTimeoutMillis
- *   the time in milliseconds allowed for the handshake to complete. It
- *   defaults to 10000.
+ *   the time in milliseconds allowed for the handshake to complete. It defaults
+ *   to 10000.
  * @param forceCloseTimeoutMillis
  *   passed to Netty as the force close timeout, in milliseconds. The default,
  *   -1, sets no timeout.
  * @param handleCloseFrames
- *   when `true`, the default, Netty handles the close frames and does not
- *   pass them to the application; when `false`, they are passed on
+ *   when `true`, the default, Netty handles the close frames and does not pass
+ *   them to the application; when `false`, they are passed on
  * @param sendCloseFrame
  *   the close frame to send when the connection is closed and no close frame
  *   was sent
@@ -77,8 +77,7 @@ final case class WebSocketConfig(
   def decoderConfig(socketDecoder: SocketDecoder): WebSocketConfig = self.copy(decoderConfig = socketDecoder)
 
   /**
-   * Sets `forceCloseTimeoutMillis` to the given duration in whole
-   * milliseconds.
+   * Sets `forceCloseTimeoutMillis` to the given duration in whole milliseconds.
    */
   def forceCloseTimeout(duration: Duration): WebSocketConfig =
     self.copy(forceCloseTimeoutMillis = duration.toMillis)
@@ -116,42 +115,62 @@ object WebSocketConfig {
   def default: WebSocketConfig = WebSocketConfig()
 
   /**
-   * The status code of the close frame that is sent when a connection is closed without a close frame having been sent (see `WebSocketConfig#sendCloseFrame`). The status objects map to the Netty `WebSocketCloseStatus` constants of the same meaning; `Custom` carries any code and reason.
+   * The status code of the close frame that is sent when a connection is closed
+   * without a close frame having been sent (see
+   * `WebSocketConfig#sendCloseFrame`). The status objects map to the Netty
+   * `WebSocketCloseStatus` constants of the same meaning; `Custom` carries any
+   * code and reason.
    */
   sealed trait CloseStatus
 
   /** The close statuses. */
   object CloseStatus {
+
     /** Status 1000, normal closure. */
-    case object NormalClosure                          extends CloseStatus
+    case object NormalClosure extends CloseStatus
+
     /** Status 1001, the endpoint is going away. */
-    case object EndpointUnavailable                    extends CloseStatus
+    case object EndpointUnavailable extends CloseStatus
+
     /** Status 1002, protocol error. */
-    case object ProtocolError                          extends CloseStatus
+    case object ProtocolError extends CloseStatus
+
     /** Status 1003, invalid message type. */
-    case object InvalidMessageType                     extends CloseStatus
+    case object InvalidMessageType extends CloseStatus
+
     /** Status 1007, invalid payload data. */
-    case object InvalidPayloadData                     extends CloseStatus
+    case object InvalidPayloadData extends CloseStatus
+
     /** Status 1008, policy violation. */
-    case object PolicyViolation                        extends CloseStatus
+    case object PolicyViolation extends CloseStatus
+
     /** Status 1009, message too big. */
-    case object MessageTooBig                          extends CloseStatus
+    case object MessageTooBig extends CloseStatus
+
     /** Status 1010, mandatory extension. */
-    case object MandatoryExtension                     extends CloseStatus
+    case object MandatoryExtension extends CloseStatus
+
     /** Status 1011, internal server error. */
-    case object InternalServerError                    extends CloseStatus
+    case object InternalServerError extends CloseStatus
+
     /** Status 1012, service restart. */
-    case object ServiceRestart                         extends CloseStatus
+    case object ServiceRestart extends CloseStatus
+
     /** Status 1013, try again later. */
-    case object TryAgainLater                          extends CloseStatus
+    case object TryAgainLater extends CloseStatus
+
     /** Status 1014, bad gateway. */
-    case object BadGateway                             extends CloseStatus
+    case object BadGateway extends CloseStatus
+
     /** Status 1005, no status code present. */
-    case object Empty                                  extends CloseStatus
+    case object Empty extends CloseStatus
+
     /** Status 1006, abnormal closure. */
-    case object AbnormalClosure                        extends CloseStatus
+    case object AbnormalClosure extends CloseStatus
+
     /** Status 1015, TLS handshake failed. */
-    case object TlsHandshakeFailed                     extends CloseStatus
+    case object TlsHandshakeFailed extends CloseStatus
+
     /** A status with the given `code` and `reason`. */
     final case class Custom(code: Int, reason: String) extends CloseStatus
   }

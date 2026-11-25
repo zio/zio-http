@@ -22,17 +22,29 @@ import zio._
 import zio.metrics._
 
 /**
- * A [[zio.http.HandlerAspect]] wraps a [[zio.http.ProtocolStack]] that is specialized to transform a handler's incoming requests and outgoing responses. Each layer in the stack corresponds to a separate transformation.
+ * A [[zio.http.HandlerAspect]] wraps a [[zio.http.ProtocolStack]] that is
+ * specialized to transform a handler's incoming requests and outgoing
+ * responses. Each layer in the stack corresponds to a separate transformation.
  *
- * Layers may incorporate layer-specific information into a generic type parameter, referred to as middleware context, which composes using tupling.
+ * Layers may incorporate layer-specific information into a generic type
+ * parameter, referred to as middleware context, which composes using tupling.
  *
- * Layers may also be stateful at the level of each transformation application. So, for example, a layer that is timing request durations may capture the start time of the request in the incoming interceptor, and pass this state to the outgoing interceptor, which can then compute the duration.
+ * Layers may also be stateful at the level of each transformation application.
+ * So, for example, a layer that is timing request durations may capture the
+ * start time of the request in the incoming interceptor, and pass this state to
+ * the outgoing interceptor, which can then compute the duration.
  *
- * [[zio.http.HandlerAspect]] is more than a wrapper around [[zio.http.ProtocolStack]], as its concatenation operator has been specialized to entuple contexts, so that each layer may only add context to the contextual output.
+ * [[zio.http.HandlerAspect]] is more than a wrapper around
+ * [[zio.http.ProtocolStack]], as its concatenation operator has been
+ * specialized to entuple contexts, so that each layer may only add context to
+ * the contextual output.
  *
- * Apply an aspect to [[Routes]] or to a request [[Handler]] with `@@`. The constructors are in the companion object, and the same constructors are on [[Middleware]].
+ * Apply an aspect to [[Routes]] or to a request [[Handler]] with `@@`. The
+ * constructors are in the companion object, and the same constructors are on
+ * [[Middleware]].
  *
- * @see [[https://zio.dev/zio-http/reference/aop/handler_aspect/ HandlerAspect]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/aop/handler_aspect/ HandlerAspect]]
  */
 final case class HandlerAspect[-Env, +CtxOut](
   protocol: ProtocolStack[
@@ -85,7 +97,8 @@ final case class HandlerAspect[-Env, +CtxOut](
     }
 
   /**
-   * Applies this aspect to every route of `routes` and to their not-found handler. The context that the aspect produces is not used.
+   * Applies this aspect to every route of `routes` and to their not-found
+   * handler. The context that the aspect produces is not used.
    */
   override def apply[Env1 <: Env, Err](
     routes: Routes[Env1, Err],
@@ -127,7 +140,9 @@ final case class HandlerAspect[-Env, +CtxOut](
   }
 
   /**
-   * Applies this aspect to a request handler. The context that the aspect produces is not used. When the incoming part of the aspect fails with a response, the handler does not run.
+   * Applies this aspect to a request handler. The context that the aspect
+   * produces is not used. When the incoming part of the aspect fails with a
+   * response, the handler does not run.
    */
   def applyHandler[Env1 <: Env](handler: RequestHandler[Env1, Response]): RequestHandler[Env1, Response] =
     if (self == HandlerAspect.identity) handler
@@ -191,8 +206,13 @@ final case class HandlerAspect[-Env, +CtxOut](
   def whenZIO[Env1 <: Env](condition: Request => ZIO[Env1, Response, Boolean]): HandlerAspect[Env1, Unit] =
     HandlerAspect.whenZIO(condition)(self.unit)
 }
+
 /**
- * Constructors of [[HandlerAspect]] values: authentication (`basicAuth`, `bearerAuth`, `customAuth`), request and response updates (`updateRequest`, `updateResponse`, `addHeader`), conditions (`when`, `ifRequestThenElse`), logging (`requestLogging`, `debug`) and more. [[Middleware]] has the same constructors.
+ * Constructors of [[HandlerAspect]] values: authentication (`basicAuth`,
+ * `bearerAuth`, `customAuth`), request and response updates (`updateRequest`,
+ * `updateResponse`, `addHeader`), conditions (`when`, `ifRequestThenElse`),
+ * logging (`requestLogging`, `debug`) and more. [[Middleware]] has the same
+ * constructors.
  */
 object HandlerAspect extends HandlerAspects {
 
@@ -203,8 +223,11 @@ object HandlerAspect extends HandlerAspects {
    * Builder returned by `HandlerAspect.interceptPatch`.
    */
   final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
+
     /**
-     * Creates an aspect that computes a state from each request with `fromRequest`, and patches the response with the [[Response.Patch]] that `result` returns for the response and that state.
+     * Creates an aspect that computes a state from each request with
+     * `fromRequest`, and patches the response with the [[Response.Patch]] that
+     * `result` returns for the response and that state.
      */
     def apply(result: (Response, State) => Response.Patch): HandlerAspect[Any, Unit] =
       HandlerAspect.interceptHandlerStateful(
@@ -221,8 +244,13 @@ object HandlerAspect extends HandlerAspects {
    * Builder returned by `HandlerAspect.interceptPatchZIO`.
    */
   final class InterceptPatchZIO[Env, State](val fromRequest: Request => ZIO[Env, Response, State]) extends AnyVal {
+
     /**
-     * Creates an aspect that computes a state from each request with the effect `fromRequest`, and patches the response with the [[Response.Patch]] that the effect `result` returns. When `fromRequest` fails with a response, that response is returned and the handler does not run; when `result` fails with a response, that response replaces the original one.
+     * Creates an aspect that computes a state from each request with the effect
+     * `fromRequest`, and patches the response with the [[Response.Patch]] that
+     * the effect `result` returns. When `fromRequest` fails with a response,
+     * that response is returned and the handler does not run; when `result`
+     * fails with a response, that response replaces the original one.
      */
     def apply(result: (Response, State) => ZIO[Env, Response, Response.Patch]): HandlerAspect[Env, Unit] =
       HandlerAspect.interceptHandlerStateful(
@@ -240,8 +268,10 @@ object HandlerAspect extends HandlerAspects {
    * Builder returned by `HandlerAspect.allow`.
    */
   final class Allow(val unit: Unit) extends AnyVal {
+
     /**
-     * Creates an aspect that passes a request on when `condition` is true for it, and responds with 403 Forbidden otherwise.
+     * Creates an aspect that passes a request on when `condition` is true for
+     * it, and responds with 403 Forbidden otherwise.
      */
     def apply(condition: Request => Boolean): HandlerAspect[Any, Unit] =
       HandlerAspect.ifRequestThenElse(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
@@ -251,8 +281,12 @@ object HandlerAspect extends HandlerAspects {
    * Builder returned by `HandlerAspect.allowZIO`.
    */
   final class AllowZIO(val unit: Unit) extends AnyVal {
+
     /**
-     * Creates an aspect that passes a request on when the effect `condition` succeeds with `true`, and responds with 403 Forbidden when it succeeds with `false`. When `condition` fails with a response, that response is returned.
+     * Creates an aspect that passes a request on when the effect `condition`
+     * succeeds with `true`, and responds with 403 Forbidden when it succeeds
+     * with `false`. When `condition` fails with a response, that response is
+     * returned.
      */
     def apply[Env](
       condition: Request => ZIO[Env, Response, Boolean],
@@ -280,12 +314,16 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     updateResponseZIO(response => cookie.map(response.addCookie))
 
   /**
-   * Returns a builder for an aspect that passes a request on when a predicate is true for it, and responds with 403 Forbidden otherwise: `HandlerAspect.allow(request => request.method == Method.GET)`.
+   * Returns a builder for an aspect that passes a request on when a predicate
+   * is true for it, and responds with 403 Forbidden otherwise:
+   * `HandlerAspect.allow(request => request.method == Method.GET)`.
    */
   def allow: HandlerAspect.Allow = new HandlerAspect.Allow(())
 
   /**
-   * Returns a builder for an aspect that passes a request on when an effectful predicate succeeds with `true`, and responds with 403 Forbidden when it succeeds with `false`.
+   * Returns a builder for an aspect that passes a request on when an effectful
+   * predicate succeeds with `true`, and responds with 403 Forbidden when it
+   * succeeds with `false`.
    */
   def allowZIO: HandlerAspect.AllowZIO = new HandlerAspect.AllowZIO(())
 
@@ -334,7 +372,8 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     )
 
   /**
-   * Creates a middleware for bearer authentication that checks the token using the given function
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given function
    *
    * @param f
    *   function that validates the token string inside the Bearer Header
@@ -349,10 +388,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     )
 
   /**
-   * Creates a middleware for bearer authentication that checks the token using the given effectful function
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given effectful function
    *
    * @param f
-   *   function that effectfully validates the token string inside the Bearer Header
+   *   function that effectfully validates the token string inside the Bearer
+   *   Header
    */
   def bearerAuthZIO[Env](
     f: zio.Config.Secret => ZIO[Env, Response, Boolean],
@@ -603,13 +644,16 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     interceptHandler[Env, Unit](Handler.identity[Request].map((_, ())))(handler)
 
   /**
-   * Returns a builder for an aspect that computes a state of type `S` from each request with `fromRequest`, and then patches the response using that state.
+   * Returns a builder for an aspect that computes a state of type `S` from each
+   * request with `fromRequest`, and then patches the response using that state.
    */
   def interceptPatch[S](fromRequest: Request => S): HandlerAspect.InterceptPatch[S] =
     new HandlerAspect.InterceptPatch[S](fromRequest)
 
   /**
-   * Returns a builder for an aspect that computes a state of type `S` from each request with the effect `fromRequest`, and then patches the response effectfully using that state.
+   * Returns a builder for an aspect that computes a state of type `S` from each
+   * request with the effect `fromRequest`, and then patches the response
+   * effectfully using that state.
    */
   def interceptPatchZIO[Env, S](
     fromRequest: Request => ZIO[Env, Response, S],
@@ -617,25 +661,33 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     new HandlerAspect.InterceptPatchZIO[Env, S](fromRequest)
 
   /**
-   * Creates a middleware that patches each response with the [[Response.Patch]] that `f` returns for it.
+   * Creates a middleware that patches each response with the [[Response.Patch]]
+   * that `f` returns for it.
    */
   def patch(f: Response => Response.Patch): HandlerAspect[Any, Unit] =
     interceptPatch(_ => ())((response, _) => f(response))
 
   /**
-   * Creates a middleware that patches each response with the [[Response.Patch]] that the effect `f` returns for it. When `f` fails with a response, that response replaces the original one.
+   * Creates a middleware that patches each response with the [[Response.Patch]]
+   * that the effect `f` returns for it. When `f` fails with a response, that
+   * response replaces the original one.
    */
   def patchZIO[Env](f: Response => ZIO[Env, Response, Response.Patch]): HandlerAspect[Env, Unit] =
     interceptPatchZIO[Env, Unit](_ => ZIO.unit)((response, _) => f(response))
 
   /**
-   * Creates a middleware that responds to every request with a redirect to `url`, without running the handler. The status is 308 Permanent Redirect when `isPermanent` is true, and 307 Temporary Redirect otherwise.
+   * Creates a middleware that responds to every request with a redirect to
+   * `url`, without running the handler. The status is 308 Permanent Redirect
+   * when `isPermanent` is true, and 307 Temporary Redirect otherwise.
    */
   def redirect(url: URL, isPermanent: Boolean = false): HandlerAspect[Any, Unit] =
     fail(Response.redirect(url, isPermanent))
 
   /**
-   * Creates middleware that will redirect requests with trailing slash to the same path without trailing slash. Requests whose URL has query parameters are passed on unchanged. The status is 308 Permanent Redirect when `isPermanent` is true, and 307 Temporary Redirect otherwise.
+   * Creates middleware that will redirect requests with trailing slash to the
+   * same path without trailing slash. Requests whose URL has query parameters
+   * are passed on unchanged. The status is 308 Permanent Redirect when
+   * `isPermanent` is true, and 307 Temporary Redirect otherwise.
    */
   def redirectTrailingSlash(
     isPermanent: Boolean = false,
@@ -822,7 +874,8 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     ifHeaderThenElse(condition)(ifFalse = identity, ifTrue = middleware)
 
   /**
-   * Creates a middleware that applies `f` to each response for which `condition` is true, and leaves the other responses unchanged.
+   * Creates a middleware that applies `f` to each response for which
+   * `condition` is true, and leaves the other responses unchanged.
    */
   def whenResponse(condition: Response => Boolean)(
     f: Response => Response,
@@ -835,7 +888,9 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     )
 
   /**
-   * Creates a middleware that applies the effect `f` to each response for which the effect `condition` succeeds with `true`. When `condition` or `f` fails with a response, that response replaces the original one.
+   * Creates a middleware that applies the effect `f` to each response for which
+   * the effect `condition` succeeds with `true`. When `condition` or `f` fails
+   * with a response, that response replaces the original one.
    */
   def whenResponseZIO[Env](condition: Response => ZIO[Env, Response, Boolean])(
     f: Response => ZIO[Env, Response, Response],

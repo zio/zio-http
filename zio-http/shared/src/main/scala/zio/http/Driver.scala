@@ -32,9 +32,9 @@ import zio.http.Driver.StartResult
 trait Driver {
 
   /**
-   * Binds the server to the address in its `Server.Config` and starts
-   * accepting connections. The returned [[Driver.StartResult]] holds the port
-   * that was bound. Closing the scope closes the listening channel.
+   * Binds the server to the address in its `Server.Config` and starts accepting
+   * connections. The returned [[Driver.StartResult]] holds the port that was
+   * bound. Closing the scope closes the listening channel.
    */
   def start(implicit trace: Trace): RIO[Scope, StartResult]
 

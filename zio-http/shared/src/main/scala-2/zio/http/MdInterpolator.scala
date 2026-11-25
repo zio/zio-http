@@ -27,6 +27,7 @@ trait MdInterpolator {
 
   /** Adds the `md` interpolator to `StringContext`. */
   implicit class MdInterpolatorHelper(val sc: StringContext) {
+
     /**
      * Creates a `Doc` from CommonMark text. The interpolated values are
      * inserted as `StringContext#s` does, then `stripMargin` is applied, and

@@ -29,11 +29,15 @@ import zio.http.template._
  * val count: Flash[Int]            = Flash.getInt("count").optional.map(_.getOrElse(0))
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/headers/session/flash/ Flash]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/headers/session/flash/ Flash]]
  */
 sealed trait Flash[+A] { self =>
 
-  /** Returns a flash that reads this one and then the flash that `f` returns for the result. It fails when either of them fails. */
+  /**
+   * Returns a flash that reads this one and then the flash that `f` returns for
+   * the result. It fails when either of them fails.
+   */
   final def flatMap[B](f: A => Flash[B]): Flash[B] = Flash.FlatMap(self, f)
 
   /** Returns a flash whose result is `f` applied to the result of this one. */
@@ -47,7 +51,10 @@ sealed trait Flash[+A] { self =>
    */
   final def <>[B >: A](that: => Flash[B]): Flash[B] = self.orElse(that)
 
-  /** Returns a flash that reads this one and `that` and pairs the results. It fails when either of them fails. */
+  /**
+   * Returns a flash that reads this one and `that` and pairs the results. It
+   * fails when either of them fails.
+   */
   final def zip[B](that: => Flash[B]): Flash[(A, B)] = self.zipWith(that)((a, b) => a -> b)
 
   /**
@@ -55,20 +62,33 @@ sealed trait Flash[+A] { self =>
    */
   final def <*>[B](that: => Flash[B]): Flash[(A, B)] = self.zip(that)
 
-  /** Returns a flash that reads this one and `that` and combines the results with `f`. It fails when either of them fails. */
+  /**
+   * Returns a flash that reads this one and `that` and combines the results
+   * with `f`. It fails when either of them fails.
+   */
   final def zipWith[B, C](that: => Flash[B])(f: (A, B) => C): Flash[C] =
     self.flatMap(a => that.map(b => f(a, b)))
 
-  /** Returns a flash that gives `Some` of the result when this one succeeds and `None` when it fails. */
+  /**
+   * Returns a flash that gives `Some` of the result when this one succeeds and
+   * `None` when it fails.
+   */
   final def optional: Flash[Option[A]] = self.map(Option(_)) <> Flash.succeed(None)
 
-  /** For a flash of a `Flash.Message[Html, Html]`, folds the message into a `B`: `f` for a notice, `g` for an alert and `h` to join the two results when the message has both. */
+  /**
+   * For a flash of a `Flash.Message[Html, Html]`, folds the message into a `B`:
+   * `f` for a notice, `g` for an alert and `h` to join the two results when the
+   * message has both.
+   */
   final def foldHtml[A1 >: A, B](f: Html => B, g: Html => B)(h: (B, B) => B)(implicit
     ev: A1 =:= Flash.Message[Html, Html],
   ): Flash[B] =
     self.map(a => a.asInstanceOf[A1].fold(f, g)(h))
 
-  /** For a flash of a `String`, returns a flash of `Html` with the string as its content. */
+  /**
+   * For a flash of a `String`, returns a flash of `Html` with the string as its
+   * content.
+   */
   final def toHtml[A1 >: A](implicit ev: A1 =:= String): Flash[Html] =
     self.map(Html.fromString(_))
 
@@ -80,8 +100,8 @@ sealed trait Flash[+A] { self =>
 object Flash {
 
   /**
-   * A flash message can represent a notice, an alert or both - it's some kind of
-   * a specialized `zio.prelude.These`.
+   * A flash message can represent a notice, an alert or both - it's some kind
+   * of a specialized `zio.prelude.These`.
    *
    * Using a flash message allows one to categorize those into notice or alert
    * and by that wrap both messages with a different ui design.
@@ -142,8 +162,7 @@ object Flash {
    * successfully, so they can be read once; a read that fails leaves them in
    * place. By using `Flash.Backend` we're not limited in size of the payload as
    * in the cookie-based flash-scope. Still, the `Flash.Backend` uses a cookie
-   * but does not transport the payload with it but only an internal
-   * identifier.
+   * but does not transport the payload with it but only an internal identifier.
    */
   trait Backend { self =>
 
@@ -206,7 +225,12 @@ object Flash {
 
   }
 
-  /** Describes the flash values to write into a response. Create one with `Flash.setValue`, `Flash.setNotice`, `Flash.setAlert` or `Flash.setEmpty`, join them with `++`, and apply it with `Response#addFlash` or `Flash.Backend#addFlash`. */
+  /**
+   * Describes the flash values to write into a response. Create one with
+   * `Flash.setValue`, `Flash.setNotice`, `Flash.setAlert` or `Flash.setEmpty`,
+   * join them with `++`, and apply it with `Response#addFlash` or
+   * `Flash.Backend#addFlash`.
+   */
   sealed trait Setter[A] { self =>
 
     /**

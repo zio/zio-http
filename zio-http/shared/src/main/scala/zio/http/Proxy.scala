@@ -36,19 +36,26 @@ final case class Proxy(
 ) { self =>
 
   /**
-   * Returns a copy with the given proxy URL. The proxy address is taken from the host and the explicit port of the URL; with no explicit port, or no host, the client does not connect to the proxy at this address.
+   * Returns a copy with the given proxy URL. The proxy address is taken from
+   * the host and the explicit port of the URL; with no explicit port, or no
+   * host, the client does not connect to the proxy at this address.
    */
-  def url(url: URL): Proxy                         = self.copy(url = url)
+  def url(url: URL): Proxy = self.copy(url = url)
+
   /** Returns a copy with the given credentials for the proxy. */
   def credentials(credentials: Credentials): Proxy = self.copy(credentials = Some(credentials))
+
   /** Returns a copy with the given headers for the proxy. */
-  def headers(headers: Headers): Proxy             = self.copy(headers = headers)
+  def headers(headers: Headers): Proxy = self.copy(headers = headers)
 }
 
 /** Constructors for `Proxy`, and its `Config` reader. */
 object Proxy {
+
   /**
-   * Reads a proxy from the key `url`, the optional keys `credentials.user` and `credentials.password`, and the optional list `headers` of `name` and `value` pairs. A `url` that is not a valid URL fails with `Invalid URL`.
+   * Reads a proxy from the key `url`, the optional keys `credentials.user` and
+   * `credentials.password`, and the optional list `headers` of `name` and
+   * `value` pairs. A `url` that is not a valid URL fails with `Invalid URL`.
    */
   def config: Config[Proxy] =
     (

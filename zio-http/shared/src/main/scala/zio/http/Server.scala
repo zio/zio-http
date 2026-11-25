@@ -29,11 +29,11 @@ import com.lihaoyi.unroll
  * Represents a server, which is capable of serving zero or more HTTP
  * applications.
  *
- * A `Server` is a ZIO service: build it with a layer such as
- * `Server.default`, `Server.defaultWithPort` or `Server.defaultWith`, then run
- * routes on it with `Server.serve`, which installs the routes and never
- * returns. The server's settings live in `Server.Config`. On the JVM the
- * server runs on Netty; on Scala.js the server layers are not implemented.
+ * A `Server` is a ZIO service: build it with a layer such as `Server.default`,
+ * `Server.defaultWithPort` or `Server.defaultWith`, then run routes on it with
+ * `Server.serve`, which installs the routes and never returns. The server's
+ * settings live in `Server.Config`. On the JVM the server runs on Netty; on
+ * Scala.js the server layers are not implemented.
  *
  * {{{
  * import zio._
@@ -51,10 +51,10 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    *
-   * The first call starts the server. The effect completes once the server
-   * has started and the routes are installed; routes installed later are
-   * added to the ones already there. The routes run with the environment of
-   * the calling effect.
+   * The first call starts the server. The effect completes once the server has
+   * started and the routes are installed; routes installed later are added to
+   * the ones already there. The routes run with the environment of the calling
+   * effect.
    */
   final def install[R](
     routes: Routes[R, Response],
@@ -191,14 +191,14 @@ object Server extends ServerPlatformSpecific {
       self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
 
     /**
-     * When `true`, a `HEAD` request for which no `HEAD` route matches is handled
-     * by the matching `GET` route. The default is `false`.
+     * When `true`, a `HEAD` request for which no `HEAD` route matches is
+     * handled by the matching `GET` route. The default is `false`.
      */
     def generateHeadRoutes(enable: Boolean): Config = self.copy(generateHeadRoutes = enable)
 
     /**
-     * Sets how long the server waits, when it shuts down, for requests that
-     * are still running to finish. The default is 10 seconds.
+     * Sets how long the server waits, when it shuts down, for requests that are
+     * still running to finish. The default is 10 seconds.
      */
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
@@ -425,9 +425,9 @@ object Server extends ServerPlatformSpecific {
 
     /**
      * The default settings: listen on port 8080 of all interfaces, no TLS,
-     * keep-alive on, no request decompression or response compression,
-     * request bodies aggregated up to 100 KiB (`RequestStreaming.Disabled(102400)`),
-     * a request line of up to 4096 bytes, headers of up to 8192 bytes, a
+     * keep-alive on, no request decompression or response compression, request
+     * bodies aggregated up to 100 KiB (`RequestStreaming.Disabled(102400)`), a
+     * request line of up to 4096 bytes, headers of up to 8192 bytes, a
      * 10-second graceful shutdown timeout, no idle timeout, a backlog of 100
      * and `TCP_NODELAY` on.
      */
@@ -488,7 +488,9 @@ object Server extends ServerPlatformSpecific {
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
-    /** A compression algorithm and its settings, used in response compression. */
+    /**
+     * A compression algorithm and its settings, used in response compression.
+     */
     sealed trait CompressionOptions {
 
       /** The algorithm's name: `"gzip"`, `"deflate"` or `"brotli"`. */
@@ -499,13 +501,13 @@ object Server extends ServerPlatformSpecific {
     object CompressionOptions {
 
       /** gzip compression with the given deflate settings. */
-      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
+      final case class GZip(cfg: DeflateConfig) extends CompressionOptions { val name = "gzip" }
 
       /** deflate compression with the given settings. */
       final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
 
       /** Brotli compression with the given settings. */
-      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
+      final case class Brotli(cfg: BrotliConfig) extends CompressionOptions { val name = "brotli" }
 
       /**
        * @param level
@@ -733,8 +735,8 @@ object Server extends ServerPlatformSpecific {
     serveRoutes(routes)
 
   /**
-   * Builds [[Routes]] from the given routes, installs them on the [[Server]]
-   * in the environment and never returns, like `serve` with a `Routes` value.
+   * Builds [[Routes]] from the given routes, installs them on the [[Server]] in
+   * the environment and never returns, like `serve` with a `Routes` value.
    */
   def serve[R](
     route: Route[R, Response],
@@ -767,9 +769,9 @@ object Server extends ServerPlatformSpecific {
     serveRoutes(ev.toResponse(routes))
 
   /**
-   * Installs `routes` on the [[Server]] in the environment and returns the
-   * port it listens on. Unlike `serve`, it returns once the routes are
-   * installed, so the caller decides how long the server runs.
+   * Installs `routes` on the [[Server]] in the environment and returns the port
+   * it listens on. Unlike `serve`, it returns once the routes are installed, so
+   * the caller decides how long the server runs.
    */
   def install[R](
     routes: Routes[R, Response],
@@ -830,10 +832,10 @@ object Server extends ServerPlatformSpecific {
   }
 
   /**
-   * A layer that reads `Server.Config` with `Config.config` from the ZIO
-   * config provider, under the keys at `path` (by default
-   * `zio.http.server`), and builds the server from it. A config error becomes
-   * a `RuntimeException` whose message starts with "Configuration error: ".
+   * A layer that reads `Server.Config` with `Config.config` from the ZIO config
+   * provider, under the keys at `path` (by default `zio.http.server`), and
+   * builds the server from it. A config error becomes a `RuntimeException`
+   * whose message starts with "Configuration error: ".
    */
   def configured(
     path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server"),

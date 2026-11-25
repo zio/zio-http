@@ -29,8 +29,8 @@ import zio.http.codec.{PathCodec, SegmentCodec}
  * A `Middleware` transforms a whole [[Routes]] value: it can wrap every
  * handler, and it can add routes of its own (the CORS middleware adds an
  * `OPTIONS` route; the static file middlewares add a `GET` route). Apply it
- * with `routes @@ middleware`. A `HandlerAspect` is the narrower tool that
- * only wraps handlers; the companion object also has all the `HandlerAspect`
+ * with `routes @@ middleware`. A `HandlerAspect` is the narrower tool that only
+ * wraps handlers; the companion object also has all the `HandlerAspect`
  * constructors.
  *
  * `UpperEnv` is the largest environment the middleware works with: it applies
@@ -60,8 +60,8 @@ trait Middleware[-UpperEnv] { self =>
     self ++ that
 
   /**
-   * Combines two middlewares: `that` is applied to the routes first and
-   * `self` to the result, so on a request `self` runs before `that`.
+   * Combines two middlewares: `that` is applied to the routes first and `self`
+   * to the result, so on a request `self` runs before `that`.
    */
   def ++[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
@@ -111,13 +111,12 @@ object Middleware extends HandlerAspects {
    * Creates a aspect for Cross-Origin Resource Sharing (CORS).
    *
    * It adds an `OPTIONS` route for every path that answers preflight requests:
-   * 204 No Content with the CORS headers when the request has an `Origin`
-   * that `config.allowedOrigin` accepts and an
-   * `Access-Control-Request-Method` in `config.allowedMethods`, and 404 Not
-   * Found otherwise. Other requests that carry an `Origin` get the CORS
-   * headers added to their response when the origin is accepted, and a 403
-   * Forbidden response when it is not. Requests without an `Origin` header
-   * pass through unchanged.
+   * 204 No Content with the CORS headers when the request has an `Origin` that
+   * `config.allowedOrigin` accepts and an `Access-Control-Request-Method` in
+   * `config.allowedMethods`, and 404 Not Found otherwise. Other requests that
+   * carry an `Origin` get the CORS headers added to their response when the
+   * origin is accepted, and a 403 Forbidden response when it is not. Requests
+   * without an `Origin` header pass through unchanged.
    *
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
@@ -383,15 +382,15 @@ object Middleware extends HandlerAspects {
   }
 
   /**
-   * Creates a middleware that annotates the log messages logged while a
-   * request is handled with the annotation `key` = `value`.
+   * Creates a middleware that annotates the log messages logged while a request
+   * is handled with the annotation `key` = `value`.
    */
   def logAnnotate(key: => String, value: => String)(implicit trace: Trace): Middleware[Any] =
     logAnnotate(LogAnnotation(key, value))
 
   /**
-   * Creates a middleware that annotates the log messages logged while a
-   * request is handled with the given annotations.
+   * Creates a middleware that annotates the log messages logged while a request
+   * is handled with the given annotations.
    */
   def logAnnotate(logAnnotation: => LogAnnotation, logAnnotations: LogAnnotation*)(implicit
     trace: Trace,
@@ -399,9 +398,9 @@ object Middleware extends HandlerAspects {
     logAnnotate((logAnnotation +: logAnnotations).toSet)
 
   /**
-   * Creates a middleware that annotates the log messages logged while a
-   * request is handled with the given annotations. `logAnnotations` is
-   * evaluated for each request.
+   * Creates a middleware that annotates the log messages logged while a request
+   * is handled with the given annotations. `logAnnotations` is evaluated for
+   * each request.
    */
   def logAnnotate(logAnnotations: => Set[LogAnnotation])(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
@@ -494,8 +493,8 @@ object Middleware extends HandlerAspects {
    *
    * Each metric is tagged with `method`, `path` (the route pattern, such as
    * `/user/{id}`) and the `extraLabels`; the request counter and the duration
-   * histogram are also tagged with the response `status`. Handler failures
-   * and defects are counted with the status of the response they turn into.
+   * histogram are also tagged with the response `status`. Handler failures and
+   * defects are counted with the status of the response they turn into.
    *
    * @param concurrentRequestsName
    *   Concurrent HTTP requests metric name, a gauge.

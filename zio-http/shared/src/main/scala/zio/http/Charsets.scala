@@ -17,6 +17,7 @@
 package zio.http
 
 import java.nio.charset.{Charset, StandardCharsets}
+
 /**
  * Character sets used by default when encoding and decoding HTTP content.
  */

@@ -12,6 +12,7 @@ import zio.http.Server.Config
  */
 @nowarn("msg=dead code")
 trait ServerPlatformSpecific {
+
   /**
    * A layer that builds a [[Server]] and its Netty `Driver` from a
    * `Server.Config` and a `NettyConfig`, which sets the Netty channel type,

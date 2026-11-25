@@ -5,6 +5,7 @@ package zio.http
  * `Mode.current` reads it from the environment.
  */
 sealed trait Mode extends Product with Serializable { self =>
+
   /** Returns `true` when this mode is `Mode.current`. */
   def isActive: Boolean = Mode.current == self
 }
@@ -41,17 +42,24 @@ object Mode {
     }
 
   /** Returns `true` when `Mode.current` is `Mode.Dev`. */
-  def isDev: Boolean     = current == Dev
+  def isDev: Boolean = current == Dev
+
   /** Returns `true` when `Mode.current` is `Mode.Preprod`. */
   def isPreprod: Boolean = current == Preprod
+
   /** Returns `true` when `Mode.current` is `Mode.Prod`. */
-  def isProd: Boolean    = current == Prod
+  def isProd: Boolean = current == Prod
 
   /** The development mode, selected by the name `dev`. */
-  case object Dev     extends Mode
+  case object Dev extends Mode
+
   /** The pre-production mode, selected by the name `preprod`. */
   case object Preprod extends Mode
-  /** The production mode, selected by the name `prod`. It is the mode when nothing is configured. */
-  case object Prod    extends Mode
+
+  /**
+   * The production mode, selected by the name `prod`. It is the mode when
+   * nothing is configured.
+   */
+  case object Prod extends Mode
 
 }

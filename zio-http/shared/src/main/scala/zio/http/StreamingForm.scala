@@ -41,7 +41,8 @@ import zio.http.internal.{FormAST, FormState}
  * val all: ZIO[Any, Throwable, Form]      = form.collectAll
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/body/form/ Form]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/body/form/ Form]]
  * @param source
  *   the bytes of the multipart body
  * @param boundary
@@ -50,7 +51,11 @@ import zio.http.internal.{FormAST, FormState}
  *   the initial size in bytes of the internal buffer
  */
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
-  /** The charset of the boundary, which is used to decode text parts that give no charset. */
+
+  /**
+   * The charset of the boundary, which is used to decode text parts that give
+   * no charset.
+   */
   def charset: Charset = boundary.charset
 
   /**

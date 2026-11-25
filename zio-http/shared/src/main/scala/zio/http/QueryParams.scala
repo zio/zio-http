@@ -37,7 +37,8 @@ import zio.http.internal._
  * val rendered = params.encode // ?page=2&tag=scala&tag=http
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/request/ Request]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/request/ Request]]
  */
 trait QueryParams extends QueryOps[QueryParams] {
   self: QueryParams =>
@@ -57,7 +58,10 @@ trait QueryParams extends QueryOps[QueryParams] {
   def encode(charset: Charset): String =
     QueryParamEncoding.encode(ThreadLocals.stringBuilder, self, charset)
 
-  /** Returns `true` when `that` is a `QueryParams` whose normalized entries are equal, in the same order. */
+  /**
+   * Returns `true` when `that` is a `QueryParams` whose normalized entries are
+   * equal, in the same order.
+   */
   override def equals(that: Any): Boolean = that match {
     case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
     case _                        => false
@@ -239,7 +243,10 @@ object QueryParams {
       case x                                                          => new java.util.LinkedHashMap(x)
     }
 
-  /** Creates query parameters from a Java map of keys to lists of values. A map that is not a `java.util.LinkedHashMap` is copied into one. */
+  /**
+   * Creates query parameters from a Java map of keys to lists of values. A map
+   * that is not a `java.util.LinkedHashMap` is copied into one.
+   */
   def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams =
     apply(javaMapAsLinkedHashMap(map))
 
@@ -251,7 +258,10 @@ object QueryParams {
   def apply(map: Map[String, Chunk[String]]): QueryParams =
     apply(map.toSeq: _*)
 
-  /** Creates query parameters from pairs of a key and its values. When a key appears more than once, its values are appended. */
+  /**
+   * Creates query parameters from pairs of a key and its values. When a key
+   * appears more than once, its values are appended.
+   */
   def apply(tuples: (String, Chunk[String])*): QueryParams = {
     val result = new java.util.LinkedHashMap[String, java.util.List[String]]()
     tuples.foreach { case (key, values) =>
@@ -289,8 +299,8 @@ object QueryParams {
   }
 
   /**
-   * Construct from tuples of k, v with singular v. A blank value (empty or
-   * only whitespace) adds no value to its key.
+   * Construct from tuples of k, v with singular v. A blank value (empty or only
+   * whitespace) adds no value to its key.
    */
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
     val entries = new java.util.LinkedHashMap[String, java.util.List[String]]()
@@ -320,11 +330,11 @@ object QueryParams {
 
   /**
    * Decodes the specified string into a collection of query parameters. A
-   * leading `?` is skipped. The pairs are separated by `&`, and a key without
-   * a `=` or with an empty value has no values. A pair with an empty key, as
-   * in `=1`, uses its value as the key and has no values. A `null` string
-   * gives empty query parameters. The charset is used to decode the text of
-   * the keys and values.
+   * leading `?` is skipped. The pairs are separated by `&`, and a key without a
+   * `=` or with an empty value has no values. A pair with an empty key, as in
+   * `=1`, uses its value as the key and has no values. A `null` string gives
+   * empty query parameters. The charset is used to decode the text of the keys
+   * and values.
    */
   def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
     QueryParamEncoding.decode(queryStringFragment, charset)

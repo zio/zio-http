@@ -33,6 +33,7 @@ import zio.http.internal.FormAST
  * (perhaps just plaintext), type-specific content, and an optional filename.
  */
 sealed trait FormField {
+
   /** The name of the field. */
   def name: String
 
@@ -157,7 +158,11 @@ object FormField {
     filename: Option[String] = None,
     data: ZStream[Any, Nothing, Byte],
   ) extends FormField {
-    /** Runs the stream and returns the collected bytes as a `Binary` field with the same name, content type, transfer encoding and file name. */
+
+    /**
+     * Runs the stream and returns the collected bytes as a `Binary` field with
+     * the same name, content type, transfer encoding and file name.
+     */
     def collect(implicit trace: Trace): ZIO[Any, Nothing, Binary] = {
       data.runCollect.map { bytes =>
         Binary(name, bytes, contentType, transferEncoding, filename)
@@ -185,7 +190,8 @@ object FormField {
   ) extends FormField
 
   /**
-   * A simple name and value pair, as in a URL encoded form. Its content type is `text/plain` and it has no file name.
+   * A simple name and value pair, as in a URL encoded form. Its content type is
+   * `text/plain` and it has no file name.
    *
    * @param name
    *   the name of the field
@@ -285,7 +291,10 @@ object FormField {
     )
   }
 
-  /** Creates a `FormField.Text` field without a file name. The media type defaults to `text/plain`. */
+  /**
+   * Creates a `FormField.Text` field without a file name. The media type
+   * defaults to `text/plain`.
+   */
   def textField(name: String, value: String, mediaType: MediaType = MediaType.text.plain): FormField =
     Text(name, value, mediaType, None)
 

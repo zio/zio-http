@@ -21,9 +21,13 @@ import zio.http.codec.PathCodec.Opt
 import zio.http.codec._
 
 /**
- * A pattern for matching routes that examines both HTTP method and path. In addition to specifying a method, patterns contain segment patterns, which are sequences of literals, integers, longs, and other segment types. `A` is the type of the values that the pattern decodes from the path.
+ * A pattern for matching routes that examines both HTTP method and path. In
+ * addition to specifying a method, patterns contain segment patterns, which are
+ * sequences of literals, integers, longs, and other segment types. `A` is the
+ * type of the values that the pattern decodes from the path.
  *
- * Typically, your entry point constructor for a route pattern would be [[zio.http.Method]]:
+ * Typically, your entry point constructor for a route pattern would be
+ * [[zio.http.Method]]:
  *
  * {{{
  * import zio.http._
@@ -31,11 +35,14 @@ import zio.http.codec._
  * val pattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  *
- * However, you can use the convenience constructors in `RoutePattern`, such as `RoutePattern.GET`.
+ * However, you can use the convenience constructors in `RoutePattern`, such as
+ * `RoutePattern.GET`.
  *
- * @see [[https://zio.dev/zio-http/reference/routing/route_pattern/ RoutePattern]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/route_pattern/ RoutePattern]]
  */
 final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self =>
+
   /**
    * The type of the values that this pattern decodes from the path.
    */
@@ -76,7 +83,10 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     Route.handledIgnoreParams(self)(handler)
 
   /**
-   * Expands this pattern into one pattern per method and path alternative: a pattern for `Method.ANY` becomes one pattern per standard method, and a path built with `anyOf` or `orElse` becomes one pattern per alternative path.
+   * Expands this pattern into one pattern per method and path alternative: a
+   * pattern for `Method.ANY` becomes one pattern per standard method, and a
+   * path built with `anyOf` or `orElse` becomes one pattern per alternative
+   * path.
    */
   def alternatives: List[RoutePattern[A]] = pathCodec.alternatives.flatMap { path =>
     if (method == Method.ANY) Method.standardMethods.map(RoutePattern(_, path))
@@ -88,12 +98,14 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   }
 
   /**
-   * Reinterprets the type parameter, given evidence it is equal to some other type.
+   * Reinterprets the type parameter, given evidence it is equal to some other
+   * type.
    */
   def asType[B](implicit ev: A =:= B): RoutePattern[B] = self.asInstanceOf[RoutePattern[B]]
 
   /**
-   * Decodes a method and path into a value of type `A`, or returns an error message when they don't match. A pattern for `GET` also accepts `HEAD`.
+   * Decodes a method and path into a value of type `A`, or returns an error
+   * message when they don't match. A pattern for `GET` also accepts `HEAD`.
    */
   def decode(actual: Method, path: Path): Either[String, A] =
     if (!method.matches(actual) && !(method == Method.GET && actual == Method.HEAD)) {
@@ -118,7 +130,9 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def format(value: A): Either[String, Path] = pathCodec.format(value)
 
   /**
-   * Determines if this pattern matches the specified method and path. When the decoded value is needed too, call `decode` instead, so the path is decoded only once.
+   * Determines if this pattern matches the specified method and path. When the
+   * decoded value is needed too, call `decode` instead, so the path is decoded
+   * only once.
    */
   def matches(method: Method, path: Path): Boolean = decode(method, path).isRight
 
@@ -160,48 +174,57 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def unapply(tuple: (Method, Path)): Option[A] =
     decode(tuple._1, tuple._2).toOption
 }
+
 /**
  * Constructors of [[RoutePattern]] values.
  */
-object RoutePattern                                                       {
+object RoutePattern {
   import PathCodec.SegmentSubtree
 
   /**
    * A pattern that matches `CONNECT` requests to the root path.
    */
   val CONNECT: RoutePattern[Unit] = fromMethod(Method.CONNECT)
+
   /**
    * A pattern that matches `DELETE` requests to the root path.
    */
-  val DELETE: RoutePattern[Unit]  = fromMethod(Method.DELETE)
+  val DELETE: RoutePattern[Unit] = fromMethod(Method.DELETE)
+
   /**
    * A pattern that matches `GET` requests to the root path.
    */
-  val GET: RoutePattern[Unit]     = fromMethod(Method.GET)
+  val GET: RoutePattern[Unit] = fromMethod(Method.GET)
+
   /**
    * A pattern that matches `HEAD` requests to the root path.
    */
-  val HEAD: RoutePattern[Unit]    = fromMethod(Method.HEAD)
+  val HEAD: RoutePattern[Unit] = fromMethod(Method.HEAD)
+
   /**
    * A pattern that matches `OPTIONS` requests to the root path.
    */
   val OPTIONS: RoutePattern[Unit] = fromMethod(Method.OPTIONS)
+
   /**
    * A pattern that matches `PATCH` requests to the root path.
    */
-  val PATCH: RoutePattern[Unit]   = fromMethod(Method.PATCH)
+  val PATCH: RoutePattern[Unit] = fromMethod(Method.PATCH)
+
   /**
    * A pattern that matches `POST` requests to the root path.
    */
-  val POST: RoutePattern[Unit]    = fromMethod(Method.POST)
+  val POST: RoutePattern[Unit] = fromMethod(Method.POST)
+
   /**
    * A pattern that matches `PUT` requests to the root path.
    */
-  val PUT: RoutePattern[Unit]     = fromMethod(Method.PUT)
+  val PUT: RoutePattern[Unit] = fromMethod(Method.PUT)
+
   /**
    * A pattern that matches `TRACE` requests to the root path.
    */
-  val TRACE: RoutePattern[Unit]   = fromMethod(Method.TRACE)
+  val TRACE: RoutePattern[Unit] = fromMethod(Method.TRACE)
 
   /**
    * Constructs a route pattern from a method.
@@ -348,12 +371,15 @@ object RoutePattern                                                       {
     }
 
   /**
-   * The any pattern matches any method and any path, and decodes the whole path. In [[Routes]], a route with a more specific pattern is still chosen over a route with this pattern, whatever their order.
+   * The any pattern matches any method and any path, and decodes the whole
+   * path. In [[Routes]], a route with a more specific pattern is still chosen
+   * over a route with this pattern, whatever their order.
    */
   val any: RoutePattern[Path] = RoutePattern(Method.ANY, PathCodec.trailing)
 
   /**
-   * Constructs a route pattern from a method and a path whose segments are all literals.
+   * Constructs a route pattern from a method and a path whose segments are all
+   * literals.
    */
   def apply(method: Method, path: Path): RoutePattern[Unit] =
     path.segments.foldLeft[RoutePattern[Unit]](fromMethod(method)) { (pathSpec, segment) =>

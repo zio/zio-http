@@ -29,7 +29,8 @@ import zio.schema.Schema
  * val plain  = MediaType.text.plain.matches(MediaType.text.any) // true
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/headers/ Headers]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/headers/ Headers]]
  * @param mainType
  *   the part before the `/`, such as `text`
  * @param subType
@@ -54,6 +55,7 @@ final case class MediaType(
   extensions: Map[String, String] = Map.empty,
   parameters: Map[String, String] = Map.empty,
 ) {
+
   /** The `mainType` and the `subType` joined with `/`, without parameters. */
   val fullType: String = s"$mainType/$subType"
 
@@ -82,10 +84,17 @@ object MediaType extends MediaTypes {
     allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap ++
       text.all.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
   private[http] val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
-  /** A map from each main type to one of the predefined media types that has it. */
-  val mainTypeMap                                          = allMediaTypes.map(m => m.mainType -> m).toMap
 
-  /** A schema that writes a media type as its `fullType` string, without parameters, and reads it with `forContentType`. An unknown string is rejected with `Invalid media type: ` followed by the string. */
+  /**
+   * A map from each main type to one of the predefined media types that has it.
+   */
+  val mainTypeMap = allMediaTypes.map(m => m.mainType -> m).toMap
+
+  /**
+   * A schema that writes a media type as its `fullType` string, without
+   * parameters, and reads it with `forContentType`. An unknown string is
+   * rejected with `Invalid media type: ` followed by the string.
+   */
   implicit val schema: zio.schema.Schema[MediaType] = Schema[String].transformOrFail(
     str => MediaType.forContentType(str).toRight(s"Invalid media type: $str"),
     mediaType => Right(mediaType.fullType),
@@ -116,15 +125,20 @@ object MediaType extends MediaTypes {
     }
   }
 
-  /** Returns the media type of a file extension given without the dot, such as `html`, or `None` when it is unknown. The extension is matched in the case it is written in, so only lowercase extensions are found. When several media types share an extension, a `text` media type is preferred. */
+  /**
+   * Returns the media type of a file extension given without the dot, such as
+   * `html`, or `None` when it is unknown. The extension is matched in the case
+   * it is written in, so only lowercase extensions are found. When several
+   * media types share an extension, a `text` media type is preferred.
+   */
   def forFileExtension(ext: String): Option[MediaType] = extensionMap.get(ext)
 
   /**
    * Parses a string of the form `main/sub` with optional `;name=value`
    * parameters into a media type that is not looked up among the predefined
-   * ones. The result is `None` when the part before the first `;` does not
-   * have exactly one `/`. The media type is marked as binary unless it starts
-   * with `text/` or is `*` and `*`, and it is not marked as compressible.
+   * ones. The result is `None` when the part before the first `;` does not have
+   * exactly one `/`. The media type is marked as binary unless it starts with
+   * `text/` or is `*` and `*`, and it is not marked as compressible.
    */
   def parseCustomMediaType(customMediaType: String): Option[MediaType] = {
     val contentTypeParts = customMediaType.split('/')

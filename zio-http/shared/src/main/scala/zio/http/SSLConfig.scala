@@ -24,27 +24,39 @@ import zio.http.SSLConfig._
 import com.lihaoyi.unroll
 
 /**
- * Whether a TLS server asks the connecting client for a certificate (mutual TLS). It is the type of `SSLConfig.clientAuth`.
+ * Whether a TLS server asks the connecting client for a certificate (mutual
+ * TLS). It is the type of `SSLConfig.clientAuth`.
  */
 sealed trait ClientAuth
 
-/** The client authentication modes: `Required`, `NoneClientAuth` and `Optional`. */
+/**
+ * The client authentication modes: `Required`, `NoneClientAuth` and `Optional`.
+ */
 object ClientAuth {
+
   /** The server requires the client to present a certificate. */
-  case object Required       extends ClientAuth
+  case object Required extends ClientAuth
+
   /** The server does not ask the client for a certificate. */
   case object NoneClientAuth extends ClientAuth
+
   /**
-   * The server asks the client for a certificate but also accepts clients that present none.
+   * The server asks the client for a certificate but also accepts clients that
+   * present none.
    */
-  case object Optional       extends ClientAuth
+  case object Optional extends ClientAuth
 
 }
 
 /**
- * The TLS settings of a server: where its certificate and private key come from, what it does with plain HTTP requests on a TLS port, which TLS implementation and protocols it uses, and whether it asks clients for a certificate.
+ * The TLS settings of a server: where its certificate and private key come
+ * from, what it does with plain HTTP requests on a TLS port, which TLS
+ * implementation and protocols it uses, and whether it asks clients for a
+ * certificate.
  *
- * The companion object has constructors that fill in the defaults (`SSLConfig.fromFile`, `SSLConfig.fromResource`, `SSLConfig.generate`, ...). Set it on a server with `Server.Config#ssl`.
+ * The companion object has constructors that fill in the defaults
+ * (`SSLConfig.fromFile`, `SSLConfig.fromResource`, `SSLConfig.generate`, ...).
+ * Set it on a server with `Server.Config#ssl`.
  *
  * {{{
  * val config: SSLConfig = SSLConfig.fromFile("server-cert.pem", "server-key.pem", ClientAuth.Required)
@@ -58,13 +70,17 @@ object ClientAuth {
  * @param provider
  *   the TLS implementation, `Provider.JDK` or `Provider.OpenSSL`
  * @param clientAuth
- *   whether to ask clients for a certificate. With `None`, no client authentication setting is applied to the TLS context.
+ *   whether to ask clients for a certificate. With `None`, no client
+ *   authentication setting is applied to the TLS context.
  * @param includeClientCert
- *   when `true`, the server reads the client's certificate from the TLS session and sets the first one as `Request#remoteCertificate`. It defaults to `false`.
+ *   when `true`, the server reads the client's certificate from the TLS session
+ *   and sets the first one as `Request#remoteCertificate`. It defaults to
+ *   `false`.
  * @param protocols
  *   the enabled TLS protocol names. The default is `TLSv1.3` and `TLSv1.2`.
  *
- * @see [[https://zio.dev/zio-http/reference/server/ Server]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/server/ Server]]
  */
 final case class SSLConfig(
   behaviour: HttpBehaviour,
@@ -96,7 +112,8 @@ final case class SSLConfig(
   ): SSLConfig = SSLConfig(behaviour, data, provider, clientAuth, includeClientCert, protocols)
 
   /**
-   * Returns a copy with the given fields replaced. The copy has the `protocols` of this config.
+   * Returns a copy with the given fields replaced. The copy has the `protocols`
+   * of this config.
    */
   def copy(
     behaviour: HttpBehaviour,
@@ -108,18 +125,21 @@ final case class SSLConfig(
 }
 
 /**
- * Constructors and the `Config` reader for `SSLConfig`, and the types of its fields: `HttpBehaviour`, `Data` and `Provider`.
+ * Constructors and the `Config` reader for `SSLConfig`, and the types of its
+ * fields: `HttpBehaviour`, `Data` and `Provider`.
  */
 object SSLConfig {
 
   /**
-   * Creates a config for `data` with `HttpBehaviour.Redirect`, `Provider.JDK`, no client authentication and the default protocols.
+   * Creates a config for `data` with `HttpBehaviour.Redirect`, `Provider.JDK`,
+   * no client authentication and the default protocols.
    */
   def apply(data: Data): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, None)
 
   /**
-   * Creates a config for `data` with the given client authentication, `HttpBehaviour.Redirect`, `Provider.JDK` and the default protocols.
+   * Creates a config for `data` with the given client authentication,
+   * `HttpBehaviour.Redirect`, `Provider.JDK` and the default protocols.
    */
   def apply(data: Data, clientAuth: ClientAuth): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK, Some(clientAuth))
@@ -134,9 +154,11 @@ object SSLConfig {
   ): SSLConfig = new SSLConfig(behaviour, data, provider, clientAuth, includeClientCert)
 
   /**
-   * Reads a config from the keys `behaviour` (`accept`, `fail` or `redirect`), `data` (see `SSLConfig.Data.config`) and `provider` (`jdk` or `openssl`).
+   * Reads a config from the keys `behaviour` (`accept`, `fail` or `redirect`),
+   * `data` (see `SSLConfig.Data.config`) and `provider` (`jdk` or `openssl`).
    *
-   * `clientAuth`, `includeClientCert` and `protocols` are not read: they keep their defaults, `None`, `false` and `TLSv1.3`, `TLSv1.2`.
+   * `clientAuth`, `includeClientCert` and `protocols` are not read: they keep
+   * their defaults, `None`, `false` and `TLSv1.3`, `TLSv1.2`.
    */
   val config: Config[SSLConfig] =
     (
@@ -148,20 +170,26 @@ object SSLConfig {
     }
 
   /**
-   * Creates a config that loads the PEM certificate chain from the file `certPath` and the PEM private key from the file `keyPath`. It uses `HttpBehaviour.Redirect` and `Provider.JDK`.
+   * Creates a config that loads the PEM certificate chain from the file
+   * `certPath` and the PEM private key from the file `keyPath`. It uses
+   * `HttpBehaviour.Redirect` and `Provider.JDK`.
    */
   def fromFile(certPath: String, keyPath: String): SSLConfig =
     fromFile(HttpBehaviour.Redirect, certPath, keyPath)
 
-  /** Like `fromFile(certPath, keyPath)`, with the given client authentication. */
+  /**
+   * Like `fromFile(certPath, keyPath)`, with the given client authentication.
+   */
   def fromFile(certPath: String, keyPath: String, clientAuth: ClientAuth): SSLConfig =
     fromFile(HttpBehaviour.Redirect, certPath, keyPath, Some(clientAuth))
 
   /**
-   * Creates a config that loads the PEM certificate chain from the file `certPath` and the PEM private key from the file `keyPath`.
+   * Creates a config that loads the PEM certificate chain from the file
+   * `certPath` and the PEM private key from the file `keyPath`.
    *
    * @param trustCertCollectionPath
-   *   a PEM file with the certificates used to verify client certificates, if any
+   *   a PEM file with the certificates used to verify client certificates, if
+   *   any
    * @param includeClientCert
    *   see `SSLConfig#includeClientCert`
    */
@@ -185,20 +213,27 @@ object SSLConfig {
     )
 
   /**
-   * Creates a config that loads the PEM certificate chain and the PEM private key from the classpath resources `certPath` and `keyPath`. It uses `HttpBehaviour.Redirect` and `Provider.JDK`.
+   * Creates a config that loads the PEM certificate chain and the PEM private
+   * key from the classpath resources `certPath` and `keyPath`. It uses
+   * `HttpBehaviour.Redirect` and `Provider.JDK`.
    */
   def fromResource(certPath: String, keyPath: String): SSLConfig =
     fromResource(HttpBehaviour.Redirect, certPath, keyPath, None)
 
-  /** Like `fromResource(certPath, keyPath)`, with the given client authentication. */
+  /**
+   * Like `fromResource(certPath, keyPath)`, with the given client
+   * authentication.
+   */
   def fromResource(certPath: String, keyPath: String, clientAuth: ClientAuth): SSLConfig =
     fromResource(HttpBehaviour.Redirect, certPath, keyPath, Some(clientAuth))
 
   /**
-   * Creates a config that loads the PEM certificate chain and the PEM private key from the classpath resources `certPath` and `keyPath`.
+   * Creates a config that loads the PEM certificate chain and the PEM private
+   * key from the classpath resources `certPath` and `keyPath`.
    *
    * @param trustCertCollectionPath
-   *   a classpath resource with the PEM certificates used to verify client certificates, if any
+   *   a classpath resource with the PEM certificates used to verify client
+   *   certificates, if any
    * @param includeClientCert
    *   see `SSLConfig#includeClientCert`
    */
@@ -222,14 +257,16 @@ object SSLConfig {
     )
 
   /**
-   * Creates a config that loads the server key from the `javax.net.ssl` key store file `keyManagerFile`.
+   * Creates a config that loads the server key from the `javax.net.ssl` key
+   * store file `keyManagerFile`.
    *
    * @param keyManagerPassword
    *   the key store password, if any
    * @param keyManagerKeyStoreType
    *   the key store type, `JKS` by default
    * @param trustManagerKeyStore
-   *   a key store with the certificates used to verify client certificates, if any
+   *   a key store with the certificates used to verify client certificates, if
+   *   any
    */
   def fromJavaxNetSslKeyStoreFile(
     keyManagerFile: String,
@@ -257,20 +294,24 @@ object SSLConfig {
     )
 
   /**
-   * Creates a config that loads the server key from the `JKS` key store file `keyManagerFile`, protected by `keyManagerPassword`.
+   * Creates a config that loads the server key from the `JKS` key store file
+   * `keyManagerFile`, protected by `keyManagerPassword`.
    */
   def fromJavaxNetSslKeyStoreFile(keyManagerFile: String, keyManagerPassword: Secret): SSLConfig =
     fromJavaxNetSslKeyStoreFile(keyManagerFile, Some(keyManagerPassword))
 
   /**
-   * Creates a config that loads the server key from the `javax.net.ssl` key store at the classpath resource `keyManagerResource`. It uses `HttpBehaviour.Redirect`.
+   * Creates a config that loads the server key from the `javax.net.ssl` key
+   * store at the classpath resource `keyManagerResource`. It uses
+   * `HttpBehaviour.Redirect`.
    *
    * @param keyManagerPassword
    *   the key store password, if any
    * @param keyManagerKeyStoreType
    *   the key store type, `JKS` by default
    * @param trustManagerKeyStore
-   *   a key store with the certificates used to verify client certificates, if any
+   *   a key store with the certificates used to verify client certificates, if
+   *   any
    */
   def fromJavaxNetSslKeyStoreResource(
     keyManagerResource: String,
@@ -297,7 +338,8 @@ object SSLConfig {
   }
 
   /**
-   * Creates a config from a `Data.FromJavaxNetSsl` description of the key store and trust store.
+   * Creates a config from a `Data.FromJavaxNetSsl` description of the key store
+   * and trust store.
    */
   def fromJavaxNetSsl(
     data: Data.FromJavaxNetSsl,
@@ -317,7 +359,8 @@ object SSLConfig {
     )
 
   /**
-   * Creates a config that loads the server key from the `JKS` key store at the classpath resource `keyManagerResource`, protected by `keyManagerPassword`.
+   * Creates a config that loads the server key from the `JKS` key store at the
+   * classpath resource `keyManagerResource`, protected by `keyManagerPassword`.
    */
   def fromJavaxNetSslKeyStoreResource(keyManagerResource: String, keyManagerPassword: Secret): SSLConfig =
     fromJavaxNetSslKeyStoreResource(keyManagerResource, Some(keyManagerPassword))
@@ -340,22 +383,36 @@ object SSLConfig {
     new SSLConfig(behaviour, Data.Generate, Provider.JDK, clientAuth)
 
   /**
-   * What a TLS server does with a connection that starts with plain HTTP instead of a TLS handshake: `Accept`, `Fail` or `Redirect`.
+   * What a TLS server does with a connection that starts with plain HTTP
+   * instead of a TLS handshake: `Accept`, `Fail` or `Redirect`.
    */
   sealed trait HttpBehaviour
-  /** The behaviours for plain HTTP requests on a TLS port, and their `Config` reader. */
+
+  /**
+   * The behaviours for plain HTTP requests on a TLS port, and their `Config`
+   * reader.
+   */
   object HttpBehaviour {
+
     /** The server handles the request as plain HTTP. */
-    case object Accept   extends HttpBehaviour
-    /** The server answers with `406 Not Acceptable` and closes the connection. */
-    case object Fail     extends HttpBehaviour
+    case object Accept extends HttpBehaviour
+
     /**
-     * The server answers with `308 Permanent Redirect` and closes the connection. The `Location` header is `https://` followed by the value of the request's `Host` header, and is omitted when the request has no `Host` header.
+     * The server answers with `406 Not Acceptable` and closes the connection.
+     */
+    case object Fail extends HttpBehaviour
+
+    /**
+     * The server answers with `308 Permanent Redirect` and closes the
+     * connection. The `Location` header is `https://` followed by the value of
+     * the request's `Host` header, and is omitted when the request has no
+     * `Host` header.
      */
     case object Redirect extends HttpBehaviour
 
     /**
-     * Reads one of the strings `accept`, `fail` or `redirect`. Any other value fails with a message that starts with `Invalid Http behaviour:`.
+     * Reads one of the strings `accept`, `fail` or `redirect`. Any other value
+     * fails with a message that starts with `Invalid Http behaviour:`.
      */
     val config: Config[HttpBehaviour] =
       Config.string.mapOrFail {
@@ -367,9 +424,11 @@ object SSLConfig {
   }
 
   /**
-   * Where a server's certificate and private key come from: `Generate`, `FromFile`, `FromResource` or `FromJavaxNetSsl`.
+   * Where a server's certificate and private key come from: `Generate`,
+   * `FromFile`, `FromResource` or `FromJavaxNetSsl`.
    */
   sealed trait Data
+
   /** The sources of a server certificate, and their `Config` reader. */
   object Data {
 
@@ -381,18 +440,26 @@ object SSLConfig {
     case object Generate extends Data
 
     /**
-     * Loads the PEM certificate chain from the file `certPath` and the PEM private key from the file `keyPath`. `trustCertCollectionPath` is an optional PEM file with the certificates used to verify client certificates.
+     * Loads the PEM certificate chain from the file `certPath` and the PEM
+     * private key from the file `keyPath`. `trustCertCollectionPath` is an
+     * optional PEM file with the certificates used to verify client
+     * certificates.
      */
     final case class FromFile(certPath: String, keyPath: String, trustCertCollectionPath: Option[String]) extends Data
 
     /**
-     * Loads the PEM certificate chain and the PEM private key from the classpath resources `certPath` and `keyPath`. `trustCertCollectionPath` is an optional classpath resource with the certificates used to verify client certificates.
+     * Loads the PEM certificate chain and the PEM private key from the
+     * classpath resources `certPath` and `keyPath`. `trustCertCollectionPath`
+     * is an optional classpath resource with the certificates used to verify
+     * client certificates.
      */
     final case class FromResource(certPath: String, keyPath: String, trustCertCollectionPath: Option[String])
         extends Data
 
     /**
-     * A key store with the certificates a server trusts when it verifies client certificates, for use in `FromJavaxNetSsl`. The methods return a changed copy.
+     * A key store with the certificates a server trusts when it verifies client
+     * certificates, for use in `FromJavaxNetSsl`. The methods return a changed
+     * copy.
      *
      * @param trustManagerKeyStoreType
      *   the key store type, `JKS` by default
@@ -406,6 +473,7 @@ object SSLConfig {
       trustManagerSource: FromJavaxNetSsl.Source,
       trustManagerPassword: Option[Secret] = None,
     ) { self =>
+
       /** Returns this key store; it ends a chain of builder calls. */
       def build(): TrustManagerKeyStore = this
 
@@ -413,7 +481,9 @@ object SSLConfig {
       def trustManagerKeyStoreType(tpe: String): TrustManagerKeyStore = self.copy(trustManagerKeyStoreType = tpe)
 
       /**
-       * Returns a copy that loads the key store from the file `file`. A key store that already loads from a classpath resource is returned unchanged.
+       * Returns a copy that loads the key store from the file `file`. A key
+       * store that already loads from a classpath resource is returned
+       * unchanged.
        */
       def trustManagerFile(file: String): TrustManagerKeyStore =
         trustManagerSource match {
@@ -421,7 +491,10 @@ object SSLConfig {
           case _                           => self.copy(trustManagerSource = FromJavaxNetSsl.File(file))
         }
 
-      /** Returns a copy that loads the key store from the classpath resource `path`. */
+      /**
+       * Returns a copy that loads the key store from the classpath resource
+       * `path`.
+       */
       def trustManagerResource(path: String): TrustManagerKeyStore =
         self.copy(trustManagerSource = FromJavaxNetSsl.Resource(path))
 
@@ -435,7 +508,11 @@ object SSLConfig {
 
     /** Constructors for `TrustManagerKeyStore`. */
     object TrustManagerKeyStore {
-      /** Creates a trust key store loaded from the file `file`. The type defaults to `JKS`. */
+
+      /**
+       * Creates a trust key store loaded from the file `file`. The type
+       * defaults to `JKS`.
+       */
       def fromFile(
         file: String,
         trustManagerPassword: Option[Secret] = None,
@@ -444,7 +521,8 @@ object SSLConfig {
         TrustManagerKeyStore(trustManagerKeyStoreType, FromJavaxNetSsl.File(file), trustManagerPassword)
 
       /**
-       * Creates a trust key store loaded from the classpath resource `resource`. The type defaults to `JKS`.
+       * Creates a trust key store loaded from the classpath resource
+       * `resource`. The type defaults to `JKS`.
        */
       def fromResource(
         resource: String,
@@ -456,7 +534,9 @@ object SSLConfig {
     }
 
     /**
-     * Loads the server certificate and private key from a `javax.net.ssl` key store, with an optional trust store for verifying client certificates. The methods return a changed copy.
+     * Loads the server certificate and private key from a `javax.net.ssl` key
+     * store, with an optional trust store for verifying client certificates.
+     * The methods return a changed copy.
      *
      * @param keyManagerKeyStoreType
      *   the type of the key store, `JKS` by default
@@ -465,7 +545,8 @@ object SSLConfig {
      * @param keyManagerPassword
      *   the key store password, if any
      * @param trustManagerKeyStore
-     *   the key store with the certificates used to verify client certificates, if any
+     *   the key store with the certificates used to verify client certificates,
+     *   if any
      */
     final case class FromJavaxNetSsl(
       keyManagerKeyStoreType: String = "JKS",
@@ -473,26 +554,36 @@ object SSLConfig {
       keyManagerPassword: Option[Secret] = None,
       trustManagerKeyStore: Option[TrustManagerKeyStore] = None,
     ) extends Data { self =>
+
       /** Returns this value; it ends a chain of builder calls. */
-      def build(): FromJavaxNetSsl                             = this
+      def build(): FromJavaxNetSsl = this
+
       /** Returns a copy with the key store type `tpe`, for example `PKCS12`. */
       def keyManagerKeyStoreType(tpe: String): FromJavaxNetSsl = self.copy(keyManagerKeyStoreType = tpe)
 
       /**
-       * Returns a copy that loads the key store from the file `file`. A value that already loads from a classpath resource is returned unchanged.
+       * Returns a copy that loads the key store from the file `file`. A value
+       * that already loads from a classpath resource is returned unchanged.
        */
-      def keyManagerFile(file: String): FromJavaxNetSsl         =
+      def keyManagerFile(file: String): FromJavaxNetSsl =
         keyManagerSource match {
           case FromJavaxNetSsl.Resource(_) => this
           case _                           => self.copy(keyManagerSource = FromJavaxNetSsl.File(file))
         }
-      /** Returns a copy that loads the key store from the classpath resource `path`. */
-      def keyManagerResource(path: String): FromJavaxNetSsl     =
+
+      /**
+       * Returns a copy that loads the key store from the classpath resource
+       * `path`.
+       */
+      def keyManagerResource(path: String): FromJavaxNetSsl =
         self.copy(keyManagerSource = FromJavaxNetSsl.Resource(path))
+
       /** Returns a copy with the given key store password. */
       def keyManagerPassword(password: Secret): FromJavaxNetSsl = self.copy(keyManagerPassword = Some(password))
+
       /** Returns a copy with the given key store password. */
       def keyManagerPassword(password: String): FromJavaxNetSsl = keyManagerPassword(Secret(password))
+
       /** Returns a copy with the given trust key store. */
       def trustManagerKeyStore(trustManagerKeyStore: TrustManagerKeyStore): FromJavaxNetSsl =
         self.copy(trustManagerKeyStore = Some(trustManagerKeyStore))
@@ -503,9 +594,11 @@ object SSLConfig {
     object FromJavaxNetSsl {
 
       /** Where a key store is loaded from: `File` or `Resource`. */
-      sealed trait Source                         extends Product with Serializable
+      sealed trait Source extends Product with Serializable
+
       /** A key store in the file `file`. */
-      final case class File(file: String)         extends Source
+      final case class File(file: String) extends Source
+
       /** A key store in the classpath resource `resource`. */
       final case class Resource(resource: String) extends Source
     }
@@ -514,8 +607,10 @@ object SSLConfig {
      * Reads a `Data` from one of three shapes, tried in this order:
      *
      *   - the string `generate` gives `Generate`;
-     *   - the keys `certPath` and `keyPath`, and optionally `trust-cert-collection-path`, give `FromFile`;
-     *   - the keys `cert-resource` and `key-resource`, and optionally `trust-cert-collection-resource`, give `FromResource`.
+     *   - the keys `certPath` and `keyPath`, and optionally
+     *     `trust-cert-collection-path`, give `FromFile`;
+     *   - the keys `cert-resource` and `key-resource`, and optionally
+     *     `trust-cert-collection-resource`, give `FromResource`.
      *
      * `FromJavaxNetSsl` is not read from config.
      */
@@ -591,18 +686,23 @@ object SSLConfig {
   }
 
   /**
-   * The TLS implementation of a server, passed to Netty as `SslProvider.JDK` or `SslProvider.OPENSSL`.
+   * The TLS implementation of a server, passed to Netty as `SslProvider.JDK` or
+   * `SslProvider.OPENSSL`.
    */
   sealed trait Provider
+
   /** The TLS implementations, and their `Config` reader. */
   object Provider {
+
     /** The TLS implementation of the JDK. */
-    case object JDK     extends Provider
+    case object JDK extends Provider
+
     /** The OpenSSL based TLS implementation of Netty. */
     case object OpenSSL extends Provider
 
     /**
-     * Reads one of the strings `jdk` or `openssl`. Any other value fails with a message that starts with `Invalid Provider:`.
+     * Reads one of the strings `jdk` or `openssl`. Any other value fails with a
+     * message that starts with `Invalid Provider:`.
      */
     val config: Config[Provider] =
       Config.string.mapOrFail {

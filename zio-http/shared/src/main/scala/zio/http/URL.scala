@@ -37,7 +37,8 @@ import zio.http.internal._
  * val moved = url.map(_.path("/orders").encode) // Right(https://shop.example/orders?page=2)
  * }}}
  *
- * @see [[https://zio.dev/zio-http/reference/request/ Request]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/request/ Request]]
  * @param path
  *   the path of the URL
  * @param kind
@@ -76,27 +77,43 @@ final case class URL(
   /** Returns a copy with `segment` appended to the path, as `Path#/` does. */
   def /(segment: String): URL = self.copy(path = self.path / segment)
 
-  /** Returns a copy with an absolute location that has the `http` scheme, the given host and no port. It replaces the whole location, including a scheme and port the URL had. */
+  /**
+   * Returns a copy with an absolute location that has the `http` scheme, the
+   * given host and no port. It replaces the whole location, including a scheme
+   * and port the URL had.
+   */
   def absolute(host: String): URL =
     self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, None))
 
-  /** Returns a copy with an absolute location made of the given scheme, host and port. It replaces the whole location. */
+  /**
+   * Returns a copy with an absolute location made of the given scheme, host and
+   * port. It replaces the whole location.
+   */
   def absolute(scheme: Scheme, host: String, port: Int): URL =
     self.copy(kind = URL.Location.Absolute(scheme, host, Some(port)))
 
   /** Returns a copy whose path has a leading slash. */
   def addLeadingSlash: URL = self.copy(path = path.addLeadingSlash)
 
-  /** Returns a copy with `path` appended to the path of this URL, as `Path#++` does. */
+  /**
+   * Returns a copy with `path` appended to the path of this URL, as `Path#++`
+   * does.
+   */
   def addPath(path: Path): URL = self.copy(path = self.path ++ path)
 
-  /** Returns a copy with the path decoded by `Path.decode` from the string appended to the path of this URL. */
+  /**
+   * Returns a copy with the path decoded by `Path.decode` from the string
+   * appended to the path of this URL.
+   */
   def addPath(path: String): URL = self.copy(path = self.path ++ Path.decode(path))
 
   /** Returns a copy whose path has a trailing slash. */
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
-  /** Returns a copy whose query parameters are the current ones merged with `queryParams`. Values of a key that is present in both are appended. */
+  /**
+   * Returns a copy whose query parameters are the current ones merged with
+   * `queryParams`. Values of a key that is present in both are appended.
+   */
   def addQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = self.queryParams ++ queryParams)
 
@@ -115,7 +132,10 @@ final case class URL(
    */
   def encode: String = URL.encode(self)
 
-  /** Returns `true` when `that` is a `URL` that has the same location, fragment, path and query parameters, after both are normalized. */
+  /**
+   * Returns `true` when `that` is a `URL` that has the same location, fragment,
+   * path and query parameters, after both are normalized.
+   */
   override def equals(that: Any): Boolean = that match {
     case that: URL =>
       val left  = self.normalize
@@ -150,7 +170,10 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
-  /** Returns a copy with the given host. A relative URL becomes an absolute one with the `http` scheme and no port. */
+  /**
+   * Returns a copy with the given host. A relative URL becomes an absolute one
+   * with the `http` scheme and no port.
+   */
   def host(host: String): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, None)
@@ -205,7 +228,10 @@ final case class URL(
   def path(path: String): URL =
     copy(path = Path.decode(path))
 
-  /** Returns a copy with the given port. A relative URL becomes an absolute one with the `http` scheme and an empty host. */
+  /**
+   * Returns a copy with the given port. A relative URL becomes an absolute one
+   * with the `http` scheme and an empty host.
+   */
   def port(port: Int): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", Some(port))
@@ -215,19 +241,30 @@ final case class URL(
     copy(kind = location)
   }
 
-  /** Returns the port written in the URL, or `None` when there is none or the URL is relative. */
+  /**
+   * Returns the port written in the URL, or `None` when there is none or the
+   * URL is relative.
+   */
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => abs.originalPort
   }
 
-  /** Returns the port written in the URL, or else the default port of the scheme. It is `None` for a relative URL and for a scheme without a default port. */
+  /**
+   * Returns the port written in the URL, or else the default port of the
+   * scheme. It is `None` for a relative URL and for a scheme without a default
+   * port.
+   */
   def portOrDefault: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => abs.portOrDefault
   }
 
-  /** Returns the port written in the URL when it differs from the default port of the scheme. It is `None` for a relative URL, when no port is written, and for a scheme without a default port. */
+  /**
+   * Returns the port written in the URL when it differs from the default port
+   * of the scheme. It is `None` for a relative URL, when no port is written,
+   * and for a scheme without a default port.
+   */
   def portIfNotDefault: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => abs.portIfNotDefault
@@ -237,7 +274,10 @@ final case class URL(
   override def queryParameters: QueryParams =
     queryParams
 
-  /** Returns a copy with a relative location, that is without a scheme, host and port. */
+  /**
+   * Returns a copy with a relative location, that is without a scheme, host and
+   * port.
+   */
   def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
@@ -330,7 +370,10 @@ final case class URL(
     case Location.Relative               => None
   }
 
-  /** Returns a copy with the given scheme. A relative URL becomes an absolute one with an empty host and no port. */
+  /**
+   * Returns a copy with the given scheme. A relative URL becomes an absolute
+   * one with an empty host and no port.
+   */
   def scheme(scheme: Scheme): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(scheme, "", None)
@@ -347,7 +390,10 @@ final case class URL(
    */
   def toJavaURI: java.net.URI = new URI(encode)
 
-  /** Returns a copy whose query parameters are the result of applying `f` to the current ones. */
+  /**
+   * Returns a copy whose query parameters are the result of applying `f` to the
+   * current ones.
+   */
   override def updateQueryParams(f: QueryParams => QueryParams): URL =
     copy(queryParams = f(queryParams))
 
@@ -357,6 +403,7 @@ final case class URL(
  * Constructors for `URL` and the types it is made of.
  */
 object URL {
+
   /** The URL with an empty path, no query parameters and no fragment. */
   val empty: URL = URL(path = Path.empty)
 
@@ -491,17 +538,28 @@ object URL {
     }
   }
 
-  /** A `Config` that reads a string and decodes it with `URL.decode`. A string that cannot be decoded fails with the message of the `MalformedURLException`, for example `Invalid URL: "http://exa mple"`. */
+  /**
+   * A `Config` that reads a string and decodes it with `URL.decode`. A string
+   * that cannot be decoded fails with the message of the
+   * `MalformedURLException`, for example `Invalid URL: "http://exa mple"`.
+   */
   def config: Config[URL] = Config.string.mapAttempt(decode(_).fold(throw _, identity))
 
-  /** Converts a `java.net.URI` to a URL. Returns `None` when an absolute URI has no host, as in `mailto:a@b.c`. */
+  /**
+   * Converts a `java.net.URI` to a URL. Returns `None` when an absolute URI has
+   * no host, as in `mailto:a@b.c`.
+   */
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
   /** The URL with the root path `/`, no query parameters and no fragment. */
   def root: URL = URL(Path.root)
 
-  /** Where a URL points: `Location.Relative`, or `Location.Absolute` with a scheme, host and port. */
+  /**
+   * Where a URL points: `Location.Relative`, or `Location.Absolute` with a
+   * scheme, host and port.
+   */
   sealed trait Location { self =>
+
     /** Returns `that` when it is absolute, and this location otherwise. */
     def ++(that: Location): Location =
       if (that.isRelative) self
@@ -516,6 +574,7 @@ object URL {
 
   /** The locations a URL can have. */
   object Location {
+
     /**
      * An absolute location.
      *
@@ -527,12 +586,24 @@ object URL {
      *   the port written in the URL, if any
      */
     final case class Absolute(scheme: Scheme, host: String, originalPort: Option[Int]) extends Location {
-      /** Returns the port written in the URL, or else the default port of the scheme. */
-      def portOrDefault: Option[Int]    = originalPort.orElse(scheme.defaultPort)
-      /** Returns the written port when it differs from the default port of the scheme. */
+
+      /**
+       * Returns the port written in the URL, or else the default port of the
+       * scheme.
+       */
+      def portOrDefault: Option[Int] = originalPort.orElse(scheme.defaultPort)
+
+      /**
+       * Returns the written port when it differs from the default port of the
+       * scheme.
+       */
       def portIfNotDefault: Option[Int] = originalPort.filter(p => scheme.defaultPort.exists(_ != p))
-      /** Returns the port written in the URL, or else the default port of the scheme, or else 80 when the scheme has no default port. */
-      def port: Int                     = originalPort.orElse(scheme.defaultPort).getOrElse(Scheme.defaultPortForHTTP)
+
+      /**
+       * Returns the port written in the URL, or else the default port of the
+       * scheme, or else 80 when the scheme has no default port.
+       */
+      def port: Int = originalPort.orElse(scheme.defaultPort).getOrElse(Scheme.defaultPortForHTTP)
     }
 
     /** A location without a scheme, host and port. */
@@ -551,7 +622,11 @@ object URL {
 
   /** Constructors for `Fragment`. */
   object Fragment {
-    /** Returns the fragment of the URI, or `None` when it has none. An empty fragment (a URI ending in `#`) gives a fragment with empty text. */
+
+    /**
+     * Returns the fragment of the URI, or `None` when it has none. An empty
+     * fragment (a URI ending in `#`) gives a fragment with empty text.
+     */
     def fromURI(uri: URI): Option[Fragment] = for {
       raw     <- Option(uri.getRawFragment)
       decoded <- Option(uri.getFragment)

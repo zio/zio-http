@@ -23,17 +23,21 @@ import zio.NonEmptyChunk
 import zio.http.codec.TextCodec
 
 /**
- * The error of reading a query parameter: it is either missing or it could not be decoded.
+ * The error of reading a query parameter: it is either missing or it could not
+ * be decoded.
  */
 sealed trait QueryParamsError extends Exception with NoStackTrace {
   override def getMessage(): String = message
+
   /** The description of the error, which is also returned by `getMessage`. */
   def message: String
 }
+
 /**
  * The query parameter errors.
  */
 object QueryParamsError {
+
   /**
    * The query parameter is not present.
    *
@@ -41,6 +45,7 @@ object QueryParamsError {
    *   the name of the missing parameter
    */
   final case class Missing(name: String) extends QueryParamsError {
+
     /** Returns `Missing query parameter with name` followed by the name. */
     def message = s"Missing query parameter with name $name"
   }
@@ -57,7 +62,12 @@ object QueryParamsError {
    */
   final case class Malformed(name: String, codec: TextCodec[_], values: NonEmptyChunk[String])
       extends QueryParamsError {
-    /** Returns a message with the name, the values in `[ ... ]` separated by commas, and the description of the codec, for example `Unable to decode query parameter n with values [ a, b ] using an integer codec`. */
+
+    /**
+     * Returns a message with the name, the values in `[ ... ]` separated by
+     * commas, and the description of the codec, for example
+     * `Unable to decode query parameter n with values [ a, b ] using an integer codec`.
+     */
     def message: String =
       s"Unable to decode query parameter $name with values [ ${values.mkString(", ")} ] using ${codec.describe} codec"
   }

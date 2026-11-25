@@ -28,6 +28,7 @@ trait UrlInterpolator {
 
   /** Adds the `url` interpolator to `StringContext`. */
   implicit class UrlInterpolatorHelper(val sc: StringContext) {
+
     /**
      * Creates a `URL` from the interpolated string. At compile time the text is
      * decoded with `URL.decode`, and an invalid URL is a compile error that

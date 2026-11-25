@@ -22,9 +22,12 @@ import zio._
 import zio.http.Header.HeaderType
 
 /**
- * A `ZClientAspect` is capable of modifying some aspect of the execution of a client, such as metrics, tracing, encoding, decoding, or logging. Apply it to a [[ZClient]] with `client @@ aspect`.
+ * A `ZClientAspect` is capable of modifying some aspect of the execution of a
+ * client, such as metrics, tracing, encoding, decoding, or logging. Apply it to
+ * a [[ZClient]] with `client @@ aspect`.
  *
- * @see [[https://zio.dev/zio-http/reference/client/ Client]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/client/ Client]]
  */
 trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperErr, +LowerOut, -UpperOut] { self =>
 
@@ -107,18 +110,23 @@ trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperE
 }
 
 /**
- * Client aspects for logging (`debug`, `requestLogging`, `curlLogger`), redirects (`followRedirects`) and header forwarding (`forwardHeaders`).
+ * Client aspects for logging (`debug`, `requestLogging`, `curlLogger`),
+ * redirects (`followRedirects`) and header forwarding (`forwardHeaders`).
  */
 object ZClientAspect {
 
   /**
-   * Client aspect that prints a line to the console after each request, with the status, method, URL and duration, or the failure.
+   * Client aspect that prints a line to the console after each request, with
+   * the status, method, URL and duration, or the failure.
    */
   final def debug(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     debug(PartialFunction.empty)
 
   /**
-   * Client aspect that prints a line to the console after each request, with the status, method, URL and duration, or the failure. For a response where `extraMessage` is defined, it also prints the message that `extraMessage` returns.
+   * Client aspect that prints a line to the console after each request, with
+   * the status, method, URL and duration, or the failure. For a response where
+   * `extraMessage` is defined, it also prints the message that `extraMessage`
+   * returns.
    */
   final def debug(
     extraMessage: PartialFunction[Response, String],
@@ -333,7 +341,14 @@ object ZClientAspect {
   }
 
   /**
-   * Client aspect that follows redirect responses (status 3xx) up to `max` times, sending the same method, headers and body to the URL of the `Location` header, resolved against the request URL. The response of `onRedirectError` is returned instead when a redirect has no valid `Location` header, or when `max` redirects have been followed and the next response is a redirect too; its second argument is the reason, such as "followed maximum redirects". WebSocket connections follow redirects the same way.
+   * Client aspect that follows redirect responses (status 3xx) up to `max`
+   * times, sending the same method, headers and body to the URL of the
+   * `Location` header, resolved against the request URL. The response of
+   * `onRedirectError` is returned instead when a redirect has no valid
+   * `Location` header, or when `max` redirects have been followed and the next
+   * response is a redirect too; its second argument is the reason, such as
+   * "followed maximum redirects". WebSocket connections follow redirects the
+   * same way.
    */
   final def followRedirects[R, E](max: Int)(
     onRedirectError: (Response, String) => ZIO[R, E, Response],
@@ -456,7 +471,9 @@ object ZClientAspect {
   }
 
   /**
-   * Client aspect that adds to each request the headers that `Middleware.forwardHeaders` saved from the incoming server request, when the client runs inside a handler of routes with that middleware.
+   * Client aspect that adds to each request the headers that
+   * `Middleware.forwardHeaders` saved from the incoming server request, when
+   * the client runs inside a handler of routes with that middleware.
    */
   final def forwardHeaders: ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
@@ -504,7 +521,10 @@ object ZClientAspect {
     }
 
   /**
-   * Client aspect that logs each request as a curl command with `logEffect` (by default `ZIO.log`) before sending it. The command has `--verbose` when `verbose` is true, and includes the body only when the body is complete (`Body#isComplete`).
+   * Client aspect that logs each request as a curl command with `logEffect` (by
+   * default `ZIO.log`) before sending it. The command has `--verbose` when
+   * `verbose` is true, and includes the body only when the body is complete
+   * (`Body#isComplete`).
    */
   final def curlLogger(
     verbose: Boolean = true,
@@ -559,7 +579,10 @@ object ZClientAspect {
   object CurlLogger {
 
     /**
-     * Formats a request, given by its parts, as a curl command with one option per line. The body is included only when it is complete (`Body#isComplete`) and not empty. With a proxy that has credentials, the `--proxy-user` part of the proxy option is wrapped in `Some(...)`.
+     * Formats a request, given by its parts, as a curl command with one option
+     * per line. The body is included only when it is complete
+     * (`Body#isComplete`) and not empty. With a proxy that has credentials, the
+     * `--proxy-user` part of the proxy option is wrapped in `Some(...)`.
      */
     def formatCurlCommand(
       version: Version,
@@ -614,7 +637,8 @@ object ZClientAspect {
     }
 
     /**
-     * Formats `request` as a curl command with one option per line, like the other `formatCurlCommand`.
+     * Formats `request` as a curl command with one option per line, like the
+     * other `formatCurlCommand`.
      */
     def formatCurlCommand(request: Request, verbose: Boolean = true, proxy: Option[Proxy] = None): Task[String] = {
       formatCurlCommand(

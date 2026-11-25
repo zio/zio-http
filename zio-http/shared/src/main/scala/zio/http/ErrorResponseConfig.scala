@@ -25,29 +25,39 @@ final case class ErrorResponseConfig(
 )
 
 /**
- * The default configurations, the error formats, and the ways to set the configuration in effect.
+ * The default configurations, the error formats, and the ways to set the
+ * configuration in effect.
  */
 object ErrorResponseConfig {
+
   /**
-   * The format of an error response body: `Text`, `Html` or `Json`. `mediaType` is the media type of the response.
+   * The format of an error response body: `Text`, `Html` or `Json`. `mediaType`
+   * is the media type of the response.
    */
   sealed trait ErrorFormat { val mediaType: MediaType }
+
   /** The error formats. */
-  object ErrorFormat       {
+  object ErrorFormat {
+
     /** The `text/plain` format. */
-    case object Text extends ErrorFormat { val mediaType: MediaType = MediaType.text.`plain`     }
+    case object Text extends ErrorFormat { val mediaType: MediaType = MediaType.text.`plain` }
+
     /** The `text/html` format. */
-    case object Html extends ErrorFormat { val mediaType: MediaType = MediaType.text.html        }
+    case object Html extends ErrorFormat { val mediaType: MediaType = MediaType.text.html }
+
     /** The `application/json` format. */
     case object Json extends ErrorFormat { val mediaType: MediaType = MediaType.application.json }
   }
 
   /**
-   * The default configuration, `ErrorResponseConfig()`: no error body, no stack trace, a stack trace depth of 10, and `ErrorFormat.Html`.
+   * The default configuration, `ErrorResponseConfig()`: no error body, no stack
+   * trace, a stack trace depth of 10, and `ErrorFormat.Html`.
    */
-  val default: ErrorResponseConfig     = ErrorResponseConfig()
+  val default: ErrorResponseConfig = ErrorResponseConfig()
+
   /**
-   * A configuration that includes the error message and the full stack trace in the response body, with `ErrorFormat.Html`.
+   * A configuration that includes the error message and the full stack trace in
+   * the response body, with `ErrorFormat.Html`.
    */
   val debugConfig: ErrorResponseConfig =
     ErrorResponseConfig(withErrorBody = true, withStackTrace = true, maxStackTraceDepth = 0)
