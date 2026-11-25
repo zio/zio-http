@@ -24,7 +24,12 @@ import zio.http.internal.StringSchemaCodec.PrimitiveCodec
 
 private[cli] sealed trait HttpOptions {
 
-  /** The name of the option that this `HttpOptions` adds. */
+  /**
+   * The name of the option that this `HttpOptions` adds. For a `Path` it is the
+   * literal segments of the path joined with `-`. For a `Body` it is the body
+   * name, which gives the options `f-<name>` (file), `u-<name>` (URL) and one
+   * option per JSON field.
+   */
   val name: String
 
   /**
@@ -40,6 +45,10 @@ private[cli] sealed trait HttpOptions {
 
 private[cli] object HttpOptions {
 
+  /**
+   * An option with a fixed value (`HeaderConstant` and `QueryConstant`). It adds
+   * its value to the request and parses nothing from the command line.
+   */
   sealed trait Constant extends HttpOptions
 
   /*

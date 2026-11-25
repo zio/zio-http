@@ -19,7 +19,9 @@ object HttpCliApp {
   /**
    * Generates a [[HttpCliApp]] from the given endpoints. Each endpoint becomes
    * one command. The app sends the request to `host` and `port`, prints the
-   * status of the response, and prints its body when the request asks for it.
+   * status of the response, and then prints its body. The output has a `Got
+   * response` line, a `Status:` line and a `Body:` line, which shows `<empty>`
+   * for an empty body.
    *
    * {{{
    * import zio._
@@ -56,8 +58,11 @@ object HttpCliApp {
    *   Style of commands of the generated CLI: true for CLI idiomatic interface
    *   (the lowercase method, `create` for POST and `update` for PUT, followed
    *   by the literal path segments, joined with `-`, as in `get-hello`), false
-   *   for HTTP-like interface (the method followed by the path, as in
-   *   `get /hello`)
+   *   for HTTP-like interface (the same method word, a space, then `/` and the
+   *   literal path segments joined with `-`, as in `get /hello`; path
+   *   parameters do not appear in the name, so `POST /users/{id}/posts` is
+   *   `create /users-posts` here and `create-users-posts` with `cliStyle`
+   *   true)
    * @param client
    *   The client that the generated CLI uses to send the request and to read
    *   body parts from URLs. The default uses `Client.default`.
