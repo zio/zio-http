@@ -24,10 +24,16 @@ import zio.http.internal.StringSchemaCodec.PrimitiveCodec
 
 private[cli] sealed trait HttpOptions {
 
+  /** The name of the option that this `HttpOptions` adds. */
   val name: String
 
+  /**
+   * Returns `request` extended with this option: the parsed value is added to
+   * the `CliRequest` that `request` yields.
+   */
   def transform(request: Options[CliRequest]): Options[CliRequest]
 
+  /** Returns a copy of this option with `doc` appended to its documentation. */
   def ??(doc: Doc): HttpOptions
 
 }
