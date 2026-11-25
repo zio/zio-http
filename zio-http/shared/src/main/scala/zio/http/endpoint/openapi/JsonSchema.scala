@@ -75,6 +75,7 @@ private[openapi] object SerializableJsonSchema {
   /**
    * Used to generate a OpenAPI schema part looking like this:
    * {{{
+   *   // no-check: JSON output, not Scala code
    *   { "type": "null"}
    * }}}
    */
@@ -123,6 +124,8 @@ private[openapi] object BoolOrSchema {
 
 @noDiscriminator
 private[openapi] sealed trait TypeOrTypes { self =>
+
+  /** Adds the type name `value` to this type list, keeping each name once. */
   def add(value: String): TypeOrTypes =
     self match {
       case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value).distinct)
@@ -148,70 +151,169 @@ private[openapi] object TypeOrTypes {
   }
 }
 
+/**
+ * The result of `JsonSchema.fromZSchemaMultiple`: the `root` schema, the
+ * reference name of the root type in `rootRef`, and in `children` the schemas
+ * of the named records and enums that the root refers to, keyed by reference
+ * name, such as `#/components/schemas/Address`. `rootRef` is `None` for a type
+ * with no name, such as `Int`, and for the style `SchemaStyle.Inline`.
+ */
 final case class JsonSchemas(
   root: JsonSchema,
   rootRef: Option[String],
   children: Map[String, JsonSchema],
 )
 
+/**
+ * A JSON Schema, as used for the request and response bodies of an OpenAPI
+ * document. The cases are `String`, `Number`, `Integer`, `Boolean`, `Null`,
+ * `ArrayType`, `Object` and `Enum`, the combinations `OneOfSchema`,
+ * `AllOfSchema` and `AnyOfSchema`, `RefSchema` for a `\$ref`, `AnyJson` for any
+ * value, and `AnnotatedSchema`, which adds one `MetaData` keyword such as a
+ * description. Build one by hand or from a ZIO Schema with
+ * `JsonSchema.fromZSchema`, and write it with `toJson`.
+ *
+ * {{{
+ * import zio.schema.Schema
+ *
+ * val email: JsonSchema =
+ *   JsonSchema.String(JsonSchema.StringFormat.Email).nullable(true).description("Contact address")
+ *
+ * email.toJson
+ * // {"type":["string","null"],"format":"email","description":"Contact address"}
+ *
+ * val ports: JsonSchema =
+ *   JsonSchema.fromZSchema(
+ *     Schema[List[Int]],
+ *     JsonSchema.SchemaRef(JsonSchema.SchemaSpec.OpenAPI, JsonSchema.SchemaStyle.Inline)
+ *   )
+ *
+ * ports.toJson
+ * // {"type":"array","items":{"type":"integer","format":"int32"}}
+ * }}}
+ */
 sealed trait JsonSchema extends Product with Serializable { self =>
 
+  /**
+   * Encodes this schema as compact JSON bytes, in the same form as `toJson`.
+   * Fields that are not set are left out.
+   */
   def toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
 
+  /**
+   * Returns this schema as a compact JSON string, such as `{"type":"string"}`
+   * for `JsonSchema.String()`. Fields that are not set are left out.
+   */
   def toJson: String = toJsonBytes.asString
 
   protected[openapi] def toSerializableSchema: SerializableJsonSchema
+
+  /**
+   * Wraps this schema in one `AnnotatedSchema` per entry of `annotations`, in
+   * order, so the last entry is the outermost. An empty chunk returns this
+   * schema unchanged.
+   */
   def annotate(annotations: Chunk[JsonSchema.MetaData]): JsonSchema =
     annotations.foldLeft(self) { case (schema, annotation) => schema.annotate(annotation) }
-  def annotate(annotation: JsonSchema.MetaData): JsonSchema         =
+
+  /** Wraps this schema in an `AnnotatedSchema` that adds `annotation`. */
+  def annotate(annotation: JsonSchema.MetaData): JsonSchema =
     JsonSchema.AnnotatedSchema(self, annotation)
 
+  /**
+   * Returns the `MetaData` of the `AnnotatedSchema` layers around this schema,
+   * innermost first, or an empty chunk when there is none.
+   */
   def annotations: Chunk[JsonSchema.MetaData] = self match {
     case JsonSchema.AnnotatedSchema(schema, annotation) => schema.annotations :+ annotation
     case _                                              => Chunk.empty
   }
 
+  /**
+   * Returns `true` when one of this schema's annotations is
+   * `MetaData.Nullable(true)`.
+   */
   final def isNullable: Boolean =
     annotations.exists {
       case MetaData.Nullable(nullable) => nullable
       case _                           => false
     }
 
+  /**
+   * Returns this schema with its outer `AnnotatedSchema` layers removed.
+   * Annotations on nested schemas, such as the properties of an `Object`, stay.
+   */
   def withoutAnnotations: JsonSchema = self match {
     case JsonSchema.AnnotatedSchema(schema, _) => schema.withoutAnnotations
     case _                                     => self
   }
 
+  /**
+   * Adds `examples` as the `examples` keyword. An empty chunk writes
+   * `"examples":[]`.
+   */
   def examples(examples: Chunk[Json]): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Examples(examples))
 
+  /**
+   * Adds the value in `default` as the `default` keyword, or returns this
+   * schema unchanged when it is `None`.
+   */
   def default(default: Option[Json]): JsonSchema =
     default match {
       case Some(value) => JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(value))
       case None        => self
     }
 
+  /** Adds `default` as the `default` keyword. */
   def default(default: Json): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(default))
 
+  /**
+   * Adds `description` as the `description` keyword. When it is added twice,
+   * the last one is written.
+   */
   def description(description: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Description(description))
 
+  /**
+   * Adds the text in `description` as the `description` keyword, or returns
+   * this schema unchanged when it is `None`.
+   */
   def description(description: Option[String]): JsonSchema =
     description match {
       case Some(value) => JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Description(value))
       case None        => self
     }
 
+  /**
+   * Returns the `description` keyword of this schema, or `None` when it has
+   * none. A `RefSchema` or an `AllOfSchema` made nullable after its description
+   * also returns `None`: the description then sits inside the written `anyOf`
+   * (for a reference) or is not written at all (for `allOf`).
+   */
   def description: Option[String] = self.toSerializableSchema.description
 
+  /**
+   * With `true`, marks this schema as accepting `null`; with `false`, returns
+   * this schema unchanged. The JSON output adds `"null"` to the `type`
+   * (`{"type":["string","null"]}`), appends `{"type":"null"}` to a `oneOf`,
+   * `anyOf` or `allOf` list (an `allOf` then loses its other keywords), and
+   * wraps a `RefSchema` in an `anyOf` with `{"type":"null"}`; the output of
+   * `AnyJson` does not change.
+   */
   def nullable(nullable: Boolean): JsonSchema =
     if (nullable) JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Nullable(true))
     else self
 
+  /** Adds `discriminator` as the OpenAPI `discriminator` keyword. */
   def discriminator(discriminator: OpenAPI.Discriminator): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Discriminator(discriminator))
 
+  /**
+   * Adds the value in `discriminator` as the OpenAPI `discriminator` keyword,
+   * or returns this schema unchanged when it is `None`.
+   */
   def discriminator(discriminator: Option[OpenAPI.Discriminator]): JsonSchema =
     discriminator match {
       case Some(discriminator) =>
@@ -220,16 +322,33 @@ sealed trait JsonSchema extends Product with Serializable { self =>
         self
     }
 
+  /**
+   * With `true`, adds `"deprecated":true`; with `false`, returns this schema
+   * unchanged.
+   */
   def deprecated(deprecated: Boolean): JsonSchema =
     if (deprecated) JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Deprecated)
     else self
 
+  /**
+   * Adds the `contentEncoding` keyword. The value written is the case name in
+   * lower case, such as `sevenbit` for `ContentEncoding.SevenBit` and `base64`
+   * for `ContentEncoding.Base64`.
+   */
   def contentEncoding(encoding: JsonSchema.ContentEncoding): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.ContentEncoding(encoding))
 
+  /**
+   * Adds `mediaType`, such as `image/png`, as the `contentMediaType` keyword.
+   */
   def contentMediaType(mediaType: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.ContentMediaType(mediaType))
 
+  /**
+   * Returns `true` for a `String`, `Number`, `Integer`, `Boolean` or `Null`
+   * schema. An `Enum`, `AnyJson` and any schema wrapped in an `AnnotatedSchema`
+   * return `false`.
+   */
   def isPrimitive: Boolean = self match {
     case _: JsonSchema.Number  => true
     case _: JsonSchema.Integer => true
@@ -239,6 +358,11 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case _                     => false
   }
 
+  /**
+   * Returns `true` for an `ArrayType`, and for an `Object` with no properties
+   * whose `additionalProperties` is a schema (a map). A schema wrapped in an
+   * `AnnotatedSchema` returns `false`.
+   */
   def isCollection: Boolean = self match {
     case _: JsonSchema.ArrayType => true
     case obj: JsonSchema.Object  => obj.properties.isEmpty && obj.additionalProperties.isRight
@@ -247,6 +371,10 @@ sealed trait JsonSchema extends Product with Serializable { self =>
 
 }
 
+/**
+ * Constructors of [[JsonSchema]], its cases and formats, and the conversions
+ * from a ZIO Schema, a text codec or a path segment codec.
+ */
 object JsonSchema {
 
   implicit val schema: Schema[JsonSchema] =
