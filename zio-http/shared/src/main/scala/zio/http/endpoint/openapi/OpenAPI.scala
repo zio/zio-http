@@ -507,7 +507,8 @@ object OpenAPI {
    *   The version of the OpenAPI document (which is distinct from the OpenAPI
    *   Specification version or the API implementation version).
    * @param extensions
-   *   Extensions to the info section.
+   *   Extensions to the info section, written as `x-` fields of the Info
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Info(
     title: String,
@@ -520,7 +521,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Info`, with its schema. */
   object Info extends InfoCompatibility {
+
+    /**
+     * The schema of `Info`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Info] = extensionSchema(
       DeriveSchema.gen[Info],
       _.extensions,
@@ -589,7 +597,10 @@ object OpenAPI {
    */
   final case class ServerVariable(`enum`: Chunk[String], default: String, description: Doc)
 
+  /** The companion of `ServerVariable`, with its schema. */
   object ServerVariable {
+
+    /** The schema of `ServerVariable`, derived from its fields. */
     implicit val schema: Schema[ServerVariable] =
       DeriveSchema.gen[ServerVariable]
   }
@@ -630,6 +641,11 @@ object OpenAPI {
     links: ListMap[Key, ReferenceOr[Link]] = ListMap.empty,
     callbacks: ListMap[Key, ReferenceOr[Callback]] = ListMap.empty,
   ) {
+
+    /**
+     * Merges two `Components` map by map. When both have an entry with the same
+     * key, the entry of `other` is kept.
+     */
     def ++(other: Components): Components = Components(
       schemas = schemas ++ other.schemas,
       responses = responses ++ other.responses,
@@ -643,10 +659,21 @@ object OpenAPI {
     )
   }
 
+  /**
+   * The name of a reusable component in `Components`, such as a schema name.
+   * Create one with `Key.fromString`, which checks the name against
+   * `Key.validName`.
+   */
   sealed abstract case class Key private (name: String)
 
+  /** The companion of `Key`, with its schema and constructor. */
   object Key {
 
+    /**
+     * The schema of `Key`, as a JSON string. Decoding fails with
+     * `Invalid Key a b` for the string `a b`, or any other name that
+     * `fromString` rejects.
+     */
     implicit val schema: Schema[Key] =
       zio.schema
         .Schema[String]
@@ -656,10 +683,15 @@ object OpenAPI {
         )
 
     /**
-     * All Components objects MUST use Keys that match the regular expression.
+     * The pattern that the keys of the Components Object must match: one or
+     * more ASCII letters, digits, `.`, `-` or `_`.
      */
     val validName: Regex = "^[a-zA-Z0-9.\\-_]+$".r
 
+    /**
+     * Returns the `Key` for `name`, or `None` when `name` does not match
+     * `validName`: for example `None` for an empty name, `a b`, `a/b` or `é`.
+     */
     def fromString(name: String): Option[Key] = name match {
       case validName() => Some(new Key(name) {})
       case _           => None
@@ -680,7 +712,14 @@ object OpenAPI {
    */
   case class Path private (name: String)
 
+  /** The companion of `Path`, with its schema and constructor. */
   object Path {
+
+    /**
+     * The schema of `Path`, as a JSON string. Decoding fails with
+     * `Invalid Path x` for the string `x`, or any other string that
+     * `fromString` rejects.
+     */
     implicit val schema: Schema[Path] = Schema[String].transformOrFail[Path](
       s => fromString(s).toRight(s"Invalid Path $s"),
       p => Right(p.name),
@@ -690,6 +729,13 @@ object OpenAPI {
     // safe chars from RFC1738 "$" | "-" | "_" | "." | "+"
     private val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
 
+    /**
+     * Returns the `Path` for `name`, or `None` unless `name` starts with `/`
+     * and has only ASCII letters, digits, and the characters `/`, `-`, `_`,
+     * `{`, `}`, `\$`, `.` and `+`. For example `/users/{id}` and `/` are
+     * accepted, and `users`, the empty string, `/a b`, `/a?x` and `/~x` are
+     * rejected.
+     */
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(Path(name))
       case _           => None
@@ -737,7 +783,8 @@ object OpenAPI {
    *   to link to parameters that are defined at the OpenAPI Object’s
    *   components/parameters.
    * @param extensions
-   *   Extensions to the path item.
+   *   Extensions to the path item, written as `x-` fields of the Path Item
+   *   Object. The keys are stored without the `x-` prefix.
    */
   @nowarn("msg=possible missing interpolator")
   final case class PathItem(
@@ -758,15 +805,44 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   ) {
-    def addGet(operation: Operation): PathItem     = copy(get = Some(operation))
-    def addPut(operation: Operation): PathItem     = copy(put = Some(operation))
-    def addPost(operation: Operation): PathItem    = copy(post = Some(operation))
-    def addDelete(operation: Operation): PathItem  = copy(delete = Some(operation))
+
+    /** Returns a copy with `operation` as the GET operation, replacing any. */
+    def addGet(operation: Operation): PathItem = copy(get = Some(operation))
+
+    /** Returns a copy with `operation` as the PUT operation, replacing any. */
+    def addPut(operation: Operation): PathItem = copy(put = Some(operation))
+
+    /** Returns a copy with `operation` as the POST operation, replacing any. */
+    def addPost(operation: Operation): PathItem = copy(post = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the DELETE operation, replacing any.
+     */
+    def addDelete(operation: Operation): PathItem = copy(delete = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the OPTIONS operation, replacing any.
+     */
     def addOptions(operation: Operation): PathItem = copy(options = Some(operation))
-    def addHead(operation: Operation): PathItem    = copy(head = Some(operation))
-    def addPatch(operation: Operation): PathItem   = copy(patch = Some(operation))
-    def addTrace(operation: Operation): PathItem   = copy(trace = Some(operation))
-    def any(operation: Operation): PathItem        =
+
+    /** Returns a copy with `operation` as the HEAD operation, replacing any. */
+    def addHead(operation: Operation): PathItem = copy(head = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the PATCH operation, replacing any.
+     */
+    def addPatch(operation: Operation): PathItem = copy(patch = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the TRACE operation, replacing any.
+     */
+    def addTrace(operation: Operation): PathItem = copy(trace = Some(operation))
+
+    /**
+     * Returns a copy with `operation` set for all eight methods: GET, PUT,
+     * POST, DELETE, OPTIONS, HEAD, PATCH and TRACE.
+     */
+    def any(operation: Operation): PathItem =
       copy(
         get = Some(operation),
         put = Some(operation),
@@ -779,13 +855,23 @@ object OpenAPI {
       )
   }
 
+  /** The companion of `PathItem`, with its schema and `empty`. */
   object PathItem {
+
+    /**
+     * The schema of `PathItem`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[PathItem] = extensionSchema(
       DeriveSchema.gen[PathItem],
       _.extensions,
       (i, e) => i.copy(extensions = e),
     )
 
+    /**
+     * A path item with no operations, servers, parameters or extensions, and
+     * with `ref`, `summary` and `description` set to `None`.
+     */
     val empty: PathItem = PathItem(
       ref = None,
       summary = None,
