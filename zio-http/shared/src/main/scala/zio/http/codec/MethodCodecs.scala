@@ -16,22 +16,56 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * The method codecs that `MethodCodec` and `HttpCodec` provide.
+ */
 private[codec] trait MethodCodecs {
   import HttpCodecType.Method
 
+  /**
+   * Creates a codec for requests with the HTTP method `method`, which holds no
+   * value. Decoding a request with another method gives an
+   * `HttpCodecError.MalformedMethod` error.
+   */
   def method(method: zio.http.Method): HttpCodec[HttpCodecType.Method, Unit] =
     HttpCodec.Method(SimpleCodec.Specified(method))
 
+  /**
+   * A codec that holds the HTTP method of the request as a `zio.http.Method`,
+   * for any method.
+   */
   val method: HttpCodec[HttpCodecType.Method, zio.http.Method] =
     HttpCodec.Method(SimpleCodec.Unspecified())
 
+  /**
+   * The codec for the `CONNECT` method; the same as `method(Method.CONNECT)`.
+   */
   def connect: HttpCodec[Method, Unit] = method(zio.http.Method.CONNECT)
-  def delete: HttpCodec[Method, Unit]  = method(zio.http.Method.DELETE)
-  def head: HttpCodec[Method, Unit]    = method(zio.http.Method.HEAD)
-  def get: HttpCodec[Method, Unit]     = method(zio.http.Method.GET)
+
+  /** The codec for the `DELETE` method; the same as `method(Method.DELETE)`. */
+  def delete: HttpCodec[Method, Unit] = method(zio.http.Method.DELETE)
+
+  /** The codec for the `HEAD` method; the same as `method(Method.HEAD)`. */
+  def head: HttpCodec[Method, Unit] = method(zio.http.Method.HEAD)
+
+  /** The codec for the `GET` method; the same as `method(Method.GET)`. */
+  def get: HttpCodec[Method, Unit] = method(zio.http.Method.GET)
+
+  /**
+   * The codec for the `OPTIONS` method; the same as `method(Method.OPTIONS)`.
+   */
   def options: HttpCodec[Method, Unit] = method(zio.http.Method.OPTIONS)
-  def patch: HttpCodec[Method, Unit]   = method(zio.http.Method.PATCH)
-  def post: HttpCodec[Method, Unit]    = method(zio.http.Method.POST)
-  def put: HttpCodec[Method, Unit]     = method(zio.http.Method.PUT)
-  def trace: HttpCodec[Method, Unit]   = method(zio.http.Method.TRACE)
+
+  /** The codec for the `PATCH` method; the same as `method(Method.PATCH)`. */
+  def patch: HttpCodec[Method, Unit] = method(zio.http.Method.PATCH)
+
+  /** The codec for the `POST` method; the same as `method(Method.POST)`. */
+  def post: HttpCodec[Method, Unit] = method(zio.http.Method.POST)
+
+  /** The codec for the `PUT` method; the same as `method(Method.PUT)`. */
+  def put: HttpCodec[Method, Unit] = method(zio.http.Method.PUT)
+
+  /** The codec for the `TRACE` method; the same as `method(Method.TRACE)`. */
+  def trace: HttpCodec[Method, Unit] = method(zio.http.Method.TRACE)
 }

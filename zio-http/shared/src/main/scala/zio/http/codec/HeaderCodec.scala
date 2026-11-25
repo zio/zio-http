@@ -16,4 +16,25 @@
 
 package zio.http.codec
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+/**
+ * Codecs for HTTP headers, to use in an `Endpoint` or another [[HttpCodec]]. It
+ * has a codec for each well-known header, such as `authorization` or
+ * `contentType`, which decodes the header into its typed `zio.http.Header`
+ * value, and `headerAs` and `headers` for custom headers decoded with a ZIO
+ * Schema. `HttpCodec` has the same members.
+ *
+ * {{{
+ * import zio.http._
+ *
+ * val tenant: HeaderCodec[String]               = HeaderCodec.headerAs[String]("x-tenant")
+ * val auth: HeaderCodec[Header.Authorization]   = HeaderCodec.authorization
+ * val both: HeaderCodec[(String, Header.Authorization)] = tenant ++ auth
+ *
+ * tenant.encodeRequest("acme").headers.toList // List((x-tenant,acme))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/http-codec/ HttpCodec]]
+ */
 object HeaderCodec extends HeaderCodecs
