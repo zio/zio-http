@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opaque Bearer Token Authentication Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        /* User Selection Grid */
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 18px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .user-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .user-card:hover::before {
+            left: 100%;
+        }
+
+        .user-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .user-card.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .user-card.active::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            animation: checkIn 0.3s ease-out;
+        }
+
+        @keyframes checkIn {
+            from {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) rotate(0);
+                opacity: 1;
+            }
+        }
+
+        .user-card-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .user-card-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .user-card-credentials {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .user-card-password {
+            font-size: 11px;
+            color: #888;
+            font-style: italic;
+        }
+
+        .role-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+        }
+
+        .role-badge.admin {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        /* Token Display */
+        .token-display {
+            background: rgba(40, 167, 69, 0.1);
+            border: 2px solid rgba(40, 167, 69, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            word-break: break-all;
+            color: #155724;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .token-display.empty {
+            background: rgba(248, 249, 250, 0.9);
+            border-color: #e9ecef;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .token-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(23, 162, 184, 0.1);
+            border-radius: 8px;
+            font-size: 12px;
+            color: #0c5460;
+        }
+
+        .token-timer {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 15px;
+            color: #856404;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 18px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B, #ee5a52);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-clear {
+            background: linear-gradient(135deg, #666, #555);
+            color: white;
+        }
+
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 102, 102, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            display: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .response.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .response.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #155724;
+        }
+
+        .response.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #721c24;
+        }
+
+        .response-header {
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: inherit;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .transaction-details {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .transaction-details.visible {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .http-message {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .http-message-header {
+            background: linear-gradient(45deg, #495057, #6c757d);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .http-message-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: white;
+        }
+
+        .http-message-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            margin: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .http-request {
+            border-left: 4px solid #007bff;
+        }
+
+        .http-request .http-message-header {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+
+        .http-response-200 {
+            border-left: 4px solid #28a745;
+        }
+
+        .http-response-200 .http-message-header {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+        }
+
+        .http-response-401 {
+            border-left: 4px solid #ffc107;
+        }
+
+        .http-response-401 .http-message-header {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+        }
+
+        .http-method { color: #007bff; font-weight: bold; }
+        .http-status-200 { color: #28a745; font-weight: bold; }
+        .http-status-401 { color: #ffc107; font-weight: bold; }
+        .http-header-name { color: #6f42c1; font-weight: bold; }
+        .http-header-value { color: #495057; }
+
+        .transaction-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 24px;
+            color: #6c757d;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .info-box {
+            background: rgba(23, 162, 184, 0.1);
+            border: 1px solid rgba(23, 162, 184, 0.3);
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: #0c5460;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 850px) and (min-width: 769px) {
+            .user-grid {
+                gap: 10px;
+            }
+
+            .user-card {
+                padding: 15px;
+            }
+
+            .user-card-icon {
+                font-size: 24px;
+            }
+
+            .user-card-name {
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .user-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .user-card {
+                padding: 15px;
+            }
+
+            .user-card-icon {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Opaque Token Authentication Demo</h1>
+        <p class="subtitle">Server-side token management</p>
+    </div>
+
+    <div class="info-box">
+        <strong>🔄 How it works:</strong><br>
+        • Select a user card or enter credentials manually<br>
+        • Login generates a server-side opaque token (valid for 5 minutes)<br>
+        • Use the token to access protected resources<br>
+        • Logout revokes all tokens for the user
+    </div>
+
+    <div class="section">
+        <h2>👥 User Selection</h2>
+        <p>Click on any user card below to automatically fill in the credentials</p>
+        <div class="user-grid" id="userGrid">
+            <div class="user-card" data-username="john" data-password="password123">
+                <div class="user-card-icon">👤</div>
+                <div class="user-card-name">John</div>
+                <div class="user-card-credentials">john</div>
+                <div class="user-card-password">password: password123</div>
+                <span class="role-badge">Regular User</span>
+            </div>
+            <div class="user-card" data-username="jane" data-password="secret456">
+                <div class="user-card-icon">👤</div>
+                <div class="user-card-name">Jane</div>
+                <div class="user-card-credentials">jane</div>
+                <div class="user-card-password">password: secret456</div>
+                <span class="role-badge">Regular User</span>
+            </div>
+            <div class="user-card" data-username="admin" data-password="admin123">
+                <div class="user-card-icon">👨‍💼</div>
+                <div class="user-card-name">Admin</div>
+                <div class="user-card-credentials">admin</div>
+                <div class="user-card-password">password: admin123</div>
+                <span class="role-badge admin">Administrator</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <div class="input-wrapper">
+                <input type="text" id="username" placeholder="Enter username or click a user card above">
+                <span class="input-icon">👤</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <div class="input-wrapper">
+                <input type="password" id="password" placeholder="Enter password or click a user card above">
+                <span class="input-icon">🔒</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔑 Authentication</h2>
+        <p>Login to receive an opaque token from the server</p>
+        <button class="btn btn-primary" onclick="performLogin()">
+            <span>🔑</span>
+            Login
+        </button>
+        <div class="loading" id="loginLoading">
+            <div class="spinner"></div>
+            <div>Authenticating...</div>
+        </div>
+        <div id="loginResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
+        <div id="tokenDisplay" class="token-display empty" style="display: none;">
+            No token received yet
+        </div>
+        <div id="tokenInfo" class="token-info" style="display: none;">
+            <span>⏱️ Token expires in: <span id="tokenTimer" class="token-timer">5:00</span></span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>👤 User Profile</h2>
+        <p>Access protected endpoint using your Bearer token</p>
+        <button class="btn btn-success" onclick="fetchProfile()" id="profileBtn" disabled>
+            <span>🔍</span>
+            Get My Profile
+        </button>
+        <div class="loading" id="profileLoading">
+            <div class="spinner"></div>
+            <div>Verifying token...</div>
+        </div>
+        <div id="profileResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🚪 Logout</h2>
+        <p>Revoke all tokens for the current user</p>
+        <button class="btn btn-danger" onclick="performLogout()" id="logoutBtn" disabled>
+            <span>🚪</span>
+            Logout
+        </button>
+        <div class="loading" id="logoutLoading">
+            <div class="spinner"></div>
+            <div>Logging out...</div>
+        </div>
+        <div id="logoutResponse" class="response">
+            <span class="response-header">Response</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 HTTP Transaction Details</h2>
+        <p>View detailed HTTP request and response messages</p>
+        <button class="btn btn-clear" onclick="clearTransactions()" style="margin-bottom: 15px;">
+            <span>🗑️</span>
+            Clear Transactions
+        </button>
+        <div id="transactionDetails" class="transaction-details">
+            <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                Click any action button to see detailed HTTP request/response messages
+            </p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This demo showcases Opaque Token Authentication with server-side token management</p>
+    </div>
+</div>
+
+<script>
+    // Global state
+    let currentToken = null;
+    let currentUsername = null;
+    let tokenTimer = null;
+    let tokenExpiryTime = null;
+
+    // HTTP Transaction Module
+    const HTTPTransaction = {
+        formatHeaders(headers) {
+            let formatted = '';
+            if (headers && typeof headers === 'object') {
+                Object.entries(headers).forEach(([name, value]) => {
+                    formatted += `<span class="http-header-name">${name}:</span> <span class="http-header-value">${value}</span>\n`;
+                });
+            }
+            return formatted;
+        },
+
+        formatRequest(method, url, headers, body) {
+            const urlObj = new URL(url, window.location.origin);
+            let request = `<span class="http-method">${method}</span> ${urlObj.pathname}${urlObj.search} HTTP/1.1\n`;
+            request += `<span class="http-header-name">Host:</span> <span class="http-header-value">${urlObj.host}</span>\n`;
+            request += this.formatHeaders(headers);
+            if (body) {
+                request += `\n${body}`;
+            }
+            return request;
+        },
+
+        formatResponse(status, statusText, headers, body) {
+            const statusClass = status === 200 ? 'http-status-200' : 'http-status-401';
+            let formatted = `HTTP/1.1 <span class="${statusClass}">${status} ${statusText}</span>\n`;
+            if (headers) {
+                formatted += this.formatHeaders(headers);
+            }
+            if (body) {
+                formatted += `\n${body}`;
+            }
+            return formatted;
+        },
+
+        display(transaction) {
+            const detailsContainer = document.getElementById('transactionDetails');
+            if (!detailsContainer) return;
+
+            let responseClass = 'http-response-401';
+            if (transaction.response.status === 200) responseClass = 'http-response-200';
+
+            const html = `
+                <div class="http-message http-request">
+                    <div class="http-message-header">🌐 HTTP Request</div>
+                    <div class="http-message-content"><pre>${transaction.request}</pre></div>
+                </div>
+                <div class="transaction-flow">⬇️</div>
+                <div class="http-message ${responseClass}">
+                    <div class="http-message-header">📨 HTTP Response</div>
+                    <div class="http-message-content"><pre>${transaction.responseText}</pre></div>
+                </div>
+            `;
+
+            detailsContainer.innerHTML = html;
+            detailsContainer.classList.add('visible');
+        }
+    };
+
+    // User card click handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const userCards = document.querySelectorAll('.user-card');
+
+        userCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove active class from all cards
+                userCards.forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked card
+                this.classList.add('active');
+
+                // Get credentials from data attributes
+                const username = this.dataset.username;
+                const password = this.dataset.password;
+
+                // Fill in the form fields
+                document.getElementById('username').value = username;
+                document.getElementById('password').value = password;
+
+                // Add a subtle animation to the inputs
+                const inputs = ['username', 'password'];
+                inputs.forEach(id => {
+                    const input = document.getElementById(id);
+                    input.style.transition = 'none';
+                    input.style.background = 'linear-gradient(to right, rgba(102, 126, 234, 0.1), transparent)';
+                    setTimeout(() => {
+                        input.style.transition = 'all 0.3s ease';
+                        input.style.background = 'white';
+                    }, 100);
+                });
+            });
+        });
+
+        // Set the first user as active by default
+        const firstCard = userCards[0];
+        if (firstCard) {
+            firstCard.click();
+        }
+    });
+
+    // Update active card when username changes
+    document.getElementById('username').addEventListener('input', function() {
+        updateActiveCard();
+    });
+
+    document.getElementById('password').addEventListener('input', function() {
+        updateActiveCard();
+    });
+
+    function updateActiveCard() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const userCards = document.querySelectorAll('.user-card');
+
+        userCards.forEach(card => {
+            if (card.dataset.username === username && card.dataset.password === password) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    }
+
+    function showLoading(elementId, show) {
+        const element = document.getElementById(elementId);
+        if (show) {
+            element.classList.add('show');
+        } else {
+            element.classList.remove('show');
+        }
+    }
+
+    function displayResponse(elementId, response, isError = false) {
+        const element = document.getElementById(elementId);
+        const header = element.querySelector('.response-header');
+        element.innerHTML = '';
+        if (header) {
+            element.appendChild(header);
+        }
+        const textNode = document.createTextNode(response);
+        element.appendChild(textNode);
+        element.className = `response ${isError ? 'error' : 'success'}`;
+        element.classList.add('show');
+    }
+
+    function startTokenTimer() {
+        // Clear any existing timer
+        if (tokenTimer) {
+            clearInterval(tokenTimer);
+        }
+
+        // Set expiry time to 5 minutes from now
+        tokenExpiryTime = Date.now() + (5 * 60 * 1000);
+
+        // Update timer display every second
+        tokenTimer = setInterval(() => {
+            const remaining = Math.max(0, tokenExpiryTime - Date.now());
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+
+            const timerElement = document.getElementById('tokenTimer');
+            if (timerElement) {
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                // Change color as time runs out
+                if (remaining < 60000) {
+                    timerElement.style.background = 'rgba(220, 53, 69, 0.1)';
+                    timerElement.style.borderColor = 'rgba(220, 53, 69, 0.3)';
+                    timerElement.style.color = '#721c24';
+                } else if (remaining < 120000) {
+                    timerElement.style.background = 'rgba(255, 193, 7, 0.1)';
+                    timerElement.style.borderColor = 'rgba(255, 193, 7, 0.3)';
+                    timerElement.style.color = '#856404';
+                }
+            }
+
+            // Token expired
+            if (remaining === 0) {
+                clearInterval(tokenTimer);
+                tokenTimer = null;
+                handleTokenExpiry();
+            }
+        }, 1000);
+    }
+
+    function handleTokenExpiry() {
+        currentToken = null;
+        currentUsername = null;
+        updateButtonStates();
+
+        const tokenDisplay = document.getElementById('tokenDisplay');
+        tokenDisplay.textContent = 'Token expired - please login again';
+        tokenDisplay.classList.add('empty');
+
+        document.getElementById('tokenInfo').style.display = 'none';
+
+        displayResponse('profileResponse', 'Token expired - please login again', true);
+    }
+
+    function updateButtonStates() {
+        const hasToken = currentToken !== null;
+        document.getElementById('profileBtn').disabled = !hasToken;
+        document.getElementById('logoutBtn').disabled = !hasToken;
+    }
+
+    async function performLogin() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        if (!username || !password) {
+            displayResponse('loginResponse', 'Please select a user or enter credentials', true);
+            return;
+        }
+
+        showLoading('loginLoading', true);
+
+        try {
+            const url = '/login';
+            const body = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+            const headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            });
+
+            const text = await response.text();
+
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('POST', url, headers, body),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
+
+            if (response.ok) {
+                currentToken = text;
+                currentUsername = username;
+                displayResponse('loginResponse', `Status: ${response.status} ✅\nAuthenticated as: ${username}\n\nToken received successfully`, false);
+
+                // Show and update token display
+                const tokenDisplay = document.getElementById('tokenDisplay');
+                tokenDisplay.textContent = currentToken;
+                tokenDisplay.classList.remove('empty');
+                tokenDisplay.style.display = 'block';
+
+                // Show token info and start timer
+                document.getElementById('tokenInfo').style.display = 'block';
+                startTokenTimer();
+
+                updateButtonStates();
+            } else {
+                currentToken = null;
+                currentUsername = null;
+                displayResponse('loginResponse', `Error ${response.status} ❌\nAuthentication failed\n\n${text}`, true);
+                document.getElementById('tokenDisplay').style.display = 'none';
+                document.getElementById('tokenInfo').style.display = 'none';
+                updateButtonStates();
+            }
+        } catch (error) {
+            displayResponse('loginResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('loginLoading', false);
+        }
+    }
+
+    async function fetchProfile() {
+        if (!currentToken) {
+            displayResponse('profileResponse', 'Please login first to get a token', true);
+            return;
+        }
+
+        showLoading('profileLoading', true);
+
+        try {
+            const url = '/profile/me';
+            const headers = {
+                'Authorization': `Bearer ${currentToken}`
+            };
+
+            const response = await fetch(url, { headers });
+            const text = await response.text();
+
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('GET', url, headers),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'WWW-Authenticate': response.headers.get('WWW-Authenticate') || '',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
+
+            if (response.ok) {
+                displayResponse('profileResponse', `Status: ${response.status} ✅\nAuthenticated with Bearer token\n\n${text}`, false);
+            } else {
+                displayResponse('profileResponse', `Error ${response.status} ❌\nAccess denied\n\n${text}`, true);
+                if (response.status === 401) {
+                    // Token might be expired or invalid
+                    handleTokenExpiry();
+                }
+            }
+        } catch (error) {
+            displayResponse('profileResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('profileLoading', false);
+        }
+    }
+
+    async function performLogout() {
+        if (!currentToken) {
+            displayResponse('logoutResponse', 'No active session to logout', true);
+            return;
+        }
+
+        showLoading('logoutLoading', true);
+
+        try {
+            const url = '/logout';
+            const headers = {
+                'Authorization': `Bearer ${currentToken}`
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers
+            });
+
+            const text = await response.text();
+
+            // Create transaction record
+            const transaction = {
+                request: HTTPTransaction.formatRequest('POST', url, headers),
+                response: {
+                    status: response.status,
+                    statusText: response.statusText
+                },
+                responseText: HTTPTransaction.formatResponse(
+                    response.status,
+                    response.statusText,
+                    {
+                        'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+                        'Content-Length': text.length
+                    },
+                    text
+                )
+            };
+
+            HTTPTransaction.display(transaction);
+
+            if (response.ok) {
+                displayResponse('logoutResponse', `Status: ${response.status} ✅\nLogged out successfully\n\nUser: ${text}`, false);
+
+                // Clear token and timer
+                currentToken = null;
+                currentUsername = null;
+                if (tokenTimer) {
+                    clearInterval(tokenTimer);
+                    tokenTimer = null;
+                }
+
+                // Hide token display
+                const tokenDisplay = document.getElementById('tokenDisplay');
+                tokenDisplay.textContent = 'No token received yet';
+                tokenDisplay.classList.add('empty');
+                tokenDisplay.style.display = 'none';
+
+                document.getElementById('tokenInfo').style.display = 'none';
+
+                // Clear other responses
+                document.getElementById('loginResponse').classList.remove('show');
+                document.getElementById('profileResponse').classList.remove('show');
+
+                updateButtonStates();
+            } else {
+                displayResponse('logoutResponse', `Error ${response.status} ❌\nLogout failed\n\n${text}`, true);
+            }
+        } catch (error) {
+            displayResponse('logoutResponse', `Network Error ❌\n\n${error.message}`, true);
+        } finally {
+            showLoading('logoutLoading', false);
+        }
+    }
+
+    function clearTransactions() {
+        const detailsContainer = document.getElementById('transactionDetails');
+        if (detailsContainer) {
+            detailsContainer.classList.remove('visible');
+            setTimeout(() => {
+                detailsContainer.innerHTML = `
+                    <p style="text-align: center; color: #6c757d; font-style: italic; padding: 20px;">
+                        Click any action button to see detailed HTTP request/response messages
+                    </p>
+                `;
+            }, 300);
+        }
+    }
+
+    // Add Enter key support
+    document.getElementById('username').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performLogin();
+        }
+    });
+
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performLogin();
+        }
+    });
+</script>
+</body>
+</html>

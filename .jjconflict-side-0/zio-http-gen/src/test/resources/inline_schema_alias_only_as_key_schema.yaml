@@ -1,0 +1,36 @@
+info:
+  title: Dummy Service
+  version: 0.0.1
+servers:
+  - url: http://127.0.0.1:5000/
+tags:
+  - name: Dummy_API
+paths:
+  /api/text_by_key:
+    get:
+      operationId: text_by_key
+      description: Get a dictionary mapping keys to text
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectWithDictionary'
+          description: OK
+openapi: 3.0.3
+components:
+  schemas:
+    Key:
+      type: string
+      format: uuid
+    ObjectWithDictionary:
+      type: object
+      required:
+        - dict
+      properties:
+        dict:
+          type: object
+          additionalProperties:
+            type: string
+            x-string-key-schema:
+              $ref: '#/components/schemas/Key'

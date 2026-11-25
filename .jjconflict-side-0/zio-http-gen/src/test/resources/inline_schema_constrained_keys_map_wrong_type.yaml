@@ -1,0 +1,69 @@
+info:
+  title: Shop Service
+  version: 0.0.1
+servers:
+  - url: http://127.0.0.1:5000/
+tags:
+  - name: Order_API
+paths:
+  /api/v1/shop/history/{id}:
+    get:
+      operationId: get_user_history
+      parameters:
+        - in: path
+          name: id
+          schema:
+            $ref: '#/components/schemas/UserId'
+          required: true
+      tags:
+        - Order_API
+      description: Get user order history by user id
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOrderHistory'
+          description: OK
+openapi: 3.0.3
+components:
+  schemas:
+    UserOrderHistory:
+      type: object
+      required:
+        - user_id
+        - history
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UserId'
+        history:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Order'
+            x-string-key-schema:
+              $ref: '#/components/schemas/OrderId'
+    Order:
+        type: object
+        required:
+            - id
+            - product
+            - quantity
+            - price
+        properties:
+            id:
+              $ref: '#/components/schemas/OrderId'
+            product:
+              type: string
+            quantity:
+              type: integer
+              format: int32
+              minimum: 1
+            price:
+              type: number
+              minimum: 0
+    OrderId:
+      type: integer
+      format: int32
+    UserId:
+      type: string
+      format: uuid

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "zio-http",
+  "description": "A next-generation Scala framework for building scalable, correct, and efficient HTTP clients and servers",
+  "folders": ["docs", "zio-http-example"],
+  "excludeFolders": ["docs/examples"],
+  "excludeFiles": [],
+  "rules": ["Ignore anything with the term `printSource`."],
+  "previousVersions": []
+}

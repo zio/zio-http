@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.locks.LockSupport
 
 import scala.util.control.NonFatal
 
@@ -52,13 +51,6 @@ final class H2Connection(
   private val activeHandlers                        = ConcurrentHashMap.newKeySet[Thread]()
   private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
   private val writeLock                             = new Object
-  // Writer wake-up: the writer VT parks instead of polling every 1 ms. Any
-  // outbound enqueue (SignallingStream.send) or shutdown unparks it, so an
-  // idle connection costs no CPU. The (clear -> re-check -> park) sequence
-  // avoids lost wake-ups: a signal between the clear and the park leaves a
-  // LockSupport permit that makes park return immediately.
-  @volatile private var writerThread: Thread        = null
-  private val writerWake                            = new AtomicBoolean(false)
   private var readBuffer: Chunk[Byte]               = Chunk.empty
   private var peerSettings: List[Setting]           = Nil
   private var pendingHeaders: PendingHeaders        = null
@@ -140,10 +132,21 @@ final class H2Connection(
       markLocalFrameWrite(stream, frame)
     }
 
+  /**
+   * Writes a response DATA frame directly under the connection write lock,
+   * serialized with HEADERS/control writes. This replaces the per-connection
+   * writer virtual thread for DATA: the calling handler runs on its own
+   * per-stream VT, and a blocking socket write there provides natural
+   * backpressure instead of a queue + poller.
+   */
+  def writeDataFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame.Data): Unit =
+    writeLock.synchronized {
+      output.write(FrameCodec.encode(frame).toArray)
+      output.flush()
+      markLocalFrameWrite(stream, frame)
+    }
+
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
-    val writer = Thread.ofVirtual().name("zio-http-h2-writer").unstarted(runnable(writerLoop()))
-    writerThread = writer
-    writer.start()
     control.startIdleTimer()
 
     try {
@@ -168,11 +171,6 @@ final class H2Connection(
       cancelPendingDeadline()
       control.stopIdleTimer()
       shutdown(connectionCancelled("closed"))
-      writer.interrupt()
-      try writer.join()
-      catch {
-        case _: InterruptedException => Thread.currentThread().interrupt()
-      }
     }
   }
 
@@ -525,7 +523,7 @@ final class H2Connection(
         refuseStream(streamId)
         None
       case opened                                                            =>
-        val stream = new SignallingStream(toStream(opened))
+        val stream = toStream(opened)
         highestStreamId = streamId
         flowController.registerStream(streamId)
         activeStreams.put(streamId, stream)
@@ -563,63 +561,6 @@ final class H2Connection(
 
   private def existingStream(streamId: Int): MuxStream[Int, H2Frame, H2Frame] =
     mux.get(streamId).getOrElse(throw protocolError("Unknown stream id: " + streamId))
-
-  /**
-   * Stream delegate that unparks the writer whenever an outbound frame is
-   * enqueued, replacing the writer's 1 ms polling loop. All state lives in the
-   * underlying stream, so wrapping is transparent to callers.
-   */
-  private final class SignallingStream(
-    underlying: MuxStream[Int, H2Frame, H2Frame],
-  ) extends MuxStream[Int, H2Frame, H2Frame] {
-    def id: Int                              = underlying.id
-    def send(msg: H2Frame): Unit | MuxError  = {
-      val result = underlying.send(msg)
-      wakeWriter()
-      result
-    }
-    def receive(): Option[H2Frame] | MuxError = underlying.receive()
-    def offerInbound(msg: H2Frame): Unit | MuxError = underlying.offerInbound(msg)
-    def takeOutbound(): Option[H2Frame] | MuxError  = underlying.takeOutbound()
-    def halfClose(): Unit                    = underlying.halfClose()
-    def signalRemoteClose(): Unit            = underlying.signalRemoteClose()
-    def isClosed: Boolean                    = underlying.isClosed
-    def isHalfClosed: Boolean                = underlying.isHalfClosed
-    def close(): Unit                        = underlying.close()
-  }
-
-  private def writerLoop(): Unit =
-    try {
-      while (!closed.get() || !activeStreams.isEmpty) {
-        var wrote = false
-        val it    = activeStreams.values().iterator()
-
-        while (it.hasNext) {
-          val stream = it.next()
-          var drain  = true
-
-          while (drain) {
-            toOptionalFrame(stream.takeOutbound()) match {
-              case Left(_: MuxError)  =>
-                activeStreams.remove(stream.id)
-                drain = false
-              case Right(Some(frame)) =>
-                writeFrame(frame, flush = false)
-                wrote = true
-                markLocalFrameWrite(stream, frame)
-              case Right(None)        => drain = false
-            }
-          }
-
-          if (stream.isClosed) activeStreams.remove(stream.id)
-        }
-
-        if (wrote) flushOutput()
-        else parkWriter()
-      }
-    } catch {
-      case _: IOException => shutdown(connectionCancelled("writer I/O failure"))
-    }
 
   private def markLocalFrameWrite(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
     frame match {
@@ -687,7 +628,6 @@ final class H2Connection(
     mux.get(streamId).isEmpty && streamId > 0
 
   private def shutdown(reason: MuxError): Unit = {
-    wakeWriter()
     control.stopIdleTimer()
     if (closed.compareAndSet(false, true)) {
       mux.closeAll(reason)
@@ -700,19 +640,6 @@ final class H2Connection(
     }
   }
 
-  private def parkWriter(): Unit = {
-    writerWake.set(false)
-    if (!writerWake.get()) {
-      val t = writerThread
-      if (t != null) LockSupport.park()
-    }
-  }
-
-  private def wakeWriter(): Unit = {
-    writerWake.set(true)
-    val t = writerThread
-    if (t != null) LockSupport.unpark(t)
-  }
 }
 
 private object H2Connection {
@@ -836,15 +763,6 @@ private object H2Connection {
       case Left(error: MuxError) => Some(error)
       case error: MuxError       => Some(error)
       case _                     => None
-    }
-
-  private def toOptionalFrame(result: Any): Either[MuxError, Option[H2Frame]] =
-    result match {
-      case Right(value)          => Right(value.asInstanceOf[Option[H2Frame]])
-      case Left(error: MuxError) => Left(error)
-      case error: MuxError       => Left(error)
-      case value: Option[_]      => Right(value.asInstanceOf[Option[H2Frame]])
-      case other                 => Left(MuxError.ProtocolError("Unexpected mux frame result: " + other))
     }
 
   private def closeQuietly(resource: AutoCloseable): Unit =
