@@ -23,6 +23,43 @@ import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import zio.http.endpoint.openapi.OpenAPI.{Key, Path, PathItem, ReferenceOr, SecurityScheme}
 import zio.http.internal.StringSchemaCodec
 
+/**
+ * Generates an [[OpenAPI]] document from `Endpoint` values. `fromEndpoints`
+ * builds one document from several endpoints, and `gen` builds the document of
+ * one endpoint. The document has a path item for each endpoint path, with the
+ * path, query and header parameters, the request body and the responses of the
+ * endpoint, and it puts the schemas of record and enum bodies in
+ * `components.schemas`. Generation throws a
+ * `java.lang.IllegalArgumentException` for an endpoint with the `CONNECT`
+ * method or a custom method. The OpenAPI codegen sbt plugin goes the other way:
+ * it generates `Endpoint` code from OpenAPI spec files.
+ *
+ * {{{
+ * import zio.http._
+ * import zio.http.endpoint.Endpoint
+ * import zio.http.endpoint.openapi.{OpenAPI, OpenAPIGen}
+ * import zio.schema.{DeriveSchema, Schema}
+ *
+ * final case class Planet(name: String, moons: Int)
+ * object Planet {
+ *   implicit val schema: Schema[Planet] = DeriveSchema.gen[Planet]
+ * }
+ *
+ * val getPlanet   = Endpoint(Method.GET / "planets" / string("name")).out[Planet]
+ * val listPlanets = Endpoint(Method.GET / "planets").out[List[Planet]]
+ *
+ * val api: OpenAPI = OpenAPIGen.fromEndpoints("Planet API", "1.0.0", getPlanet, listPlanets)
+ * val json: String = api.toJsonPretty
+ *
+ * api.paths.keys.map(_.name).toList.sorted // List(/planets, /planets/{name})
+ * api.components.map(_.schemas.keys.map(_.name).toList) // Some(List(Planet))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/endpoint/ Endpoint]]
+ * @see
+ *   [[https://zio.dev/zio-http/reference/openapi-gen-sbt-plugin/ OpenAPI codegen sbt plugin]]
+ */
 object OpenAPIGen {
   private val PathWildcard = "pathWildcard"
 
@@ -44,7 +81,19 @@ object OpenAPIGen {
     result.built
   }
 
+  /**
+   * One codec of an endpoint (a method, path segment, query, header, body or
+   * status codec) together with the metadata annotations collected from the
+   * codecs that wrap it: documentation, examples, a name, and the optional and
+   * deprecated markers.
+   */
   final case class MetaCodec[T](codec: T, annotations: Chunk[HttpCodec.Metadata[_]]) {
+
+    /**
+     * The documentation of the codec: the `Documented` annotations joined in
+     * order. For the trailing path segment (`SegmentCodec.Trailing`), a warning
+     * that OpenAPI has no official support for wildcard path segments is added.
+     */
     lazy val docs: Doc = {
       val annotatedDoc    = annotations.foldLeft(Doc.empty) {
         case (doc, HttpCodec.Metadata.Documented(nextDoc)) => doc + nextDoc
@@ -62,16 +111,32 @@ object OpenAPIGen {
       annotatedDoc + trailingPathDoc
     }
 
+    /** `docs`, or `None` when `docs` is empty. */
     lazy val docsOpt: Option[Doc] = if (docs.isEmpty) None else Some(docs)
 
+    /**
+     * The examples of the `Examples` annotations, by name. When two annotations
+     * have an example with the same name, the later one is kept.
+     */
     lazy val examples: Map[String, Any] = annotations.foldLeft(Map.empty[String, Any]) {
       case (examples, HttpCodec.Metadata.Examples(nextExamples)) => examples ++ nextExamples
       case (examples, _)                                         => examples
     }
 
+    /**
+     * Returns `examples` as OpenAPI examples, with each value encoded as JSON
+     * with `schema`.
+     */
     def examples(schema: Schema[_]): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       examples(schema, generate = false, MediaType.application.json)
 
+    /**
+     * Returns `examples` as OpenAPI examples, with each value encoded as JSON
+     * with `schema`. When `generate` is true and there are no examples, it
+     * returns one example named `generated`, built from the default value of
+     * `schema` when it has one (for a record of a `String` and a `Double`,
+     * `{"name":"","radiusKm":0.0}`).
+     */
     def examples(schema: Schema[_], generate: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       examples(schema, generate, MediaType.application.json)
 
@@ -84,6 +149,12 @@ object OpenAPIGen {
         k -> OpenAPI.ReferenceOr.Or(OpenAPI.Example(toExampleValue(schema, v, mediaType)))
       }
 
+    /**
+     * The name of the codec. For a path segment it is the segment name
+     * (`pathWildcard` for the trailing segment, `None` for a literal or empty
+     * segment). For other codecs it is the name of the last `Named` annotation,
+     * or `None` when there is none.
+     */
     def name: Option[String] =
       codec match {
         case value: SegmentCodec[_] =>
@@ -100,12 +171,20 @@ object OpenAPIGen {
           findName(annotations)
       }
 
+    /** True unless the annotations include an `Optional` annotation. */
     def required: Boolean =
       !annotations.exists(_.isInstanceOf[HttpCodec.Metadata.Optional[_]])
 
+    /** True when the annotations include a `Deprecated` annotation. */
     def deprecated: Boolean =
       annotations.exists(_.isInstanceOf[HttpCodec.Metadata.Deprecated[_]])
   }
+
+  /**
+   * The codecs of an `HttpCodec`, split by kind into method, path segment,
+   * query, header, body (`content`) and status codecs, each with its
+   * annotations.
+   */
   final case class AtomizedMetaCodecs(
     method: Chunk[MetaCodec[SimpleCodec[Method, _]]],
     path: Chunk[MetaCodec[SegmentCodec[_]]],
@@ -114,6 +193,12 @@ object OpenAPIGen {
     content: Chunk[MetaCodec[HttpCodec.Atom[Content, _]]],
     status: Chunk[MetaCodec[HttpCodec.Status[_]]],
   ) {
+
+    /**
+     * Returns a copy with `metaCodec` added to the chunk of its kind. A codec
+     * that is not a method, path segment, query, header, status, `Content` or
+     * `ContentStream` codec is ignored, and `this` is returned.
+     */
     def append(metaCodec: MetaCodec[_]): AtomizedMetaCodecs = metaCodec match {
       case MetaCodec(codec: HttpCodec.Method[_], annotations) =>
         copy(
@@ -135,6 +220,7 @@ object OpenAPIGen {
       case _                                                  => this
     }
 
+    /** Concatenates the chunks of each kind, this one's first. */
     def ++(that: AtomizedMetaCodecs): AtomizedMetaCodecs =
       AtomizedMetaCodecs(
         method ++ that.method,
@@ -145,9 +231,19 @@ object OpenAPIGen {
         status ++ that.status,
       )
 
+    /**
+     * The examples of the body codecs that have an `application/json` codec,
+     * encoded as JSON.
+     */
     def contentExamples: Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       contentExamples(genExamples = false, MediaType.application.json)
 
+    /**
+     * The examples of the body codecs that have an `application/json` codec,
+     * encoded as JSON. When `genExamples` is true, a body codec without
+     * examples gets one example named `generated`, built from the default value
+     * of its schema when it has one.
+     */
     def contentExamples(genExamples: Boolean): Map[String, OpenAPI.ReferenceOr.Or[OpenAPI.Example]] =
       contentExamples(genExamples, MediaType.application.json)
 
@@ -169,6 +265,12 @@ object OpenAPIGen {
     // This is not ideal. But it is the best we can do.
     // To get the doc that is only for the alternation, we take the intersection of all docs,
     // since only the alternation doc is added to all sub elements.
+    /**
+     * The documentation that the body codecs have in common: the parts of their
+     * flattened `Doc` values found in each body codec that has documentation,
+     * joined into one `Doc`. Returns `Doc.empty` when no body codec has
+     * documentation or when they share no part.
+     */
     def contentDocs: Doc =
       content
         .flatMap(_.docsOpt)
@@ -177,6 +279,10 @@ object OpenAPIGen {
         .flatMap(_.reduceOption(_ + _))
         .getOrElse(Doc.empty)
 
+    /**
+     * Returns a copy with each chunk materialized (`Chunk#materialize`). The
+     * result is equal to this value.
+     */
     def optimize: AtomizedMetaCodecs =
       AtomizedMetaCodecs(
         method.materialize,
@@ -188,7 +294,10 @@ object OpenAPIGen {
       )
   }
 
+  /** Constructors of [[AtomizedMetaCodecs]]. */
   object AtomizedMetaCodecs {
+
+    /** A value with no codec of any kind. */
     def empty: AtomizedMetaCodecs = AtomizedMetaCodecs(
       method = Chunk.empty,
       path = Chunk.empty,
@@ -198,6 +307,11 @@ object OpenAPIGen {
       status = Chunk.empty,
     )
 
+    /**
+     * Splits `codec` into its codecs, by kind. Each codec gets the annotations
+     * of the codecs that wrap it; a path codec is split into its segments, and
+     * each alternative of a fallback (`|`) is included.
+     */
     def flatten[R, A](codec: HttpCodec[R, A]): AtomizedMetaCodecs = {
       val atoms = flattenedAtoms(codec)
 
@@ -296,12 +410,24 @@ object OpenAPIGen {
         t.defaultValue.map(v => Map(name -> v)).getOrElse(Map.empty)
     }
 
+  /**
+   * Returns the method of the method codecs of an endpoint input. Throws a
+   * `java.lang.Exception` with the message "Multiple methods not supported"
+   * when `in` has more than one codec, and with "No method specified" when `in`
+   * is empty or its codec does not specify a method.
+   */
   def method(in: Chunk[MetaCodec[SimpleCodec[Method, _]]]): Method = {
     if (in.size > 1) throw new Exception("Multiple methods not supported")
     in.collectFirst { case MetaCodec(SimpleCodec.Specified(method: Method), _) => method }
       .getOrElse(throw new Exception("No method specified"))
   }
 
+  /**
+   * Splits a path codec into its segments, each with the annotations that apply
+   * to it, from `annotations` and from the path codec. The documentation of a
+   * path codec is given to each of its segments. For a fallback path codec,
+   * only the segments of the first path are returned.
+   */
   def metaCodecFromPathCodec(
     codec: PathCodec[_],
     annotations: Chunk[HttpCodec.Metadata[_]],
@@ -337,12 +463,40 @@ object OpenAPIGen {
     }.asInstanceOf[Chunk[MetaCodec[SegmentCodec[_]]]]
   }
 
+  /**
+   * Converts a path codec annotation to the `HttpCodec` annotation of the same
+   * kind: `Documented` to `Documented`, `Examples` to `Examples`.
+   */
   def toHttpCodecAnnotations(annotation: PathCodec.MetaData[_]): HttpCodec.Metadata[_] =
     annotation match {
       case PathCodec.MetaData.Documented(value)  => HttpCodec.Metadata.Documented(value)
       case PathCodec.MetaData.Examples(examples) => HttpCodec.Metadata.Examples(examples)
     }
 
+  /**
+   * Returns the JSON Schema of the body of `codec` for `mediaType`, or
+   * `JsonSchema.Null` when `codec` has no body. Several bodies (a multipart
+   * codec) give an object schema with one property per body, named after the
+   * body. A stream of bytes gives a binary string schema, and a stream of other
+   * values gives an array schema.
+   *
+   * Throws a `java.lang.IllegalArgumentException` with the message "Fallback
+   * not supported at this point" when `codec` is a fallback (`|`) of codecs,
+   * and a `java.lang.Exception` with the message "Multipart content without
+   * name" when a body to wrap in an object has no name.
+   *
+   * @param metadata
+   *   annotations to apply in addition to those of `codec`
+   * @param referenceType
+   *   how schemas of named types are written: inline, or as a reference to a
+   *   component
+   * @param wrapInObject
+   *   whether to wrap a single body in an object schema with one property named
+   *   after the body
+   * @param omitDescription
+   *   whether to leave out the description that comes from the documentation
+   *   annotations
+   */
   def contentAsJsonSchema[R, A](
     codec: HttpCodec[R, A],
     metadata: Chunk[HttpCodec.Metadata[_]] = Chunk.empty,
@@ -512,6 +666,10 @@ object OpenAPIGen {
   private def optional(metadata: Chunk[HttpCodec.Metadata[_]]): Boolean =
     metadata.exists(_.isInstanceOf[HttpCodec.Metadata.Optional[_]])
 
+  /**
+   * Returns the first status that `codec` specifies, searching combined and
+   * fallback codecs left to right, or `None` when it specifies none.
+   */
   def status[R, A](codec: HttpCodec[R, A]): Option[Status] =
     codec match {
       case HttpCodec.Status(simpleCodec, _) if simpleCodec.isInstanceOf[SimpleCodec.Specified[_]] =>
@@ -532,6 +690,11 @@ object OpenAPIGen {
         None
     }
 
+  /**
+   * True when `codec` combines two parts that both contain a body codec, so
+   * that it has more than one body (for example
+   * `HttpCodec.content[String]("a") ++ HttpCodec.content[Int]("b")`).
+   */
   def isMultipart[R, A](codec: HttpCodec[R, A]): Boolean =
     codec match {
       case HttpCodec.Combine(left, right, _)      =>
@@ -542,6 +705,10 @@ object OpenAPIGen {
       case _                                      => false
     }
 
+  /**
+   * True when `value` contains a body codec (`Content` or `ContentStream`),
+   * itself or inside a combined, annotated or transformed codec.
+   */
   def isContent(value: HttpCodec[_, _]): Boolean =
     value match {
       case HttpCodec.Content(_, _, _)             => true
@@ -567,17 +734,38 @@ object OpenAPIGen {
       Json.Str(v.toString)
     }
 
+  /**
+   * Generates one document from the endpoints, with compact schema names
+   * (`SchemaStyle.Compact`) and without generated examples. `info.title` and
+   * `info.version` are empty strings. The documents of the endpoints are merged
+   * in order with `OpenAPI.++`: for two endpoints with the same path and
+   * method, the operation of the first one is kept.
+   */
   def fromEndpoints(
     endpoint1: Endpoint[_, _, _, _, _],
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from the endpoints, with compact schema names
+   * (`SchemaStyle.Compact`) and empty `info.title` and `info.version`. When
+   * `genExamples` is true, each request and response body without examples gets
+   * one example named `generated`, built from the default value of its schema
+   * when it has one.
+   */
   def fromEndpoints(
     genExamples: Boolean,
     endpoint1: Endpoint[_, _, _, _, _],
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(genExamples, endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from the endpoints, with `info.title` set to `title`
+   * and `info.version` set to `version`, with compact schema names
+   * (`SchemaStyle.Compact`) and without generated examples. The documents of
+   * the endpoints are merged in order with `OpenAPI.++`: for two endpoints with
+   * the same path and method, the operation of the first one is kept.
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -585,6 +773,13 @@ object OpenAPIGen {
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from the endpoints, with `info.title` set to `title`
+   * and `info.version` set to `version`, with compact schema names
+   * (`SchemaStyle.Compact`). When `genExamples` is true, each request and
+   * response body without examples gets one example named `generated`, built
+   * from the default value of its schema when it has one.
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -593,6 +788,16 @@ object OpenAPIGen {
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, genExamples, endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from the endpoints, with `info.title` set to `title`
+   * and `info.version` set to `version`, without generated examples.
+   * `referenceType` sets how the schemas of record and enum bodies are written:
+   * `SchemaStyle.Compact` refers to a component named after the type,
+   * `SchemaStyle.Reference` to a component named after the full type name with
+   * `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema in place
+   * (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`).
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -601,6 +806,19 @@ object OpenAPIGen {
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, referenceType, endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from the endpoints, with `info.title` set to `title`
+   * and `info.version` set to `version`. `referenceType` sets how the schemas
+   * of record and enum bodies are written: `SchemaStyle.Compact` refers to a
+   * component named after the type, `SchemaStyle.Reference` to a component
+   * named after the full type name with `.` replaced by `_`, and
+   * `SchemaStyle.Inline` writes the schema in place (`components.schemas` still
+   * lists it, under the same name as with `SchemaStyle.Reference`).
+   *
+   * When `genExamples` is true, each request and response body without examples
+   * gets one example named `generated`, built from the default value of its
+   * schema when it has one.
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -610,11 +828,35 @@ object OpenAPIGen {
     endpoints: Endpoint[_, _, _, _, _]*,
   ): OpenAPI = fromEndpoints(title, version, referenceType, genExamples, endpoint1 +: endpoints)
 
+  /**
+   * Generates one document from `endpoints`, with empty `info.title` and
+   * `info.version` and without generated examples. An empty `endpoints` gives
+   * `OpenAPI.empty`. `referenceType` sets how the schemas of record and enum
+   * bodies are written: `SchemaStyle.Compact` refers to a component named after
+   * the type, `SchemaStyle.Reference` to a component named after the full type
+   * name with `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema
+   * in place (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`).
+   */
   def fromEndpoints(
     referenceType: SchemaStyle,
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType)).reduce(_ ++ _)
 
+  /**
+   * Generates one document from `endpoints`, with empty `info.title` and
+   * `info.version`. An empty `endpoints` gives `OpenAPI.empty`. `referenceType`
+   * sets how the schemas of record and enum bodies are written:
+   * `SchemaStyle.Compact` refers to a component named after the type,
+   * `SchemaStyle.Reference` to a component named after the full type name with
+   * `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema in place
+   * (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`).
+   *
+   * When `genExamples` is true, each request and response body without examples
+   * gets one example named `generated`, built from the default value of its
+   * schema when it has one.
+   */
   def fromEndpoints(
     referenceType: SchemaStyle,
     genExamples: Boolean,
@@ -622,22 +864,54 @@ object OpenAPIGen {
   ): OpenAPI =
     if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, referenceType, genExamples)).reduce(_ ++ _)
 
+  /**
+   * Generates one document from `endpoints`, with compact schema names
+   * (`SchemaStyle.Compact`), without generated examples, and with empty
+   * `info.title` and `info.version`. An empty `endpoints` gives
+   * `OpenAPI.empty`. The documents of the endpoints are merged in order with
+   * `OpenAPI.++`: for two endpoints with the same path and method, the
+   * operation of the first one is kept.
+   */
   def fromEndpoints(
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact)).reduce(_ ++ _)
 
+  /**
+   * Generates one document from `endpoints`, with compact schema names
+   * (`SchemaStyle.Compact`) and empty `info.title` and `info.version`. An empty
+   * `endpoints` gives `OpenAPI.empty`. When `genExamples` is true, each request
+   * and response body without examples gets one example named `generated`,
+   * built from the default value of its schema when it has one.
+   */
   def fromEndpoints(
     genExamples: Boolean,
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI =
     if (endpoints.isEmpty) OpenAPI.empty else endpoints.map(gen(_, SchemaStyle.Compact, genExamples)).reduce(_ ++ _)
 
+  /**
+   * Generates one document from `endpoints`, with `info.title` set to `title`
+   * and `info.version` set to `version`, with compact schema names
+   * (`SchemaStyle.Compact`) and without generated examples. An empty
+   * `endpoints` gives `OpenAPI.empty` with that title and version. The
+   * documents of the endpoints are merged in order with `OpenAPI.++`: for two
+   * endpoints with the same path and method, the operation of the first one is
+   * kept.
+   */
   def fromEndpoints(
     title: String,
     version: String,
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(endpoints).title(title).version(version)
 
+  /**
+   * Generates one document from `endpoints`, with `info.title` set to `title`
+   * and `info.version` set to `version`, with compact schema names
+   * (`SchemaStyle.Compact`). An empty `endpoints` gives `OpenAPI.empty` with
+   * that title and version. When `genExamples` is true, each request and
+   * response body without examples gets one example named `generated`, built
+   * from the default value of its schema when it has one.
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -645,6 +919,17 @@ object OpenAPIGen {
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(genExamples, endpoints).title(title).version(version)
 
+  /**
+   * Generates one document from `endpoints`, with `info.title` set to `title`
+   * and `info.version` set to `version`, without generated examples. An empty
+   * `endpoints` gives `OpenAPI.empty` with that title and version.
+   * `referenceType` sets how the schemas of record and enum bodies are written:
+   * `SchemaStyle.Compact` refers to a component named after the type,
+   * `SchemaStyle.Reference` to a component named after the full type name with
+   * `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema in place
+   * (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`).
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -652,6 +937,20 @@ object OpenAPIGen {
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(referenceType, endpoints).title(title).version(version)
 
+  /**
+   * Generates one document from `endpoints`, with `info.title` set to `title`
+   * and `info.version` set to `version`. An empty `endpoints` gives
+   * `OpenAPI.empty` with that title and version. `referenceType` sets how the
+   * schemas of record and enum bodies are written: `SchemaStyle.Compact` refers
+   * to a component named after the type, `SchemaStyle.Reference` to a component
+   * named after the full type name with `.` replaced by `_`, and
+   * `SchemaStyle.Inline` writes the schema in place (`components.schemas` still
+   * lists it, under the same name as with `SchemaStyle.Reference`).
+   *
+   * When `genExamples` is true, each request and response body without examples
+   * gets one example named `generated`, built from the default value of its
+   * schema when it has one.
+   */
   def fromEndpoints(
     title: String,
     version: String,
@@ -660,15 +959,49 @@ object OpenAPIGen {
     endpoints: Iterable[Endpoint[_, _, _, _, _]],
   ): OpenAPI = fromEndpoints(referenceType, genExamples, endpoints).title(title).version(version)
 
+  /**
+   * Generates the document of one endpoint, with compact schema names
+   * (`SchemaStyle.Compact`) and without generated examples. The document has
+   * `openapi` set to `3.1.0` and empty `info.title` and `info.version`.
+   */
   def gen(
     endpoint: Endpoint[_, _, _, _, _],
   ): OpenAPI = gen(endpoint, SchemaStyle.Compact)
 
+  /**
+   * Generates the document of one endpoint, without generated examples. The
+   * document has `openapi` set to `3.1.0` and empty `info.title` and
+   * `info.version`. `referenceType` sets how the schemas of record and enum
+   * bodies are written: `SchemaStyle.Compact` refers to a component named after
+   * the type, `SchemaStyle.Reference` to a component named after the full type
+   * name with `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema
+   * in place (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`).
+   */
   def gen(
     endpoint: Endpoint[_, _, _, _, _],
     referenceType: SchemaStyle,
   ): OpenAPI = gen(endpoint, referenceType, genExamples = false)
 
+  /**
+   * Generates the document of one endpoint. The document has `openapi` set to
+   * `3.1.0` and empty `info.title` and `info.version`. For `Method.ANY`, the
+   * path item has the same operation under get, put, post, delete, options,
+   * head, patch and trace.
+   *
+   * `referenceStyle` sets how the schemas of record and enum bodies are
+   * written: `SchemaStyle.Compact` refers to a component named after the type,
+   * `SchemaStyle.Reference` to a component named after the full type name with
+   * `.` replaced by `_`, and `SchemaStyle.Inline` writes the schema in place
+   * (`components.schemas` still lists it, under the same name as with
+   * `SchemaStyle.Reference`). When `genExamples` is true, each request and
+   * response body without examples gets one example named `generated`, built
+   * from the default value of its schema when it has one.
+   *
+   * Throws a `java.lang.IllegalArgumentException` with the message "OpenAPI
+   * does not support method CONNECT" for an endpoint with the `CONNECT` method,
+   * and the same message with the method name for a custom method.
+   */
   def gen(
     endpoint: Endpoint[_, _, _, _, _],
     referenceStyle: SchemaStyle = SchemaStyle.Compact,
@@ -1195,6 +1528,13 @@ object OpenAPIGen {
     }
   }
 
+  /**
+   * Returns the component name of a record or enum schema: the type name for
+   * `SchemaStyle.Compact`, and the full type name with `.` replaced by `_` for
+   * `SchemaStyle.Reference` and `SchemaStyle.Inline`. An optional, lazy or
+   * transformed schema gives the name of the schema it wraps. A structural
+   * type, a collection or a primitive schema gives `None`.
+   */
   @tailrec
   def nominal(schema: Schema[_], referenceType: SchemaStyle): Option[String] =
     schema match {
