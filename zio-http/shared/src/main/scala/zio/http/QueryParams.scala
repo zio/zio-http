@@ -299,9 +299,9 @@ object QueryParams {
   }
 
   /**
-   * * Construct from tuples of k, v with singular v. A blank value (empty or
-   * only whitespace) adds no value to its key. When the key already has values,
-   * a blank value removes them, so `QueryParams("a" -> "1", "a" -> "")` has no
+   * Construct from tuples of k, v with singular v. A blank value (empty or only
+   * whitespace) adds no value to its key. When the key already has values, a
+   * blank value removes them, so `QueryParams("a" -> "1", "a" -> "")` has no
    * values for `a`.
    */
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
