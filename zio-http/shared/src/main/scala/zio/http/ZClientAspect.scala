@@ -579,10 +579,7 @@ object ZClientAspect {
   object CurlLogger {
 
     /**
-     * Formats a request, given by its parts, as a curl command with one option
-     * per line. The body is included only when it is complete
-     * (`Body#isComplete`) and not empty. With a proxy that has credentials, the
-     * `--proxy-user` part of the proxy option is wrapped in `Some(...)`.
+     * Formats a request, given by its parts, as a curl command with one option per line. The body is included only when it is complete (`Body#isComplete`) and not empty. With a proxy, the proxy option ends with the text `None` when the proxy has no credentials, and with the `--proxy-user` option wrapped in `Some(...)` when it has some; the password is written as the `toString` of its `zio.Config.Secret`.
      */
     def formatCurlCommand(
       version: Version,
