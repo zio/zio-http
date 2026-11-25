@@ -1372,7 +1372,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.MethodNotAllowed, message)
 
   /**
-   * A handler that responds with status 404 Not Found and the encoded request path as the message, like `error(Status.NotFound, path)`.
+   * A handler that responds with status 404 Not Found and the request path as the message, like `error(Status.NotFound, path)`.
    */
   val notFound: Handler[Any, Nothing, Request, Response] =
     Handler
@@ -1387,7 +1387,7 @@ object Handler extends HandlerPlatformSpecific with HandlerVersionSpecific {
     error(Status.NotFound, message)
 
   /**
-   * Creates a handler that responds with status 404 Not Found and the encoded request path as the message. The `routes` argument is not used: the result is the same as the `notFound` value.
+   * Creates a handler that responds with status 404 Not Found and the request path as the message. The `routes` argument is not used: the result is the same as the `notFound` value.
    */
   def notFound(routes: Routes[_, _]): Handler[Any, Nothing, Request, Response] =
     Handler
