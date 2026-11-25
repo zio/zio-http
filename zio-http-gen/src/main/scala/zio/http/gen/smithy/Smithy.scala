@@ -116,7 +116,8 @@ object ShapeId {
 /**
  * A Smithy trait applied to a shape or a member. The parser turns a trait it
  * does not know, or one whose argument has an unexpected form, into
- * `SmithyTrait.Generic`.
+ * `SmithyTrait.Generic`. Traits are recognized by their name alone, whatever
+ * their namespace.
  */
 sealed trait SmithyTrait {
 
@@ -135,6 +136,8 @@ object SmithyTrait {
    * The `smithy.api#http` trait: the HTTP method, the URI template and the
    * success status code. When the parser reads the trait without a `method` it
    * uses `GET`, without a `uri` it uses `/`, and without a `code` it uses 200.
+   * These defaults apply only when the argument is an object; `@http` with no
+   * argument becomes `SmithyTrait.Generic`.
    */
   case class Http(method: String, uri: String, code: Int = 200) extends SmithyTrait {
 
@@ -500,7 +503,9 @@ object SmithyTrait {
 /**
  * A member of a structure or union: its name, the shape it targets, its traits
  * and an optional default value. The parser never sets `defaultValue`; a
- * `@default` trait is kept in `traits`.
+ * `@default` trait is kept in `traits`. The `name: Type = value` syntax is not
+ * parsed: the `=` is skipped and the value is read as an extra member with an
+ * empty target.
  */
 final case class Member(
   name: String,
@@ -1024,8 +1029,9 @@ object SmithyParser {
    * skipped, so malformed input usually gives a `Right` with a smaller or empty
    * model. Returns `Left("Parse error: ...")` when parsing throws an exception.
    *
-   * A shape that is preceded by more than one `///` line gets no
-   * `Documentation` trait. A single `///` line becomes a `Documentation` trait.
+   * Consecutive `///` lines are not joined: after an even number of them the
+   * shape gets no `Documentation` trait, and after an odd number it gets one
+   * that holds only the last line.
    */
   def parse(input: String): Either[String, SmithyModel] = {
     try {

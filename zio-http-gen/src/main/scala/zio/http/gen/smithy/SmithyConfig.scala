@@ -19,7 +19,8 @@ import zio.http.gen.openapi.Config.NormalizeFields
  *
  * @param generateCompanionObjects
  *   If true, generates companion objects with Schema derivation for all case
- *   classes. `SmithyEndpointGen` does not read this field.
+ *   classes. `SmithyEndpointGen` does not read this field; it always generates
+ *   a companion object with a derived schema for each structure.
  *
  * @param unwrapSingleMemberInputs
  *   If true, operations with single-member input structures will use the member
@@ -40,7 +41,9 @@ import zio.http.gen.openapi.Config.NormalizeFields
  *
  * @param includeDocumentation
  *   If true, includes Smithy @documentation traits as Scaladoc comments in the
- *   generated code. `SmithyEndpointGen` does not read this field.
+ *   generated code. `SmithyEndpointGen` does not read this field; it always
+ *   passes the operation's `@documentation` as the doc argument of the `in` and
+ *   `out` calls, and writes nothing as Scaladoc.
  *
  * @param typeMapping
  *   Custom mapping of Smithy shape names to Scala types. Allows overriding

@@ -150,7 +150,8 @@ object SmithyEndpointGen {
    * Read all .smithy files from a directory, including its subdirectories, and
    * generate combined Code.Files. The models are merged by shape name; when
    * several files define a shape with the same name, the shape from the file
-   * that is read last is kept.
+   * that is read last is kept. That is the last file in the order of
+   * `Files.walk`, which is not sorted and depends on the file system.
    *
    * @param dir
    *   Directory containing .smithy files
