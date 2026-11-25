@@ -26,10 +26,10 @@ import io.netty.util.concurrent.{Future, GenericFutureListener}
 private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 
   /**
-   * Resolves when the underlying future resolves and removes the handler
-   * (output: A) - if the future is resolved successfully (cause: None) - if the
-   * future fails with a CancellationException (cause: Throwable) - if the
-   * future fails with any other Exception
+   * Waits for the future to complete. Succeeds with `Some` of the future's
+   * value (`None` when the value is `null`) when the future succeeds, succeeds
+   * with `None` when it was cancelled, and fails with the future's cause
+   * otherwise. On interruption, removes the listener it added to the future.
    */
   def execute(implicit trace: Trace): Task[Option[A]] = {
     var handler: GenericFutureListener[Future[A]] = { _ => {} }
@@ -61,13 +61,30 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
     ZIO.succeed(jFuture.cancel(interruptIfRunning))
 }
 
+/** Turns Netty futures into ZIO effects. */
 object NettyFutureExecutor {
+
+  /**
+   * Returns an executor for the future `jFuture`, which is evaluated when the
+   * effect runs.
+   */
   def make[A](jFuture: => Future[A])(implicit trace: Trace): Task[NettyFutureExecutor[A]] =
     ZIO.succeed(new NettyFutureExecutor(jFuture))
 
+  /**
+   * Waits for the future to complete. Succeeds when the future succeeds or is
+   * cancelled, and fails with the future's cause when it fails. The wait can be
+   * interrupted, and interrupting it does not cancel the future.
+   */
   def executed[A](jFuture: => Future[A])(implicit trace: Trace): Task[Unit] =
     ZIO.suspend(new NettyFutureExecutor(jFuture).execute.unit)
 
+  /**
+   * Waits for the future like `executed`, except that the wait cannot be
+   * interrupted: an interruption takes effect once the future completes. It
+   * also adds a finalizer to the scope that cancels the future, which has no
+   * effect on a future that has completed.
+   */
   def scoped[A](jFuture: => Future[A])(implicit trace: Trace): ZIO[Scope, Throwable, Unit] =
     ZIO.suspend(new NettyFutureExecutor(jFuture).scoped.unit)
 }

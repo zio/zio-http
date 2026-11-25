@@ -26,7 +26,8 @@ import io.netty.handler.proxy.HttpProxyHandler
 private[netty] class NettyProxy private (proxy: Proxy) {
 
   /**
-   * Converts a Proxy to [io.netty.handler.proxy.HttpProxyHandler]
+   * Converts the proxy to Netty's `HttpProxyHandler` for the proxy's address,
+   * credentials and headers, wrapped in an `Option`.
    */
   def encode: Option[HttpProxyHandler] = proxy.credentials.fold(unauthorizedProxy)(authorizedProxy)
 
@@ -50,6 +51,11 @@ private[netty] class NettyProxy private (proxy: Proxy) {
   } yield new InetSocketAddress(proxyHost, proxyPort)
 }
 
+/** Converts a [[zio.http.Proxy]] for the Netty client. */
 object NettyProxy {
+
+  /**
+   * Wraps `proxy` so that it can be converted to Netty's `HttpProxyHandler`.
+   */
   def fromProxy(proxy: Proxy): NettyProxy = new NettyProxy(proxy)
 }

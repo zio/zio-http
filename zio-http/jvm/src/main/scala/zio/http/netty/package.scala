@@ -49,8 +49,14 @@ package object netty {
     var ChunkedWriteHandler            = "CHUNKED_WRITE_HANDLER"
   }
 
+  /** Adds `asCharSeq` to [[zio.http.Body]]. */
   implicit class BodyExtensions(val body: Body) extends AnyVal {
 
+    /**
+     * Reads the whole body and returns a Netty `AsciiString` that wraps its
+     * bytes. Each byte becomes one character, so bytes outside ASCII do not
+     * decode as UTF-8: the UTF-8 bytes of `é` read as `Ã©`.
+     */
     final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
       body match {
         case _ => body.asArray.map { buf => new AsciiString(buf, false) }
