@@ -344,6 +344,12 @@ object OpenAPI {
     )
   }
 
+  /**
+   * A schema for [[zio.http.Status]] that reads and writes the status code as a
+   * JSON string, such as `"404"`. Decoding a string that is not a number, such
+   * as `"abc"`, throws a `java.lang.NumberFormatException` instead of returning
+   * a `Left`.
+   */
   implicit def statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
@@ -352,6 +358,12 @@ object OpenAPI {
         p => p.text,
       )
 
+  /**
+   * The schema of the `paths` field: a JSON object that maps each path to its
+   * `PathItem`. Encoding writes the paths sorted by name. Decoding fails with
+   * `Invalid path: nopath` for the key `nopath`, or any other key that
+   * `Path.fromString` rejects.
+   */
   implicit def pathMapSchema: Schema[ListMap[Path, PathItem]] =
     DeriveSchema
       .gen[Map[String, PathItem]]
@@ -373,6 +385,12 @@ object OpenAPI {
         (m: Map[Path, PathItem]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
+  /**
+   * A schema for a map keyed by component name, as used by `Components`: a JSON
+   * object from each `Key` to a `T`. Encoding and decoding both sort the
+   * entries by name. Decoding fails with `Invalid key: a b` for the key `a b`,
+   * or any other key that `Key.fromString` rejects.
+   */
   implicit def keyMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[ListMap[Key, T]] =
@@ -396,6 +414,12 @@ object OpenAPI {
         (m: Map[Key, T]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
+  /**
+   * A schema for the responses map of an operation: a JSON object keyed by a
+   * status code, such as `404`, or by `default`. Encoding writes each key with
+   * `StatusOrDefault.text`. Decoding fails with `Invalid status: abc` for the
+   * key `abc`.
+   */
   implicit def statusMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[Map[StatusOrDefault, T]] =
@@ -422,6 +446,11 @@ object OpenAPI {
         (m: Map[StatusOrDefault, T]) => Right(m.map { case (k, v) => k.text -> v }),
       )
 
+  /**
+   * A schema for one media type name and its `MediaType`, as in the `content`
+   * field of a `Parameter`: a JSON object with a single entry. Decoding an
+   * object with no entry or with two entries fails with `Invalid media type`.
+   */
   implicit def mediaTypeTupleSchema: Schema[(String, MediaType)] =
     zio.schema
       .Schema[Map[String, MediaType]]
@@ -435,6 +464,10 @@ object OpenAPI {
         t => Right(Map(t._1 -> t._2)),
       )
 
+  /**
+   * A schema for a `SecurityRequirement`: a JSON object that maps each security
+   * scheme name to a list of scope names, such as `{"oauth":["read"]}`.
+   */
   implicit def securityRequirementSchema: Schema[SecurityRequirement] = {
     zio.schema
       .Schema[Map[String, List[String]]]
