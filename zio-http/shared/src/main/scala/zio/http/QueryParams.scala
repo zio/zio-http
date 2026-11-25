@@ -299,8 +299,10 @@ object QueryParams {
   }
 
   /**
-   * Construct from tuples of k, v with singular v. A blank value (empty or only
-   * whitespace) adds no value to its key.
+   *    * Construct from tuples of k, v with singular v. A blank value (empty or
+   * only whitespace) adds no value to its key. When the key already has values,
+   * a blank value removes them, so `QueryParams("a" -> "1", "a" -> "")` has no
+   * values for `a`.
    */
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
     val entries = new java.util.LinkedHashMap[String, java.util.List[String]]()
@@ -330,9 +332,9 @@ object QueryParams {
 
   /**
    * Decodes the specified string into a collection of query parameters. A
-   * leading `?` is skipped. The pairs are separated by `&`, and a key without a
-   * `=` or with an empty value has no values. A pair with an empty key, as in
-   * `=1`, uses its value as the key and has no values. A `null` string gives
+   * leading `?` is skipped. The pairs are separated by `&`, and a key without a `=` or with an empty value
+   * gets the empty string as its value. A pair with an empty key, as in `=1`,
+   * uses its value as the key, with the empty string as its value. A `null` string gives
    * empty query parameters. The charset is used to decode the text of the keys
    * and values.
    */
