@@ -75,6 +75,7 @@ private[openapi] object SerializableJsonSchema {
   /**
    * Used to generate a OpenAPI schema part looking like this:
    * {{{
+   *   // no-check: JSON output, not Scala code
    *   { "type": "null"}
    * }}}
    */
@@ -123,6 +124,8 @@ private[openapi] object BoolOrSchema {
 
 @noDiscriminator
 private[openapi] sealed trait TypeOrTypes { self =>
+
+  /** Adds the type name `value` to this type list, keeping each name once. */
   def add(value: String): TypeOrTypes =
     self match {
       case TypeOrTypes.Type(string) => TypeOrTypes.Types(Chunk(string, value).distinct)
@@ -148,70 +151,169 @@ private[openapi] object TypeOrTypes {
   }
 }
 
+/**
+ * The result of `JsonSchema.fromZSchemaMultiple`: the `root` schema, the
+ * reference name of the root type in `rootRef`, and in `children` the schemas
+ * of the named records and enums that the root refers to, keyed by reference
+ * name, such as `#/components/schemas/Address`. `rootRef` is `None` for a type
+ * with no name, such as `Int`, and for the style `SchemaStyle.Inline`.
+ */
 final case class JsonSchemas(
   root: JsonSchema,
   rootRef: Option[String],
   children: Map[String, JsonSchema],
 )
 
+/**
+ * A JSON Schema, as used for the request and response bodies of an OpenAPI
+ * document. The cases are `String`, `Number`, `Integer`, `Boolean`, `Null`,
+ * `ArrayType`, `Object` and `Enum`, the combinations `OneOfSchema`,
+ * `AllOfSchema` and `AnyOfSchema`, `RefSchema` for a `\$ref`, `AnyJson` for any
+ * value, and `AnnotatedSchema`, which adds one `MetaData` keyword such as a
+ * description. Build one by hand or from a ZIO Schema with
+ * `JsonSchema.fromZSchema`, and write it with `toJson`.
+ *
+ * {{{
+ * import zio.schema.Schema
+ *
+ * val email: JsonSchema =
+ *   JsonSchema.String(JsonSchema.StringFormat.Email).nullable(true).description("Contact address")
+ *
+ * email.toJson
+ * // {"type":["string","null"],"format":"email","description":"Contact address"}
+ *
+ * val ports: JsonSchema =
+ *   JsonSchema.fromZSchema(
+ *     Schema[List[Int]],
+ *     JsonSchema.SchemaRef(JsonSchema.SchemaSpec.OpenAPI, JsonSchema.SchemaStyle.Inline)
+ *   )
+ *
+ * ports.toJson
+ * // {"type":"array","items":{"type":"integer","format":"int32"}}
+ * }}}
+ */
 sealed trait JsonSchema extends Product with Serializable { self =>
 
+  /**
+   * Encodes this schema as compact JSON bytes, in the same form as `toJson`.
+   * Fields that are not set are left out.
+   */
   def toJsonBytes: Chunk[Byte] = JsonCodec.schemaBasedBinaryCodec[JsonSchema].encode(self)
 
+  /**
+   * Returns this schema as a compact JSON string, such as `{"type":"string"}`
+   * for `JsonSchema.String()`. Fields that are not set are left out.
+   */
   def toJson: String = toJsonBytes.asString
 
   protected[openapi] def toSerializableSchema: SerializableJsonSchema
+
+  /**
+   * Wraps this schema in one `AnnotatedSchema` per entry of `annotations`, in
+   * order, so the last entry is the outermost. An empty chunk returns this
+   * schema unchanged.
+   */
   def annotate(annotations: Chunk[JsonSchema.MetaData]): JsonSchema =
     annotations.foldLeft(self) { case (schema, annotation) => schema.annotate(annotation) }
-  def annotate(annotation: JsonSchema.MetaData): JsonSchema         =
+
+  /** Wraps this schema in an `AnnotatedSchema` that adds `annotation`. */
+  def annotate(annotation: JsonSchema.MetaData): JsonSchema =
     JsonSchema.AnnotatedSchema(self, annotation)
 
+  /**
+   * Returns the `MetaData` of the `AnnotatedSchema` layers around this schema,
+   * innermost first, or an empty chunk when there is none.
+   */
   def annotations: Chunk[JsonSchema.MetaData] = self match {
     case JsonSchema.AnnotatedSchema(schema, annotation) => schema.annotations :+ annotation
     case _                                              => Chunk.empty
   }
 
+  /**
+   * Returns `true` when one of this schema's annotations is
+   * `MetaData.Nullable(true)`.
+   */
   final def isNullable: Boolean =
     annotations.exists {
       case MetaData.Nullable(nullable) => nullable
       case _                           => false
     }
 
+  /**
+   * Returns this schema with its outer `AnnotatedSchema` layers removed.
+   * Annotations on nested schemas, such as the properties of an `Object`, stay.
+   */
   def withoutAnnotations: JsonSchema = self match {
     case JsonSchema.AnnotatedSchema(schema, _) => schema.withoutAnnotations
     case _                                     => self
   }
 
+  /**
+   * Adds `examples` as the `examples` keyword. An empty chunk writes
+   * `"examples":[]`.
+   */
   def examples(examples: Chunk[Json]): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Examples(examples))
 
+  /**
+   * Adds the value in `default` as the `default` keyword, or returns this
+   * schema unchanged when it is `None`.
+   */
   def default(default: Option[Json]): JsonSchema =
     default match {
       case Some(value) => JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(value))
       case None        => self
     }
 
+  /** Adds `default` as the `default` keyword. */
   def default(default: Json): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Default(default))
 
+  /**
+   * Adds `description` as the `description` keyword. When it is added twice,
+   * the last one is written.
+   */
   def description(description: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Description(description))
 
+  /**
+   * Adds the text in `description` as the `description` keyword, or returns
+   * this schema unchanged when it is `None`.
+   */
   def description(description: Option[String]): JsonSchema =
     description match {
       case Some(value) => JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Description(value))
       case None        => self
     }
 
+  /**
+   * Returns the `description` keyword of this schema, or `None` when it has
+   * none. A `RefSchema` or an `AllOfSchema` made nullable after its description
+   * also returns `None`: the description then sits inside the written `anyOf`
+   * (for a reference) or is not written at all (for `allOf`).
+   */
   def description: Option[String] = self.toSerializableSchema.description
 
+  /**
+   * With `true`, marks this schema as accepting `null`; with `false`, returns
+   * this schema unchanged. The JSON output adds `"null"` to the `type`
+   * (`{"type":["string","null"]}`), appends `{"type":"null"}` to a `oneOf`,
+   * `anyOf` or `allOf` list (an `allOf` then loses its other keywords), and
+   * wraps a `RefSchema` in an `anyOf` with `{"type":"null"}`; the output of
+   * `AnyJson` does not change.
+   */
   def nullable(nullable: Boolean): JsonSchema =
     if (nullable) JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Nullable(true))
     else self
 
+  /** Adds `discriminator` as the OpenAPI `discriminator` keyword. */
   def discriminator(discriminator: OpenAPI.Discriminator): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Discriminator(discriminator))
 
+  /**
+   * Adds the value in `discriminator` as the OpenAPI `discriminator` keyword,
+   * or returns this schema unchanged when it is `None`.
+   */
   def discriminator(discriminator: Option[OpenAPI.Discriminator]): JsonSchema =
     discriminator match {
       case Some(discriminator) =>
@@ -220,16 +322,33 @@ sealed trait JsonSchema extends Product with Serializable { self =>
         self
     }
 
+  /**
+   * With `true`, adds `"deprecated":true`; with `false`, returns this schema
+   * unchanged.
+   */
   def deprecated(deprecated: Boolean): JsonSchema =
     if (deprecated) JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.Deprecated)
     else self
 
+  /**
+   * Adds the `contentEncoding` keyword. The value written is the case name in
+   * lower case, such as `sevenbit` for `ContentEncoding.SevenBit` and `base64`
+   * for `ContentEncoding.Base64`.
+   */
   def contentEncoding(encoding: JsonSchema.ContentEncoding): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.ContentEncoding(encoding))
 
+  /**
+   * Adds `mediaType`, such as `image/png`, as the `contentMediaType` keyword.
+   */
   def contentMediaType(mediaType: String): JsonSchema =
     JsonSchema.AnnotatedSchema(self, JsonSchema.MetaData.ContentMediaType(mediaType))
 
+  /**
+   * Returns `true` for a `String`, `Number`, `Integer`, `Boolean` or `Null`
+   * schema. An `Enum`, `AnyJson` and any schema wrapped in an `AnnotatedSchema`
+   * return `false`.
+   */
   def isPrimitive: Boolean = self match {
     case _: JsonSchema.Number  => true
     case _: JsonSchema.Integer => true
@@ -239,6 +358,11 @@ sealed trait JsonSchema extends Product with Serializable { self =>
     case _                     => false
   }
 
+  /**
+   * Returns `true` for an `ArrayType`, and for an `Object` with no properties
+   * whose `additionalProperties` is a schema (a map). A schema wrapped in an
+   * `AnnotatedSchema` returns `false`.
+   */
   def isCollection: Boolean = self match {
     case _: JsonSchema.ArrayType => true
     case obj: JsonSchema.Object  => obj.properties.isEmpty && obj.additionalProperties.isRight
@@ -247,8 +371,19 @@ sealed trait JsonSchema extends Product with Serializable { self =>
 
 }
 
+/**
+ * Constructors of [[JsonSchema]], its cases and formats, and the conversions
+ * from a ZIO Schema, a text codec or a path segment codec.
+ */
 object JsonSchema {
 
+  /**
+   * The `Schema` that reads and writes a [[JsonSchema]] as JSON Schema
+   * keywords. Decoding throws a `java.lang.IllegalArgumentException` (`Can't
+   * convert ...`) instead of returning a `Left` for a `type` list without an
+   * `enum`, such as the `["string","null"]` that `nullable(true)` writes on a
+   * `String`, and for an unknown `type`, such as `"foo"`.
+   */
   implicit val schema: Schema[JsonSchema] =
     SerializableJsonSchema.schema.transform[JsonSchema](JsonSchema.fromSerializableSchema, _.toSerializableSchema)
 
@@ -261,6 +396,12 @@ object JsonSchema {
       .toOption
       .get
 
+  /**
+   * Returns the schema of a `TextCodec`: a one-value string `Enum` for a
+   * constant, a `String` for text, an `Integer` in `int32` or `int64` for an
+   * `Int` or a `Long`, `Boolean`, or a `String` in the `uuid` format for a
+   * UUID.
+   */
   def fromTextCodec(codec: TextCodec[_]): JsonSchema =
     codec match {
       case TextCodec.Constant(string) => JsonSchema.Enum(Chunk(EnumValue.Str(string)))
@@ -407,6 +548,13 @@ object JsonSchema {
     }
   }
 
+  /**
+   * Returns the schema of a path segment codec: `Boolean`, an `Integer` in
+   * `int32` or `int64`, a `String`, or a `String` in the `uuid` format. A
+   * literal, empty, trailing or combined segment throws a
+   * `java.lang.IllegalArgumentException`, such as
+   * `Literal segment is not supported.`.
+   */
   def fromSegmentCodec(codec: SegmentCodec[_]): JsonSchema =
     codec match {
       case SegmentCodec.BoolSeg(_)        => JsonSchema.Boolean
@@ -430,6 +578,12 @@ object JsonSchema {
    *   instances.
    */
   case class JsonSchemaRoot(root: JsonSchema, children: Map[java.lang.String, JsonSchema]) {
+
+    /**
+     * Returns the serializable form of this document: the root schema with
+     * `\$schema` set to `https://json-schema.org/draft/2020-12/schema` and the
+     * children under `\$defs`.
+     */
     def toSerializableSchema: SerializableJsonSchema = {
       root.toSerializableSchema.copy(
         schema = Some("https://json-schema.org/draft/2020-12/schema"),
@@ -437,6 +591,11 @@ object JsonSchema {
       )
     }
 
+    /**
+     * Encodes this document as JSON. With `None` the JSON is compact; with
+     * `Some(n)` it is pretty-printed with two spaces per level, starting at
+     * nesting level `n`. Fields that are not set are left out.
+     */
     def encodeJson(indent: Option[Int] = None): CharSequence =
       JsonCodec
         .jsonEncoder(
@@ -464,7 +623,15 @@ object JsonSchema {
     def toJsonPretty: java.lang.String = encodeJson(Some(0)).toString
   }
 
+  /** Holds the `Schema` of [[JsonSchemaRoot]]. */
   object JsonSchemaRoot {
+
+    /**
+     * The `Schema` that reads and writes a [[JsonSchemaRoot]], with the
+     * children under `\$defs`. Decoding throws a
+     * `java.lang.IllegalArgumentException` for a `type` list without an `enum`,
+     * such as the one that an optional field writes.
+     */
     implicit val schema: Schema[JsonSchemaRoot] =
       SerializableJsonSchema.schema
         .transform[JsonSchemaRoot](JsonSchemaRoot.fromSerializableSchema, _.toSerializableSchema)
@@ -477,12 +644,14 @@ object JsonSchema {
   }
 
   /**
-   * Builds a JSON Schema document from the given ZIO `Schema`
+   * Builds a JSON Schema document from the given ZIO `Schema`.
    *
    * @param schema
    *   The schema to convert into a JSON Schema document.
    * @return
-   *   A [[JsonSchemaRoot]] representing a valid JSON Schema document.
+   *   A [[JsonSchemaRoot]] whose root refers to named records and enums with
+   *   `\$ref` links such as `#/\$defs/Address`, and whose children hold their
+   *   schemas, keyed by type name.
    */
   def jsonSchema(schema: Schema[_]): JsonSchemaRoot = {
     val s = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.JsonSchema, SchemaStyle.Compact))
@@ -492,6 +661,10 @@ object JsonSchema {
     )
   }
 
+  /**
+   * Same as `fromZSchemaMultiple` with `SchemaSpec.OpenAPI` and the style
+   * `refType`.
+   */
   @deprecated("use fromZSchemaMultiple", "3.8")
   def fromZSchemaMulti(
     schema: Schema[_],
@@ -499,6 +672,16 @@ object JsonSchema {
     seen: Set[java.lang.String] = Set.empty,
   ): JsonSchemas = fromZSchemaMultiple(schema, SchemaRef(SchemaSpec.OpenAPI, refType), seen)
 
+  /**
+   * Converts a ZIO `Schema` to a [[JsonSchemas]]: the root schema, the
+   * reference name of the root type, and the schemas of the named records and
+   * enums it refers to, keyed by reference name. A root type whose reference
+   * name is in `seen` gives a `RefSchema` and no children. With
+   * `SchemaStyle.Inline` there are no children and no root reference, although
+   * nested records in the root are still written as `\$ref` links. A
+   * `Schema.Fail` throws a `java.lang.IllegalArgumentException` (`Fail schema
+   * is not supported.`).
+   */
   def fromZSchemaMultiple(
     schema: Schema[_],
     refType: SchemaRef,
@@ -712,10 +895,25 @@ object JsonSchema {
     annotateMapSchemaWithKeysSchema(valuesSchema, keySchema)
   }
 
+  /**
+   * Same as `fromZSchema` with `SchemaSpec.OpenAPI` and the style `refType`.
+   */
   @deprecated("use SchemaRef instead of SchemaStyle", "3.8")
   def fromZSchema(schema: Schema[_], refType: SchemaStyle = SchemaStyle.Inline): JsonSchema =
     fromZSchema(schema, SchemaRef(SchemaSpec.OpenAPI, refType))
 
+  /**
+   * Converts a ZIO `Schema` to a [[JsonSchema]]. With `SchemaStyle.Inline` the
+   * schemas of nested records and enums are written in place; with `Compact` or
+   * `Reference` a named record or enum, the root included, becomes a
+   * `RefSchema`, such as `{"\$ref":"#/components/schemas/Customer"}`. With
+   * `Compact` or `Reference` an `Option` becomes a nullable schema. With
+   * `Inline` only an `Option` field of a record does; an `Option` at the root
+   * or inside a collection is written as its element schema, so
+   * `Schema[Option[Int]]` gives `{"type":"integer","format":"int32"}`. A
+   * `Schema.Fail` throws a `java.lang.IllegalArgumentException` (`Fail schema
+   * is not supported.`).
+   */
   def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
     if (refType.style == SchemaStyle.Inline) {
       val result = fromZSchemaMultiple(schema, refType.compact)
@@ -961,10 +1159,21 @@ object JsonSchema {
     }
   }
 
+  /**
+   * How `fromZSchema` and `fromZSchemaMultiple` name records and enums: no
+   * reference name (`Inline`), a name built from the full type path
+   * (`Reference`), or one built from the type name (`Compact`). With `Inline`,
+   * `fromZSchema` writes them in place.
+   */
   sealed trait SchemaStyle extends Product with Serializable
+
+  /** The `SchemaStyle` cases. */
   object SchemaStyle {
 
-    /** Generates inline json schema */
+    /**
+     * Generates inline json schema: `fromZSchema` writes the schemas of nested
+     * records and enums in place instead of as `\$ref` links.
+     */
     case object Inline extends SchemaStyle
 
     /**
@@ -983,24 +1192,43 @@ object JsonSchema {
     case object Compact extends SchemaStyle
   }
 
+  /**
+   * The kind of document that schema references point into, which sets their
+   * prefix: `#/components/schemas/` for `OpenAPI` and `#/\$defs/` for
+   * `JsonSchema`.
+   */
   sealed trait SchemaSpec extends Product with Serializable { private[openapi] def path: java.lang.String }
+
+  /** The `SchemaSpec` cases. */
   object SchemaSpec {
 
     /**
-     * Generates schema references for an Open API document
+     * Generates schema references for an Open API document, under
+     * `#/components/schemas/`.
      */
     case object OpenAPI extends SchemaSpec { override def path: java.lang.String = "#/components/schemas/" }
 
     /**
-     * Generates schema references for an JSON Schema document
+     * Generates schema references for a JSON Schema document, under
+     * `#/\$defs/`.
      */
     case object JsonSchema extends SchemaSpec { override def path: java.lang.String = "#/$defs/" }
   }
 
+  /**
+   * The target document and the style that `fromZSchema` and
+   * `fromZSchemaMultiple` use for named records and enums.
+   */
   final case class SchemaRef(spec: SchemaSpec, style: SchemaStyle) {
-    def inline: SchemaRef    = copy(style = SchemaStyle.Inline)
+
+    /** Returns a copy with the style `SchemaStyle.Inline`. */
+    def inline: SchemaRef = copy(style = SchemaStyle.Inline)
+
+    /** Returns a copy with the style `SchemaStyle.Reference`. */
     def reference: SchemaRef = copy(style = SchemaStyle.Reference)
-    def compact: SchemaRef   = copy(style = SchemaStyle.Compact)
+
+    /** Returns a copy with the style `SchemaStyle.Compact`. */
+    def compact: SchemaRef = copy(style = SchemaStyle.Compact)
   }
 
   private def deprecated(schema: Schema[_]): Boolean =
@@ -1044,16 +1272,19 @@ object JsonSchema {
 
   /**
    * Adds a discriminator property to a JsonSchema. This is used when generating
-   * OpenAPI schemas for sealed traits with @discriminatorName annotation. Each
+   * OpenAPI and JSON Schema documents for sealed traits with a
+   * `discriminatorName` annotation and no `noDiscriminator` annotation. Each
    * case class schema needs to include the discriminator property as a required
-   * field with an enum value.
+   * field with an enum value. A schema that is not an object is wrapped in an
+   * `allOf` with an object that holds the property.
    *
    * @param schema
    *   The original case schema
    * @param discriminatorPropertyName
-   *   The name of the discriminator property (from @discriminatorName)
+   *   The name of the discriminator property (from `discriminatorName`)
    * @param caseNameValue
-   *   The value of the discriminator for this case (from @caseName or default)
+   *   The value of the discriminator for this case (from `caseName`, or the
+   *   case id)
    * @return
    *   A new JsonSchema with the discriminator property added
    */
@@ -1087,6 +1318,12 @@ object JsonSchema {
     }
   }
 
+  /**
+   * Returns an `Object` schema with the given properties, all of them required,
+   * and `additionalProperties` set to `false`. For a repeated name the last
+   * schema is kept, and with more than four properties the written order can
+   * differ from the argument order.
+   */
   def obj(properties: (java.lang.String, JsonSchema)*): JsonSchema =
     JsonSchema.Object(
       properties = properties.toMap,
@@ -1094,6 +1331,10 @@ object JsonSchema {
       required = Chunk.fromIterable(properties.toMap.keys),
     )
 
+  /**
+   * A schema with one `MetaData` keyword added, such as a description.
+   * `annotate` builds it, as do helpers such as `description` and `nullable`.
+   */
   final case class AnnotatedSchema(schema: JsonSchema, annotation: MetaData) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema = {
       annotation match {
@@ -1121,29 +1362,88 @@ object JsonSchema {
     }
   }
 
+  /** A keyword that an `AnnotatedSchema` adds to its schema. */
   sealed trait MetaData extends Product with Serializable
+
+  /** The `MetaData` cases. */
   object MetaData {
-    final case class KeySchema(schema: JsonSchema)                         extends MetaData
-    final case class Examples(chunk: Chunk[Json])                          extends MetaData
-    final case class Default(default: Json)                                extends MetaData
-    final case class Discriminator(discriminator: OpenAPI.Discriminator)   extends MetaData
-    final case class Nullable(nullable: Boolean)                           extends MetaData
-    final case class Description(description: java.lang.String)            extends MetaData
+
+    /**
+     * The schema of the keys of a map, written as the `x-string-key-schema`
+     * keyword of the `additionalProperties` schema of an `Object`. Writing a
+     * schema that carries a `KeySchema` anywhere else throws a
+     * `java.lang.IllegalStateException`.
+     */
+    final case class KeySchema(schema: JsonSchema) extends MetaData
+
+    /** The `examples` keyword. */
+    final case class Examples(chunk: Chunk[Json]) extends MetaData
+
+    /** The `default` keyword. */
+    final case class Default(default: Json) extends MetaData
+
+    /** The OpenAPI `discriminator` keyword. */
+    final case class Discriminator(discriminator: OpenAPI.Discriminator) extends MetaData
+
+    /**
+     * Whether the schema accepts `null`. `true` writes the schema as
+     * `nullable(true)` does, and `false` changes nothing in the output.
+     */
+    final case class Nullable(nullable: Boolean) extends MetaData
+
+    /** The `description` keyword. */
+    final case class Description(description: java.lang.String) extends MetaData
+
+    /** The `contentEncoding` keyword. */
     final case class ContentEncoding(encoding: JsonSchema.ContentEncoding) extends MetaData
-    final case class ContentMediaType(mediaType: java.lang.String)         extends MetaData
-    case object Deprecated                                                 extends MetaData
+
+    /** The `contentMediaType` keyword. */
+    final case class ContentMediaType(mediaType: java.lang.String) extends MetaData
+
+    /** Writes `"deprecated":true`. */
+    case object Deprecated extends MetaData
   }
 
+  /**
+   * A `contentEncoding` value. The JSON output holds the case name in lower
+   * case (`sevenbit`, `eightbit`, `binary`, `quotedprintable`, `base16`,
+   * `base32`, `base64`), while `fromString` and decoding read `7bit`, `8bit`,
+   * `binary`, `quoted-print`, `base16`, `base32` and `base64`.
+   */
   sealed trait ContentEncoding extends Product with Serializable
-  object ContentEncoding {
-    case object SevenBit        extends ContentEncoding
-    case object EightBit        extends ContentEncoding
-    case object Binary          extends ContentEncoding
-    case object QuotedPrintable extends ContentEncoding
-    case object Base16          extends ContentEncoding
-    case object Base32          extends ContentEncoding
-    case object Base64          extends ContentEncoding
 
+  /** The `ContentEncoding` cases and `fromString`. */
+  object ContentEncoding {
+
+    /** The `7bit` encoding, written as `sevenbit`. */
+    case object SevenBit extends ContentEncoding
+
+    /** The `8bit` encoding, written as `eightbit`. */
+    case object EightBit extends ContentEncoding
+
+    /** The `binary` encoding. */
+    case object Binary extends ContentEncoding
+
+    /**
+     * The quoted-printable encoding, written as `quotedprintable` and read from
+     * `quoted-print`.
+     */
+    case object QuotedPrintable extends ContentEncoding
+
+    /** The `base16` encoding. */
+    case object Base16 extends ContentEncoding
+
+    /** The `base32` encoding. */
+    case object Base32 extends ContentEncoding
+
+    /** The `base64` encoding. */
+    case object Base64 extends ContentEncoding
+
+    /**
+     * Returns the encoding for `7bit`, `8bit`, `binary`, `quoted-print`,
+     * `base16`, `base32` or `base64`, in any case, or `None` for another
+     * string, such as `quoted-printable` or `sevenbit`.
+     */
     def fromString(string: java.lang.String): Option[ContentEncoding] =
       string.toLowerCase match {
         case "7bit"         => Some(SevenBit)
@@ -1157,11 +1457,15 @@ object JsonSchema {
       }
   }
 
+  /** A `\$ref` link to another schema, such as `#/components/schemas/Pet`. */
   final case class RefSchema(ref: java.lang.String) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(ref = Some(ref))
   }
 
+  /**
+   * A `oneOf` schema: a value must match exactly one of the schemas in `oneOf`.
+   */
   final case class OneOfSchema(oneOf: Chunk[JsonSchema]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
@@ -1169,6 +1473,7 @@ object JsonSchema {
       )
   }
 
+  /** An `allOf` schema: a value must match every schema in `allOf`. */
   final case class AllOfSchema(allOf: Chunk[JsonSchema]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
@@ -1176,7 +1481,23 @@ object JsonSchema {
       )
   }
 
+  /**
+   * An `anyOf` schema: a value must match at least one of the schemas in
+   * `anyOf`.
+   */
   final case class AnyOfSchema(anyOf: Chunk[JsonSchema]) extends JsonSchema {
+
+    /**
+     * Removes duplicate alternatives and object alternatives that another
+     * object alternative covers, and returns the result. Only the leading run
+     * of `Object` alternatives is checked: an object is removed when its
+     * properties equal the non-nullable properties of an object in that run,
+     * itself included, so an object with no nullable property is removed; each
+     * object that stays keeps only non-nullable properties in `required`. When
+     * one alternative is left it is returned on its own; otherwise the result
+     * is an `AnyOfSchema`, which is empty for an `AnyOfSchema` of one object
+     * with no nullable property.
+     */
     def minify: JsonSchema = {
       val (objects, others) = anyOf.distinct.span(_.withoutAnnotations.isInstanceOf[JsonSchema.Object])
       val markedForRemoval  = (for {
@@ -1207,6 +1528,11 @@ object JsonSchema {
       )
   }
 
+  /**
+   * A `number` schema in the format `float` or `double`. `exclusiveMinimum` and
+   * `exclusiveMaximum` take a boolean (`Left`) or a bound (`Right`).
+   * `multipleOf` is not written to the JSON output.
+   */
   final case class Number(
     format: NumberFormat,
     minimum: Option[Double] = None,
@@ -1226,7 +1552,17 @@ object JsonSchema {
       )
   }
 
+  /** Builds `Number` schemas from ZIO Schema validations. */
   object Number {
+
+    /**
+     * Returns a `Number` schema in `format` with the bounds that `validation`
+     * sets: `greaterThan` becomes `exclusiveMinimum` and `lessThan` becomes
+     * `exclusiveMaximum`. Parts joined with `||`, such as those of
+     * `Validation.between`, add no bound, and an inverted (`!`) `Float`,
+     * `Double` or `BigDecimal` bound throws a
+     * `java.lang.IllegalArgumentException`.
+     */
     def fromValidation(format: NumberFormat, validation: Option[Validation[_]]): JsonSchema = {
       validation match {
         case None        => Number(format, None, None, None, None, None)
@@ -1253,20 +1589,37 @@ object JsonSchema {
 
   }
 
+  /** The `format` of a `Number` schema: `float` or `double`. */
   sealed trait NumberFormat extends Product with Serializable
+
+  /** The `NumberFormat` cases and `fromString`. */
   object NumberFormat {
 
+    /**
+     * Returns `Float` for `float` and `Double` for `double`. Another string,
+     * such as `decimal` or `Double`, throws a
+     * `java.lang.IllegalArgumentException` (`Unknown number format: decimal`).
+     */
     def fromString(string: java.lang.String): NumberFormat =
       string match {
         case "float"  => Float
         case "double" => Double
         case _        => throw new IllegalArgumentException(s"Unknown number format: $string")
       }
+
+    /** The `float` format. */
     case object Float extends NumberFormat
+
+    /** The `double` format. */
     case object Double extends NumberFormat
 
   }
 
+  /**
+   * An `integer` schema in the format `int32`, `int64` or `timestamp`.
+   * `exclusiveMinimum` and `exclusiveMaximum` take a boolean (`Left`) or a
+   * bound (`Right`). `multipleOf` is not written to the JSON output.
+   */
   final case class Integer(
     format: IntegerFormat,
     minimum: Option[Long] = None,
@@ -1286,6 +1639,17 @@ object JsonSchema {
       )
   }
 
+  /**
+   * Returns the leaf predicates of a ZIO Schema validation that JSON Schema
+   * keywords can express. Both sides of `&&` are kept, `||` gives nothing, and
+   * so does a predicate such as `equalTo`. Inside `!` (or with `not = true`),
+   * `maxLength(n)` becomes `minLength(n)`, `minLength(n)` becomes
+   * `maxLength(n)`, an `Int` bound `greaterThan(n)` becomes `lessThan(n + 1)`
+   * and `lessThan(n)` becomes `greaterThan(n - 1)`, and a `regex` is kept as it
+   * is; an inverted `Float`, `Double` or `BigDecimal` bound throws a
+   * `java.lang.IllegalArgumentException`, and an inverted `Long`, `Short` or
+   * `BigInt` bound throws a `java.lang.ClassCastException`.
+   */
   def flatten(value: Bool[Predicate[_]], not: Boolean = false): Chunk[Predicate[_]] = {
     value match {
       case Bool.And(left, right)                                                                                =>
@@ -1376,8 +1740,16 @@ object JsonSchema {
     }
   }
 
+  /** Builds `Integer` schemas from ZIO Schema validations. */
   object Integer {
 
+    /**
+     * Returns an `Integer` schema in `format` with the bounds that `validation`
+     * sets: `greaterThan` becomes `exclusiveMinimum` and `lessThan` becomes
+     * `exclusiveMaximum`. Parts joined with `||`, such as those of
+     * `Validation.between`, add no bound. Inverted (`!`) bounds follow
+     * `flatten`.
+     */
     def fromValidation(format: IntegerFormat, validation: Option[Validation[_]]): JsonSchema = {
       validation match {
         case None        => Integer(format, None, None, None, None, None)
@@ -1403,9 +1775,18 @@ object JsonSchema {
     }
   }
 
+  /** The `format` of an `Integer` schema: `int32`, `int64` or `timestamp`. */
   sealed trait IntegerFormat extends Product with Serializable
+
+  /** The `IntegerFormat` cases and `fromString`. */
   object IntegerFormat {
 
+    /**
+     * Returns `Int32` for `int32`, `Int64` for `int64` and `Timestamp` for
+     * `timestamp`. Another string throws a
+     * `java.lang.IllegalArgumentException`, such as
+     * `Unknown integer format: int8`.
+     */
     def fromString(string: java.lang.String): IntegerFormat =
       string match {
         case "int32"     => Int32
@@ -1413,12 +1794,22 @@ object JsonSchema {
         case "timestamp" => Timestamp
         case _           => throw new IllegalArgumentException(s"Unknown integer format: $string")
       }
+
+    /** The `int32` format. */
     case object Int32 extends IntegerFormat
-    case object Int64     extends IntegerFormat
+
+    /** The `int64` format. */
+    case object Int64 extends IntegerFormat
+
+    /** The `timestamp` format. */
     case object Timestamp extends IntegerFormat
   }
 
   // TODO: Add string formats and patterns
+  /**
+   * A `string` schema with an optional `format`, `pattern`, `maxLength` and
+   * `minLength`.
+   */
   final case class String(
     format: Option[StringFormat],
     pattern: Option[Pattern],
@@ -1435,11 +1826,32 @@ object JsonSchema {
       )
   }
 
+  /** Constructors of `String` schemas. */
   object String {
-    def apply(format: StringFormat): String = String(Some(format), None)
-    def apply(pattern: Pattern): String     = String(None, Some(pattern))
-    def apply(): String                     = String(None, None)
 
+    /**
+     * Returns a `String` schema in `format`, with no pattern and no length
+     * bounds.
+     */
+    def apply(format: StringFormat): String = String(Some(format), None)
+
+    /**
+     * Returns a `String` schema with `pattern`, with no format and no length
+     * bounds.
+     */
+    def apply(pattern: Pattern): String = String(None, Some(pattern))
+
+    /**
+     * Returns a `String` schema with no format, pattern or length bounds:
+     * `{"type":"string"}`.
+     */
+    def apply(): String = String(None, None)
+
+    /**
+     * Returns a `String` schema with the `pattern`, `maxLength` and `minLength`
+     * that `validation` sets, or a plain `String` schema for `None`. Parts
+     * joined with `||` add nothing, and inverted (`!`) parts follow `flatten`.
+     */
     def fromValidation(validation: Option[Validation[_]]): JsonSchema =
       if (validation.isEmpty) {
         String(None, None)
@@ -1453,33 +1865,84 @@ object JsonSchema {
       }
   }
 
+  /** The `format` of a `String` schema. */
   sealed trait StringFormat extends Product with Serializable {
+
+    /** The format name written to the JSON output, such as `date-time`. */
     def value: java.lang.String
   }
 
+  /** The `StringFormat` cases and `fromString`. */
   object StringFormat {
-    case class Custom(value: java.lang.String) extends StringFormat
-    case object Date                           extends StringFormat { val value = "date"                  }
-    case object DateTime                       extends StringFormat { val value = "date-time"             }
-    case object Duration                       extends StringFormat { val value = "duration"              }
-    case object Email                          extends StringFormat { val value = "email"                 }
-    case object Hostname                       extends StringFormat { val value = "hostname"              }
-    case object IdnEmail                       extends StringFormat { val value = "idn-email"             }
-    case object IdnHostname                    extends StringFormat { val value = "idn-hostname"          }
-    case object IPv4                           extends StringFormat { val value = "ipv4"                  }
-    case object IPv6                           extends StringFormat { val value = "ipv6"                  }
-    case object IRI                            extends StringFormat { val value = "iri"                   }
-    case object IRIReference                   extends StringFormat { val value = "iri-reference"         }
-    case object JSONPointer                    extends StringFormat { val value = "json-pointer"          }
-    case object Password                       extends StringFormat { val value = "password"              }
-    case object Regex                          extends StringFormat { val value = "regex"                 }
-    case object RelativeJSONPointer            extends StringFormat { val value = "relative-json-pointer" }
-    case object Time                           extends StringFormat { val value = "time"                  }
-    case object URI                            extends StringFormat { val value = "uri"                   }
-    case object URIRef                         extends StringFormat { val value = "uri-reference"         }
-    case object URITemplate                    extends StringFormat { val value = "uri-template"          }
-    case object UUID                           extends StringFormat { val value = "uuid"                  }
 
+    /** A format with any other name, such as `zip`. */
+    case class Custom(value: java.lang.String) extends StringFormat
+
+    /** The `date` format. */
+    case object Date extends StringFormat { val value = "date" }
+
+    /** The `date-time` format. */
+    case object DateTime extends StringFormat { val value = "date-time" }
+
+    /** The `duration` format. */
+    case object Duration extends StringFormat { val value = "duration" }
+
+    /** The `email` format. */
+    case object Email extends StringFormat { val value = "email" }
+
+    /** The `hostname` format. */
+    case object Hostname extends StringFormat { val value = "hostname" }
+
+    /** The `idn-email` format. */
+    case object IdnEmail extends StringFormat { val value = "idn-email" }
+
+    /** The `idn-hostname` format. */
+    case object IdnHostname extends StringFormat { val value = "idn-hostname" }
+
+    /** The `ipv4` format. */
+    case object IPv4 extends StringFormat { val value = "ipv4" }
+
+    /** The `ipv6` format. */
+    case object IPv6 extends StringFormat { val value = "ipv6" }
+
+    /** The `iri` format. */
+    case object IRI extends StringFormat { val value = "iri" }
+
+    /** The `iri-reference` format. */
+    case object IRIReference extends StringFormat { val value = "iri-reference" }
+
+    /** The `json-pointer` format. */
+    case object JSONPointer extends StringFormat { val value = "json-pointer" }
+
+    /** The `password` format. */
+    case object Password extends StringFormat { val value = "password" }
+
+    /** The `regex` format. */
+    case object Regex extends StringFormat { val value = "regex" }
+
+    /** The `relative-json-pointer` format. */
+    case object RelativeJSONPointer extends StringFormat { val value = "relative-json-pointer" }
+
+    /** The `time` format. */
+    case object Time extends StringFormat { val value = "time" }
+
+    /** The `uri` format. */
+    case object URI extends StringFormat { val value = "uri" }
+
+    /** The `uri-reference` format. */
+    case object URIRef extends StringFormat { val value = "uri-reference" }
+
+    /** The `uri-template` format. */
+    case object URITemplate extends StringFormat { val value = "uri-template" }
+
+    /** The `uuid` format. */
+    case object UUID extends StringFormat { val value = "uuid" }
+
+    /**
+     * Returns the case whose `value` is `string`, or `Custom(string)` for
+     * another string. The match is case-sensitive: `UUID` gives
+     * `Custom("UUID")`.
+     */
     def fromString(string: java.lang.String): StringFormat =
       string match {
         case "date"                  => Date
@@ -1506,13 +1969,20 @@ object JsonSchema {
       }
   }
 
+  /** A regular expression for the `pattern` keyword of a `String` schema. */
   final case class Pattern(value: java.lang.String) extends Product with Serializable
 
+  /** The `boolean` schema: `{"type":"boolean"}`. */
   case object Boolean extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(schemaType = Some(TypeOrTypes.Type("boolean")))
   }
 
+  /**
+   * An `array` schema. `items` is the schema of the elements (left out when
+   * `None`), `minItems` the minimum length, and `uniqueItems = true` writes
+   * `"uniqueItems":true`, while `false` writes nothing.
+   */
   final case class ArrayType(items: Option[JsonSchema], minItems: Option[Int], uniqueItems: Boolean)
       extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
@@ -1524,6 +1994,13 @@ object JsonSchema {
       )
   }
 
+  /**
+   * An `object` schema with named `properties`, the names in `required`, and
+   * `additionalProperties`: `Left(true)` writes nothing, `Left(false)` writes
+   * `false`, and `Right(schema)` gives the schema of the values of a map.
+   * `properties` is always written, as `{}` when empty, and a property whose
+   * schema is nullable is left out of the written `required` list.
+   */
   final case class Object(
     properties: Map[java.lang.String, JsonSchema],
     additionalProperties: Either[Boolean, JsonSchema],
@@ -1549,6 +2026,13 @@ object JsonSchema {
      */
     def isInvalid: Boolean = properties.nonEmpty && additionalProperties.isRight
 
+    /**
+     * Adds each `(name, schema)` pair as a property; for a repeated name the
+     * last schema is kept. When `schema` is an `Object` whose
+     * `additionalProperties` is a `Left`, with no annotation, its properties
+     * and `required` names are merged into this object instead, `name` is not
+     * used, and this object keeps its own `additionalProperties`.
+     */
     def addAll(value: Chunk[(java.lang.String, JsonSchema)]): Object =
       value.foldLeft(this) { case (obj, (name, schema)) =>
         schema match {
@@ -1562,6 +2046,10 @@ object JsonSchema {
         }
       }
 
+    /**
+     * Returns a copy whose `required` list is `required`, replacing the
+     * previous list. The names are not checked against the properties.
+     */
     def required(required: Chunk[java.lang.String]): Object =
       this.copy(required = required)
 
@@ -1611,17 +2099,24 @@ object JsonSchema {
      * aliased Newtype strings, or have other OpenAPI string validations like
      * pattern, or length.
      *
-     * In here, we attempt to reconcile 2 key schemas. They must be Strings, (or
-     * else we'll throw). And we attempt to make them match the best we can:
-     *   - only keep format if match on both
-     *   - adjust the pattern to enforce both patterns if both exist
-     *   - max length is restricted to be the minimum
-     *   - min length is restricted to be the maximum
-     *   - if after reconciliation min > max, we discard both requirements
+     * In here, we reconcile 2 key schemas, after removing their annotations.
+     * When either is `None`, the result is `None`. Both must be Strings, or
+     * else this throws an `IllegalArgumentException`. The result is a String
+     * schema that:
+     *   - keeps the format only if both have the same format
+     *   - keeps the pattern if both have the same pattern; if both have
+     *     different patterns, joins them into one alternation built from the
+     *     `toString` of each `Pattern`, such as `(Pattern(a))|(Pattern(b))`;
+     *     otherwise has no pattern
+     *   - takes the larger max length, or the one that is set
+     *   - takes the smaller min length, or the one that is set
      *
      * @param left
+     *   the key schema of the left dictionary, if any
      * @param right
+     *   the key schema of the right dictionary, if any
      * @return
+     *   the reconciled key schema, or `None`
      */
     private def combineKeySchemasForAdditionalProperties(
       left: Option[JsonSchema],
@@ -1710,7 +2205,13 @@ object JsonSchema {
     }
   }
 
+  /** Holds the empty `Object` schema. */
   object Object {
+
+    /**
+     * An `Object` schema with no properties, nothing required and no
+     * `additionalProperties` keyword: `{"type":"object","properties":{}}`.
+     */
     val empty: JsonSchema.Object = JsonSchema.Object(Map.empty, Left(true), Chunk.empty)
 
     private[http] def extractKeySchemaFromAnnotations(js: JsonSchema): (Option[JsonSchema], Chunk[MetaData]) =
@@ -1721,6 +2222,10 @@ object JsonSchema {
       }
   }
 
+  /**
+   * An `enum` schema with the allowed `values`. It is written with
+   * `"type":"string"` also when the values are numbers, booleans or `null`.
+   */
   final case class Enum(values: Chunk[EnumValue]) extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
@@ -1729,8 +2234,17 @@ object JsonSchema {
       )
   }
 
+  /**
+   * One allowed value of an `Enum`: a string, a number, a boolean, `null`, or a
+   * schema written as a JSON object.
+   */
   @noDiscriminator
   sealed trait EnumValue { self =>
+
+    /**
+     * Returns this value as JSON; a `SchemaValue` becomes the JSON of its
+     * schema.
+     */
     def toJson: Json = self match {
       case EnumValue.Bool(value)        => Json.Bool(value)
       case EnumValue.Str(value)         => Json.Str(value)
@@ -1743,8 +2257,15 @@ object JsonSchema {
     }
   }
 
+  /** The `EnumValue` cases and `fromJson`. */
   object EnumValue {
 
+    /**
+     * Returns the `EnumValue` of a JSON string, number, boolean or `null`.
+     * Other JSON is decoded as a schema into a `SchemaValue`; when that fails,
+     * as for the array `[1]`, it throws a `java.lang.IllegalArgumentException`
+     * (`Can't convert [1]`).
+     */
     def fromJson(json: Json): EnumValue =
       json match {
         case Json.Str(value)  => Str(value)
@@ -1759,14 +2280,24 @@ object JsonSchema {
           )
       }
 
+    /** An enum value that is a JSON object, held as a [[JsonSchema]]. */
     final case class SchemaValue(value: JsonSchema) extends EnumValue
-    final case class Bool(value: Boolean)           extends EnumValue
-    final case class Str(value: java.lang.String)   extends EnumValue
-    final case class Num(value: BigDecimal)         extends EnumValue
-    case object Null                                extends EnumValue
+
+    /** A boolean enum value. */
+    final case class Bool(value: Boolean) extends EnumValue
+
+    /** A string enum value. */
+    final case class Str(value: java.lang.String) extends EnumValue
+
+    /** A number enum value. */
+    final case class Num(value: BigDecimal) extends EnumValue
+
+    /** The `null` enum value. */
+    case object Null extends EnumValue
 
   }
 
+  /** The `null` schema: `{"type":"null"}`. */
   case object Null extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema(
@@ -1774,6 +2305,7 @@ object JsonSchema {
       )
   }
 
+  /** A schema that accepts any JSON value, written as `{}`. */
   case object AnyJson extends JsonSchema {
     override protected[openapi] def toSerializableSchema: SerializableJsonSchema =
       SerializableJsonSchema()

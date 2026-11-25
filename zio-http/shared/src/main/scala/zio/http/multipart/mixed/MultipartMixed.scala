@@ -12,8 +12,26 @@ import zio.http._
 import zio.http.internal.FormAST
 import zio.http.multipart.mixed.MultipartMixed.Parser
 
+/**
+ * A `multipart/mixed` body read as a stream of parts. `parts` splits `source`
+ * at `boundary`; `bufferSize` is the number of content bytes that the parser
+ * collects before it emits them.
+ */
 final case class MultipartMixed(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
 
+  /**
+   * Parses `source` into its parts, skipping the preamble before the first
+   * boundary and the epilogue after the closing boundary. The parts share the
+   * one source, so the stream emits the next part only after the `bytes` of the
+   * previous part have been read to the end: collecting the parts without
+   * reading their bytes does not complete.
+   *
+   * Fails with a `java.lang.IllegalStateException` with the message
+   * `multipart/chunked body ended with no boundary` when the source ends before
+   * the closing boundary, and
+   * `multipart/chunked body ended while parsing part's headers` when it ends
+   * inside the headers of a part.
+   */
   def parts: ZStream[Any, Throwable, MultipartMixed.Part] = ZStream
     .unwrapScoped[Any] {
       source.toChannel.toPull.map { pull =>
@@ -23,17 +41,32 @@ final case class MultipartMixed(source: ZStream[Any, Throwable, Byte], boundary:
 
 }
 
+/** Constructors of [[MultipartMixed]]. */
 object MultipartMixed {
+
+  /** One part of a multipart body: its headers and its content. */
   final case class Part(headers: Headers, bytes: ZStream[Any, Throwable, Byte]) {
+
+    /** The `Content-Type` header of the part, if it has one. */
     def contentType: Option[Header.ContentType] =
       headers.header(Header.ContentType)
-    def mediaType: Option[MediaType]            =
+
+    /** The media type of the `Content-Type` header, if the part has one. */
+    def mediaType: Option[MediaType] =
       contentType.map(_.mediaType)
 
     // each part may be a multipart entity on its own
+    /**
+     * The boundary of the `Content-Type` header, if it has one; a part with a
+     * boundary is a multipart entity of its own.
+     */
     def boundary: Option[Boundary] =
       contentType.flatMap(_.boundary)
 
+    /**
+     * Returns the content as a chunked streaming body, with the media type and
+     * boundary of the part when it has them.
+     */
     def toBody: Body = {
       val base = Body.fromStreamChunked(bytes)
       (this.mediaType, this.boundary) match {
@@ -273,12 +306,23 @@ object MultipartMixed {
     val result: ZStream[Any, Throwable, Part] = upstream.toStream >>> startPl
   }
 
+  /**
+   * Reads `body` as a multipart body with the boundary of its content type, or
+   * returns `None` when the content type has no boundary. The media type is not
+   * checked: a `text/plain` body with a boundary also gives `Some`.
+   */
   def fromBody(body: Body, bufferSize: Int = 8192): Option[MultipartMixed] = {
     body.boundary.map { b =>
       MultipartMixed(body.asStream, b, bufferSize)
     }
   }
 
+  /**
+   * Encodes `parts` as a multipart body with `boundary`. Each part becomes the
+   * boundary line, one `name: value` line per header, an empty line, its bytes
+   * and a line break; the closing boundary ends the body, with no line break
+   * after it.
+   */
   def fromParts(parts: ZStream[Any, Throwable, Part], boundary: Boundary, bufferSize: Int = 8192): MultipartMixed = {
     val sep   = boundary.encapsulationBoundaryBytes ++ crlf
     val term  = boundary.closingBoundaryBytes

@@ -83,6 +83,7 @@ private[endpoint] final case class EndpointClient[P, I, E, O, A <: AuthType](
   }
 }
 
+/** Constants of the `EndpointClient` class. */
 object EndpointClient {
   private[internal] val protobufMediaType: MediaType = MediaType.parseCustomMediaType("application/protobuf").get
 }

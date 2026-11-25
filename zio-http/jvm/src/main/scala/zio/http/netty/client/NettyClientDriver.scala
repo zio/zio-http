@@ -33,6 +33,11 @@ import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, W
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 import io.netty.util.concurrent.GenericFutureListener
 
+/**
+ * The [[zio.http.ClientDriver]] backed by Netty. It sends HTTP and WebSocket
+ * requests on channels that `channelFactory` creates and that run on
+ * `eventLoopGroup`, and creates the connection pool of the client.
+ */
 final case class NettyClientDriver private[netty] (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
@@ -203,9 +208,15 @@ final case class NettyClientDriver private[netty] (
       .provideSomeEnvironment[Scope](_ ++ ZEnvironment[NettyClientDriver, DnsResolver](this, dnsResolver))
 }
 
+/** Creates the Netty client driver. */
 object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
+  /**
+   * A layer that creates the Netty client driver, with an event loop group and
+   * a channel factory built from the [[zio.http.netty.EventLoopGroups.Config]]
+   * in its environment.
+   */
   val live: URLayer[EventLoopGroups.Config, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {

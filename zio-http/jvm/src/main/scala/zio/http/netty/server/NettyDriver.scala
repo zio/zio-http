@@ -89,10 +89,18 @@ private[zio] final case class NettyDriver(
   override def toString: String = s"NettyDriver($serverConfig)"
 }
 
+/** Builds the Netty server [[zio.http.Driver]]. */
 object NettyDriver {
 
+  /** An empty `Trace`, the implicit trace of the members of this object. */
   implicit val trace: Trace = Trace.empty
 
+  /**
+   * Builds the driver from the services in its environment: the routes
+   * reference, the server channel factory, the channel initializer, the event
+   * loop groups, the `Server.Config`, the [[zio.http.netty.NettyConfig]] and
+   * the request handler.
+   */
   val make: ZIO[
     RoutesRef
       & ChannelFactory[ServerChannel]
@@ -122,6 +130,12 @@ object NettyDriver {
       nettyConfig = nsc,
     )
 
+  /**
+   * A layer that builds the driver from the given event loop groups, server
+   * channel factory, `Server.Config` and [[zio.http.netty.NettyConfig]]. It
+   * creates the routes reference, the channel initializer and the request
+   * handler itself.
+   */
   val manual
     : ZLayer[ServerEventLoopGroups & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
@@ -133,6 +147,11 @@ object NettyDriver {
     )
   }
 
+  /**
+   * A layer that builds the driver from a `Server.Config` and a
+   * [[zio.http.netty.NettyConfig]]. It creates the boss and worker event loop
+   * groups and a server channel factory for the configured transport.
+   */
   val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver] = {
     val serverChannelFactory: ZLayer[NettyConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
@@ -145,6 +164,7 @@ object NettyDriver {
     )
   }
 
+  /** `customized` with `NettyConfig.default`. */
   val live: ZLayer[Server.Config, Throwable, Driver] =
     ZLayer.makeSome[Server.Config, Driver](
       ZLayer.succeed(NettyConfig.default),

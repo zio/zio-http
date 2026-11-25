@@ -29,6 +29,10 @@ import zio.http.{Body, Header}
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
 
+/**
+ * Creates [[zio.http.Body]] values from Netty types: `AsciiString`, a
+ * `CharSequence` with a charset, and streams of `ByteBuf`s.
+ */
 object NettyBody {
 
   /**
@@ -83,6 +87,12 @@ object NettyBody {
   )(claim: A => Option[ByteBuf]): Body =
     ByteBufStreamBody(stream, claim, contentTypeHeader.map(Body.ContentType.fromHeader))
 
+  /**
+   * Creates a body from the characters of `charSequence` encoded with
+   * `charset`; a character that `charset` cannot encode becomes `?`. The body
+   * knows its content length (the number of encoded bytes) and has no content
+   * type.
+   */
   def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
@@ -242,7 +252,14 @@ object NettyBody {
     })
 
   private[zio] trait UnsafeAsync {
+
+    /**
+     * Receives the next chunk of the body; `isLast` is `true` for the last
+     * chunk.
+     */
     def apply(message: Chunk[Byte], isLast: Boolean): Unit
+
+    /** Receives the error that ended reading the body. */
     def fail(cause: Throwable): Unit
   }
 

@@ -24,6 +24,42 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.ResourceLeakDetector
 
+/**
+ * The Netty settings of a zio-http server or client: the transport, the number
+ * of worker threads, the timing of the graceful shutdown, the leak detection
+ * level, and the server's boss group. Pass it with a `Server.Config` to
+ * `Server.customized`, or with a `ZClient.Config` to `ZClient.live`.
+ * `Server.live` uses `NettyConfig.default`, and `ZClient.default` uses
+ * `NettyConfig.defaultWithFastShutdown`.
+ *
+ * {{{
+ * val config: NettyConfig =
+ *   NettyConfig.default
+ *     .channelType(ChannelType.NIO)
+ *     .maxThreads(4)
+ *
+ * config.nThreads // 4
+ * }}}
+ *
+ * @param leakDetectionLevel
+ *   the level that the server sets on Netty's `ResourceLeakDetector` when it
+ *   starts. The level applies to the whole JVM; the client does not set it.
+ * @param channelType
+ *   the transport of the worker event loop group and of the channels
+ * @param nThreads
+ *   the number of threads of the worker event loop group, or of the client's
+ *   event loop group. With 0, Netty uses its default: the
+ *   `io.netty.eventLoopThreads` system property when it is set, else twice the
+ *   number of available processors.
+ * @param shutdownQuietPeriodDuration
+ *   the quiet period of the graceful shutdown of the worker event loop group
+ * @param shutdownTimeoutDuration
+ *   the longest time the graceful shutdown of the worker event loop group waits
+ * @param bossGroup
+ *   the settings of the server's boss event loop group
+ * @see
+ *   [[https://zio.dev/zio-http/ ZIO HTTP]]
+ */
 final case class NettyConfig(
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,
@@ -39,38 +75,64 @@ final case class NettyConfig(
    */
   def bossGroup(cfg: NettyConfig.BossGroup): NettyConfig = self.copy(bossGroup = cfg)
 
+  /**
+   * Returns a copy that uses `channelType` for the worker event loop group and
+   * the channels. The server's boss group takes its transport from `bossGroup`.
+   */
   def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
 
   /**
-   * Configure Netty to use the leak detection level provided.
+   * Returns a copy with the given leak detection level. The server passes it to
+   * Netty's `ResourceLeakDetector.setLevel` when it starts, which sets the
+   * level for the whole JVM; the client does not read it.
    *
    * @see
    *   <a
-   *   href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>
+   *   href="https://netty.io/4.2/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>
    */
   def leakDetection(level: LeakDetectionLevel): NettyConfig = self.copy(leakDetectionLevel = level)
 
   /**
-   * Configure Netty to use a maximum of `nThreads` for the worker event-loop
-   * group.
+   * Returns a copy that uses `nThreads` threads for the worker event loop
+   * group, or for the client's event loop group. With 0, Netty uses its
+   * default: the `io.netty.eventLoopThreads` system property when it is set,
+   * else twice the number of available processors.
    */
   def maxThreads(nThreads: Int): NettyConfig = self.copy(nThreads = nThreads)
 
+  /** Always `TimeUnit.MILLISECONDS`. */
   def shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
-  def shutdownQuietPeriod: Long  = shutdownQuietPeriodDuration.toMillis
-  def shutdownTimeOut: Long      = shutdownTimeoutDuration.toMillis
+
+  /** `shutdownQuietPeriodDuration` in milliseconds. */
+  def shutdownQuietPeriod: Long = shutdownQuietPeriodDuration.toMillis
+
+  /** `shutdownTimeoutDuration` in milliseconds. */
+  def shutdownTimeOut: Long = shutdownTimeoutDuration.toMillis
 }
 
+/** Constructors and defaults for [[NettyConfig]]. */
 object NettyConfig {
+
+  /**
+   * The settings of the server's boss event loop group, which accepts the
+   * incoming connections and hands them to the worker group.
+   * `NettyConfig.default` gives it one thread.
+   */
   final case class BossGroup(
     channelType: ChannelType,
     nThreads: Int,
     shutdownQuietPeriodDuration: Duration,
     shutdownTimeOutDuration: Duration,
   ) extends EventLoopGroups.Config {
+
+    /** Always `TimeUnit.MILLISECONDS`. */
     def shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
-    def shutdownQuietPeriod: Long  = shutdownQuietPeriodDuration.toMillis
-    def shutdownTimeOut: Long      = shutdownTimeOutDuration.toMillis
+
+    /** `shutdownQuietPeriodDuration` in milliseconds. */
+    def shutdownQuietPeriod: Long = shutdownQuietPeriodDuration.toMillis
+
+    /** `shutdownTimeOutDuration` in milliseconds. */
+    def shutdownTimeOut: Long = shutdownTimeOutDuration.toMillis
   }
 
   private def baseConfig: Config[EventLoopGroups.Config] =
@@ -98,6 +160,22 @@ object NettyConfig {
         }
     }
 
+  /**
+   * A `zio.Config` that reads a [[NettyConfig]]. It reads
+   * `leak-detection-level`, and the keys `channel-type` (`auto`, `nio`,
+   * `epoll`, `kqueue` or `uring`), `max-threads`, `shutdown-quiet-period` and
+   * `shutdown-timeout` under `worker-group` for the worker settings and under
+   * `boss-group` for the boss group. A missing key takes the worker value of
+   * `NettyConfig.default`, so a missing `boss-group.max-threads` gives one
+   * thread per available processor, not one.
+   *
+   * When reading the `worker-group` keys fails, for example on an unknown
+   * `channel-type` or a `max-threads` that is not a number, the worker settings
+   * are read from the same keys at the top level instead; otherwise the
+   * top-level keys are not read. An unknown `boss-group.channel-type`, such as
+   * `foo`, fails with a `Config.Error.InvalidData` whose message is `Invalid
+   * channel type: foo`.
+   */
   def config: Config[NettyConfig] =
     (LeakDetectionLevel.config.nested("leak-detection-level").withDefault(NettyConfig.default.leakDetectionLevel) ++
       baseConfig.nested("worker-group").orElse(baseConfig) ++
@@ -118,6 +196,12 @@ object NettyConfig {
       )
     }
 
+  /**
+   * The default settings: the `AUTO` transport, one worker thread per available
+   * processor, `SIMPLE` leak detection, a 2 second quiet period and a 15 second
+   * shutdown timeout, and a boss group with one thread and the same transport
+   * and shutdown timing.
+   */
   val default: NettyConfig = {
     val quietPeriod = Duration.fromSeconds(2)
     val timeout     = Duration.fromSeconds(15)
@@ -137,6 +221,10 @@ object NettyConfig {
     )
   }
 
+  /**
+   * `default` with a 50 millisecond quiet period and a 250 millisecond shutdown
+   * timeout, for both the worker and the boss group.
+   */
   val defaultWithFastShutdown: NettyConfig = {
     val quietPeriod = Duration.fromMillis(50)
     val timeout     = Duration.fromMillis(250)
@@ -150,6 +238,10 @@ object NettyConfig {
     )
   }
 
+  /**
+   * A level of Netty's `ResourceLeakDetector`, which reports `ByteBuf`s that
+   * were garbage collected without being released.
+   */
   sealed trait LeakDetectionLevel {
     self =>
     private[netty] def toNetty: ResourceLeakDetector.Level = self match {
@@ -160,15 +252,36 @@ object NettyConfig {
     }
   }
 
+  /** The levels of leak detection. */
   object LeakDetectionLevel {
+
+    /** Turns leak detection off. */
     case object DISABLED extends LeakDetectionLevel
 
+    /**
+     * Netty's `SIMPLE` level: samples buffers and reports whether a leak
+     * happened, at a small cost.
+     */
     case object SIMPLE extends LeakDetectionLevel
 
+    /**
+     * Netty's `ADVANCED` level: samples buffers and reports where a leaked
+     * buffer was last accessed, at a higher cost.
+     */
     case object ADVANCED extends LeakDetectionLevel
 
+    /**
+     * Netty's `PARANOID` level: tracks every buffer and reports where a leaked
+     * buffer was last accessed, at the highest cost.
+     */
     case object PARANOID extends LeakDetectionLevel
 
+    /**
+     * A `zio.Config` that reads a level from one of the lowercase strings
+     * `disabled`, `simple`, `advanced` or `paranoid`. Any other string, such as
+     * `SIMPLE`, fails with a `Config.Error.InvalidData` whose message is
+     * `Invalid leak detection level: SIMPLE`.
+     */
     def config: Config[LeakDetectionLevel] =
       Config.string.mapOrFail {
         case "disabled" => Right(LeakDetectionLevel.DISABLED)

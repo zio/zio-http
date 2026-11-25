@@ -22,6 +22,11 @@ import zio.http.Boundary
 import zio.http.internal.FormAST._
 
 private[http] sealed trait FormState {
+
+  /**
+   * Clears the parsing state so that parsing can start again.
+   * `BoundaryEncapsulated` and `BoundaryClosed` do nothing.
+   */
   def reset(): Unit
 }
 
@@ -126,7 +131,10 @@ private[http] object FormState {
       self
     }
 
-    /** Number of bytes currently buffered for the line being parsed. */
+    /**
+     * Number of bytes buffered for the line being parsed, not counting the most
+     * recent byte.
+     */
     private[http] def bufferedBytes: Int = bufferSize
 
     def reset(): Unit = {

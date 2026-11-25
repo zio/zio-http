@@ -18,7 +18,12 @@ package zio.http.internal
 
 private[http] sealed trait CaseMode
 
+/** The two ways of comparing characters: `Sensitive` and `Insensitive`. */
 object CaseMode {
-  case object Sensitive   extends CaseMode
+
+  /** Compares characters as they are. */
+  case object Sensitive extends CaseMode
+
+  /** Treats two characters as equal when their lower-case forms are equal. */
   case object Insensitive extends CaseMode
 }

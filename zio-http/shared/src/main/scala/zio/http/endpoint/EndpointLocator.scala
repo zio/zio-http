@@ -24,7 +24,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.URL
 
 /**
- * An endpoint locator is responsible for locating endpoints.
+ * Finds the base URL of an [[Endpoint]]. Deprecated: pass a `URL` to
+ * `EndpointExecutor` instead.
  */
 @deprecated(
   "EndpointLocator will be removed in a future release. Please use URLs directly to create an EndpointExecutor",
@@ -40,6 +41,10 @@ trait EndpointLocator { self =>
     trace: Trace,
   ): IO[EndpointNotFound, URL]
 
+  /**
+   * Returns a locator that asks this locator first and, when it fails, asks
+   * `that`.
+   */
   @nowarn
   final def orElse(that: EndpointLocator): EndpointLocator = new EndpointLocator {
     def locate[P, A, E, B](api: Endpoint[P, A, E, B, _ <: AuthType])(implicit
@@ -48,7 +53,11 @@ trait EndpointLocator { self =>
       self.locate(api).orElse(that.locate(api))
   }
 }
+
+/** Constructors for [[EndpointLocator]]. */
 object EndpointLocator {
+
+  /** Returns a locator that gives `url` for every endpoint. */
   @deprecated(
     "EndpointLocator.fromURL is deprecated and will be removed in a future release. Please use URLs directly to create an EndpointExecutor",
     "3.6.0",

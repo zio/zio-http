@@ -18,10 +18,20 @@ import zio.http.internal.StringSchemaCodec.{PrimitiveCodec, decodeAndUnwrap, emp
 import zio.http.{Headers, QueryParams}
 
 private[http] trait ErrorConstructor {
+
+  /** Creates the error for a missing field. */
   def missing(fieldName: String): HttpCodecError
+
+  /** Creates the error for several missing fields. */
   def missingAll(fieldNames: Chunk[String]): HttpCodecError
+
+  /** Creates the error for values that fail validation. */
   def invalid(errors: Chunk[ValidationError]): HttpCodecError
+
+  /** Creates the error for a field that cannot be decoded. */
   def malformed(fieldName: String, error: DecodeError): HttpCodecError
+
+  /** Creates the error for a field with the wrong number of values. */
   def invalidCount(fieldName: String, expected: Int, actual: Int): HttpCodecError
 }
 

@@ -24,8 +24,17 @@ import zio.http.Header.ContentTransferEncoding
 import zio.http.{Boundary, Headers, MediaType}
 
 private[http] sealed trait FormAST {
+
+  /**
+   * Returns the bytes of this part; for a header these are `name: value` in
+   * UTF-8, without a line break.
+   */
   def bytes: Chunk[Byte]
 
+  /**
+   * Returns `true` for a `Content` part and `false` for headers, boundaries and
+   * `EoL`.
+   */
   def isContent: Boolean = this match {
     case FormAST.Content(_) => true
     case _                  => false
@@ -79,8 +88,6 @@ private[http] object FormAST {
      * "text/html".
      *
      * If there is no semicolon, the entire value is returned.
-     *
-     * @return
      */
     def preposition: String = value.split(';').head
 

@@ -16,11 +16,22 @@
 
 package zio.http.internal
 
+/** Operators that check query parameters. */
 trait QueryChecks[+A] { self: QueryOps[A] with A =>
 
+  /**
+   * Returns `true` when an entry with this key exists, including one without
+   * values. On a `URL` or a `Request` the name is compared with the `String`
+   * key by `equals`, so a non-`String` `CharSequence` never matches;
+   * `QueryParams` overrides it to compare `name.toString`.
+   */
   def hasQueryParam(name: CharSequence): Boolean =
     queryParameters.seq.exists(_.getKey == name)
 
+  /**
+   * Returns the number of entries in `queryParameters` with this key, so
+   * `a=1&a=2` gives 1 on a URL; `QueryParams` overrides it to count values.
+   */
   def valueCount(name: CharSequence): Int =
     queryParameters.seq.count(_.getKey == name)
 }

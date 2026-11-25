@@ -31,23 +31,63 @@ import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.uring.IoUringIoHandler
 
 /**
- * Simple wrapper over NioEventLoopGroup
+ * Creates Netty event loop groups (`MultiThreadIoEventLoopGroup`) for the NIO,
+ * epoll, kqueue, io_uring and local transports. When its scope closes, each
+ * group is shut down gracefully with the shutdown settings of its
+ * [[EventLoopGroups.Config]], and the scope waits until the group has
+ * terminated.
  */
 object EventLoopGroups {
+
+  /**
+   * The settings of one event loop group: its transport, its thread count and
+   * the timing of its graceful shutdown.
+   */
   trait Config extends ChannelType.Config {
+
+    /**
+     * The number of event loops (threads) in the group. With 0, Netty uses its
+     * default: the `io.netty.eventLoopThreads` system property when it is set,
+     * else twice the number of available processors.
+     */
     def nThreads: Int
+
+    /**
+     * The quiet period of the graceful shutdown, in `shutdownTimeUnit`: Netty's
+     * `shutdownGracefully` waits until no task has been submitted for this
+     * long.
+     */
     def shutdownQuietPeriod: Long
+
+    /**
+     * The longest time, in `shutdownTimeUnit`, that the graceful shutdown waits
+     * before the group shuts down, even if tasks are still being submitted.
+     */
     def shutdownTimeOut: Long
 
+    /** The unit of `shutdownQuietPeriod` and `shutdownTimeOut`. */
     def shutdownTimeUnit: TimeUnit
   }
 
+  /**
+   * Creates an event loop group on the NIO transport with `config.nThreads`
+   * threads.
+   */
   def nio(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config: Config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, NioIoHandler.newFactory())))
 
+  /**
+   * Creates an event loop group on the NIO transport with `config.nThreads`
+   * threads, which run on `executor`.
+   */
   def nio(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, NioIoHandler.newFactory())))
 
+  /**
+   * Acquires the group that `eventLoopGroup` creates. When the scope closes,
+   * shuts it down gracefully with the shutdown settings of `config` and waits
+   * until it has terminated; a failed shutdown is a defect.
+   */
   def make(config: Config, eventLoopGroup: UIO[EventLoopGroup])(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, EventLoopGroup] =
@@ -58,51 +98,66 @@ object EventLoopGroups {
         .orDie
     }
 
+  /**
+   * Creates an event loop group on the native epoll transport (Linux) with
+   * `config.nThreads` threads.
+   */
   def epoll(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, EpollIoHandler.newFactory())))
 
+  /**
+   * Creates an event loop group on the native kqueue transport (macOS) with
+   * `config.nThreads` threads.
+   */
   def kqueue(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, KQueueIoHandler.newFactory())))
 
+  /**
+   * Creates an event loop group on the native epoll transport (Linux) with
+   * `config.nThreads` threads, which run on `executor`.
+   */
   def epoll(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, EpollIoHandler.newFactory())))
 
   /**
-   * Creates a new instance of `IOUringEventLoopGroup` with the given
-   * configuration. This requires the
-   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
-   * That experimental dependency is not provided by default and must be added
-   * explicitly to use this transport.
-   *
-   * @param config
-   * @param trace
-   * @return
+   * Creates an event loop group on the native io_uring transport (Linux) with
+   * `config.nThreads` threads. This requires the
+   * `io.netty:netty-transport-native-io_uring` dependency, which zio-http
+   * declares as `provided`, so the application must add it. Without it, the
+   * effect dies with a `java.lang.NoClassDefFoundError`.
    */
   def uring(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, IoUringIoHandler.newFactory())))
 
   /**
-   * Creates a new instance of `IOUringEventLoopGroup` with the given
-   * configuration and executor. This requires the
-   * `io.netty.incubator:netty-incubator-transport-native-io_uring` dependency.
-   * That experimental dependency is not provided by default and must be added
-   * explicitly to use this transport.
-   *
-   * @param config
-   * @param executor
-   * @param trace
-   * @return
+   * Creates an event loop group on the native io_uring transport (Linux) with
+   * `config.nThreads` threads, which run on `executor`. This requires the
+   * `io.netty:netty-transport-native-io_uring` dependency, which zio-http
+   * declares as `provided`, so the application must add it. Without it, the
+   * effect dies with a `java.lang.NoClassDefFoundError`.
    */
   def uring(config: Config, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(config, ZIO.succeed(new MultiThreadIoEventLoopGroup(config.nThreads, executor, IoUringIoHandler.newFactory())))
 
+  /**
+   * Creates an event loop group on Netty's local transport, which connects
+   * channels inside one JVM, with Netty's default thread count (see
+   * `Config#nThreads`). `config.nThreads` is not used; the shutdown settings of
+   * `config` are.
+   */
   def default(config: Config)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
     config,
     ZIO.succeed(new MultiThreadIoEventLoopGroup(LocalIoHandler.newFactory())),
   )
 
+  /** An empty `Trace`, the implicit trace of `live`. */
   implicit val trace: Trace = Trace.empty
 
+  /**
+   * A layer that creates the event loop group for the transport that
+   * `Config#channelType` names, with `AUTO` picking epoll, then kqueue, then
+   * NIO by availability. The group is shut down when the layer's scope closes.
+   */
   val live: ZLayer[Config, Nothing, EventLoopGroup] =
     ZLayer.scoped {
       ZIO.serviceWithZIO[Config] { config =>

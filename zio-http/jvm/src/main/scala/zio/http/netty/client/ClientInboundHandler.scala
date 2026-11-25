@@ -28,7 +28,9 @@ import io.netty.handler.codec.http._
 import io.netty.util.ReferenceCountUtil
 
 /**
- * Handles HTTP response
+ * Sends the request when it receives the `SendRequest` user event, then
+ * completes the response promise once the status line and headers of the
+ * response arrive, or fails it when they cannot be decoded.
  */
 private[netty] final class ClientInboundHandler(
   rtm: NettyRuntime,
@@ -113,6 +115,12 @@ private[netty] final class ClientInboundHandler(
   }
 }
 
+/** Holds the user event of the client's inbound handler. */
 object ClientInboundHandler {
+
+  /**
+   * The user event that makes the client's inbound handler write its request to
+   * the channel.
+   */
   case object SendRequest
 }

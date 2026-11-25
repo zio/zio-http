@@ -38,7 +38,48 @@ import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import com.lihaoyi.unroll
 
 /**
- * This is the root document object of the OpenAPI document.
+ * The root object of an OpenAPI document (the OpenAPI Object): the API
+ * metadata, its paths and operations, reusable components, security
+ * requirements and tags. `OpenAPIGen.fromEndpoints` builds one from endpoints,
+ * `toJson` and `toJsonPretty` render it as JSON, and `OpenAPI.fromJson` parses
+ * one.
+ *
+ * {{{
+ * import zio.http.Status
+ * import zio.http.codec.Doc
+ * import zio.http.endpoint.openapi.OpenAPI
+ * import zio.http.endpoint.openapi.OpenAPI.{Operation, Path, PathItem, ReferenceOr, Response, StatusOrDefault}
+ *
+ * val api: OpenAPI = OpenAPI.empty
+ *   .title("Weather API")
+ *   .version("1.0.0")
+ *   .path(
+ *     Path.fromString("/forecasts").get,
+ *     PathItem.empty.addGet(
+ *       Operation(
+ *         summary = Some("List forecasts"),
+ *         description = None,
+ *         externalDocs = None,
+ *         operationId = Some("listForecasts"),
+ *         requestBody = None,
+ *         responses = Map(
+ *           StatusOrDefault.StatusValue(Status.Ok) ->
+ *             ReferenceOr.Or(Response(description = Some(Doc.p("Forecasts"))))
+ *         )
+ *       )
+ *     )
+ *   )
+ *
+ * val json: String = api.toJson
+ * // {"openapi":"3.1.0","info":{"title":"Weather API","version":"1.0.0"},"paths":{"/forecasts":{"get":{"summary":"List forecasts", ...
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/endpoint/ Endpoint]], whose OpenAPI
+ *   section shows how to generate a document from endpoints
+ * @see
+ *   [[https://zio.dev/zio-http/reference/openapi-gen-sbt-plugin/ OpenAPI Gen sbt plugin]],
+ *   which generates endpoint code from an OpenAPI document
  *
  * @param openapi
  *   This string MUST be the semantic version number of the OpenAPI
@@ -50,10 +91,12 @@ import com.lihaoyi.unroll
  *   required.
  * @param servers
  *   A List of Server Objects, which provide connectivity information to a
- *   target server. If the servers property is empty, the default value would be
- *   a Server Object with a url value of /.
+ *   target server. An empty list is left out of the JSON, and the OpenAPI
+ *   specification then reads the servers as one Server Object with a url value
+ *   of /.
  * @param paths
- *   The available paths and operations for the API.
+ *   The available paths and operations for the API. The JSON lists the paths
+ *   sorted by name.
  * @param components
  *   An element to hold various schemas for the specification.
  * @param security
@@ -82,6 +125,19 @@ final case class OpenAPI(
   tags: List[OpenAPI.Tag] = List.empty,
   externalDocs: Option[OpenAPI.ExternalDoc],
 ) {
+
+  /**
+   * Merges `other` into this document. The result keeps `openapi`, `info` and
+   * `externalDocs` of this document, appends the `servers`, `security` and
+   * `tags` of `other` (duplicates are kept), and merges `components` with
+   * `Components.++`.
+   *
+   * For a path in both documents, the merged path item keeps each operation of
+   * this document and takes from `other` only the methods that are missing
+   * here. It keeps this item's description when this item has an operation,
+   * appends the other item's description when the other item adds a method, and
+   * combines the servers, parameters and extensions of both.
+   */
   def ++(other: OpenAPI): OpenAPI = OpenAPI(
     openapi = openapi,
     info = info,
@@ -150,9 +206,21 @@ final case class OpenAPI(
         .toSeq: _*,
     )
 
+  /**
+   * Returns a copy with `pathItem` added at `path`. When `path` already has a
+   * path item, the two are merged as in `++` with `pathItem` first, so an
+   * operation of `pathItem` replaces the existing operation for the same
+   * method.
+   */
   def path(path: OpenAPI.Path, pathItem: OpenAPI.PathItem): OpenAPI =
     copy(paths = mergePaths(ListMap(path -> pathItem), paths))
 
+  /**
+   * Encodes the document as compact JSON. Fields that are `None` and empty
+   * collections are left out, paths and component names are sorted by name,
+   * `Doc` descriptions are written as CommonMark strings, and extensions are
+   * written as `x-` fields.
+   */
   def toJson: String =
     JsonCodec
       .jsonEncoder(
@@ -164,6 +232,9 @@ final case class OpenAPI(
       .encodeJson(this, None)
       .toString
 
+  /**
+   * Encodes the document as indented JSON, with the same fields as `toJson`.
+   */
   def toJsonPretty: String =
     JsonCodec
       .jsonEncoder(
@@ -175,21 +246,50 @@ final case class OpenAPI(
       .encodeJson(this, Some(0))
       .toString
 
+  /** Returns a copy with `info.title` set to `title`. */
   def title(title: String): OpenAPI = copy(info = info.copy(title = title))
 
+  /**
+   * Returns a copy with `info.version` set to `version`, the version of the API
+   * document (not the OpenAPI Specification version in `openapi`).
+   */
   def version(version: String): OpenAPI = copy(info = info.copy(version = version))
 }
 
+/**
+ * The companion of [[OpenAPI]]: its schema, `fromJson`, `empty`, and the types
+ * of the OpenAPI document model, such as `Info`, `PathItem`, `Operation` and
+ * `Components`.
+ */
 object OpenAPI {
 
+  /**
+   * The schema that `toJson`, `toJsonPretty` and `fromJson` use to encode and
+   * decode a document.
+   */
   implicit val schema: Schema[OpenAPI] =
     DeriveSchema.gen[OpenAPI]
 
+  /**
+   * Decodes a document from JSON. Returns `Left` with the error message when
+   * the input is not a valid document: for example `Unexpected end of input`
+   * for `{`, and `.info(missing)` when the `info` field is missing.
+   *
+   * An `x-` field of the root object is ignored. Descriptions are read back as
+   * raw CommonMark `Doc` values, so `fromJson(api.toJson)` is not equal to
+   * `api` when `api` has a description built with `Doc.p`.
+   */
   def fromJson(json: String): Either[String, OpenAPI] =
     JsonCodec
       .jsonDecoder(OpenAPI.schema)
       .decodeJson(json)
 
+  /**
+   * A document with `openapi` set to `3.1.0`, an empty title and version, and
+   * no servers, paths, components, security requirements, tags or external
+   * docs. `toJson` renders it as
+   * `{"openapi":"3.1.0","info":{"title":"","version":""}}`.
+   */
   def empty: OpenAPI = OpenAPI(
     openapi = "3.1.0",
     info = Info(
@@ -244,6 +344,12 @@ object OpenAPI {
     )
   }
 
+  /**
+   * A schema for `zio.http.Status` that reads and writes the status code as a
+   * JSON string, such as `"404"`. Decoding a string that is not a number, such
+   * as `"abc"`, throws a `java.lang.NumberFormatException` instead of returning
+   * a `Left`.
+   */
   implicit def statusSchema: Schema[Status] =
     zio.schema
       .Schema[String]
@@ -252,6 +358,12 @@ object OpenAPI {
         p => p.text,
       )
 
+  /**
+   * The schema of the `paths` field: a JSON object that maps each path to its
+   * `PathItem`. Encoding writes the paths sorted by name. Decoding fails with
+   * `Invalid path: nopath` for the key `nopath`, or any other key that
+   * `Path.fromString` rejects.
+   */
   implicit def pathMapSchema: Schema[ListMap[Path, PathItem]] =
     DeriveSchema
       .gen[Map[String, PathItem]]
@@ -273,6 +385,12 @@ object OpenAPI {
         (m: Map[Path, PathItem]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
+  /**
+   * A schema for a map keyed by component name, as used by `Components`: a JSON
+   * object from each `Key` to a `T`. Encoding and decoding both sort the
+   * entries by name. Decoding fails with `Invalid key: a b` for the key `a b`,
+   * or any other key that `Key.fromString` rejects.
+   */
   implicit def keyMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[ListMap[Key, T]] =
@@ -296,6 +414,12 @@ object OpenAPI {
         (m: Map[Key, T]) => Right(ListMap(m.toSeq.sortBy(_._1.name).map { case (k, v) => k.name -> v }: _*)),
       )
 
+  /**
+   * A schema for the responses map of an operation: a JSON object keyed by a
+   * status code, such as `404`, or by `default`. Encoding writes each key with
+   * `StatusOrDefault.text`. Decoding fails with `Invalid status: abc` for the
+   * key `abc`.
+   */
   implicit def statusMapSchema[T](implicit
     schema: Schema[T],
   ): Schema[Map[StatusOrDefault, T]] =
@@ -322,6 +446,11 @@ object OpenAPI {
         (m: Map[StatusOrDefault, T]) => Right(m.map { case (k, v) => k.text -> v }),
       )
 
+  /**
+   * A schema for one media type name and its `MediaType`, as in the `content`
+   * field of a `Parameter`: a JSON object with a single entry. Decoding an
+   * object with no entry or with two entries fails with `Invalid media type`.
+   */
   implicit def mediaTypeTupleSchema: Schema[(String, MediaType)] =
     zio.schema
       .Schema[Map[String, MediaType]]
@@ -335,6 +464,10 @@ object OpenAPI {
         t => Right(Map(t._1 -> t._2)),
       )
 
+  /**
+   * A schema for a `SecurityRequirement`: a JSON object that maps each security
+   * scheme name to a list of scope names, such as `{"oauth":["read"]}`.
+   */
   implicit def securityRequirementSchema: Schema[SecurityRequirement] = {
     zio.schema
       .Schema[Map[String, List[String]]]
@@ -374,7 +507,8 @@ object OpenAPI {
    *   The version of the OpenAPI document (which is distinct from the OpenAPI
    *   Specification version or the API implementation version).
    * @param extensions
-   *   Extensions to the info section.
+   *   Extensions to the info section, written as `x-` fields of the Info
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Info(
     title: String,
@@ -387,7 +521,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Info`, with its schema. */
   object Info extends InfoCompatibility {
+
+    /**
+     * The schema of `Info`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Info] = extensionSchema(
       DeriveSchema.gen[Info],
       _.extensions,
@@ -456,7 +597,10 @@ object OpenAPI {
    */
   final case class ServerVariable(`enum`: Chunk[String], default: String, description: Doc)
 
+  /** The companion of `ServerVariable`, with its schema. */
   object ServerVariable {
+
+    /** The schema of `ServerVariable`, derived from its fields. */
     implicit val schema: Schema[ServerVariable] =
       DeriveSchema.gen[ServerVariable]
   }
@@ -497,6 +641,11 @@ object OpenAPI {
     links: ListMap[Key, ReferenceOr[Link]] = ListMap.empty,
     callbacks: ListMap[Key, ReferenceOr[Callback]] = ListMap.empty,
   ) {
+
+    /**
+     * Merges two `Components` map by map. When both have an entry with the same
+     * key, the entry of `other` is kept.
+     */
     def ++(other: Components): Components = Components(
       schemas = schemas ++ other.schemas,
       responses = responses ++ other.responses,
@@ -510,10 +659,21 @@ object OpenAPI {
     )
   }
 
+  /**
+   * The name of a reusable component in `Components`, such as a schema name.
+   * Create one with `Key.fromString`, which checks the name against
+   * `Key.validName`.
+   */
   sealed abstract case class Key private (name: String)
 
+  /** The companion of `Key`, with its schema and constructor. */
   object Key {
 
+    /**
+     * The schema of `Key`, as a JSON string. Decoding fails with
+     * `Invalid Key a b` for the string `a b`, or any other name that
+     * `fromString` rejects.
+     */
     implicit val schema: Schema[Key] =
       zio.schema
         .Schema[String]
@@ -523,10 +683,15 @@ object OpenAPI {
         )
 
     /**
-     * All Components objects MUST use Keys that match the regular expression.
+     * The pattern that the keys of the Components Object must match: one or
+     * more ASCII letters, digits, `.`, `-` or `_`.
      */
     val validName: Regex = "^[a-zA-Z0-9.\\-_]+$".r
 
+    /**
+     * Returns the `Key` for `name`, or `None` when `name` does not match
+     * `validName`: for example `None` for an empty name, `a b`, `a/b` or `é`.
+     */
     def fromString(name: String): Option[Key] = name match {
       case validName() => Some(new Key(name) {})
       case _           => None
@@ -547,7 +712,14 @@ object OpenAPI {
    */
   case class Path private (name: String)
 
+  /** The companion of `Path`, with its schema and constructor. */
   object Path {
+
+    /**
+     * The schema of `Path`, as a JSON string. Decoding fails with
+     * `Invalid Path x` for the string `x`, or any other string that
+     * `fromString` rejects.
+     */
     implicit val schema: Schema[Path] = Schema[String].transformOrFail[Path](
       s => fromString(s).toRight(s"Invalid Path $s"),
       p => Right(p.name),
@@ -557,6 +729,13 @@ object OpenAPI {
     // safe chars from RFC1738 "$" | "-" | "_" | "." | "+"
     private val validPath: Regex = """\/[\/a-zA-Z0-9\-_{}$.+]*""".r
 
+    /**
+     * Returns the `Path` for `name`, or `None` unless `name` starts with `/`
+     * and has only ASCII letters, digits, and the characters `/`, `-`, `_`,
+     * `{`, `}`, `\$`, `.` and `+`. For example `/users/{id}` and `/` are
+     * accepted, and `users`, the empty string, `/a b`, `/a?x` and `/~x` are
+     * rejected.
+     */
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(Path(name))
       case _           => None
@@ -604,7 +783,8 @@ object OpenAPI {
    *   to link to parameters that are defined at the OpenAPI Object’s
    *   components/parameters.
    * @param extensions
-   *   Extensions to the path item.
+   *   Extensions to the path item, written as `x-` fields of the Path Item
+   *   Object. The keys are stored without the `x-` prefix.
    */
   @nowarn("msg=possible missing interpolator")
   final case class PathItem(
@@ -625,15 +805,44 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   ) {
-    def addGet(operation: Operation): PathItem     = copy(get = Some(operation))
-    def addPut(operation: Operation): PathItem     = copy(put = Some(operation))
-    def addPost(operation: Operation): PathItem    = copy(post = Some(operation))
-    def addDelete(operation: Operation): PathItem  = copy(delete = Some(operation))
+
+    /** Returns a copy with `operation` as the GET operation, replacing any. */
+    def addGet(operation: Operation): PathItem = copy(get = Some(operation))
+
+    /** Returns a copy with `operation` as the PUT operation, replacing any. */
+    def addPut(operation: Operation): PathItem = copy(put = Some(operation))
+
+    /** Returns a copy with `operation` as the POST operation, replacing any. */
+    def addPost(operation: Operation): PathItem = copy(post = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the DELETE operation, replacing any.
+     */
+    def addDelete(operation: Operation): PathItem = copy(delete = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the OPTIONS operation, replacing any.
+     */
     def addOptions(operation: Operation): PathItem = copy(options = Some(operation))
-    def addHead(operation: Operation): PathItem    = copy(head = Some(operation))
-    def addPatch(operation: Operation): PathItem   = copy(patch = Some(operation))
-    def addTrace(operation: Operation): PathItem   = copy(trace = Some(operation))
-    def any(operation: Operation): PathItem        =
+
+    /** Returns a copy with `operation` as the HEAD operation, replacing any. */
+    def addHead(operation: Operation): PathItem = copy(head = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the PATCH operation, replacing any.
+     */
+    def addPatch(operation: Operation): PathItem = copy(patch = Some(operation))
+
+    /**
+     * Returns a copy with `operation` as the TRACE operation, replacing any.
+     */
+    def addTrace(operation: Operation): PathItem = copy(trace = Some(operation))
+
+    /**
+     * Returns a copy with `operation` set for all eight methods: GET, PUT,
+     * POST, DELETE, OPTIONS, HEAD, PATCH and TRACE.
+     */
+    def any(operation: Operation): PathItem =
       copy(
         get = Some(operation),
         put = Some(operation),
@@ -646,13 +855,23 @@ object OpenAPI {
       )
   }
 
+  /** The companion of `PathItem`, with its schema and `empty`. */
   object PathItem {
+
+    /**
+     * The schema of `PathItem`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[PathItem] = extensionSchema(
       DeriveSchema.gen[PathItem],
       _.extensions,
       (i, e) => i.copy(extensions = e),
     )
 
+    /**
+     * A path item with no operations, servers, parameters or extensions, and
+     * with `ref`, `summary` and `description` set to `None`.
+     */
     val empty: PathItem = PathItem(
       ref = None,
       summary = None,
@@ -689,20 +908,22 @@ object OpenAPI {
    *   identify an operation, therefore, it is RECOMMENDED to follow common
    *   programming naming conventions.
    * @param parameters
-   *   A List of parameters that are applicable for this operation. If a
+   *   A Set of parameters that are applicable for this operation. If a
    *   parameter is already defined at the Path Item, the new definition will
-   *   override it but can never remove it. The list MUST NOT include duplicated
+   *   override it but can never remove it. The set MUST NOT include duplicated
    *   parameters. A unique parameter is defined by a combination of a name and
-   *   location. The list can use the Reference Object to link to parameters
-   *   that are defined at the OpenAPI Object’s components/parameters.
+   *   location; `Parameter` equality compares only `name` and `in`, so the set
+   *   holds at most one parameter per name and location. The set can use the
+   *   Reference Object to link to parameters that are defined at the OpenAPI
+   *   Object’s components/parameters.
    * @param requestBody
    *   The request body applicable for this operation. The requestBody is only
    *   supported in HTTP methods where the HTTP 1.1 specification [RFC7231] has
    *   explicitly defined semantics for request bodies. In other cases where the
    *   HTTP spec is vague, requestBody SHALL be ignored by consumers.
    * @param responses
-   *   The List of possible responses as they are returned from executing this
-   *   operation.
+   *   The possible responses as they are returned from executing this
+   *   operation, keyed by status code or `default`.
    * @param callbacks
    *   A map of possible out-of band callbacks related to the parent operation.
    *   The key is a unique identifier for the Callback Object. Each value in the
@@ -717,14 +938,15 @@ object OpenAPI {
    *   objects that can be used. Only one of the security requirement objects
    *   need to be satisfied to authorize a request. To make security optional,
    *   an empty security requirement ({}) can be included in the array. This
-   *   definition overrides any declared top-level security. To remove a
-   *   top-level security declaration, an empty List can be used.
+   *   definition overrides any declared top-level security. An empty List is
+   *   left out of the JSON, so the operation then has no `security` field.
    * @param servers
    *   An alternative server List to service this operation. If an alternative
    *   server object is specified at the Path Item Object or Root level, it will
    *   be overridden by this value.
    * @param extensions
-   *   Extensions to the operation.
+   *   Extensions to the operation, written as `x-` fields of the Operation
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Operation(
     tags: List[String] = List.empty,
@@ -743,7 +965,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Operation`, with its schema. */
   object Operation extends OperationCompatibility {
+
+    /**
+     * The schema of `Operation`. It reads each `x-` field into `extensions`,
+     * and writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Operation] = extensionSchema(
       DeriveSchema.gen[Operation],
       _.extensions,
@@ -752,7 +981,23 @@ object OpenAPI {
   }
 
   /**
-   * Describes a single operation parameter.
+   * Describes a single operation parameter (the Parameter Object). Two
+   * parameters are equal when they have the same `name` and `in`: `equals` and
+   * `hashCode` ignore the other fields.
+   *
+   * @param name
+   *   The name of the parameter. Parameter names are case sensitive.
+   * @param in
+   *   The location of the parameter. The Parameter Object allows `query`,
+   *   `header`, `path` and `cookie`.
+   * @param style
+   *   How the parameter value is serialized, such as `form` or `simple`.
+   * @param content
+   *   A media type and the `MediaType` that describes the parameter, instead of
+   *   `schema`.
+   * @param extensions
+   *   Extensions to the parameter, written as `x-` fields of the Parameter
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Parameter(
     name: String,
@@ -778,38 +1023,74 @@ object OpenAPI {
     override def hashCode(): Int = (name, in).hashCode
   }
 
+  /**
+   * The companion of `Parameter`, with its schema, the parameter styles, and
+   * one constructor for each parameter location.
+   */
   object Parameter {
 
+    /**
+     * The schema of `Parameter`. It reads each `x-` field into `extensions`,
+     * and writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Parameter] = extensionSchema(
       DeriveSchema.gen[Parameter],
       _.extensions,
       (i, e) => i.copy(extensions = e),
     )
 
+    /**
+     * A media type name and its `MediaType`. `Parameter.content` holds the same
+     * data as a `(String, MediaType)` tuple instead.
+     */
     final case class Content(key: String, mediaType: MediaType)
 
+    /**
+     * A style that `pathParameter` accepts: `Style.Matrix`, `Style.Label` or
+     * `Style.Simple`.
+     */
     sealed trait PathStyle
+
+    /**
+     * A style that `queryParameter` accepts: `Style.Form`,
+     * `Style.SpaceDelimited`, `Style.PipeDelimited` or `Style.DeepObject`.
+     */
     sealed trait QueryStyle
 
+    /**
+     * The parameter styles of the Parameter Object, written in its `style`
+     * field.
+     */
     object Style {
+
+      /** The `matrix` path style. */
       case object Matrix extends PathStyle
 
+      /** The `label` path style. */
       case object Label extends PathStyle
 
+      /** The `form` query style, the default of `queryParameter`. */
       case object Form extends QueryStyle
 
+      /** The `simple` path style, the default of `pathParameter`. */
       case object Simple extends PathStyle
 
+      /** The `spaceDelimited` query style. */
       case object SpaceDelimited extends QueryStyle
 
+      /** The `pipeDelimited` query style. */
       case object PipeDelimited extends QueryStyle
 
+      /** The `deepObject` query style. */
       case object DeepObject extends QueryStyle
     }
 
     /**
      * Parameters that are appended to the URL. For example, in /items?id=###,
      * the query parameter is id.
+     *
+     * The parameter written to JSON has `explode`, `required` and `deprecated`
+     * only when they are true, and always has `allowReserved` and `style`.
      *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
@@ -855,6 +1136,9 @@ object OpenAPI {
      * Custom headers that are expected as part of the request. Note that
      * [RFC7230] states header names are case insensitive.
      *
+     * The parameter has the `simple` style. The JSON has `required`,
+     * `deprecated` and `explode` only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -896,6 +1180,9 @@ object OpenAPI {
      * of the API. For example, in /items/{itemId}, the path parameter is
      * itemId.
      *
+     * The parameter is always required. The JSON has `deprecated` and `explode`
+     * only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -936,6 +1223,9 @@ object OpenAPI {
     /**
      * Used to pass a specific cookie value to the API.
      *
+     * The parameter has the `form` style. The JSON has `required`, `deprecated`
+     * and `explode` only when they are true.
+     *
      * @param name
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
@@ -969,6 +1259,10 @@ object OpenAPI {
     )
   }
 
+  /**
+   * Describes a header of a response or of a multipart encoding (the Header
+   * Object). A flag that is `None` is left out of the JSON.
+   */
   final case class Header(
     description: Option[Doc],
     required: Option[Boolean] = None,
@@ -977,7 +1271,13 @@ object OpenAPI {
     schema: Option[JsonSchema],
   )
 
+  /** The companion of `Header`, with its schema and a constructor. */
   object Header {
+
+    /**
+     * Creates a `Header` from plain flags. A flag that is `false` becomes
+     * `None`, so it is left out of the JSON.
+     */
     def apply(
       description: Option[Doc],
       required: Boolean,
@@ -991,6 +1291,8 @@ object OpenAPI {
       if (allowEmptyValue) Some(allowEmptyValue) else None,
       schema,
     )
+
+    /** The schema of `Header`, derived from its fields. */
     implicit val schema: Schema[Header] =
       DeriveSchema.gen[Header]
   }
@@ -1002,11 +1304,12 @@ object OpenAPI {
    *   A brief description of the request body. This could contain examples of
    *   use.
    * @param content
-   *   The content of the request body. The key is a media type or [media type
-   *   range]appendix-D) and the value describes it. For requests that match
-   *   multiple keys, only the most specific key is applicable.
+   *   The content of the request body. The key is a media type or media type
+   *   range and the value describes it. For requests that match multiple keys,
+   *   only the most specific key is applicable.
    * @param required
-   *   Determines if the request body is required in the request.
+   *   Determines if the request body is required in the request. The JSON has
+   *   this field also when it is false.
    */
   final case class RequestBody(
     description: Option[Doc] = None,
@@ -1014,7 +1317,10 @@ object OpenAPI {
     required: Boolean = false,
   )
 
+  /** The companion of `RequestBody`, with its schema. */
   object RequestBody {
+
+    /** The schema of `RequestBody`, derived from its fields. */
     implicit val schema: Schema[RequestBody] =
       DeriveSchema.gen[RequestBody]
   }
@@ -1042,7 +1348,10 @@ object OpenAPI {
     encoding: Map[String, Encoding] = Map.empty,
   )
 
+  /** The companion of `MediaType`, with its schema. */
   object MediaType {
+
+    /** The schema of `MediaType`, derived from its fields. */
     implicit val schema: Schema[MediaType] =
       DeriveSchema.gen[MediaType]
   }
@@ -1050,7 +1359,9 @@ object OpenAPI {
   /**
    * A single encoding definition applied to a single schema property.
    *
-   * TODO: default values (https://spec.openapis.org/oas/v3.0.3#encoding-object)
+   * `headers` defaults to an empty map, `style` to `form` and `allowReserved`
+   * to false; `explode` has no default. The JSON always has `style`, `explode`
+   * and `allowReserved`.
    *
    * @param contentType
    *   The Content-Type for encoding a specific property.
@@ -1081,7 +1392,10 @@ object OpenAPI {
     allowReserved: Boolean = false,
   )
 
+  /** The companion of `Encoding`, with its schema. */
   object Encoding {
+
+    /** The schema of `Encoding`, derived from its fields. */
     implicit val schema: Schema[Encoding] =
       DeriveSchema.gen[Encoding]
   }
@@ -1094,16 +1408,34 @@ object OpenAPI {
    */
   type Responses = Map[StatusOrDefault, ReferenceOr[Response]]
 
+  /**
+   * A key of the responses map of an operation: one HTTP status (`StatusValue`)
+   * or `Default`, the response for the status codes that have no entry of their
+   * own.
+   */
   sealed trait StatusOrDefault extends Product with Serializable {
+
+    /**
+     * The key as written in JSON: the status code, such as `200`, or `default`.
+     */
     def text: String
   }
 
+  /** The two kinds of `StatusOrDefault`: `StatusValue` and `Default`. */
   object StatusOrDefault {
+
+    /** A response key for one HTTP status. */
     case class StatusValue(status: Status) extends StatusOrDefault {
       override def text: String = status.text
     }
 
+    /** The companion of `StatusValue`, with its schema. */
     object StatusValue {
+
+      /**
+       * The schema of `StatusValue`: the status code as a JSON string, such as
+       * `"200"`.
+       */
       implicit val schema: Schema[StatusValue] =
         zio.schema
           .Schema[Status]
@@ -1112,7 +1444,14 @@ object OpenAPI {
             p => Right(p.status),
           )
     }
+
+    /** The `default` response key, for the status codes with no own entry. */
     case object Default extends StatusOrDefault {
+
+      /**
+       * The schema of `Default`: the JSON string `"default"`. Decoding another
+       * string fails with `Invalid default status`.
+       */
       implicit val schema: Schema[Default.type] =
         zio.schema
           .Schema[String]
@@ -1137,13 +1476,16 @@ object OpenAPI {
    *   "Content-Type", it SHALL be ignored.
    * @param content
    *   A map containing descriptions of potential response payloads. The key is
-   *   a media type or [media type range]appendix-D) and the value describes it.
-   *   For responses that match multiple keys, only the most specific key is
+   *   a media type or media type range and the value describes it. For
+   *   responses that match multiple keys, only the most specific key is
    *   applicable.
    * @param links
    *   A map of operations links that can be followed from the response. The key
    *   of the map is a short name for the link, following the naming constraints
    *   of the names for Component Objects.
+   * @param extensions
+   *   Extensions to the response, written as `x-` fields of the Response
+   *   Object. The keys are stored without the `x-` prefix.
    */
   final case class Response(
     description: Option[Doc] = None,
@@ -1155,8 +1497,13 @@ object OpenAPI {
     extensions: Extensions = Extensions.empty,
   )
 
+  /** The companion of `Response`, with its schema. */
   object Response {
 
+    /**
+     * The schema of `Response`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Response] = extensionSchema(
       DeriveSchema.gen[Response],
       _.extensions,
@@ -1172,23 +1519,32 @@ object OpenAPI {
    * expression, evaluated at runtime, that identifies a URL to use for the
    * callback operation.
    *
+   * The JSON form is an object with a single `expressions` field that holds
+   * this map.
+   *
    * @param expressions
-   *   A Path Item Object used to define a callback request and expected
-   *   responses.
+   *   Maps each runtime expression to the Path Item Object that defines the
+   *   callback request and the expected responses.
    */
   final case class Callback(expressions: Map[String, PathItem] = Map.empty)
 
+  /** The companion of `Callback`, with its schema. */
   object Callback {
+
+    /** The schema of `Callback`, derived from its fields. */
     implicit val schema: Schema[Callback] =
       DeriveSchema.gen[Callback]
   }
 
+  // There is currently no API to set the summary, description or externalValue
   /**
-   * In all cases, the example value is expected to be compatible with the type
-   * schema of its associated value. Tooling implementations MAY choose to
-   * validate compatibility automatically, and reject the example value(s) if
-   * incompatible.
+   * An example value (the Example Object). In all cases, the example value is
+   * expected to be compatible with the type schema of its associated value.
+   * Tooling implementations MAY choose to validate compatibility automatically,
+   * and reject the example value(s) if incompatible.
    *
+   * @param value
+   *   The example value, as JSON.
    * @param summary
    *   Short description for the example.
    * @param description
@@ -1198,7 +1554,6 @@ object OpenAPI {
    *   reference examples that cannot easily be included in JSON or YAML
    *   documents.
    */
-  // There is currently no API to set the summary, description or externalValue
   final case class Example(
     value: Json,
     summary: Option[String] = None,
@@ -1206,7 +1561,10 @@ object OpenAPI {
     externalValue: Option[URI] = None,
   )
 
+  /** The companion of `Example`, with its schema. */
   object Example {
+
+    /** The schema of `Example`, derived from its fields. */
     implicit val schema: Schema[Example] =
       DeriveSchema.gen[Example]
   }
@@ -1252,43 +1610,81 @@ object OpenAPI {
     server: Option[Server],
   )
 
+  /** The companion of `Link`, with its schema. */
   object Link {
+
+    /** The schema of `Link`, derived from its fields. */
     implicit val schema: Schema[Link] =
       DeriveSchema.gen[Link]
   }
 
+  /**
+   * A value of a Link Object: a literal number, decimal, string or boolean, or
+   * a runtime expression.
+   */
   sealed trait LiteralOrExpression
+
+  /** The cases of `LiteralOrExpression`, and the `expression` constructor. */
   object LiteralOrExpression {
+
+    /**
+     * The schema of `LiteralOrExpression`. It writes a value as an object with
+     * one field named after its case, such as `{"NumberLiteral":5}`.
+     */
     implicit val schema: Schema[LiteralOrExpression] =
       DeriveSchema.gen[LiteralOrExpression]
 
+    /** A whole-number literal. */
     final case class NumberLiteral(value: Long) extends LiteralOrExpression
 
+    /** The companion of `NumberLiteral`, with its schema. */
     object NumberLiteral {
+
+      /** The schema of `NumberLiteral`, as a plain JSON number. */
       implicit val schema: Schema[NumberLiteral] =
         Schema[Long].transform[NumberLiteral](s => NumberLiteral(s), p => p.value)
     }
+
+    /** A decimal number literal. */
     final case class DecimalLiteral(value: Double) extends LiteralOrExpression
 
+    /** The companion of `DecimalLiteral`, with its schema. */
     object DecimalLiteral {
+
+      /** The schema of `DecimalLiteral`, as a plain JSON number. */
       implicit val schema: Schema[DecimalLiteral] =
         Schema[Double].transform[DecimalLiteral](s => DecimalLiteral(s), p => p.value)
     }
+
+    /** A string literal. */
     final case class StringLiteral(value: String) extends LiteralOrExpression
 
+    /** The companion of `StringLiteral`, with its schema. */
     object StringLiteral {
+
+      /** The schema of `StringLiteral`, as a plain JSON string. */
       implicit val schema: Schema[StringLiteral] =
         Schema[String].transform[StringLiteral](s => StringLiteral(s), p => p.value)
     }
+
+    /** A boolean literal. */
     final case class BooleanLiteral(value: Boolean) extends LiteralOrExpression
 
+    /** The companion of `BooleanLiteral`, with its schema. */
     object BooleanLiteral {
+
+      /** The schema of `BooleanLiteral`, as a plain JSON boolean. */
       implicit val schema: Schema[BooleanLiteral] =
         Schema[Boolean].transform[BooleanLiteral](s => BooleanLiteral(s), p => p.value)
     }
+
+    /** A runtime expression, such as `\$request.path.id`. */
     case class Expression(value: String) extends LiteralOrExpression
 
+    /** The companion of `Expression`, with its schema. */
     object Expression {
+
+      /** The schema of `Expression`, as a plain JSON string. */
       implicit val schema: Schema[Expression] =
         Schema[String].transform[Expression](s => Expression.create(s), p => p.value)
 
@@ -1297,8 +1693,16 @@ object OpenAPI {
 
     // TODO: maybe one could make a regex to validate the expression. For now just accept anything
     // https://swagger.io/specification/#runtime-expressions
+    /**
+     * The pattern that `expression` accepts: `.*`, which matches the empty
+     * string and any string without a line break.
+     */
     val ExpressionRegex: Regex = """.*""".r
 
+    /**
+     * Returns an `Expression` for `value` when it matches `ExpressionRegex`,
+     * and `None` otherwise, for example for a string that contains a newline.
+     */
     def expression(value: String): Option[LiteralOrExpression] =
       value match {
         case ExpressionRegex() => Some(Expression.create(value))
@@ -1317,6 +1721,9 @@ object OpenAPI {
    *   A short description for the tag.
    * @param externalDocs
    *   Additional external documentation for this tag.
+   * @param extensions
+   *   Extensions to the tag, written as `x-` fields of the Tag Object. The keys
+   *   are stored without the `x-` prefix.
    */
   final case class Tag(
     name: String,
@@ -1326,8 +1733,14 @@ object OpenAPI {
     @unroll
     extensions: Extensions = Extensions.empty,
   )
+
+  /** The companion of `Tag`, with its schema. */
   object Tag extends TagCompatibility {
 
+    /**
+     * The schema of `Tag`. It reads each `x-` field into `extensions`, and
+     * writes `extensions` as `x-` fields sorted by key.
+     */
     implicit val schema: Schema[Tag] = extensionSchema(
       DeriveSchema.gen[Tag],
       _.extensions,
@@ -1336,15 +1749,20 @@ object OpenAPI {
   }
 
   /**
-   * A simple object to allow referencing other components in the specification,
-   * internally and externally.
-   *
-   * @param ref
-   *   The reference string.
+   * Either a reference to a component (`Reference`, the Reference Object) or an
+   * inline value (`Or`). The JSON has no discriminator: a reference is an
+   * object with a `\$ref` field, and an inline value is written as the value
+   * itself.
    */
-
   @noDiscriminator
   sealed trait ReferenceOr[+T] {
+
+    /**
+     * Returns this value as a `JsonSchema`. An inline schema is returned as is.
+     * A reference becomes a `\$ref` schema whose description is the reference's
+     * summary followed by its description, as CommonMark, and is empty when
+     * both are `None`.
+     */
     def asJsonSchema(implicit ev: T <:< JsonSchema): JsonSchema = this match {
       case ReferenceOr.Reference(ref, summary, description) =>
         JsonSchema
@@ -1355,10 +1773,28 @@ object OpenAPI {
 
   }
 
+  /** The two cases of `ReferenceOr`: `Reference` and `Or`. */
   object ReferenceOr {
+
+    /**
+     * The schema of `ReferenceOr[T]`, built from the schema of `T`. It decodes
+     * an object with a `\$ref` field as a `Reference`, and other input as an
+     * inline `T`.
+     */
     implicit def schema[T: Schema]: Schema[ReferenceOr[T]] =
       DeriveSchema.gen[ReferenceOr[T]]
 
+    /**
+     * A simple object to allow referencing other components in the
+     * specification, internally and externally.
+     *
+     * @param ref
+     *   The reference string, written as the `\$ref` field.
+     * @param summary
+     *   A short summary of the referenced component.
+     * @param description
+     *   A description of the referenced component.
+     */
     @nowarn("msg=possible missing interpolator")
     final case class Reference(
       @fieldName("$ref") ref: String,
@@ -1366,14 +1802,21 @@ object OpenAPI {
       description: Option[Doc] = None,
     ) extends ReferenceOr[Nothing]
 
+    /** The companion of `Reference`, with its schema. */
     object Reference {
+
+      /** The schema of `Reference`, derived from its fields. */
       implicit val schema: Schema[Reference] =
         DeriveSchema.gen[Reference]
     }
 
+    /** An inline value, used instead of a reference. */
     final case class Or[T](value: T) extends ReferenceOr[T]
 
+    /** The companion of `Or`, with its schema. */
     object Or {
+
+      /** The schema of `Or[T]`: the value as `T`, with no wrapper object. */
       implicit def schema[T: Schema]: Schema[Or[T]] =
         Schema[T].transform(Or(_), _.value)
 
@@ -1402,7 +1845,10 @@ object OpenAPI {
     mapping: Map[String, String] = Map.empty,
   )
 
+  /** The companion of `Discriminator`, with its schema. */
   object Discriminator {
+
+    /** The schema of `Discriminator`, derived from its fields. */
     implicit val schema: Schema[Discriminator] =
       DeriveSchema.gen[Discriminator]
   }
@@ -1428,24 +1874,37 @@ object OpenAPI {
    *   instead of an element.
    * @param wrapped
    *   MAY be used only for an array definition. Signifies whether the array is
-   *   wrapped (for example, <books><book/><book/></books>) or unwrapped
-   *   (<book/><book/>). The definition takes effect only when defined alongside
-   *   type being array (outside the items).
+   *   wrapped (for example, `<books><book/><book/></books>`) or unwrapped
+   *   (`<book/><book/>`). The definition takes effect only when defined
+   *   alongside type being array (outside the items).
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
+  /**
+   * A security scheme declared in the document (the Security Scheme Object): an
+   * API key (`ApiKey`), HTTP authentication (`Http`), OAuth 2 (`OAuth2`) or
+   * OpenID Connect (`OpenIdConnect`).
+   */
   @discriminatorName("type")
   sealed trait SecurityScheme {
+
+    /** A short description of the security scheme. */
     def description: Option[Doc]
   }
 
+  /** The cases of `SecurityScheme`, and the types they use. */
   object SecurityScheme {
 
+    /**
+     * The schema of `SecurityScheme`. It writes the case in a `type` field:
+     * `apiKey`, `http`, `oauth2` or `openIdConnect`.
+     */
     implicit val schema: Schema[SecurityScheme] =
       DeriveSchema.gen[SecurityScheme]
 
     /**
-     * Defines an HTTP security scheme that can be used by the operations.
+     * An API key security scheme (`type` `apiKey`), with the name and location
+     * of the key.
      *
      * @param description
      *   A short description for security scheme.
@@ -1457,10 +1916,20 @@ object OpenAPI {
     @caseName("apiKey")
     final case class ApiKey(description: Option[Doc], name: String, in: ApiKey.In) extends SecurityScheme
 
+    /** The companion of `ApiKey`, with the key locations `In`. */
     object ApiKey {
+
+      /** The location of an API key: `Query`, `Header` or `Cookie`. */
       sealed trait In extends Product with Serializable
 
+      /** The three locations of an API key. */
       object In {
+
+        /**
+         * The schema of `In`: the location as `query`, `header` or `cookie`.
+         * Decoding ignores case, so `HEADER` reads as `Header`. Another string
+         * fails, for example with `Invalid ApiKey.In body` for `body`.
+         */
         implicit val schema: Schema[In] =
           Schema[String]
             .transformOrFail(
@@ -1478,15 +1947,21 @@ object OpenAPI {
               },
             )
 
+        /** A query parameter, written as `query`. */
         case object Query extends In
 
+        /** A request header, written as `header`. */
         case object Header extends In
 
+        /** A cookie, written as `cookie`. */
         case object Cookie extends In
       }
     }
 
     /**
+     * An HTTP authentication security scheme (`type` `http`), such as basic or
+     * bearer authentication.
+     *
      * @param description
      *   A short description for security scheme.
      * @param scheme
@@ -1502,6 +1977,8 @@ object OpenAPI {
     final case class Http(description: Option[Doc], scheme: String, bearerFormat: Option[String]) extends SecurityScheme
 
     /**
+     * An OAuth 2 security scheme (`type` `oauth2`), with its flows.
+     *
      * @param description
      *   A short description for security scheme.
      * @param flows
@@ -1512,6 +1989,8 @@ object OpenAPI {
     final case class OAuth2(description: Option[Doc], flows: OAuthFlows) extends SecurityScheme
 
     /**
+     * An OpenID Connect security scheme (`type` `openIdConnect`).
+     *
      * @param description
      *   A short description for security scheme.
      * @param openIdConnectUrl
@@ -1541,12 +2020,26 @@ object OpenAPI {
       authorizationCode: Option[OAuthFlow.AuthorizationCode],
     )
 
+    /**
+     * The settings shared by the OAuth flows of `OAuthFlows`: an optional
+     * refresh URL and the available scopes.
+     */
     sealed trait OAuthFlow {
+
+      /** The URL to be used for obtaining refresh tokens, if any. */
       def refreshUrl: Option[URI]
 
+      /**
+       * The available scopes, as a map from each scope name to a short
+       * description. The map may be empty.
+       */
       def scopes: Map[String, String]
     }
 
+    /**
+     * The four OAuth flows: `Implicit`, `AuthorizationCode`, `Password` and
+     * `ClientCredentials`.
+     */
     object OAuthFlow {
 
       /**
@@ -1637,11 +2130,24 @@ object OpenAPI {
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
   }
 
+  /**
+   * Specification extensions of an object, keyed without the `x-` prefix. The
+   * schemas of `Info`, `PathItem`, `Operation`, `Parameter`, `Response` and
+   * `Tag` write each entry as a field named `x-` followed by the key.
+   */
   final case class Extensions(underlying: Map[String, Json]) {
+
+    /**
+     * Combines two sets of extensions. For a key in both, the value of `other`
+     * is kept.
+     */
     def ++(other: Extensions): Extensions = Extensions(underlying ++ other.underlying)
   }
 
+  /** The companion of `Extensions`, with `empty`. */
   object Extensions {
+
+    /** No extensions. */
     val empty = Extensions(Map.empty)
   }
 }
