@@ -28,7 +28,29 @@ import zio.stream.{Take, ZStream}
 import zio.http.StreamingForm.Buffer
 import zio.http.internal.{FormAST, FormState}
 
+/**
+ * A multipart form read from a stream of bytes. The fields are produced as the
+ * bytes arrive, instead of after the whole body has been read.
+ *
+ * {{{
+ * import zio._
+ * import zio.stream.ZStream
+ *
+ * val body: ZStream[Any, Throwable, Byte] = ZStream.fromChunk(Chunk.fromArray("--B\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--B--\r\n".getBytes))
+ * val form: StreamingForm                 = StreamingForm(body, Boundary("B"))
+ * val all: ZIO[Any, Throwable, Form]      = form.collectAll
+ * }}}
+ *
+ * @see [[https://zio.dev/zio-http/reference/body/form/ Form]]
+ * @param source
+ *   the bytes of the multipart body
+ * @param boundary
+ *   the boundary that separates the parts
+ * @param bufferSize
+ *   the initial size in bytes of the internal buffer
+ */
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
+  /** The charset of the boundary, which is used to decode text parts that give no charset. */
   def charset: Charset = boundary.charset
 
   /**
@@ -44,6 +66,12 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
       Form(formData)
     }
 
+  /**
+   * Returns a stream of the fields, in the order they appear. A part whose
+   * content type is binary is emitted as a `FormField.StreamingBinary` while
+   * its data is still arriving, and the other parts are emitted as
+   * `FormField.Text` fields.
+   */
   def fields(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
     streamFormFields(bufferUpToBoundary = false)
 
@@ -167,6 +195,9 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
   private def crlfBoundary: Array[Byte] = Array[Byte](13, 10) ++ boundary.encapsulationBoundaryBytes.toArray[Byte]
 }
 
+/**
+ * Companion of `StreamingForm`, which holds its internal parsing state.
+ */
 object StreamingForm {
   private final class State(
     val formState: FormState,

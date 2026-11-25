@@ -31,7 +31,18 @@ import zio.http.FormField._
 import zio.http.internal.FormAST
 
 /**
- * Represents a form that can be either multipart or url encoded.
+ * Represents a form that can be either multipart or url encoded. A form holds
+ * its fields in order, and several fields may have the same name.
+ *
+ * {{{
+ * val form    = Form.fromStrings("user" -> "ada", "lang" -> "en")
+ * val encoded = form.urlEncoded // user=ada&lang=en
+ * val lang    = form.get("lang").flatMap(_.stringValue) // Some(en)
+ * }}}
+ *
+ * @see [[https://zio.dev/zio-http/reference/body/form/ Form]]
+ * @param formData
+ *   the fields of the form, in order
  */
 final case class Form(formData: Chunk[FormField]) {
 
@@ -60,13 +71,15 @@ final case class Form(formData: Chunk[FormField]) {
       .map(Form(_))
 
   /**
-   * Returns the first field with the specified name.
+   * Returns the field with the specified name, or `None` when there is none.
+   * When several fields have the name, the last one is returned.
    */
   def get(name: String): Option[FormField] = map.get(name)
 
   /**
    * Returns a map view of the form, where the keys in the map are the field
-   * names, and the values are the field data.
+   * names, and the values are the field data. When several fields have the
+   * same name, the map holds the last one.
    */
   lazy val map: Map[String, FormField] = formData.map(fd => fd.name -> fd).toMap
 
@@ -159,6 +172,11 @@ final case class Form(formData: Chunk[FormField]) {
     stream.map(_.bytes).flattenChunks
   }
 
+  /**
+   * Converts the form to query parameters. Only the `FormField.Text` and
+   * `FormField.Simple` fields are kept, and fields with the same name are
+   * grouped under one key. Binary fields are left out.
+   */
   def toQueryParams: QueryParams =
     QueryParams(formData.collect {
       case t: FormField.Text   => (t.name, Chunk(t.value))
@@ -166,7 +184,9 @@ final case class Form(formData: Chunk[FormField]) {
     }: _*)
 
   /**
-   * Encodes the form using URL encoding, using the default charset.
+   * Encodes the form using URL encoding, using the default charset. The
+   * result is `name=value` pairs joined by `&`, without a leading `?`, and
+   * binary fields are left out.
    */
   def urlEncoded: String = urlEncoded(Charsets.Utf8)
 
@@ -177,6 +197,9 @@ final case class Form(formData: Chunk[FormField]) {
   def urlEncoded(charset: Charset): String = toQueryParams.encode(charset).drop(1)
 }
 
+/**
+ * Constructors for `Form`.
+ */
 object Form {
 
   /**
@@ -199,6 +222,12 @@ object Form {
 
   /**
    * Creates a form from the specified form data, encoded as multipart bytes.
+   * When no boundary is given, it is read from the start of the bytes with
+   * `Boundary.fromContent`, and the effect fails with a
+   * `FormDecodingError.FormDecodingException` that holds
+   * `FormDecodingError.BoundaryNotFoundInContent` when there is none. Parts
+   * whose content type is not binary become `FormField.Text` fields, and the
+   * others become `FormField.Binary` fields.
    */
   def fromMultipartBytes(
     bytes: Chunk[Byte],
@@ -212,6 +241,7 @@ object Form {
       form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form
 
+  /** Creates a form from query parameters, with one `FormField.Simple` field for each key. The values of a key are joined with `,`. */
   def fromQueryParams(queryParams: QueryParams): Form = {
     queryParams.seq.foldLeft[Form](Form.empty) { case (acc, entry) =>
       acc + FormField.simpleField(entry.getKey, entry.getValue.asScala.mkString(","))
@@ -219,7 +249,10 @@ object Form {
   }
 
   /**
-   * Creates a form from the specified URL encoded data.
+   * Creates a form from the specified URL encoded data. The data is decoded
+   * with `QueryParams.decode`, so the values of a repeated name are joined
+   * with `,` as in `Form.fromQueryParams`. The result is a `Left` when the
+   * decoding throws.
    */
   def fromURLEncoded(encoded: String, charset: Charset): Either[FormDecodingError, Form] =
     scala.util.Try(fromQueryParams(QueryParams.decode(encoded, charset))).toEither.left.map {
