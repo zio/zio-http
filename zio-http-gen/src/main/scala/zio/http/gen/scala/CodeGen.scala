@@ -4,6 +4,11 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.StandardOpenOption._
 import java.nio.file._
 
+/**
+ * Renders the generated-code model (`Code`) as Scala source text, or writes it to files.
+ *
+ * `renderedFiles` returns the sources in memory and `writeFiles` writes them to a directory.
+ */
 object CodeGen {
 
   private val EndpointImports =
@@ -13,12 +18,34 @@ object CodeGen {
       Code.Import("zio.http.codec._"),
     )
 
+  /**
+   * Returns a function that formats Scala source with scalafmt, using the configuration file at `config`.
+   *
+   * The returned function takes the path of the file and its unformatted source, and returns the formatted source.
+   */
   def makeFormat(config: Path): (Path, String) => String = {
     import org.scalafmt.interfaces.Scalafmt
     val scalafmt = Scalafmt.create(this.getClass.getClassLoader).createSession(config)
     (file: Path, content: String) => scalafmt.format(file, content)
   }
 
+  /**
+   * Renders `files` with `basePackage` as the base package and writes each source file below `basePath`.
+   *
+   * Missing directories are created and existing files are overwritten. The source is formatted with scalafmt when `scalafmtPath` is defined, and written as rendered otherwise. Returns the paths of the written files.
+   *
+   * {{{
+   * import java.nio.file.Files
+   * import zio.http._
+   * import zio.http.endpoint.Endpoint
+   * import zio.http.endpoint.openapi.OpenAPIGen
+   * import zio.http.gen.openapi.EndpointGen
+   *
+   * val openAPI = OpenAPIGen.fromEndpoints(Endpoint(Method.GET / "api" / "users"))
+   * val dir     = Files.createTempDirectory("generated")
+   * val written = CodeGen.writeFiles(EndpointGen.fromOpenAPI(openAPI), dir, "com.example", None)
+   * }}}
+   */
   def writeFiles(files: Code.Files, basePath: Path, basePackage: String, scalafmtPath: Option[Path]): Iterable[Path] = {
 
     val formatCode = scalafmtPath.fold((_: Path, content: String) => content)(makeFormat)
@@ -33,12 +60,36 @@ object CodeGen {
     }
   }
 
+  /**
+   * Renders every file of `files` with `basePackage` as the base package, without touching the file system.
+   *
+   * Returns a map from the relative path of each file (its path segments joined with `/`) to its source text.
+   *
+   * {{{
+   * import zio.http._
+   * import zio.http.endpoint.Endpoint
+   * import zio.http.endpoint.openapi.OpenAPIGen
+   * import zio.http.gen.openapi.EndpointGen
+   *
+   * val openAPI = OpenAPIGen.fromEndpoints(Endpoint(Method.GET / "api" / "users"))
+   * val files   = EndpointGen.fromOpenAPI(openAPI)
+   * val sources = CodeGen.renderedFiles(files, "com.example")
+   * val paths   = sources.keys.toList // List(api/Users.scala)
+   * }}}
+   */
   def renderedFiles(files: Code.Files, basePackage: String): Map[String, String] =
     files.files.map { file =>
       val (_, rendered) = render(basePackage)(file)
       file.path.mkString("/") -> rendered
     }.toMap
 
+  /**
+   * Renders `structure` as Scala source text.
+   *
+   * Returns the imports that the text needs together with the text. For a `Code.File` the imports are already part of the text, so the returned list is empty.
+   *
+   * Throws a `java.lang.Exception` for `Code.Files`, which are rendered one file at a time, and for types that have no rendering. `Code.ScalaType.Unit`, `Code.ScalaType.Or` and `Code.Primitive.ScalaDuration` have none, and fail with the message `Unknown ScalaType: <type>`.
+   */
   def render(basePackage: String)(structure: Code): (List[Code.Import], String) = structure match {
     case Code.Files(_) =>
       throw new Exception("Files should be rendered separately")
@@ -281,6 +332,11 @@ object CodeGen {
       throw new Exception(s"Unknown ScalaType: $scalaType")
   }
 
+  /**
+   * Returns the path-codec expression for a path segment named `name` of type `segmentType`, with the imports it needs.
+   *
+   * A `Literal` segment is rendered as the quoted name and the other types as a call such as `int("name")`. Throws a `java.lang.Exception` for `SeqOf` and `SetOf`.
+   */
   def renderSegmentType(name: String, segmentType: Code.CodecType): (String, List[Code.Import]) =
     segmentType match {
       case Code.CodecType.Boolean                          => s"""bool("$name")"""      -> Nil
@@ -309,12 +365,20 @@ object CodeGen {
         throw new Exception("Collection path segments are not supported")
     }
 
+  /**
+   * Returns the path-codec expression of `segment`, with the imports it needs.
+   */
   def renderSegment(segment: Code.PathSegmentCode): (String, List[Code.Import]) = segment match {
     case Code.PathSegmentCode(name, segmentType) =>
       renderSegmentType(name, segmentType)
   }
 
   // currently, we do not support schemas
+  /**
+   * Returns the `.header(...)` call for `header`.
+   *
+   * The name is lowercased and compared with a list of known header names, which are rendered as `HeaderCodec.<name>` (for example `HeaderCodec.accept`). Any other name is rendered as `HeaderCodec.name[String]("<lowercased name>")`.
+   */
   def renderHeader(header: Code.HeaderCode): String = {
     val headerSelector = header.name.toLowerCase match {
       case "accept"                           => "HeaderCodec.accept"
@@ -401,6 +465,11 @@ object CodeGen {
     s""".header($headerSelector)"""
   }
 
+  /**
+   * Returns the imports and the `.query(HttpCodec.query[T]("name"))` call for `queryCode`.
+   *
+   * Throws a `java.lang.Exception` for a `Literal` query parameter.
+   */
   def renderQueryCode(queryCode: Code.QueryParamCode): (List[Code.Import], String) = queryCode match {
     case Code.QueryParamCode(name, queryType) =>
       val (imports, tpe) = renderQueryCodecType(queryType, name)
@@ -440,6 +509,11 @@ object CodeGen {
         allImports -> collectionType
     }
 
+  /**
+   * Returns the `.in[T]` call for `inCode`, with the `name` and `doc` arguments when they are defined.
+   *
+   * The call is `.inStream[T]` when the input is streaming.
+   */
   def renderInCode(inCode: Code.InCode): String = {
     val stream = if (inCode.streaming) "Stream" else ""
     inCode match {
@@ -454,6 +528,11 @@ object CodeGen {
     }
   }
 
+  /**
+   * Returns the `.out[T](status = Status.X)` call for `outCode`, with a `doc` argument when `doc` is defined.
+   *
+   * The call is `.outStream[T]` when the output is streaming. The media type of `outCode` is not used.
+   */
   def renderOutCode(outCode: Code.OutCode): String = {
     val stream = if (outCode.streaming) "Stream" else ""
     outCode match {
@@ -464,6 +543,11 @@ object CodeGen {
     }
   }
 
+  /**
+   * Returns the `.outError[T](status = Status.X)` call for `errOutCode`, with a `doc` argument when `doc` is defined.
+   *
+   * The call is `.outErrorStream[T]` when the output is streaming.
+   */
   def renderOutErrorCode(errOutCode: Code.OutCode): String = {
     val stream = if (errOutCode.streaming) "Stream" else ""
     errOutCode match {
@@ -474,6 +558,11 @@ object CodeGen {
     }
   }
 
+  /**
+   * Returns the `.auth(...)` call for `authCode`.
+   *
+   * `Bearer`, `Basic` and `Digest` are rendered as `.auth(AuthType.Bearer)`, `.auth(AuthType.Basic)` and `.auth(AuthType.Digest)`. Any other value is rendered as an empty string.
+   */
   def renderAuthCode(authCode: Code.AuthTypeCode): String = {
     authCode match {
       case Code.AuthTypeCode("Bearer") =>

@@ -3,8 +3,18 @@ package zio.http.gen.grpc
 import zio.http.Method
 import zio.http.gen.scala.Code
 
+/**
+ * Generates ZIO HTTP endpoint code from a parsed Protocol Buffers file.
+ */
 object EndpointGen {
 
+  /**
+   * Returns one generated source file per service of `protobuf`.
+   *
+   * Each service becomes an object named after the capitalized service name, in the file `<pkgPath>/<file name>/<Service>.scala`. The object holds one `POST` endpoint per method, at the path `/<service>/<method>`. A client-streaming method gets a streaming input (`inStream`) and a server-streaming method a streaming output (`outStream`).
+   *
+   * Each entry of `protobuf.dependencies` adds the imports `<dependency>._` and `<dependency>.Schemas._`, relative to the base package.
+   */
   def fromProtobuf(protobuf: Protobuf.File): Code.Files = {
     val imports = protobuf.dependencies
       .flatMap(dep => Code.Import.FromBase(s"$dep._") :: Code.Import.FromBase(s"$dep.Schemas._") :: Nil)
