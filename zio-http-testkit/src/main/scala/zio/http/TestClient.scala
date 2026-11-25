@@ -8,6 +8,11 @@ import zio._
  * @param behavior
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
+ * @param serverSocketBehavior
+ *   The WebSocket app that serves the connections opened through `socket` and
+ *   `socketChannel`
+ * @param missingRouteHandler
+ *   The handler that answers requests that no route in `behavior` matches
  */
 final case class TestClient(
   behavior: Ref[Routes[Any, Response]],
@@ -24,7 +29,12 @@ final case class TestClient(
     behavior.update(_ ++ routes)
 
   /**
-   * Adds an exact 1-1 behavior
+   * Adds an exact 1-1 behavior. A request with the same method and path as
+   * `expectedRequest` gets `response` when its URL matches and its headers
+   * include all headers of `expectedRequest`. When the method and path match
+   * but the URL or headers differ, the handler throws a `scala.MatchError` and
+   * the client receives a response with status 500.
+   *
    * @param expectedRequest
    *   The request that will trigger the response
    * @param response
@@ -32,7 +42,10 @@ final case class TestClient(
    *
    * @example
    *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   *   import zio._
+   *
+   *   def register(client: TestClient): UIO[Unit] =
+   *     client.addRequestResponse(Request.get(URL.root), Response.ok)
    *   }}}
    */
   def addRequestResponse(
@@ -63,7 +76,11 @@ final case class TestClient(
    *
    * @example
    *   {{{
-   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
+   *   import zio._
+   *   import zio.http.codec.PathCodec.trailing
+   *
+   *   def register(client: TestClient): UIO[Unit] =
+   *     client.addRoute(Method.ANY / trailing -> handler(Response.ok))
    *   }}}
    */
   def addRoute[R](
@@ -84,12 +101,14 @@ final case class TestClient(
    *
    * @example
    *   {{{
-   *   TestClient.addRoutes {
-   *     Routes(
+   *   import zio._
+   *   import zio.http.codec.PathCodec.trailing
+   *
+   *   def register(client: TestClient): UIO[Unit] =
+   *     client.addRoutes(
    *       Method.GET / trailing          -> handler { Response.text("fallback") },
    *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
    *     )
-   *   }
    *   }}}
    */
   def addRoutes[R](
@@ -105,16 +124,18 @@ final case class TestClient(
   /**
    * Sets a fallback behaviour for when the TestClient attempts to access any
    * unspecified routes
-   * @param fallbackHandler
+   * @param fallbackFunction
    *   The function to execute when the client attempts to perform a request not
-   *   part of it's behavior
+   *   part of its behavior
    * @tparam R
    *   Environment of the handler
    *
    * @example
    *   {{{
-   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
-   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
+   *   import zio._
+   *
+   *   def record(client: TestClient, seen: Ref[List[Request]]): UIO[Unit] =
+   *     client.setFallbackHandler(req => seen.update(req :: _).as(Response.notFound))
    *   }}}
    */
   def setFallbackHandler[R](fallbackFunction: Request => ZIO[R, Response, Response]): ZIO[R, Nothing, Unit] =
@@ -124,14 +145,19 @@ final case class TestClient(
       _ <- missingRouteHandler.set(fallbackHandler)
     } yield ()
 
+  /** Returns `Headers.empty`. */
   def headers: Headers = Headers.empty
 
+  /** Returns `Method.GET`. */
   def method: Method = Method.GET
 
+  /** Returns `None`. */
   def sslConfig: Option[ClientSSLConfig] = None
 
+  /** Returns the URL with the root path `/`. */
   def url: URL = URL(Path.root)
 
+  /** Returns `Version.Http_1_1`. */
   def version: Version = Version.Http_1_1
 
   override def request(
@@ -158,6 +184,10 @@ final case class TestClient(
     } yield response
   }
 
+  /**
+   * Opens a channel pair as `socketChannel` does, runs `app` on the client side
+   * of the channel in a daemon fiber, and returns the handshake response.
+   */
   def socket[Env1](
     version: Version,
     url: URL,
@@ -172,6 +202,11 @@ final case class TestClient(
     } yield response
   }
 
+  /**
+   * Opens a pair of connected `TestChannel`s: the installed server socket app
+   * runs on the server side in a daemon fiber, and the client side is returned
+   * with a response with status 101 (`Status.SwitchingProtocols`).
+   */
   override def socketChannel(
     version: Version,
     url: URL,
@@ -188,6 +223,10 @@ final case class TestClient(
       _                     <- currentSocketBehavior.handler.runZIO(serverChannel).forkDaemon
     } yield (Response.status(Status.SwitchingProtocols), clientChannel)
 
+  /**
+   * Sets the WebSocket app that serves the connections opened through `socket`
+   * and `socketChannel`, replacing the previous one.
+   */
   def installSocketApp[Env1](
     app: WebSocketApp[Any],
   ): ZIO[Env1, Nothing, Unit] =
@@ -200,13 +239,33 @@ final case class TestClient(
     } yield ()
 }
 
+/**
+ * Accessors for [[TestClient]] and the layer that provides it together with a
+ * `Client` that sends its requests to the `TestClient`.
+ *
+ * {{{
+ * import zio._
+ *
+ * val program: ZIO[TestClient & Client, Throwable, String] =
+ *   for {
+ *     _        <- TestClient.addRoutes(Routes(Method.GET / "hello" -> handler(Response.text("Hi"))))
+ *     response <- Client.batched(Request.get("/hello"))
+ *     body     <- response.body.asString
+ *   } yield body // "Hi"
+ *
+ * val result: Task[String] = program.provide(TestClient.layer)
+ * }}}
+ */
 object TestClient {
 
+  /** Adds the routes to the `TestClient` in the environment. */
   def addRoutes(routes: Routes[Any, Response]): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addRoutes(routes))
 
   /**
-   * Adds an exact 1-1 behavior
+   * Adds an exact 1-1 behavior to the `TestClient` in the environment. See
+   * `TestClient#addRequestResponse` for how requests are matched.
+   *
    * @param request
    *   The request that will trigger the response
    * @param response
@@ -214,7 +273,10 @@ object TestClient {
    *
    * @example
    *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   *   import zio._
+   *
+   *   val register: URIO[TestClient, Unit] =
+   *     TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
    *   }}}
    */
   def addRequestResponse(
@@ -232,7 +294,11 @@ object TestClient {
    *
    * @example
    *   {{{
-   *    TestClient.addRoute { Method.ANY / trailing -> handler(Response.ok) }
+   *   import zio._
+   *   import zio.http.codec.PathCodec.trailing
+   *
+   *   val register: URIO[TestClient, Unit] =
+   *     TestClient.addRoute(Method.ANY / trailing -> handler(Response.ok))
    *   }}}
    */
   def addRoute[R](
@@ -249,12 +315,14 @@ object TestClient {
    *
    * @example
    *   {{{
-   *   TestClient.addRoutes {
-   *     Routes(
+   *   import zio._
+   *   import zio.http.codec.PathCodec.trailing
+   *
+   *   val register: URIO[TestClient, Unit] =
+   *     TestClient.addRoutes(
    *       Method.GET / trailing          -> handler { Response.text("fallback") },
    *       Method.GET / "hello" / "world" -> handler { Response.text("Hey there!") },
    *     )
-   *   }
    *   }}}
    */
   def addRoutes[R](
@@ -268,14 +336,16 @@ object TestClient {
    * unspecified routes
    * @param fallbackHandler
    *   The function to execute when the client attempts to perform a request not
-   *   part of it's behavior
+   *   part of its behavior
    * @tparam R
    *   Environment of the handler
    *
    * @example
    *   {{{
-   *   ref <- Ref.Synchronized.make[Seq[Request]](Nil)
-   *   _ <- TestClient.setFallbackHandler(req => ref.update(_.appended(req))
+   *   import zio._
+   *
+   *   def record(seen: Ref[List[Request]]): URIO[TestClient, Unit] =
+   *     TestClient.setFallbackHandler(req => seen.update(req :: _).as(Response.notFound))
    *   }}}
    */
   def setFallbackHandler[R](
@@ -283,11 +353,17 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.setFallbackHandler(fallbackHandler))
 
+  /** Sets the WebSocket app of the `TestClient` in the environment. */
   def installSocketApp(
     app: WebSocketApp[Any],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
+  /**
+   * A layer that provides a `TestClient` and a `Client` that sends its requests
+   * to it. The `TestClient` starts with no routes, so a request answers with
+   * status 404 and logs a warning until routes are added.
+   */
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
@@ -300,6 +376,10 @@ object TestClient {
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }
 
+  /**
+   * Like `layer`, with the fallback handler set to `fallbackHandler`, which
+   * runs with the environment `R` when a request matches no route.
+   */
   def withFallbackHandler[R](
     fallbackHandler: Request => ZIO[R, Response, Response],
   ): ZLayer[R, Nothing, TestClient & Client] =
