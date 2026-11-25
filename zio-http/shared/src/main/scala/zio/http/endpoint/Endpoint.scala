@@ -216,6 +216,8 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    *
    * Example:
    * {{{
+   *   import zio.http._
+   *
    *   val ep = Endpoint(Method.GET / "users" / int("id"))
    *   ep.renderUrl(42) // Right("/users/42")
    * }}}
@@ -1084,6 +1086,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    *
    * For example
    * {{{
+   *   import java.util.UUID
+   *   import zio.http._
+   *
    *   case class ChangeUserName(userId: UUID, name: String)
    *   val endpoint =
    *   Endpoint(Method.POST / "user" / uuid("userId") / "changeName").in[String]
