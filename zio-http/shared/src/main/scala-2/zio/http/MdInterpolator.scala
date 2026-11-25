@@ -18,9 +18,28 @@ package zio.http
 
 import zio.http.codec.Doc
 
+/**
+ * Provides the `md` string interpolator, which builds a `Doc` from CommonMark
+ * text. It is mixed into the `zio.http` package object, so `md"..."` is
+ * available with `import zio.http._`.
+ */
 trait MdInterpolator {
 
+  /** Adds the `md` interpolator to `StringContext`. */
   implicit class MdInterpolatorHelper(val sc: StringContext) {
+    /**
+     * Creates a `Doc` from CommonMark text. The interpolated values are
+     * inserted as `StringContext#s` does, then `stripMargin` is applied, and
+     * the result is passed to `Doc.fromCommonMark`.
+     *
+     * {{{
+     * import zio.http.codec.Doc
+     *
+     * val name = "Ada"
+     * val doc: Doc = md"""|# Hello \$name
+     *                     |Welcome"""
+     * }}}
+     */
     def md(args: Any*): Doc = Doc.fromCommonMark(sc.s(args: _*).stripMargin)
   }
 }
