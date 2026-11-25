@@ -30,6 +30,28 @@ import zio.schema.codec.BinaryCodec
 import zio.http.internal.{HeaderOps, OutputEncoder}
 import zio.http.template._
 
+/**
+ * An HTTP response: a status, headers and a body.
+ *
+ * Handlers return a `Response` on the server, and a client receives one. The
+ * companion builds the common cases: `Response.text`, `Response.json`,
+ * `Response.html`, `Response.redirect`, an error status such as
+ * `Response.notFound`, or a response for a failure (`Response.fromCause`,
+ * `Response.fromThrowable`). Every update returns a new response.
+ *
+ * {{{
+ * val created: Response =
+ *   Response
+ *     .json("""{"id":42}""")
+ *     .status(Status.Created)
+ *     .addHeader("x-request-id", "r-17")
+ *
+ * created.status // Created
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/response/ Response]]
+ */
 final case class Response(
   status: Status = Status.Ok,
   headers: Headers = Headers.empty,
@@ -39,9 +61,11 @@ final case class Response(
   // To be used by encoders to avoid re-encoding static responses (optimization)
   private[http] var encoded: AnyRef = null
 
+  /** Adds a `Set-Cookie` header for `cookie`. */
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
+  /** Adds one `Set-Cookie` header per cookie. */
   def addCookies(cookie: Cookie.Response, cookies: Cookie.Response*) =
     updateHeaders(_.addHeaders(Headers.fromIterable((cookie +: cookies).map(Header.SetCookie(_)))))
 
@@ -64,6 +88,10 @@ final case class Response(
       else self.copy(body = b)
     }
 
+  /**
+   * Adds a `content-type` header with the given media type. A `Content-Type`
+   * header that is already there is kept, so the response then has two.
+   */
   def contentType(mediaType: MediaType): Response =
     self.addHeader[String]("content-type", mediaType.fullType)
 
@@ -78,6 +106,7 @@ final case class Response(
     else body0.asStream.runDrain.ignore.as(out)
   }
 
+  /** Applies the patch `p` to this response. */
   def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   /**
@@ -92,18 +121,23 @@ final case class Response(
    *
    * Example for json:
    * {{{
-   * import zio.schema.json.codec._
-   * case class Person(name: String, age: Int)
-   * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-   * val response = ???
-   * val decodedPerson = response.to[Person]
+   * import zio._
+   * import zio.schema.{DeriveSchema, Schema}
+   * import zio.schema.codec.JsonCodec._
+   *
+   * case class Point(x: Int, y: Int)
+   * implicit val schema: Schema[Point] = DeriveSchema.gen[Point]
+   *
+   * val point: Task[Point] = Response.json("""{"x":1,"y":2}""").bodyAs[Point]
+   * // succeeds with Point(1,2)
    * }}}
    */
   def bodyAs[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
     body.to[A]
 
   /**
-   * Creates an Http from a Response
+   * Returns a handler that ignores its input and always succeeds with this
+   * response.
    */
   def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.fromResponse(self)
 
@@ -116,13 +150,21 @@ final case class Response(
 
 }
 
+/**
+ * Constructors for [[Response]]: by status, from text, JSON or HTML, from a
+ * failure, from server-sent events or a WebSocket app.
+ */
 object Response {
 
   /**
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
+
+    /** Combines two patches: `self` is applied first, then `that`. */
+    def ++(that: Patch): Patch = Patch.Combine(self, that)
+
+    /** Applies this patch to `res`. */
     def apply(res: Response)(implicit trace: Trace): Response = {
 
       @tailrec
@@ -140,39 +182,76 @@ object Response {
     }
   }
 
+  /** The patch cases and their constructors. */
   object Patch {
     import Header.HeaderType
 
-    case object Empty                                     extends Patch
-    final case class AddHeaders(headers: Headers)         extends Patch
-    final case class RemoveHeaders(headers: Set[String])  extends Patch
-    final case class SetStatus(status: Status)            extends Patch
-    final case class Combine(left: Patch, right: Patch)   extends Patch
+    /** A patch that changes nothing. */
+    case object Empty extends Patch
+
+    /** A patch that adds `headers`. */
+    final case class AddHeaders(headers: Headers) extends Patch
+
+    /** A patch that removes the headers with the given names. */
+    final case class RemoveHeaders(headers: Set[String]) extends Patch
+
+    /** A patch that sets the status. */
+    final case class SetStatus(status: Status) extends Patch
+
+    /** A patch that applies `left`, then `right`. */
+    final case class Combine(left: Patch, right: Patch) extends Patch
+
+    /** A patch that replaces the headers with `f` applied to them. */
     final case class UpdateHeaders(f: Headers => Headers) extends Patch
 
+    /** A patch that changes nothing. */
     def empty: Patch = Empty
 
+    /** A patch that adds a header of the given type with the given value. */
     def addHeader(headerType: HeaderType)(value: headerType.HeaderValue): Patch =
       addHeader(headerType.name, headerType.render(value))
 
-    def addHeader(header: Header): Patch                          = addHeaders(Headers(header))
-    def addHeaders(headers: Headers): Patch                       = AddHeaders(headers)
+    /** A patch that adds `header`. */
+    def addHeader(header: Header): Patch = addHeaders(Headers(header))
+
+    /** A patch that adds `headers`. */
+    def addHeaders(headers: Headers): Patch = AddHeaders(headers)
+
+    /** A patch that adds a header with the given name and value. */
     def addHeader(name: CharSequence, value: CharSequence): Patch = addHeaders(Headers(name, value))
 
+    /** A patch that removes every header of the given types. */
     def removeHeaders(headerTypes: Set[HeaderType]): Patch = RemoveHeaders(headerTypes.map(_.name))
-    def status(status: Status): Patch                      = SetStatus(status)
-    def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
+
+    /** A patch that sets the status. */
+    def status(status: Status): Patch = SetStatus(status)
+
+    /** A patch that replaces the headers with `f` applied to them. */
+    def updateHeaders(f: Headers => Headers): Patch = UpdateHeaders(f)
   }
 
+  /** Creates an empty response with status 400 Bad Request. */
   def badRequest: Response =
     error(Status.BadRequest)
 
+  /**
+   * Creates a response with status 400 Bad Request and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def badRequest(message: String): Response =
     error(Status.BadRequest, message)
 
+  /**
+   * Creates a response with the given error status and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def error(status: Status.Error, message: String): Response =
     Response(status = status, body = Body.fromString(OutputEncoder.encodeHtml(message)))
 
+  /**
+   * Creates a response with the given error status and body. When the body has
+   * a media type, the response gets a matching `Content-Type` header.
+   */
   def error(status: Status.Error, body: Body): Response =
     Response(
       status = status,
@@ -180,15 +259,26 @@ object Response {
       headers = if (body.mediaType.isEmpty) Headers.empty else Headers(Header.ContentType(body.mediaType.get)),
     )
 
+  /** Creates an empty response with the given error status. */
   def error(status: Status.Error): Response =
     Response(status = status)
 
+  /** Creates an empty response with status 403 Forbidden. */
   def forbidden: Response =
     error(Status.Forbidden)
 
+  /**
+   * Creates a response with status 403 Forbidden and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def forbidden(message: String): Response =
     error(Status.Forbidden, message)
 
+  /**
+   * Creates a response from `cause` with `ErrorResponseConfig.default`, which
+   * gives an empty body. See the overload that takes an `ErrorResponseConfig`
+   * for how the status is chosen.
+   */
   def fromCause(cause: Cause[Any]): Response =
     fromCause(cause, ErrorResponseConfig.default)
 
@@ -196,6 +286,14 @@ object Response {
    * Creates a new response from the specified cause. Note that this method is
    * not polymorphic, but will attempt to inspect the runtime class of the
    * failure inside the cause, if any.
+   *
+   * A typed failure that is a `Response` is returned as is, a `Throwable` goes
+   * through `fromThrowable`, and a nested `Cause` is handled the same way.
+   * Anything else gives 408 Request Timeout when the cause holds only
+   * interruptions (or nothing at all), and 500 Internal Server Error
+   * otherwise; a defect is not passed to `fromThrowable`. With
+   * `config.withErrorBody`, those last two get the pretty-printed cause as a
+   * `text/plain` body.
    */
   @tailrec
   def fromCause(cause: Cause[Any], config: ErrorResponseConfig): Response =
@@ -237,6 +335,11 @@ object Response {
     )
   }
 
+  /**
+   * Creates a response with content-type set to text/event-stream whose body
+   * holds all of the given events, encoded with the default codec for `T`.
+   * Each encoded event is followed by one more line break.
+   */
   def fromServerSentEvents[T: Schema](
     data: Iterable[ServerSentEvent[T]],
   )(implicit trace: Trace): Response = {
@@ -255,6 +358,15 @@ object Response {
     )
   }
 
+  /**
+   * Creates a response with content-type set to text/event-stream whose body
+   * is the single event `data`, encoded with the default codec for `T`.
+   *
+   * {{{
+   * val tick: Response = Response.fromServerSentEvent(ServerSentEvent("12:00", eventType = Some("tick")))
+   * // body: "event: tick\ndata: 12:00\n\n"
+   * }}}
+   */
   def fromServerSentEvent[T: Schema](data: ServerSentEvent[T])(implicit trace: Trace): Response = {
     val codec = ServerSentEvent.defaultBinaryCodec[T]
     Response(
@@ -265,7 +377,9 @@ object Response {
   }
 
   /**
-   * Creates a new response for the provided socket app
+   * Creates a new response for the provided socket app: status 101 Switching
+   * Protocols, with the app, given the environment of this effect, as the
+   * body.
    */
   def fromSocketApp[R](app: WebSocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
@@ -277,12 +391,25 @@ object Response {
     }
   }
 
+  /**
+   * Creates a response for `throwable` with `ErrorResponseConfig.default`,
+   * which gives an empty body. See the overload that takes an
+   * `ErrorResponseConfig` for how the status is chosen.
+   */
   def fromThrowable(throwable: Throwable): Response =
     fromThrowable(throwable, ErrorResponseConfig.default)
 
   /**
    * Creates a new response for the specified throwable. Note that this method
    * relies on the runtime class of the throwable.
+   *
+   * The status is 403 for `AccessDeniedException`, `IllegalAccessException`
+   * and `IllegalAccessError`; 400 for `NotDirectoryException` and
+   * `IllegalArgumentException`; 404 for `FileNotFoundException`; 503 for
+   * `ConnectException`; 504 for `SocketTimeoutException`; and 500 for anything
+   * else. With `config.withErrorBody`, the body shows the status and the
+   * message (and, with `config.withStackTrace`, the stack trace) in
+   * `config.errorFormat`; otherwise the body is empty.
    */
   def fromThrowable(throwable: Throwable, config: ErrorResponseConfig): Response = {
     throwable match { // TODO: Enhance
@@ -358,16 +485,27 @@ object Response {
     }
   }
 
+  /** Creates an empty response with status 502 Bad Gateway. */
   def badGateway: Response = error(Status.BadGateway)
 
+  /**
+   * Creates a response with status 502 Bad Gateway and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def badGateway(message: String): Response = error(Status.BadGateway, message)
 
+  /** Creates an empty response with status 504 Gateway Timeout. */
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 
+  /**
+   * Creates a response with status 504 Gateway Timeout and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)
 
   /**
-   * Creates a response with content-type set to text/html
+   * Creates a response with content-type set to text/html. The body is a
+   * `DOCTYPE html` declaration followed by the rendered `data`.
    */
   def html(data: Html, status: Status = Status.Ok): Response =
     Response(
@@ -377,7 +515,8 @@ object Response {
     )
 
   /**
-   * Creates a response with content-type set to text/html
+   * Creates a response with content-type set to text/html and status 200. The
+   * body is a `DOCTYPE html` declaration followed by the rendered `data`.
    */
   def html(data: zio.http.template2.Dom): Response =
     Response(
@@ -387,7 +526,8 @@ object Response {
     )
 
   /**
-   * Creates a response with content-type set to text/html
+   * Creates a response with content-type set to text/html. The body is a
+   * `DOCTYPE html` declaration followed by the rendered `data`.
    */
   def html(data: zio.http.template2.Dom, status: Status): Response =
     Response(
@@ -396,12 +536,22 @@ object Response {
       Body.fromString("<!DOCTYPE html>" + data.render),
     )
 
+  /** Creates an empty response with status 505 HTTP Version Not Supported. */
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
 
+  /**
+   * Creates a response with status 505 HTTP Version Not Supported and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
 
+  /** Creates an empty response with status 500 Internal Server Error. */
   def internalServerError: Response = error(Status.InternalServerError)
 
+  /**
+   * Creates a response with status 500 Internal Server Error and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def internalServerError(message: String): Response = error(Status.InternalServerError, message)
 
   /**
@@ -425,20 +575,40 @@ object Response {
       Body.fromCharSequence(data),
     )
 
+  /** Creates an empty response with status 511 Network Authentication Required. */
   def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
 
+  /**
+   * Creates a response with status 511 Network Authentication Required and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
 
+  /** Creates an empty response with status 510 Not Extended. */
   def notExtended: Response = error(Status.NotExtended)
 
+  /**
+   * Creates a response with status 510 Not Extended and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def notExtended(message: String): Response = error(Status.NotExtended, message)
 
+  /** Creates an empty response with status 404 Not Found. */
   def notFound: Response = error(Status.NotFound)
 
+  /**
+   * Creates a response with status 404 Not Found and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def notFound(message: String): Response = error(Status.NotFound, message)
 
+  /** Creates an empty response with status 501 Not Implemented. */
   def notImplemented: Response = error(Status.NotImplemented)
 
+  /**
+   * Creates a response with status 501 Not Implemented and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def notImplemented(message: String): Response = error(Status.NotImplemented, message)
 
   /**
@@ -451,7 +621,7 @@ object Response {
    * permanent or not.
    *
    * Note: if you intend to always redirect a browser with a HTTP GET to the
-   * given location you very likely should use `Response#seeOther` instead.
+   * given location you very likely should use `Response.seeOther` instead.
    */
   def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
@@ -464,8 +634,13 @@ object Response {
   def seeOther(location: URL): Response =
     Response(status = Status.SeeOther, headers = Headers(Header.Location(location)))
 
+  /** Creates an empty response with status 503 Service Unavailable. */
   def serviceUnavailable: Response = error(Status.ServiceUnavailable)
 
+  /**
+   * Creates a response with status 503 Service Unavailable and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def serviceUnavailable(message: String): Response = error(Status.ServiceUnavailable, message)
 
   /**
@@ -495,8 +670,13 @@ object Response {
       Body.fromCharSequence(text),
     )
 
+  /** Creates an empty response with status 401 Unauthorized. */
   def unauthorized: Response = error(Status.Unauthorized)
 
+  /**
+   * Creates a response with status 401 Unauthorized and a body made from
+   * `message`. No `Content-Type` header is set.
+   */
   def unauthorized(message: String): Response = error(Status.Unauthorized, message)
 
   private val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
