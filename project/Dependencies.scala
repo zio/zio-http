@@ -7,7 +7,7 @@ object Dependencies {
   val ZioVersion                   = "2.1.27"
   // zio-test 2.1.27 overflows the stack when a ZTestLogger.LogEntry is printed (zio/zio#11297).
   // Keep the test libraries on 2.1.26 while the runtime is on 2.1.27.
-  val ZioTestVersion               = "2.1.26"
+  val ZioTestVersion               = "2.1.27"
   val ZioCliVersion                = "0.8.3"
   val ZioJsonVersion               = "1.1.3"
   val ZioSchemaVersion             = "1.9.2"
