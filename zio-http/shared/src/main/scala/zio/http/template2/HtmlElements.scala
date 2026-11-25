@@ -17,183 +17,183 @@
 package zio.http.template2
 
 /**
- * Trait containing all HTML element definitions. This trait can be mixed into
- * package objects or other contexts. Elements are sorted alphabetically for
- * easy maintenance.
+ * Trait containing the HTML element values of `zio.http.template2`, such as
+ * `div`, `p` and `a`. Each is an element with no attributes or children. For a
+ * tag without a value here, such as `figure`, use `Dom.element`.
  */
 trait HtmlElements {
 
   /**
-   * Returns an element with the tag `<a>` (a hyperlink (anchor)). Call it with
+   * Returns an element with the tag `a` (a hyperlink (anchor)). Call it with
    * attributes and children to fill it.
    */
   val a: Dom.Element = Dom.element("a")
 
   /**
-   * Returns an element with the tag `<abbr>` (an abbreviation). Call it with
+   * Returns an element with the tag `abbr` (an abbreviation). Call it with
    * attributes and children to fill it.
    */
   val abbr: Dom.Element = Dom.element("abbr")
 
   /**
-   * Returns an element with the tag `<address>` (contact information). Call it
+   * Returns an element with the tag `address` (contact information). Call it
    * with attributes and children to fill it.
    */
   val address: Dom.Element = Dom.element("address")
 
   /**
-   * Returns an element with the tag `<area>` (an image map area). This is a
-   * void element: it renders as `<area/>`, with its attributes if any, and
-   * renders no children.
+   * Returns an element with the tag `area` (an image map area). This is a void
+   * element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val area: Dom.Element = Dom.element("area")
 
   /**
-   * Returns an element with the tag `<article>` (a self-contained article).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `article` (a self-contained article). Call
+   * it with attributes and children to fill it.
    */
   val article: Dom.Element = Dom.element("article")
 
   /**
-   * Returns an element with the tag `<aside>` (content aside from the main
+   * Returns an element with the tag `aside` (content aside from the main
    * content). Call it with attributes and children to fill it.
    */
   val aside: Dom.Element = Dom.element("aside")
 
   /**
-   * Returns an element with the tag `<audio>` (an audio player). Call it with
+   * Returns an element with the tag `audio` (an audio player). Call it with
    * attributes and children to fill it.
    */
   val audio: Dom.Element = Dom.element("audio")
 
   /**
-   * Returns an element with the tag `<b>` (bold text). Call it with attributes
+   * Returns an element with the tag `b` (bold text). Call it with attributes
    * and children to fill it.
    */
   val b: Dom.Element = Dom.element("b")
 
   /**
-   * Returns an element with the tag `<base>` (the base URL of the document).
-   * This is a void element: it renders as `<base/>`, with its attributes if
-   * any, and renders no children.
+   * Returns an element with the tag `base` (the base URL of the document). This
+   * is a void element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val base: Dom.Element = Dom.element("base")
 
   /**
-   * Returns an element with the tag `<bdi>` (text isolated for bidirectional
+   * Returns an element with the tag `bdi` (text isolated for bidirectional
    * formatting). Call it with attributes and children to fill it.
    */
   val bdi: Dom.Element = Dom.element("bdi")
 
   /**
-   * Returns an element with the tag `<bdo>` (text with an overridden text
+   * Returns an element with the tag `bdo` (text with an overridden text
    * direction). Call it with attributes and children to fill it.
    */
   val bdo: Dom.Element = Dom.element("bdo")
 
   /**
-   * Returns an element with the tag `<blockquote>` (a block quotation). Call it
+   * Returns an element with the tag `blockquote` (a block quotation). Call it
    * with attributes and children to fill it.
    */
   val blockquote: Dom.Element = Dom.element("blockquote")
 
   /**
-   * Returns an element with the tag `<body>` (the document body). Call it with
+   * Returns an element with the tag `body` (the document body). Call it with
    * attributes and children to fill it.
    */
   val body: Dom.Element = Dom.element("body")
 
   /**
-   * Returns an element with the tag `<br>` (a line break). This is a void
-   * element: it renders as `<br/>`, with its attributes if any, and renders no
-   * children.
+   * Returns an element with the tag `br` (a line break). This is a void
+   * element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val br: Dom.Element = Dom.element("br")
 
   /**
-   * Returns an element with the tag `<button>` (a button). Call it with
+   * Returns an element with the tag `button` (a button). Call it with
    * attributes and children to fill it.
    */
   val button: Dom.Element = Dom.element("button")
 
   /**
-   * Returns an element with the tag `<canvas>` (a drawing canvas). Call it with
+   * Returns an element with the tag `canvas` (a drawing canvas). Call it with
    * attributes and children to fill it.
    */
   val canvas: Dom.Element = Dom.element("canvas")
 
   /**
-   * Returns an element with the tag `<caption>` (a table caption). Call it with
+   * Returns an element with the tag `caption` (a table caption). Call it with
    * attributes and children to fill it.
    */
   val caption: Dom.Element = Dom.element("caption")
 
   /**
-   * Returns an element with the tag `<cite>` (the title of a cited work). Call
-   * it with attributes and children to fill it.
+   * Returns an element with the tag `cite` (the title of a cited work). Call it
+   * with attributes and children to fill it.
    */
   val cite: Dom.Element = Dom.element("cite")
 
   /**
-   * Returns an element with the tag `<code>` (a fragment of code). Call it with
+   * Returns an element with the tag `code` (a fragment of code). Call it with
    * attributes and children to fill it.
    */
   val code: Dom.Element = Dom.element("code")
 
   /**
-   * Returns an element with the tag `<col>` (a table column). This is a void
-   * element: it renders as `<col/>`, with its attributes if any, and renders no
-   * children.
+   * Returns an element with the tag `col` (a table column). This is a void
+   * element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val col: Dom.Element = Dom.element("col")
 
   /**
-   * Returns an element with the tag `<colgroup>` (a group of table columns).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `colgroup` (a group of table columns). Call
+   * it with attributes and children to fill it.
    */
   val colgroup: Dom.Element = Dom.element("colgroup")
 
   /**
-   * Returns an element with the tag `<datalist>` (a list of predefined options
+   * Returns an element with the tag `datalist` (a list of predefined options
    * for an input). Call it with attributes and children to fill it.
    */
   val datalist: Dom.Element = Dom.element("datalist")
 
   /**
-   * Returns an element with the tag `<dd>` (a description in a description
-   * list). Call it with attributes and children to fill it.
+   * Returns an element with the tag `dd` (a description in a description list).
+   * Call it with attributes and children to fill it.
    */
   val dd: Dom.Element = Dom.element("dd")
 
   /**
-   * Returns an element with the tag `<del>` (deleted text). Call it with
+   * Returns an element with the tag `del` (deleted text). Call it with
    * attributes and children to fill it.
    */
   val del: Dom.Element = Dom.element("del")
 
   /**
-   * Returns an element with the tag `<details>` (a disclosure widget). Call it
+   * Returns an element with the tag `details` (a disclosure widget). Call it
    * with attributes and children to fill it.
    */
   val details: Dom.Element = Dom.element("details")
 
   /**
-   * Returns an element with the tag `<dfn>` (the defining instance of a term).
+   * Returns an element with the tag `dfn` (the defining instance of a term).
    * Call it with attributes and children to fill it.
    */
   val dfn: Dom.Element = Dom.element("dfn")
 
   /**
-   * Returns an element with the tag `<dialog>` (a dialog box). Call it with
+   * Returns an element with the tag `dialog` (a dialog box). Call it with
    * attributes and children to fill it.
    */
   val dialog: Dom.Element = Dom.element("dialog")
 
   /**
-   * Returns a `<div>` element, a generic block container. Call it with
-   * attributes and children to fill it: strings become text children, and
-   * attributes such as `id` and `class` become attributes of the tag. Calling
-   * `render` writes the element as an HTML string.
+   * Returns a `div` element, a generic block container. Call it with attributes
+   * and children to fill it: strings become text children, and attributes such
+   * as `id` and `class` become attributes of the tag. Calling `render` writes
+   * the element as an HTML string.
    *
    * {{{
    * val card = div(`class` := ("card", "wide"), id := "main", p("Hello"), "text")
@@ -207,44 +207,44 @@ trait HtmlElements {
   val div: Dom.Element = Dom.element("div")
 
   /**
-   * Returns an element with the tag `<dl>` (a description list). Call it with
+   * Returns an element with the tag `dl` (a description list). Call it with
    * attributes and children to fill it.
    */
   val dl: Dom.Element = Dom.element("dl")
 
   /**
-   * Returns an element with the tag `<dt>` (a term in a description list). Call
+   * Returns an element with the tag `dt` (a term in a description list). Call
    * it with attributes and children to fill it.
    */
   val dt: Dom.Element = Dom.element("dt")
 
   /**
-   * Returns an element with the tag `<em>` (emphasized text). Call it with
+   * Returns an element with the tag `em` (emphasized text). Call it with
    * attributes and children to fill it.
    */
   val em: Dom.Element = Dom.element("em")
 
   /**
-   * Returns an element with the tag `<embed>` (external content embedded in the
-   * page). This is a void element: it renders as `<embed/>`, with its
-   * attributes if any, and renders no children.
+   * Returns an element with the tag `embed` (external content embedded in the
+   * page). This is a void element: it renders as a single tag that ends with
+   * `/>`, with its attributes if any, and renders no children.
    */
   val embed: Dom.Element = Dom.element("embed")
 
   /**
-   * Returns an element with the tag `<fieldset>` (a group of form controls).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `fieldset` (a group of form controls). Call
+   * it with attributes and children to fill it.
    */
   val fieldset: Dom.Element = Dom.element("fieldset")
 
   /**
-   * Returns an element with the tag `<footer>` (a footer). Call it with
+   * Returns an element with the tag `footer` (a footer). Call it with
    * attributes and children to fill it.
    */
   val footer: Dom.Element = Dom.element("footer")
 
   /**
-   * Returns an element with the tag `<form>` (a form). Call it with attributes
+   * Returns an element with the tag `form` (a form). Call it with attributes
    * and children to fill it.
    */
   val form: Dom.Element = Dom.element("form")
@@ -286,413 +286,414 @@ trait HtmlElements {
   val h6: Dom.Element = Dom.element("h6")
 
   /**
-   * Returns an element with the tag `<head>` (the document head). Call it with
+   * Returns an element with the tag `head` (the document head). Call it with
    * attributes and children to fill it.
    */
   val head: Dom.Element = Dom.element("head")
 
   /**
-   * Returns an element with the tag `<header>` (a header). Call it with
+   * Returns an element with the tag `header` (a header). Call it with
    * attributes and children to fill it.
    */
   val header: Dom.Element = Dom.element("header")
 
   /**
-   * Returns an element with the tag `<hr>` (a thematic break (horizontal
-   * rule)). This is a void element: it renders as `<hr/>`, with its attributes
-   * if any, and renders no children.
+   * Returns an element with the tag `hr` (a thematic break (horizontal rule)).
+   * This is a void element: it renders as a single tag that ends with `/>`,
+   * with its attributes if any, and renders no children.
    */
   val hr: Dom.Element = Dom.element("hr")
 
   /**
-   * Returns an element with the tag `<html>` (the root element of a document).
+   * Returns an element with the tag `html` (the root element of a document).
    * Call it with attributes and children to fill it.
    */
   val html: Dom.Element = Dom.element("html")
 
   /**
-   * Returns an element with the tag `<i>` (italic text). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `i` (italic text). Call it with attributes
+   * and children to fill it.
    */
   val i: Dom.Element = Dom.element("i")
 
   /**
-   * Returns an element with the tag `<iframe>` (an inline frame). Call it with
+   * Returns an element with the tag `iframe` (an inline frame). Call it with
    * attributes and children to fill it.
    */
   val iframe: Dom.Element = Dom.element("iframe")
 
   /**
-   * Returns an element with the tag `<img>` (an image). This is a void element:
-   * it renders as `<img/>`, with its attributes if any, and renders no
-   * children.
+   * Returns an element with the tag `img` (an image). This is a void element:
+   * it renders as a single tag that ends with `/>`, with its attributes if any,
+   * and renders no children.
    */
   val img: Dom.Element = Dom.element("img")
 
   /**
-   * Returns an element with the tag `<input>` (a form input). This is a void
-   * element: it renders as `<input/>`, with its attributes if any, and renders
-   * no children.
+   * Returns an element with the tag `input` (a form input). This is a void
+   * element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val input: Dom.Element = Dom.element("input")
 
   /**
-   * Returns an element with the tag `<ins>` (inserted text). Call it with
+   * Returns an element with the tag `ins` (inserted text). Call it with
    * attributes and children to fill it.
    */
   val ins: Dom.Element = Dom.element("ins")
 
   /**
-   * Returns an element with the tag `<kbd>` (keyboard input). Call it with
+   * Returns an element with the tag `kbd` (keyboard input). Call it with
    * attributes and children to fill it.
    */
   val kbd: Dom.Element = Dom.element("kbd")
 
   /**
-   * Returns an element with the tag `<label>` (a label for a form control).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `label` (a label for a form control). Call
+   * it with attributes and children to fill it.
    */
   val label: Dom.Element = Dom.element("label")
 
   /**
-   * Returns an element with the tag `<legend>` (a caption for a fieldset). Call
+   * Returns an element with the tag `legend` (a caption for a fieldset). Call
    * it with attributes and children to fill it.
    */
   val legend: Dom.Element = Dom.element("legend")
 
   /**
-   * Returns an element with the tag `<li>` (a list item). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `li` (a list item). Call it with attributes
+   * and children to fill it.
    */
   val li: Dom.Element = Dom.element("li")
 
   /**
-   * Returns an element with the tag `<link>` (a link to an external resource).
-   * This is a void element: it renders as `<link/>`, with its attributes if
-   * any, and renders no children.
+   * Returns an element with the tag `link` (a link to an external resource).
+   * This is a void element: it renders as a single tag that ends with `/>`,
+   * with its attributes if any, and renders no children.
    */
   val link: Dom.Element = Dom.element("link")
 
   /**
-   * Returns an element with the tag `<main>` (the main content of the
-   * document). Call it with attributes and children to fill it.
+   * Returns an element with the tag `main` (the main content of the document).
+   * Call it with attributes and children to fill it.
    */
   val main: Dom.Element = Dom.element("main")
 
   /**
-   * Returns an element with the tag `<map>` (an image map). Call it with
+   * Returns an element with the tag `map` (an image map). Call it with
    * attributes and children to fill it.
    */
   val map: Dom.Element = Dom.element("map")
 
   /**
-   * Returns an element with the tag `<mark>` (highlighted text). Call it with
+   * Returns an element with the tag `mark` (highlighted text). Call it with
    * attributes and children to fill it.
    */
   val mark: Dom.Element = Dom.element("mark")
 
   /**
-   * Returns an element with the tag `<math>` (a MathML container). Call it with
+   * Returns an element with the tag `math` (a MathML container). Call it with
    * attributes and children to fill it.
    */
   val math: Dom.Element = Dom.element("math")
 
   /**
-   * Returns an element with the tag `<meta>` (document metadata). This is a
-   * void element: it renders as `<meta/>`, with its attributes if any, and
-   * renders no children.
+   * Returns an element with the tag `meta` (document metadata). This is a void
+   * element: it renders as a single tag that ends with `/>`, with its
+   * attributes if any, and renders no children.
    */
   val meta: Dom.Element = Dom.element("meta")
 
   /**
-   * Returns an element with the tag `<meter>` (a scalar measurement within a
+   * Returns an element with the tag `meter` (a scalar measurement within a
    * range). Call it with attributes and children to fill it.
    */
   val meter: Dom.Element = Dom.element("meter")
 
   /**
-   * Returns an element with the tag `<nav>` (a navigation section). Call it
-   * with attributes and children to fill it.
+   * Returns an element with the tag `nav` (a navigation section). Call it with
+   * attributes and children to fill it.
    */
   val nav: Dom.Element = Dom.element("nav")
 
   /**
-   * Returns an element with the tag `<object>` (an embedded external resource).
+   * Returns an element with the tag `object` (an embedded external resource).
    * Call it with attributes and children to fill it.
    */
   val `object`: Dom.Element = Dom.element("object")
 
   /**
-   * Returns an element with the tag `<ol>` (an ordered list). Call it with
+   * Returns an element with the tag `ol` (an ordered list). Call it with
    * attributes and children to fill it.
    */
   val ol: Dom.Element = Dom.element("ol")
 
   /**
-   * Returns an element with the tag `<optgroup>` (a group of options in a
+   * Returns an element with the tag `optgroup` (a group of options in a
    * select). Call it with attributes and children to fill it.
    */
   val optgroup: Dom.Element = Dom.element("optgroup")
 
   /**
-   * Returns an element with the tag `<option>` (an option in a select or
+   * Returns an element with the tag `option` (an option in a select or
    * datalist). Call it with attributes and children to fill it.
    */
   val option: Dom.Element = Dom.element("option")
 
   /**
-   * Returns an element with the tag `<output>` (the result of a calculation).
+   * Returns an element with the tag `output` (the result of a calculation).
    * Call it with attributes and children to fill it.
    */
   val output: Dom.Element = Dom.element("output")
 
   /**
-   * Returns an element with the tag `<p>` (a paragraph). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `p` (a paragraph). Call it with attributes
+   * and children to fill it.
    */
   val p: Dom.Element = Dom.element("p")
 
   /**
-   * Returns an element with the tag `<param>` (a parameter for an object
-   * element). This is a void element: it renders as `<param/>`, with its
-   * attributes if any, and renders no children.
+   * Returns an element with the tag `param` (a parameter for an object
+   * element). This is a void element: it renders as a single tag that ends with
+   * `/>`, with its attributes if any, and renders no children.
    */
   val param: Dom.Element = Dom.element("param")
 
   /**
-   * Returns an element with the tag `<pre>` (preformatted text). Call it with
+   * Returns an element with the tag `pre` (preformatted text). Call it with
    * attributes and children to fill it.
    */
   val pre: Dom.Element = Dom.element("pre")
 
   /**
-   * Returns an element with the tag `<progress>` (a progress indicator). Call
-   * it with attributes and children to fill it.
+   * Returns an element with the tag `progress` (a progress indicator). Call it
+   * with attributes and children to fill it.
    */
   val progress: Dom.Element = Dom.element("progress")
 
   /**
-   * Returns an element with the tag `<q>` (an inline quotation). Call it with
+   * Returns an element with the tag `q` (an inline quotation). Call it with
    * attributes and children to fill it.
    */
   val q: Dom.Element = Dom.element("q")
 
   /**
-   * Returns an element with the tag `<rp>` (fallback parentheses for ruby
+   * Returns an element with the tag `rp` (fallback parentheses for ruby
    * annotations). Call it with attributes and children to fill it.
    */
   val rp: Dom.Element = Dom.element("rp")
 
   /**
-   * Returns an element with the tag `<rt>` (a ruby text annotation). Call it
-   * with attributes and children to fill it.
+   * Returns an element with the tag `rt` (a ruby text annotation). Call it with
+   * attributes and children to fill it.
    */
   val rt: Dom.Element = Dom.element("rt")
 
   /**
-   * Returns an element with the tag `<ruby>` (a ruby annotation). Call it with
+   * Returns an element with the tag `ruby` (a ruby annotation). Call it with
    * attributes and children to fill it.
    */
   val ruby: Dom.Element = Dom.element("ruby")
 
   /**
-   * Returns an element with the tag `<s>` (text with a strikethrough). Call it
+   * Returns an element with the tag `s` (text with a strikethrough). Call it
    * with attributes and children to fill it.
    */
   val s: Dom.Element = Dom.element("s")
 
   /**
-   * Returns an element with the tag `<samp>` (sample output from a program).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `samp` (sample output from a program). Call
+   * it with attributes and children to fill it.
    */
   val samp: Dom.Element = Dom.element("samp")
 
   /**
-   * Returns a `<script>` element ([[Dom.Element.Script]]). Besides modifiers,
+   * Returns a `script` element ([[Dom.Element.Script]]). Besides modifiers,
    * calling it accepts a [[Js]] value whose text is added as a child.
    */
   val script: Dom.Element.Script = Dom.script
 
   /**
-   * Returns an element with the tag `<section>` (a section of a document). Call
+   * Returns an element with the tag `section` (a section of a document). Call
    * it with attributes and children to fill it.
    */
   val section: Dom.Element = Dom.element("section")
 
   /**
-   * Returns an element with the tag `<select>` (a drop-down or list selection
+   * Returns an element with the tag `select` (a drop-down or list selection
    * control). Call it with attributes and children to fill it.
    */
   val select: Dom.Element = Dom.element("select")
 
   /**
-   * Returns an element with the tag `<slot>` (a placeholder inside a web
+   * Returns an element with the tag `slot` (a placeholder inside a web
    * component). Call it with attributes and children to fill it.
    */
   val slot: Dom.Element = Dom.element("slot")
 
   /**
-   * Returns an element with the tag `<small>` (side-comment text). Call it with
+   * Returns an element with the tag `small` (side-comment text). Call it with
    * attributes and children to fill it.
    */
   val small: Dom.Element = Dom.element("small")
 
   /**
-   * Returns an element with the tag `<source>` (a media resource for audio,
-   * video or picture). This is a void element: it renders as `<source/>`, with
-   * its attributes if any, and renders no children.
+   * Returns an element with the tag `source` (a media resource for audio, video
+   * or picture). This is a void element: it renders as a single tag that ends
+   * with `/>`, with its attributes if any, and renders no children.
    */
   val source: Dom.Element = Dom.element("source")
 
   /**
-   * Returns an element with the tag `<span>` (a generic inline container). Call
+   * Returns an element with the tag `span` (a generic inline container). Call
    * it with attributes and children to fill it.
    */
   val span: Dom.Element = Dom.element("span")
 
   /**
-   * Returns an element with the tag `<strong>` (text of strong importance).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `strong` (text of strong importance). Call
+   * it with attributes and children to fill it.
    */
   val strong: Dom.Element = Dom.element("strong")
 
   /**
-   * Returns a `<style>` element ([[Dom.Element.Style]]). Besides modifiers,
+   * Returns a `style` element ([[Dom.Element.Style]]). Besides modifiers,
    * calling it accepts a [[Css]] value whose text is added as a child.
    */
   val style: Dom.Element.Style = Dom.style
 
   /**
-   * Returns an element with the tag `<sub>` (subscript text). Call it with
+   * Returns an element with the tag `sub` (subscript text). Call it with
    * attributes and children to fill it.
    */
   val sub: Dom.Element = Dom.element("sub")
 
   /**
-   * Returns an element with the tag `<summary>` (the summary of a details
+   * Returns an element with the tag `summary` (the summary of a details
    * element). Call it with attributes and children to fill it.
    */
   val summary: Dom.Element = Dom.element("summary")
 
   /**
-   * Returns an element with the tag `<sup>` (superscript text). Call it with
+   * Returns an element with the tag `sup` (superscript text). Call it with
    * attributes and children to fill it.
    */
   val sup: Dom.Element = Dom.element("sup")
 
   /**
-   * Returns an element with the tag `<svg>` (an SVG container). Call it with
+   * Returns an element with the tag `svg` (an SVG container). Call it with
    * attributes and children to fill it.
    */
   val svg: Dom.Element = Dom.element("svg")
 
   /**
-   * Returns an element with the tag `<table>` (a table). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `table` (a table). Call it with attributes
+   * and children to fill it.
    */
   val table: Dom.Element = Dom.element("table")
 
   /**
-   * Returns an element with the tag `<tbody>` (a table body). Call it with
+   * Returns an element with the tag `tbody` (a table body). Call it with
    * attributes and children to fill it.
    */
   val tbody: Dom.Element = Dom.element("tbody")
 
   /**
-   * Returns an element with the tag `<td>` (a table data cell). Call it with
+   * Returns an element with the tag `td` (a table data cell). Call it with
    * attributes and children to fill it.
    */
   val td: Dom.Element = Dom.element("td")
 
   /**
-   * Returns an element with the tag `<template>` (a content template). Call it
+   * Returns an element with the tag `template` (a content template). Call it
    * with attributes and children to fill it.
    */
   val template: Dom.Element = Dom.element("template")
 
   /**
-   * Returns an element with the tag `<textarea>` (a multi-line text input).
-   * Call it with attributes and children to fill it.
+   * Returns an element with the tag `textarea` (a multi-line text input). Call
+   * it with attributes and children to fill it.
    */
   val textarea: Dom.Element = Dom.element("textarea")
 
   /**
-   * Returns an element with the tag `<tfoot>` (a table footer). Call it with
+   * Returns an element with the tag `tfoot` (a table footer). Call it with
    * attributes and children to fill it.
    */
   val tfoot: Dom.Element = Dom.element("tfoot")
 
   /**
-   * Returns an element with the tag `<th>` (a table header cell). Call it with
+   * Returns an element with the tag `th` (a table header cell). Call it with
    * attributes and children to fill it.
    */
   val th: Dom.Element = Dom.element("th")
 
   /**
-   * Returns an element with the tag `<thead>` (a table header). Call it with
+   * Returns an element with the tag `thead` (a table header). Call it with
    * attributes and children to fill it.
    */
   val thead: Dom.Element = Dom.element("thead")
 
   /**
-   * Returns an element with the tag `<time>` (a date or time). Call it with
+   * Returns an element with the tag `time` (a date or time). Call it with
    * attributes and children to fill it.
    */
   val time: Dom.Element = Dom.element("time")
 
   /**
-   * Returns an element with the tag `<title>` (the document title). Call it
-   * with attributes and children to fill it.
+   * Returns an element with the tag `title` (the document title). Call it with
+   * attributes and children to fill it.
    */
   val title: Dom.Element = Dom.element("title")
 
   /**
-   * Returns an element with the tag `<tr>` (a table row). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `tr` (a table row). Call it with attributes
+   * and children to fill it.
    */
   val tr: Dom.Element = Dom.element("tr")
 
   /**
-   * Returns an element with the tag `<track>` (a text track for audio or
-   * video). This is a void element: it renders as `<track/>`, with its
-   * attributes if any, and renders no children.
+   * Returns an element with the tag `track` (a text track for audio or video).
+   * This is a void element: it renders as a single tag that ends with `/>`,
+   * with its attributes if any, and renders no children.
    */
   val track: Dom.Element = Dom.element("track")
 
   /**
-   * Returns an element with the tag `<u>` (underlined text). Call it with
+   * Returns an element with the tag `u` (underlined text). Call it with
    * attributes and children to fill it.
    */
   val u: Dom.Element = Dom.element("u")
 
   /**
-   * Returns an element with the tag `<ul>` (an unordered list). Call it with
+   * Returns an element with the tag `ul` (an unordered list). Call it with
    * attributes and children to fill it.
    */
   val ul: Dom.Element = Dom.element("ul")
 
   /**
-   * Returns an element with the tag `<var>` (a variable). Call it with
-   * attributes and children to fill it.
+   * Returns an element with the tag `var` (a variable). Call it with attributes
+   * and children to fill it.
    */
   val `var`: Dom.Element = Dom.element("var")
 
   /**
-   * Returns an element with the tag `<video>` (a video player). Call it with
+   * Returns an element with the tag `video` (a video player). Call it with
    * attributes and children to fill it.
    */
   val video: Dom.Element = Dom.element("video")
 
   /**
-   * Returns an element with the tag `<wbr>` (a possible line-break position).
-   * This is a void element: it renders as `<wbr/>`, with its attributes if any,
-   * and renders no children.
+   * Returns an element with the tag `wbr` (a possible line-break position).
+   * This is a void element: it renders as a single tag that ends with `/>`,
+   * with its attributes if any, and renders no children.
    */
   val wbr: Dom.Element = Dom.element("wbr")
 
   /**
-   * Returns a [[Dom.Text]] node for `content`. Rendering escapes the HTML
-   * special characters in the text.
+   * Returns a [[Dom.Text]] node for `content`. Rendering replaces `&`, `<`,
+   * `>`, `"` and `'` with character references, except inside a `script` or
+   * `style` element.
    */
   def text(content: String): Dom.Text = Dom.text(content)
 
@@ -713,9 +714,9 @@ trait HtmlElements {
 }
 
 /**
- * Trait containing all HTML attribute definitions. This trait can be mixed into
- * package objects or other contexts. Attributes are sorted alphabetically for
- * easy maintenance.
+ * Trait containing the HTML attribute values of `zio.http.template2`, such as
+ * `id`, `href` and `disabled`. For an attribute without a value here, such as
+ * `colspan`, use `custom`.
  */
 trait HtmlAttributes {
 
@@ -1010,7 +1011,7 @@ trait HtmlAttributes {
 
   /**
    * Returns the `class` attribute, built from one or more values, which render
-   * joined by a space, for example ``class` := ("a", "b")`.
+   * joined by a space, for example `className := ("a", "b")`.
    */
   val `class`: Dom.PartialMultiAttribute = Dom.multiAttr("class")
 
@@ -1075,8 +1076,8 @@ trait HtmlAttributes {
   val enctype: Dom.PartialAttribute = Dom.attr("enctype")
 
   /**
-   * Returns the `for` attribute. Give it a value with `:=` or by calling it,
-   * for example ``for` := "..."`.
+   * Returns the `for` attribute (written with backticks in Scala, as it is a
+   * keyword). Give it a value with `:=` or by calling it.
    */
   val `for`: Dom.PartialAttribute = Dom.attr("for")
 
@@ -1333,8 +1334,8 @@ trait HtmlAttributes {
   val translate: Dom.PartialAttribute = Dom.attr("translate")
 
   /**
-   * Returns the `type` attribute. Give it a value with `:=` or by calling it,
-   * for example ``type` := "..."`.
+   * Returns the `type` attribute (written with backticks in Scala, as it is a
+   * keyword). Give it a value with `:=` or by calling it.
    */
   val `type`: Dom.PartialAttribute = Dom.attr("type")
 
