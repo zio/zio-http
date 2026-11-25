@@ -12,10 +12,19 @@ import zio.http.endpoint.openapi.JsonSchema.{SchemaRef, SchemaSpec, SchemaStyle}
 import zio.http.endpoint.openapi.OpenAPIGen.{AtomizedMetaCodecs, MetaCodec}
 import zio.http.endpoint.openapi.{JsonSchema, OpenAPIGen}
 
+/**
+ * Builds [[HttpFile]] values, the request definitions of a `.http` file, from
+ * endpoints. The body of a request comes from the endpoint's `application/json`
+ * content codec when the endpoint has exactly one content codec.
+ */
 object HttpGen {
 
   private val PathWildcard = "pathWildcard"
 
+  /**
+   * Returns an [[HttpFile]] with one request for each of the endpoints, using
+   * `config` to format query values.
+   */
   def fromEndpoints(
     config: CodecConfig,
     endpoint1: Endpoint[_, _, _, _, _],
@@ -24,6 +33,10 @@ object HttpGen {
     HttpFile((endpoint1 +: endpoints).map(fromEndpoint(config, _)).toList)
   }
 
+  /**
+   * Returns an [[HttpFile]] with one request for each of the endpoints, using
+   * `CodecConfig.defaultConfig`.
+   */
   def fromEndpoints(
     endpoint1: Endpoint[_, _, _, _, _],
     endpoints: Endpoint[_, _, _, _, _]*,
@@ -31,9 +44,15 @@ object HttpGen {
     HttpFile((endpoint1 +: endpoints).map(fromEndpoint(CodecConfig.defaultConfig, _)).toList)
   }
 
+  /** Returns the request of `endpoint`, using `CodecConfig.defaultConfig`. */
   def fromEndpoint(endpoint: Endpoint[_, _, _, _, _]): HttpEndpoint =
     fromEndpoint(CodecConfig.defaultConfig, endpoint)
 
+  /**
+   * Returns the request of `endpoint`: its method, path with `{{name}}`
+   * placeholders, header names, JSON body and variables, and its documentation
+   * as comment text.
+   */
   def fromEndpoint(config: CodecConfig, endpoint: Endpoint[_, _, _, _, _]): HttpEndpoint = {
     val atomizedInput = AtomizedMetaCodecs.flatten(endpoint.input)
     HttpEndpoint(
@@ -61,9 +80,18 @@ object HttpGen {
   private def doc(endpoint: Endpoint[_, _, _, _, _]) =
     if (endpoint.documentation == Doc.empty) None else Some(endpoint.documentation.toPlaintext(color = false))
 
+  /**
+   * Returns the variables of the endpoint input in this order: path, query,
+   * header and body.
+   */
   def variables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
     pathVariables(inAtoms) ++ queryVariables(config, inAtoms) ++ headersVariables(inAtoms) ++ bodyVariables(inAtoms)
 
+  /**
+   * Returns one variable for each primitive property of the JSON body schema,
+   * each with a type hint as its comment. Returns an empty sequence when there
+   * is no JSON body.
+   */
   def bodyVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     val bodySchema0 = bodySchema(inAtoms)
 
@@ -125,6 +153,10 @@ object HttpGen {
 
   private def getName(name: Option[String]) = { name.getOrElse(throw new IllegalArgumentException("name is required")) }
 
+  /**
+   * Returns one variable per header codec, named after the header name with a
+   * capital first letter, with the first example as its value when one is set.
+   */
   def headersVariables(inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] =
     inAtoms.header.collect { case mc @ MetaCodec(HttpCodec.Header(headerType, _), _) =>
       HttpVariable(
@@ -135,6 +167,11 @@ object HttpGen {
       )
     }
 
+  /**
+   * Returns the variables of the query codecs: one per record field for a
+   * record query, otherwise one named after the codec (`query` when it has no
+   * name).
+   */
   def queryVariables(config: CodecConfig, inAtoms: AtomizedMetaCodecs): Seq[HttpVariable] = {
     inAtoms.query.collect { case mc @ MetaCodec(HttpCodec.Query(codec, _), _) =>
       val fields = codec.recordFields
@@ -175,6 +212,12 @@ object HttpGen {
     }
   }
 
+  /**
+   * Returns the request path of the input codec `in`, with `{{name}}` for each
+   * path parameter, `{{pathWildcard}}` for a trailing segment and a query
+   * string of `name={{name}}` entries joined with `&` when there are query
+   * variables.
+   */
   def buildPath(config: CodecConfig, in: HttpCodec[_, _]): String = {
 
     def pathCodec(in1: HttpCodec[_, _]): Option[HttpCodec.Path[_]] = in1 match {

@@ -3,12 +3,22 @@ package zio.http.endpoint.http
 import zio.http._
 import zio.http.endpoint.openapi.JsonSchema
 
+/** A `.http` file: a list of [[HttpEndpoint]] requests that render as text. */
 final case class HttpFile(endpoints: List[HttpEndpoint]) {
+
+  /**
+   * Returns a file with the endpoints of this file followed by those of `that`.
+   */
   def ++(that: HttpFile): HttpFile = HttpFile(endpoints ++ that.endpoints)
 
+  /** Renders each endpoint and joins them with a blank line between them. */
   def render: String = endpoints.map(_.render).mkString("\n\n")
 }
 
+/**
+ * One request of an [[HttpFile]]: a method and path, header names, an optional
+ * JSON body schema, the variables the request uses and an optional comment.
+ */
 final case class HttpEndpoint(
   method: Method,
   path: String,
@@ -17,6 +27,11 @@ final case class HttpEndpoint(
   variables: Seq[HttpVariable],
   docString: Option[String],
 ) {
+
+  /**
+   * Renders the comment lines, the variable definitions, the request line, the
+   * header lines and, for a JSON body, the body template.
+   */
   def render: String =
     renderDoc + renderVariables + renderPath + renderHeaders + renderRequestBody
 
@@ -80,7 +95,16 @@ final case class HttpEndpoint(
   }
 }
 
+/**
+ * A variable of an [[HttpEndpoint]], named `name`, with an optional example
+ * `value` and an optional comment `docString`.
+ */
 final case class HttpVariable(name: String, value: Option[String], docString: Option[String] = None) {
+
+  /**
+   * Renders the definition `@name=value`, with `<no value>` when there is no
+   * value, after the comment lines of `docString` when it is set.
+   */
   def render = {
     val variable = s"@$name=${value.getOrElse("<no value>")}"
     if (docString.isDefined) {
