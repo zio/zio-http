@@ -19,15 +19,25 @@ package zio.http.template2
 import scala.language.experimental.macros
 
 /**
- * Trait providing JavaScript string interpolation with compile-time validation.
+ * Provides the `js` string interpolator. On Scala 2, when an interpolated string has no arguments, its text is checked at compile time.
  */
 private[template2] trait JsInterpolator {
 
   /**
-   * JavaScript string interpolator that validates JavaScript syntax at compile
-   * time.
+   * Adds the `js` interpolator to string literals.
    */
   implicit class JSStringContext(val sc: StringContext) {
+    /**
+     * Creates a [[Js]] value from an interpolated string, inserting the arguments as the `s` interpolator does. On Scala 2, when the string has no arguments, the macro checks its text at compile time with a few patterns and stops compilation with an error when none of them matches. The check is not a JavaScript parser: text that contains a JavaScript keyword such as `if` or `in`, even inside a word, passes, and `js"#x"` fails with the error `Invalid JavaScript syntax: #x`. On Scala 3 the macro does not report this error, so `js"#x"` compiles.
+     *
+     * {{{
+     * val onSave: Js = js"saveDraft()"
+     * button(Dom.attr("onclick") := onSave, "Save").render
+     * // <button onclick="saveDraft()">Save</button>
+     * }}}
+     *
+     * @see [[https://ziohttp.com/reference/template/ Template DSL]]
+     */
     def js(args: Any*): Js = macro JSInterpolatorMacros.jsImpl
   }
 }
