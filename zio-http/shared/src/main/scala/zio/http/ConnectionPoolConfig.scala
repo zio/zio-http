@@ -18,15 +18,45 @@ package zio.http
 
 import zio.{Config, Duration}
 
+/**
+ * How a client pools its connections. Set it with `ZClient.Config#connectionPool`; the default is `Fixed(10)`.
+ *
+ * A pool is kept per destination: the scheme, host and port of the request, together with its proxy, TLS, timeout, header size and decompression settings. The connections of the pools `Fixed`, `FixedPerHost`, `Dynamic` and `DynamicPerHost` are opened without the client's `localAddress`; the pool `Disabled` binds to it.
+ *
+ * @see [[https://zio.dev/zio-http/reference/configs/connection-pool/ ConnectionPoolConfig]]
+ */
 sealed trait ConnectionPoolConfig
+/** The pool configurations, and a `Config` reader for them. */
 object ConnectionPoolConfig {
+  /** No pooling: each request opens a connection, and keep-alive is not used. */
   case object Disabled                                                                    extends ConnectionPoolConfig
+  /** A pool of `size` connections for each destination. */
   final case class Fixed(size: Int)                                                       extends ConnectionPoolConfig
+  /**
+   * A pool of fixed size for each destination. A destination found in `sizes` uses that size, any other uses `default`.
+   */
   final case class FixedPerHost(sizes: Map[URL.Location.Absolute, Fixed], default: Fixed) extends ConnectionPoolConfig
+  /**
+   * A pool that holds between `minimum` and `maximum` connections for each destination. Connections beyond the minimum that stay unused for `ttl` are released.
+   */
   final case class Dynamic(minimum: Int, maximum: Int, ttl: Duration)                     extends ConnectionPoolConfig
+  /**
+   * A dynamic pool for each destination. A destination found in `configs` uses that `Dynamic` configuration, any other uses `default`.
+   */
   final case class DynamicPerHost(configs: Map[URL.Location.Absolute, Dynamic], default: Dynamic)
       extends ConnectionPoolConfig
 
+  /**
+   * Reads a configuration, trying these shapes in order:
+   *
+   *   - the string `disabled` gives `Disabled`;
+   *   - the integer `fixed` gives `Fixed`;
+   *   - `dynamic.minimum`, `dynamic.maximum` and `dynamic.ttl` give `Dynamic`;
+   *   - `fixed.per-host` entries with `url` and `fixed`, and `fixed.default.fixed`, give `FixedPerHost`;
+   *   - the corresponding `dynamic.per-host` and `dynamic.default` entries give `DynamicPerHost`.
+   *
+   * The `url` of a per-host entry must be an absolute URL.
+   */
   def config: Config[ConnectionPoolConfig] = {
     val disabled       = Config.string.mapOrFail {
       case "disabled" => Right(Disabled)

@@ -24,11 +24,23 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import com.lihaoyi.unroll
 
+/**
+ * Resolves host names to IP addresses. The client resolves the host of each new connection with the `DnsResolver` in its environment.
+ *
+ * The layers `default`, `configured` and `live` build a resolver that caches the results; `system` builds one without a cache.
+ *
+ * @see [[https://zio.dev/zio-http/reference/configs/dns-resolver/ DNS Resolver Config]]
+ */
 trait DnsResolver {
+  /**
+   * Resolves `host` to its addresses. Fails with an `UnknownHostException` when the host cannot be resolved.
+   */
   def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]]
 }
 
+/** Layers and configuration for `DnsResolver`. */
 object DnsResolver {
+  /** Resolves `host` with the `DnsResolver` in the environment. */
   def resolve(host: String)(implicit trace: Trace): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
     ZIO.serviceWithZIO(_.resolve(host))
 
@@ -47,11 +59,22 @@ object DnsResolver {
     failureCount: Int = 0,
   )
 
+  /**
+   * What a caching resolver does with an entry whose time to live has passed: `Refresh` or `Drop`.
+   */
   sealed trait ExpireAction
+  /** The expire actions, and their `Config` reader. */
   object ExpireAction {
+    /**
+     * Resolves the host again in the background. Until the new lookup completes, or when it fails, the resolver returns the previous addresses.
+     */
     case object Refresh extends ExpireAction
+    /** Removes the entry, so that the next request for the host resolves it again. */
     case object Drop    extends ExpireAction
 
+    /**
+     * Reads one of the strings `refresh` or `drop`. Any other value fails with a message that starts with `Invalid expire action:`.
+     */
     val config: zio.Config[ExpireAction] =
       zio.Config.string.mapOrFail {
         case "refresh" => Right(Refresh)
@@ -246,6 +269,26 @@ object DnsResolver {
       case _ => ZIO.dieMessage(s"Unexpected DnsResolver implementation: ${getClass.getName}")
     }
 
+  /**
+   * The settings of the caching resolver built by `live`.
+   *
+   * @param ttl
+   *   how long the addresses of a successful lookup are used before the entry expires. Expiry is checked every `refreshRate`.
+   * @param unknownHostTtl
+   *   the same for a lookup that failed with an `UnknownHostException`
+   * @param maxCount
+   *   the maximum number of cached hosts. When the cache is checked and holds more, the entries that were updated longest ago are dropped.
+   * @param maxConcurrentResolutions
+   *   the maximum number of lookups that run at the same time
+   * @param expireAction
+   *   what happens to an entry that has expired
+   * @param refreshRate
+   *   how often the cache is checked for expired entries and for its size
+   * @param maxRetries
+   *   with `ExpireAction.Refresh`, the number of failed lookups of a host, counting the first one, after which the host is dropped from the cache instead of being looked up again. It defaults to 3.
+   *
+   * @see [[https://zio.dev/zio-http/reference/configs/dns-resolver/ DNS Resolver Config]]
+   */
   final case class Config(
     ttl: Duration,
     unknownHostTtl: Duration,
@@ -257,7 +300,11 @@ object DnsResolver {
     maxRetries: Int = 3,
   )
 
+  /** The `Config` reader and the default value of `DnsResolver.Config`. */
   object Config {
+    /**
+     * Reads the settings from the keys `ttl`, `unknown-host-ttl`, `max-count`, `max-concurrent-resolutions`, `expire-action`, `refresh-rate` and `max-retries`. A missing key gives the value of `Config.default`.
+     */
     def config: zio.Config[Config] =
       (zio.Config.duration("ttl").withDefault(Config.default.ttl) ++
         zio.Config.duration("unknown-host-ttl").withDefault(Config.default.unknownHostTtl) ++
@@ -270,6 +317,9 @@ object DnsResolver {
           Config(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate, maxRetries)
       }
 
+    /**
+     * The default settings: `ttl` 10 minutes, `unknownHostTtl` 1 minute, `maxCount` 4096, `maxConcurrentResolutions` 16, `expireAction` `ExpireAction.Refresh`, `refreshRate` 2 seconds and `maxRetries` 3.
+     */
     def default: Config = Config(
       ttl = 10.minutes,
       unknownHostTtl = 1.minute,
@@ -281,11 +331,15 @@ object DnsResolver {
     )
   }
 
+  /**
+   * A layer that reads the `Config` from the config provider under `path`, which defaults to `zio.http.dns`, and builds the caching resolver of `live` from it. It fails with a `zio.Config.Error` when the config is invalid.
+   */
   def configured(
     path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "dns"),
   )(implicit trace: Trace): ZLayer[Any, zio.Config.Error, DnsResolver] =
     ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) >>> live
 
+  /** A layer for a caching resolver with the settings of `Config.default`. */
   val default: ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.succeed(Config.default) >>> live
@@ -317,6 +371,9 @@ object DnsResolver {
     }
   }
 
+  /**
+   * A layer for a resolver that caches the results of `InetAddress.getAllByName` for the settings in the environment. The resolver checks its cache every `refreshRate` in a background fiber that lives as long as the layer.
+   */
   val live: ZLayer[DnsResolver.Config, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
 
@@ -337,6 +394,9 @@ object DnsResolver {
     }
   }
 
+  /**
+   * A layer for a resolver without a cache: each call runs `InetAddress.getAllByName` on the blocking thread pool.
+   */
   val system: ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.succeed(SystemResolver())
