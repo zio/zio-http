@@ -12,8 +12,29 @@ lazy val generateApiDocs = taskKey[File]("Generate the unified Scaladoc into web
 val _ = sys.props += ("ZIOHttpLogLevel" -> Debug.ZIOHttpLogLevel)
 
 // CI Configuration
-ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
-ThisBuild / githubWorkflowEnv += ("SBT_OPTS" -> "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8")
+//
+// Maven Central rate-limits our CI (HTTP 429) because the Jmh matrix fans out to
+// ~20 jobs that all resolve dependencies at once. Resolve through Google's Maven
+// Central mirror instead, keeping Maven Central as a fallback for artifacts the
+// mirror does not have.
+//
+// - coursier/setup-action mirrors repo1.maven.org to the Google mirror, which
+//   also covers repositories hardcoded in app descriptors (the failing
+//   `cs install --contrib sbt` lookup).
+// - COURSIER_REPOSITORIES additionally redirects every `cs` invocation, with
+//   the Apache Central host as a fallback.
+// - SBT_OPTS makes sbt use .github/sbt-repositories, which lists the mirror
+//   first and Maven Central (plus Sonatype snapshots) as fallbacks. Maven
+//   Central is the Apache host there so the action-level mirror above cannot
+//   shadow that fallback.
+val ciJvmOptions           =
+  "-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8"
+val sbtRepositoriesOptions =
+  "-Dsbt.override.build.repos=true -Dsbt.repository.config=.github/sbt-repositories"
+
+ThisBuild / githubWorkflowEnv += ("JDK_JAVA_OPTIONS"      -> ciJvmOptions)
+ThisBuild / githubWorkflowEnv += ("SBT_OPTS"              -> s"$ciJvmOptions $sbtRepositoriesOptions")
+ThisBuild / githubWorkflowEnv += ("COURSIER_REPOSITORIES" -> s"$MavenCentralMirror|$MavenCentralFallback")
 
 ThisBuild / resolvers += Resolver.sonatypeCentralSnapshots
 ThisBuild / libraryDependencySchemes += "dev.zio" %% "zio-json" % VersionScheme.Always
@@ -31,12 +52,6 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Edited,
   PREventType.Labeled,
 )
-
-val coursierSetup =
-  WorkflowStep.Use(
-    UseRef.Public("coursier", "setup-action", "v3"),
-    params = Map("apps" -> "sbt"),
-  )
 
 ThisBuild / githubWorkflowAddedJobs :=
   Seq(
@@ -65,7 +80,6 @@ ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.T
 ThisBuild / githubWorkflowPublishPreamble := Seq(coursierSetup)
 ThisBuild / githubWorkflowPublish         :=
   Seq(
-    WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v3"), Map("apps" -> "sbt")),
     WorkflowStep.Sbt(
       List("ci-release"),
       name = Some("Release"),
@@ -514,8 +528,8 @@ lazy val docs = project
     excludeDependencies += "com.github.plokhotnyuk.jsoniter-scala" % "jsoniter-scala-core_2.13",
   )
   .settings(
-    fork                                       := false,
-    moduleName                                 := "zio-http-docs",
+    fork       := false,
+    moduleName := "zio-http-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     scalacOptions -= "-Werror", // the Scala 3 spelling of the above

@@ -18,7 +18,8 @@ on:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   JDK_JAVA_OPTIONS: '-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8'
-  SBT_OPTS: '-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8'
+  SBT_OPTS: '-Xms4G -Xmx8G -XX:+UseG1GC -Xss10M -XX:ReservedCodeCacheSize=1G -XX:NonProfiledCodeHeapSize=512m -Dfile.encoding=UTF-8 -Dsbt.override.build.repos=true -Dsbt.repository.config=.github/sbt-repositories'
+  COURSIER_REPOSITORIES: 'https://maven-central.storage-download.googleapis.com/maven2/|https://repo.maven.apache.org/maven2/'
 
 jobs:
   build:
@@ -69,6 +70,9 @@ jobs:
       - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - name: Check formatting
         if: matrix.scala == '2.13.18'
@@ -83,6 +87,9 @@ jobs:
       - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
@@ -142,10 +149,9 @@ jobs:
       - uses: coursier/setup-action@v3
         with:
           apps: sbt
-
-      - uses: coursier/setup-action@v3
-        with:
-          apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - name: Release
         env:
@@ -183,6 +189,9 @@ jobs:
       - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - name: Setup Java (temurin@25)
         if: matrix.java == 'temurin@25'
@@ -207,9 +216,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - name: Add Scoverage
         id: add_plugin
@@ -239,9 +251,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -277,9 +292,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -315,9 +333,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -353,9 +374,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -391,9 +415,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -429,9 +456,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -467,9 +497,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -505,9 +538,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -543,9 +579,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -581,9 +620,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -619,9 +661,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -657,9 +702,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -695,9 +743,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -733,9 +784,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -771,9 +825,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -809,9 +866,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -847,9 +907,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:
@@ -885,9 +948,12 @@ jobs:
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v3
         with:
           apps: sbt
+          mirrors: |
+            https://repo1.maven.org/maven2=https://maven-central.storage-download.googleapis.com/maven2/
+            https://repo1.maven.org/maven2/=https://maven-central.storage-download.googleapis.com/maven2/
 
       - uses: actions/checkout@v4
         with:

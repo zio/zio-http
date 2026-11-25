@@ -1,6 +1,7 @@
 import sbtheader.HeaderPlugin.autoImport.{HeaderLicense, headerLicense}
 import sbt.*
 import sbt.Keys.*
+import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowStep}
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 
@@ -10,6 +11,23 @@ object BuildHelper extends ScalaSettings {
   val Scala3           = "3.9.0"
   val ScoverageVersion = "2.3.0"
   val JmhVersion       = "0.4.7"
+
+  // Maven Central rate-limits parallel CI jobs with HTTP 429, so resolve through
+  // Google's Maven Central mirror. Maven Central is kept as a fallback via the
+  // repo.maven.apache.org host: mirroring repo1.maven.org (done by the coursier
+  // action below) does not cover the Apache host, so a mirror miss still falls
+  // back to the real Central instead of looping back to the mirror.
+  val MavenCentralMirror   = "https://maven-central.storage-download.googleapis.com/maven2/"
+  val MavenCentralFallback = "https://repo.maven.apache.org/maven2/"
+
+  val coursierSetup =
+    WorkflowStep.Use(
+      UseRef.Public("coursier", "setup-action", "v3"),
+      params = Map(
+        "apps" -> "sbt",
+        "mirrors" -> s"https://repo1.maven.org/maven2=$MavenCentralMirror\nhttps://repo1.maven.org/maven2/=$MavenCentralMirror",
+      ),
+    )
 
   private def stdOptions(scalaVersion: String) = Seq(
     "-deprecation",

@@ -1,4 +1,4 @@
-import BuildHelper.{JmhVersion, Scala213}
+import BuildHelper.{coursierSetup, JmhVersion, Scala213}
 import sbt.nio.file.FileTreeView
 import sbt.{**, Glob, PathFilter}
 import sbtghactions.GenerativePlugin.autoImport.{JavaSpec, UseRef, WorkflowJob, WorkflowStep}
@@ -116,7 +116,7 @@ object JmhBenchmarkWorkflow {
       scalas = List(Scala213),
       javas = List(JavaSpec.temurin("17")),
       steps = List(
-        WorkflowStep.Use(UseRef.Public("coursier", "setup-action", "v1"), Map("apps" -> "sbt")),
+        coursierSetup,
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v4"),
           Map(
