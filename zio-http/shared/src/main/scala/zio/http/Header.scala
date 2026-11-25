@@ -40,20 +40,63 @@ import zio.schema.validation.ValidationError
 import zio.http.codec.{HttpCodecError, RichTextCodec}
 import zio.http.internal.{DateEncoding, ErrorConstructor, StringSchemaCodec}
 
+/**
+ * An HTTP header with a typed value. Each case class or trait in the `Header`
+ * companion models one header, such as `Header.ContentType` or
+ * `Header.Authorization`, and `Header.Custom` holds any other header as a name
+ * and a value. A header gets its name and the text of its value from its
+ * `headerType`.
+ *
+ * {{{
+ * val header: Header = Header.ContentType(MediaType.application.json)
+ * header.headerName    // content-type
+ * header.renderedValue // application/json
+ *
+ * Headers(header, Header.Custom("X-Request-Id", "42")).get(Header.ContentType).map(_.mediaType.fullType)
+ * // Some(application/json)
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/headers/ Headers]]
+ */
 sealed trait Header {
+
+  /** The concrete type of this header, such as `Header.Host`. */
   type Self <: Header
+
+  /** This header, typed as `Self`. */
   def self: Self
 
+  /**
+   * The header type of this header: its name, and how its value is parsed and
+   * rendered.
+   */
   def headerType: Header.HeaderType.Typed[Self]
-  def headerName: String    = headerType.name
+
+  /**
+   * The header name in lower case, such as `content-type`, taken from
+   * `headerType`.
+   */
+  def headerName: String = headerType.name
+
+  /** The header value as text, rendered by `headerType`. */
   def renderedValue: String = headerType.render(self)
 
   private[http] def headerNameAsCharSequence: CharSequence    = headerName
   private[http] def renderedValueAsCharSequence: CharSequence = renderedValue
 
+  /**
+   * Returns this header as a `Custom` header with the lower-case `headerName`
+   * and the rendered value.
+   */
   def untyped: Header.Custom = Header.Custom(headerName, renderedValue)
 }
 
+/**
+ * The typed HTTP headers, one case class or trait per header with a companion
+ * that is its `HeaderType`, and the header type abstractions `HeaderTypeBase`,
+ * `HeaderType` and `SchemaHeaderType`.
+ */
 object Header {
 
   private[http] def validateHeaderCharSequence(cs: CharSequence, kind: String): Unit = {
@@ -70,15 +113,32 @@ object Header {
     }
   }
 
+  /**
+   * A description of a value that is read from and written to `Headers`. A
+   * `HeaderType` handles one typed header, and a `SchemaHeaderType` handles a
+   * value described by a zio-schema `Schema`.
+   */
   sealed trait HeaderTypeBase {
+
+    /** The type of the value that is read and written. */
     type HeaderValue
 
+    /** The names of the headers that are read. */
     def names: Chunk[String]
 
+    /**
+     * Reads the value from `headers`. Returns `Left` with an error message when
+     * a header is missing or its value cannot be parsed.
+     */
     def fromHeaders(headers: Headers): Either[String, HeaderValue]
 
     private[http] def fromHeadersUnsafe(headers: Headers): HeaderValue
 
+    /**
+     * Writes the value as headers. By default, a value that is a `Header` gives
+     * `Headers` with that one header, and any other value gives empty
+     * `Headers`.
+     */
     def toHeaders(value: HeaderValue): Headers =
       value match {
         case h: Header => Headers.fromIterable(h :: Nil)
@@ -86,17 +146,35 @@ object Header {
       }
   }
 
+  /** Type aliases for `HeaderTypeBase`. */
   object HeaderTypeBase {
+
+    /** A `HeaderTypeBase` whose `HeaderValue` is `HV`. */
     type Typed[HV] = HeaderTypeBase { type HeaderValue = HV }
   }
 
+  /**
+   * A header type that reads and writes a value with its zio-schema `Schema`: a
+   * value from one named header, or a record whose fields are headers named
+   * after the fields.
+   */
   sealed trait SchemaHeaderType extends HeaderTypeBase {
+
+    /** The schema of the value. */
     def schema: Schema[HeaderValue]
 
+    /**
+     * A header type for `Option[HeaderValue]`. `fromHeaders` returns
+     * `Right(None)` when the headers are absent, and `toHeaders(None)` writes
+     * no header.
+     */
     def optional: HeaderTypeBase.Typed[Option[HeaderValue]]
   }
 
+  /** Constructors and type aliases for `SchemaHeaderType`. */
   object SchemaHeaderType {
+
+    /** A `SchemaHeaderType` whose `HeaderValue` is `H`. */
     type Typed[H] = SchemaHeaderType { type HeaderValue = H }
 
     private val errorConstructor =
@@ -117,6 +195,12 @@ object Header {
           HttpCodecError.InvalidHeaderCount(fieldName, expected, actual)
       }
 
+    /**
+     * Creates a header type for a record schema: each field of `H` is read from
+     * and written to a header named after the field. `names` are the field
+     * names. The schema must be a record; for a primitive schema, `names`
+     * throws a `NullPointerException`.
+     */
     def apply[H](implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
       new SchemaHeaderType {
         type HeaderValue = H
@@ -145,6 +229,18 @@ object Header {
       }
     }
 
+    /**
+     * Creates a header type that reads and writes `H` from the header `name`.
+     * `fromHeaders` returns a `Left` such as `Left("Missing headers x-count")`
+     * when the header is absent, and a `Left` that starts with
+     * `Malformed header` when its value cannot be decoded.
+     *
+     * {{{
+     * val count = Header.SchemaHeaderType[Int]("x-count")
+     * count.fromHeaders(Headers("x-count" -> "3")) // Right(3)
+     * count.toHeaders(5)                            // Headers((x-count,5))
+     * }}}
+     */
     def apply[H](name: String)(implicit schema0: Schema[H]): SchemaHeaderType.Typed[H] = {
       new SchemaHeaderType {
         type HeaderValue = H
@@ -173,17 +269,46 @@ object Header {
     }
   }
 
+  /**
+   * A typed header: its lower-case `name`, how to `parse` its value from text,
+   * and how to `render` it. The companion of each header in `Header`, such as
+   * `Header.ContentType`, is a `HeaderType`, and `Headers.get` takes one to
+   * read a typed header.
+   *
+   * {{{
+   * Header.ContentType.name // content-type
+   * Header.Accept.parse("text/html, application/json;q=0.9").map(_.mimeTypes.size) // Right(2)
+   * Headers(Header.Host("example.com")).get(Header.Host) // Some(Host(example.com,None))
+   * }}}
+   */
   sealed trait HeaderType extends HeaderTypeBase {
+
+    /**
+     * The header class that this header type parses and renders, such as
+     * `Header.Host`.
+     */
     type HeaderValue <: Header
 
+    /** Returns `name` as the only name. */
     def names: Chunk[String] = Chunk.single(name)
 
+    /** The header name in lower case, such as `content-type`. */
     def name: String
 
+    /**
+     * Parses the text of a header value. Returns `Left` with an error message
+     * when the text is not a valid value.
+     */
     def parse(value: String): Either[String, HeaderValue]
 
+    /** Renders a value as the text of the header. */
     def render(value: HeaderValue): String
 
+    /**
+     * Finds the header named `name` in `headers`, without regard to case, and
+     * parses its value. Returns a `Left` such as
+     * `Left("Header host not found")` for `Header.Host` when it is missing.
+     */
     def fromHeaders(headers: Headers): Either[String, HeaderValue] =
       headers.getUnsafe(name) match {
         case null  => Left(s"Header $name not found")
@@ -205,10 +330,26 @@ object Header {
 
   }
 
+  /** Type aliases for `HeaderType`. */
   object HeaderType {
+
+    /** A `HeaderType` whose `HeaderValue` is `HV`. */
     type Typed[HV] = HeaderType { type HeaderValue = HV }
   }
 
+  /**
+   * A header with any name and value, kept as text: use it for headers without
+   * their own case class. `headerName` is the name in lower case. Names compare
+   * without regard to case and values with case; `hashCode` takes the case of
+   * the name into account. `toString` gives the pair `(name,value)`.
+   *
+   * {{{
+   * val header = Header.Custom("X-Request-Id", "42")
+   * header.headerName                   // x-request-id
+   * header.renderedValue                // 42
+   * Headers(header).get("x-request-id") // Some(42)
+   * }}}
+   */
   final case class Custom(customName: CharSequence, value: CharSequence) extends Header {
     override type Self = Custom
     override def self: Self = this
@@ -290,37 +431,76 @@ object Header {
     override def toString: String = (customName, value).toString()
   }
 
+  /**
+   * The `Accept` request header: the media types that the client accepts, each
+   * with an optional quality factor `q`.
+   *
+   * {{{
+   * Header.Accept(MediaType.application.json, MediaType.text.html).renderedValue
+   * // application/json, text/html
+   * Header.Accept.parse("text/html, application/json;q=0.9").map(_.mimeTypes.map(_.qFactor))
+   * // Right(NonEmptyChunk(None, Some(0.9)))
+   * }}}
+   */
   final case class Accept(mimeTypes: NonEmptyChunk[Accept.MediaTypeWithQFactor]) extends Header {
     override type Self = Accept
     override def self: Self                           = this
     override def headerType: HeaderType.Typed[Accept] = Accept
   }
 
+  /**
+   * The header type of `Accept`, named `accept`: parses, renders and builds
+   * `Accept` values.
+   */
   object Accept extends HeaderType {
     override type HeaderValue = Accept
 
     override def name: String = "accept"
 
     /**
-     * The Accept header value one or more MIME types optionally weighed with
-     * quality factor.
+     * One media type of an `Accept` header, with its optional quality factor
+     * `q`.
      */
     final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
+    /** The ordering of `MediaTypeWithQFactor` values. */
     object MediaTypeWithQFactor {
+
+      /**
+       * Orders by quality factor, highest first; a missing factor counts as
+       * `1.0`.
+       */
       implicit val ordering: Ordering[MediaTypeWithQFactor] =
         Ordering.by[MediaTypeWithQFactor, Double](_.qFactor.getOrElse(1.0)).reverse
     }
 
+    /**
+     * Creates an `Accept` header with one media type and an optional quality
+     * factor.
+     */
     def apply(mediaType: MediaType, qFactor: Option[Double]): Accept =
       Accept(NonEmptyChunk(MediaTypeWithQFactor(mediaType, qFactor)))
 
+    /**
+     * Creates an `Accept` header with these media types, without quality
+     * factors.
+     */
     def apply(first: MediaType, rest: MediaType*): Accept =
       Accept(NonEmptyChunk(first, rest: _*).map(MediaTypeWithQFactor(_, None)))
 
+    /**
+     * Creates an `Accept` header from media types with their quality factors.
+     */
     def apply(first: MediaTypeWithQFactor, rest: MediaTypeWithQFactor*): Accept =
       Accept(NonEmptyChunk(first, rest: _*))
 
+    /**
+     * Parses a comma-separated list of media types, each trimmed, with optional
+     * parameters such as `q=0.9`. The quality factor comes from the `q`
+     * parameter, and is `None` when it is missing or not a number. Returns
+     * `Left("Invalid Accept header")` when an entry is not a media type or the
+     * value is empty.
+     */
     def parse(value: String): Either[String, Accept] = {
       val acceptHeaderValues =
         Chunk
@@ -346,6 +526,11 @@ object Header {
       else NonEmptyChunk.fromChunk(acceptHeaderValues).toRight("Invalid Accept header").map(Accept(_))
     }
 
+    /**
+     * Renders each media type as `type/subtype`, followed by `;q=` and the
+     * quality factor when one is set, separated by `, `. Other parameters are
+     * not rendered.
+     */
     def render(header: Accept): String =
       header.mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
         s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
@@ -363,9 +548,17 @@ object Header {
     override def self: Self                                   = this
     override def headerType: HeaderType.Typed[AcceptEncoding] = AcceptEncoding
 
+    /**
+     * The coding name, such as `gzip`, or `*` for `NoPreference`. For
+     * `Multiple`, the names joined with commas.
+     */
     val raw: String
   }
 
+  /**
+   * The header type of `Accept-Encoding`, named `accept-encoding`: parses and
+   * renders `AcceptEncoding` values.
+   */
   object AcceptEncoding extends HeaderType {
     override type HeaderValue = AcceptEncoding
 
@@ -411,22 +604,23 @@ object Header {
     }
 
     /**
-     * Maintains a chunk of AcceptEncoding values.
+     * Several codings, rendered separated by `,`.
      */
     final case class Multiple(encodings: NonEmptyChunk[AcceptEncoding]) extends AcceptEncoding {
       override val raw: String = encodings.map(_.raw).mkString(",")
     }
 
     /**
-     * Matches any content encoding not already listed in the header. This is
-     * the default value if the header is not present.
+     * The `*` value: matches any content coding not already listed in the
+     * header.
      */
     final case class NoPreference(weight: Option[Double]) extends AcceptEncoding {
       override val raw: String = "*"
     }
 
     /**
-     * Represent an unknown encoding
+     * A coding with any other name, kept as written. `parse` gives it for an
+     * unknown name, and for a known name in another case, such as `GZIP`.
      */
     final case class Unknown(value: String, weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = value
@@ -453,9 +647,17 @@ object Header {
       }
     }
 
+    /** Creates a `Multiple` with these codings, also when there is only one. */
     def apply(first: AcceptEncoding, rest: AcceptEncoding*): AcceptEncoding =
       Multiple(NonEmptyChunk(first, rest: _*))
 
+    /**
+     * Parses a comma-separated list of codings, each optionally followed by a
+     * weight such as `;q=0.8`, with no space before `q`. Known names, matched
+     * case-sensitively, give their case, and other entries give `Unknown`. One
+     * entry gives that value, several give `Multiple`. A weight that is not a
+     * number is dropped. It returns `Right` for any input.
+     */
     def parse(value: String): Either[String, AcceptEncoding] = {
       val index = value.indexOf(",")
 
@@ -488,6 +690,10 @@ object Header {
         }
     }
 
+    /**
+     * Renders each coding name, with a weight suffix such as `;q=0.8` when a
+     * weight is set, and separates the entries of `Multiple` with `,`.
+     */
     def render(encoding: AcceptEncoding): String =
       encoding match {
         case b @ Br(weight)           => weight.fold(b.raw)(value => s"${b.raw};q=$value")
@@ -512,17 +718,34 @@ object Header {
     override def headerType: HeaderType.Typed[AcceptLanguage] = AcceptLanguage
   }
 
+  /**
+   * The header type of `Accept-Language`, named `accept-language`: parses and
+   * renders `AcceptLanguage` values.
+   */
   object AcceptLanguage extends HeaderType {
     override type HeaderValue = AcceptLanguage
 
     override def name: String = "accept-language"
 
+    /** One language tag, such as `en-US`, with an optional weight. */
     case class Single(language: String, weight: Option[Double]) extends AcceptLanguage
 
+    /**
+     * Several languages, rendered separated by `,`. `parse` returns this case
+     * for any value other than `*`, even for one language.
+     */
     case class Multiple(languages: NonEmptyChunk[AcceptLanguage]) extends AcceptLanguage
 
+    /** The `*` value: any language. */
     case object Any extends AcceptLanguage
 
+    /**
+     * Parses `*` as `Any`, and other values as a `Multiple` of comma-separated,
+     * trimmed languages, each with an optional weight such as `;q=0.9`; a
+     * weight that is not a number from 0 to 1 is dropped. Returns
+     * `Left("Accept-Language contains invalid characters")` when the value is
+     * empty or has characters other than letters, digits, spaces and `*,-.;=`.
+     */
     def parse(value: String): Either[String, AcceptLanguage] = {
       @tailrec def loop(index: Int, value: String, acc: Chunk[AcceptLanguage]): Chunk[AcceptLanguage] = {
         if (index == -1) acc :+ parseAcceptedLanguage(value.trim)
@@ -548,6 +771,11 @@ object Header {
         }
     }
 
+    /**
+     * Renders `*` for `Any`, each language as its tag, with a weight suffix
+     * such as `;q=0.9` when set, and the languages of `Multiple` separated by
+     * `,`.
+     */
     def render(acceptLanguage: AcceptLanguage): String =
       acceptLanguage match {
         case Single(language, weight) =>
@@ -589,11 +817,22 @@ object Header {
     override def headerType: HeaderType.Typed[AcceptPatch] = AcceptPatch
   }
 
+  /**
+   * The header type of `Accept-Patch`, named `accept-patch`: parses and renders
+   * `AcceptPatch` values.
+   */
   object AcceptPatch extends HeaderType {
     override type HeaderValue = AcceptPatch
 
     override def name: String = "accept-patch"
 
+    /**
+     * Parses a comma-separated list of media types and drops the entries that
+     * are not media types. The entries are not trimmed, so a space after a
+     * comma becomes part of the next main type. Returns
+     * `Left("Accept-Patch header cannot be empty")` for an empty value and
+     * `Left("Invalid Accept-Patch header")` when no media type is left.
+     */
     def parse(value: String): Either[String, AcceptPatch] =
       if (value.nonEmpty) {
         val parsedMediaTypes = Chunk
@@ -618,6 +857,7 @@ object Header {
         }
       } else Left("Accept-Patch header cannot be empty")
 
+    /** Renders the media types as `type/subtype`, separated by `,`. */
     def render(acceptPatch: AcceptPatch): String =
       acceptPatch.mediaTypes.map(_.fullType).mkString(",")
 
@@ -635,21 +875,32 @@ object Header {
     override def self: Self                                 = this
     override def headerType: HeaderType.Typed[AcceptRanges] = AcceptRanges
 
+    /** The rendered value: `bytes` or `none`. */
     val encodedName: String
   }
 
+  /**
+   * The header type of `Accept-Ranges`, named `accept-ranges`: parses and
+   * renders `AcceptRanges` values.
+   */
   object AcceptRanges extends HeaderType {
     override type HeaderValue = AcceptRanges
     override def name: String = "accept-ranges"
 
+    /** Range requests in bytes are supported. Rendered as `bytes`. */
     case object Bytes extends AcceptRanges {
       override val encodedName = "bytes"
     }
 
+    /** Range requests are not supported. Rendered as `none`. */
     case object None extends AcceptRanges {
       override val encodedName = "none"
     }
 
+    /**
+     * Parses `bytes` or `none`, case-sensitively. Returns
+     * `Left("Invalid Accept-Ranges header")` otherwise.
+     */
     def parse(value: String): Either[String, AcceptRanges] =
       value match {
         case Bytes.encodedName => Right(Bytes)
@@ -657,40 +908,55 @@ object Header {
         case _                 => Left("Invalid Accept-Ranges header")
       }
 
+    /** Renders `encodedName`. */
     def render(acceptRangers: AcceptRanges): String =
       acceptRangers.encodedName
   }
 
+  /**
+   * The `Access-Control-Allow-Credentials` response header: whether the browser
+   * may expose the response to a cross-origin request made with credentials.
+   */
   sealed trait AccessControlAllowCredentials extends Header {
     override type Self = AccessControlAllowCredentials
     override def self: Self                                                  = this
     override def headerType: HeaderType.Typed[AccessControlAllowCredentials] = AccessControlAllowCredentials
   }
 
+  /**
+   * The header type of `Access-Control-Allow-Credentials`, named
+   * `access-control-allow-credentials`: parses and renders
+   * `AccessControlAllowCredentials` values.
+   */
   object AccessControlAllowCredentials extends HeaderType {
     override type HeaderValue = AccessControlAllowCredentials
 
     override def name: String = "access-control-allow-credentials"
 
     /**
-     * The Access-Control-Allow-Credentials header is sent in response to a
-     * preflight request which includes the Access-Control-Request-Headers to
-     * indicate whether or not the actual request can be made using credentials.
+     * Credentials are allowed. Rendered as `true`. In response to a preflight
+     * request, it tells whether the actual request can be made with
+     * credentials.
      */
     case object Allow extends AccessControlAllowCredentials
 
     /**
-     * The Access-Control-Allow-Credentials header is not sent in response to a
-     * preflight request.
+     * Credentials are not allowed. Rendered as `false`; `parse` returns it for
+     * any value other than `true`.
      */
     case object DoNotAllow extends AccessControlAllowCredentials
 
+    /** Returns `Allow` for `true` and `DoNotAllow` for `false`. */
     def allow(value: Boolean): AccessControlAllowCredentials =
       value match {
         case true  => Allow
         case false => DoNotAllow
       }
 
+    /**
+     * Returns `Allow` for `true` and `DoNotAllow` for any other value, so it
+     * does not fail.
+     */
     def parse(value: String): Either[String, AccessControlAllowCredentials] =
       Right {
         value match {
@@ -700,6 +966,7 @@ object Header {
         }
       }
 
+    /** Renders `true` for `Allow` and `false` for `DoNotAllow`. */
     def render(
       accessControlAllowCredentials: AccessControlAllowCredentials,
     ): String =
@@ -709,6 +976,10 @@ object Header {
       }
   }
 
+  /**
+   * The `Access-Control-Allow-Headers` response header: the request headers
+   * that a cross-origin request may use.
+   */
   sealed trait AccessControlAllowHeaders extends Header {
     override type Self = AccessControlAllowHeaders
     override def self: Self                                              = this
@@ -725,18 +996,26 @@ object Header {
 
     override def name: String = "access-control-allow-headers"
 
+    /** A list of header names, rendered separated by `, `. */
     final case class Some(values: NonEmptyChunk[String]) extends AccessControlAllowHeaders
 
+    /** The `*` wildcard. */
     case object All extends AccessControlAllowHeaders
 
+    /** No header name, rendered as an empty value. */
     case object None extends AccessControlAllowHeaders
 
+    /** Creates `Some` with these header names, or `None` when there is none. */
     def apply(headers: String*) =
       NonEmptyChunk.fromIterableOption(headers) match {
         case scala.Some(value) => Some(value)
         case scala.None        => None
       }
 
+    /**
+     * Parses an empty value as `None`, `*` as `All`, and other values as `Some`
+     * of comma-separated, trimmed names. It does not fail.
+     */
     def parse(value: String): Either[String, AccessControlAllowHeaders] =
       Right {
         value match {
@@ -756,6 +1035,10 @@ object Header {
         }
       }
 
+    /**
+     * Renders the names separated by `, `, `*` for `All`, or an empty string
+     * for `None`.
+     */
     def render(accessControlAllowHeaders: AccessControlAllowHeaders): String =
       accessControlAllowHeaders match {
         case Some(value) => value.mkString(", ")
@@ -765,11 +1048,19 @@ object Header {
 
   }
 
+  /**
+   * The `Access-Control-Allow-Methods` response header: the methods that a
+   * cross-origin request may use.
+   */
   sealed trait AccessControlAllowMethods extends Header {
     override type Self = AccessControlAllowMethods
     override def self: Self                                              = this
     override def headerType: HeaderType.Typed[AccessControlAllowMethods] = AccessControlAllowMethods
 
+    /**
+     * Returns `true` when `method` is allowed: for `All` it is `true`, for
+     * `None` it is `false`, and for `Some` it is whether the list has `method`.
+     */
     def contains(method: Method): Boolean =
       this match {
         case AccessControlAllowMethods.All           => true
@@ -778,23 +1069,37 @@ object Header {
       }
   }
 
+  /**
+   * The header type of `Access-Control-Allow-Methods`, named
+   * `access-control-allow-methods`: parses and renders
+   * `AccessControlAllowMethods` values.
+   */
   object AccessControlAllowMethods extends HeaderType {
     override type HeaderValue = AccessControlAllowMethods
 
     override def name: String = "access-control-allow-methods"
 
+    /** A list of methods, rendered separated by `, `. */
     final case class Some(methods: NonEmptyChunk[Method]) extends AccessControlAllowMethods
 
+    /** The `*` wildcard. */
     case object All extends AccessControlAllowMethods
 
+    /** No method, rendered as an empty value. */
     case object None extends AccessControlAllowMethods
 
+    /** Creates `Some` with these methods, or `None` when there is none. */
     def apply(methods: Method*): AccessControlAllowMethods =
       NonEmptyChunk.fromIterableOption(methods) match {
         case scala.Some(value) => Some(value)
         case scala.None        => None
       }
 
+    /**
+     * Parses an empty value as `None`, `*` as `All`, and other values as `Some`
+     * of comma-separated, trimmed methods; a name that is not a standard method
+     * is kept as a custom method. It does not fail.
+     */
     def parse(value: String): Either[String, AccessControlAllowMethods] = {
       Right {
         value match {
@@ -816,6 +1121,10 @@ object Header {
       }
     }
 
+    /**
+     * Renders the method names separated by `, `, `*` for `All`, or an empty
+     * string for `None`.
+     */
     def render(accessControlAllowMethods: AccessControlAllowMethods): String =
       accessControlAllowMethods match {
         case Some(methods) => methods.map(_.toString()).mkString(", ")
@@ -833,9 +1142,9 @@ object Header {
    * origin to access the resource. Attempting to use the wildcard with
    * credentials results in an error.
    *
-   * <origin> Specifies an origin. Only a single origin can be specified. If the
-   * server supports clients from multiple origins, it must return the origin
-   * for the specific client making the request.
+   * An origin: specifies an origin. Only a single origin can be specified. If
+   * the server supports clients from multiple origins, it must return the
+   * origin for the specific client making the request.
    *
    * null Specifies the origin "null".
    */
@@ -845,18 +1154,33 @@ object Header {
     override def headerType: HeaderType.Typed[AccessControlAllowOrigin] = AccessControlAllowOrigin
   }
 
+  /**
+   * The header type of `Access-Control-Allow-Origin`, named
+   * `access-control-allow-origin`: parses and renders
+   * `AccessControlAllowOrigin` values.
+   */
   object AccessControlAllowOrigin extends HeaderType {
     override type HeaderValue = AccessControlAllowOrigin
 
     override def name: String = "access-control-allow-origin"
 
+    /** One origin, rendered as `Origin.render` does. */
     final case class Specific(origin: Origin) extends AccessControlAllowOrigin
 
+    /** The `*` wildcard. */
     case object All extends AccessControlAllowOrigin
 
+    /**
+     * Creates a `Specific` origin from a scheme, a host and an optional port.
+     */
     def apply(scheme: String, host: String, port: Option[Int] = None): AccessControlAllowOrigin =
       Specific(Origin(scheme, host, port))
 
+    /**
+     * Parses `*` as `All`, and other values as `Origin.parse` does, wrapped in
+     * `Specific`. Returns `Left("Invalid Origin header")` when the origin is
+     * not valid.
+     */
     def parse(value: String): Either[String, AccessControlAllowOrigin] = {
       if (value == "*") {
         Right(AccessControlAllowOrigin.All)
@@ -867,6 +1191,7 @@ object Header {
       }
     }
 
+    /** Renders `*` for `All`, or the origin for `Specific`. */
     def render(accessControlAllowOrigin: AccessControlAllowOrigin): String =
       accessControlAllowOrigin match {
         case Specific(origin) => Origin.render(origin)
@@ -885,17 +1210,29 @@ object Header {
     override def headerType: HeaderType.Typed[AccessControlExposeHeaders] = AccessControlExposeHeaders
   }
 
+  /**
+   * The header type of `Access-Control-Expose-Headers`, named
+   * `access-control-expose-headers`: parses and renders
+   * `AccessControlExposeHeaders` values.
+   */
   object AccessControlExposeHeaders extends HeaderType {
     override type HeaderValue = AccessControlExposeHeaders
 
     override def name: String = "access-control-expose-headers"
 
+    /** A list of header names, rendered separated by `, `. */
     final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlExposeHeaders
 
+    /** The `*` wildcard. */
     case object All extends AccessControlExposeHeaders
 
+    /** No header name, rendered as an empty value. */
     case object None extends AccessControlExposeHeaders
 
+    /**
+     * Parses an empty value as `None`, `*` as `All`, and other values as `Some`
+     * of comma-separated, trimmed names. It does not fail.
+     */
     def parse(value: String): Either[String, AccessControlExposeHeaders] = {
       Right {
         value match {
@@ -916,6 +1253,10 @@ object Header {
       }
     }
 
+    /**
+     * Renders the names separated by `, `, `*` for `All`, or an empty string
+     * for `None`.
+     */
     def render(accessControlExposeHeaders: AccessControlExposeHeaders): String =
       accessControlExposeHeaders match {
         case Some(value) => value.mkString(", ")
@@ -943,22 +1284,35 @@ object Header {
     override def headerType: HeaderType.Typed[AccessControlMaxAge] = AccessControlMaxAge
   }
 
+  /**
+   * The header type of `Access-Control-Max-Age`, named
+   * `access-control-max-age`: parses and renders `AccessControlMaxAge` values.
+   */
   object AccessControlMaxAge extends HeaderType {
     override type HeaderValue = AccessControlMaxAge
 
     override def name: String = "access-control-max-age"
 
+    /**
+     * Parses a non-negative whole number of seconds. Returns
+     * `Left("Invalid Access-Control-Max-Age header value")` otherwise.
+     */
     def parse(seconds: String): Either[String, AccessControlMaxAge] =
       Try(seconds.toLong).toOption.flatMap { long =>
         if (long > -1) Some(AccessControlMaxAge(long.seconds))
         else None
       }.toRight("Invalid Access-Control-Max-Age header value")
 
+    /** Renders the duration in whole seconds. */
     def render(accessControlMaxAge: AccessControlMaxAge): String = {
       accessControlMaxAge.duration.getSeconds.toString
     }
   }
 
+  /**
+   * The `Access-Control-Request-Headers` request header that a browser sends in
+   * a preflight request: the headers that the actual request will have.
+   */
   final case class AccessControlRequestHeaders(values: NonEmptyChunk[String]) extends Header {
     override type Self = AccessControlRequestHeaders
     override def self: Self                                                = this
@@ -977,6 +1331,11 @@ object Header {
 
     override def name: String = "access-control-request-headers"
 
+    /**
+     * Trims the value and splits it on commas, dropping empty entries; the
+     * entries themselves are not trimmed. Returns
+     * `Left("AccessControlRequestHeaders cannot be empty")` when none is left.
+     */
     def parse(values: String): Either[String, AccessControlRequestHeaders] = {
       NonEmptyChunk.fromChunk(Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty)) match {
         case None     => Left("AccessControlRequestHeaders cannot be empty")
@@ -984,27 +1343,43 @@ object Header {
       }
     }
 
+    /** Renders the header names separated by `,`. */
     def render(headers: AccessControlRequestHeaders): String =
       headers.values.mkString(",")
   }
 
+  /**
+   * The `Access-Control-Request-Method` request header that a browser sends in
+   * a preflight request: the method of the actual request.
+   */
   final case class AccessControlRequestMethod(method: Method) extends Header {
     override type Self = AccessControlRequestMethod
     override def self: Self                                               = this
     override def headerType: HeaderType.Typed[AccessControlRequestMethod] = AccessControlRequestMethod
   }
 
+  /**
+   * The header type of `Access-Control-Request-Method`, named
+   * `access-control-request-method`: parses and renders
+   * `AccessControlRequestMethod` values.
+   */
   object AccessControlRequestMethod extends HeaderType {
     override type HeaderValue = AccessControlRequestMethod
 
     override def name: String = "access-control-request-method"
 
+    /**
+     * Parses a standard method name, such as `POST`; lower case is accepted.
+     * Returns `Left("Invalid Access-Control-Request-Method")` for any other
+     * name.
+     */
     def parse(value: String): Either[String, AccessControlRequestMethod] = {
       val method = Method.fromString(value)
       if (method == Method.CUSTOM(value)) Left(s"Invalid Access-Control-Request-Method")
       else Right(AccessControlRequestMethod(method))
     }
 
+    /** Renders the method name. */
     def render(requestMethod: AccessControlRequestMethod): String =
       requestMethod.method.name
   }
@@ -1018,11 +1393,17 @@ object Header {
     override def headerType: HeaderType.Typed[Age] = Age
   }
 
+  /** The header type of `Age`, named `age`: parses and renders `Age` values. */
   object Age extends HeaderType {
     override type HeaderValue = Age
 
     override def name: String = "age"
 
+    /**
+     * Parses a positive whole number of seconds, with surrounding whitespace
+     * allowed. Returns `Left("Negative Age")` for zero or a negative number,
+     * and `Left("Invalid Age")` for a value that is not an `Int`.
+     */
     def parse(value: String): Either[String, Age] =
       Try(value.trim.toInt) match {
         case Failure(_)                  => Left(s"Invalid Age")
@@ -1030,6 +1411,7 @@ object Header {
         case Success(_)                  => Left(s"Negative Age")
       }
 
+    /** Renders the duration in whole seconds. */
     def render(age: Age): String =
       age.duration.getSeconds.toString
   }
@@ -1044,21 +1426,50 @@ object Header {
     override def headerType: HeaderType.Typed[Allow] = Allow
   }
 
+  /**
+   * The header type of `Allow`, named `allow`: parses and renders `Allow`
+   * values, with a constant for each standard method.
+   */
   object Allow extends HeaderType {
     override type HeaderValue = Allow
 
     override def name: String = "allow"
 
+    /** An `Allow` header with only `OPTIONS`. */
     val OPTIONS: Allow = Allow(NonEmptyChunk.single(Method.OPTIONS))
-    val GET: Allow     = Allow(NonEmptyChunk.single(Method.GET))
-    val HEAD: Allow    = Allow(NonEmptyChunk.single(Method.HEAD))
-    val POST: Allow    = Allow(NonEmptyChunk.single(Method.POST))
-    val PUT: Allow     = Allow(NonEmptyChunk.single(Method.PUT))
-    val PATCH: Allow   = Allow(NonEmptyChunk.single(Method.PATCH))
-    val DELETE: Allow  = Allow(NonEmptyChunk.single(Method.DELETE))
-    val TRACE: Allow   = Allow(NonEmptyChunk.single(Method.TRACE))
+
+    /** An `Allow` header with only `GET`. */
+    val GET: Allow = Allow(NonEmptyChunk.single(Method.GET))
+
+    /** An `Allow` header with only `HEAD`. */
+    val HEAD: Allow = Allow(NonEmptyChunk.single(Method.HEAD))
+
+    /** An `Allow` header with only `POST`. */
+    val POST: Allow = Allow(NonEmptyChunk.single(Method.POST))
+
+    /** An `Allow` header with only `PUT`. */
+    val PUT: Allow = Allow(NonEmptyChunk.single(Method.PUT))
+
+    /** An `Allow` header with only `PATCH`. */
+    val PATCH: Allow = Allow(NonEmptyChunk.single(Method.PATCH))
+
+    /** An `Allow` header with only `DELETE`. */
+    val DELETE: Allow = Allow(NonEmptyChunk.single(Method.DELETE))
+
+    /** An `Allow` header with only `TRACE`. */
+    val TRACE: Allow = Allow(NonEmptyChunk.single(Method.TRACE))
+
+    /** An `Allow` header with only `CONNECT`. */
     val CONNECT: Allow = Allow(NonEmptyChunk.single(Method.CONNECT))
 
+    /**
+     * Parses a comma-separated list of standard method names, such as
+     * `GET, POST`, trimming each one; lower-case names are accepted. Returns
+     * `Left("Invalid Allow header: empty value")` for an empty value, and
+     * `Left` with a message that starts with `Invalid Allow method: ` for a
+     * name that is not a standard method or is empty between two commas. A
+     * trailing comma gives `Left("Invalid Allow header: empty value")`.
+     */
     def parse(value: String): Either[String, Allow] = {
       @tailrec def loop(index: Int, value: String, acc: Chunk[Method]): Either[String, Chunk[Method]] = {
         if (value.isEmpty) Left("Invalid Allow header: empty value")
@@ -1093,65 +1504,90 @@ object Header {
       }
     }
 
+    /** Renders the method names separated by `, `. */
     def render(allow: Allow): String =
       allow.methods.map(_.name).mkString(", ")
 
   }
 
+  /**
+   * An HTTP authentication scheme, such as `Basic` or `Bearer`, used by
+   * `ProxyAuthenticate`, `ProxyAuthorization` and `WWWAuthenticate`.
+   */
   sealed trait AuthenticationScheme {
+
+    /** The scheme name as it is rendered, such as `Basic`. */
     val name: String
   }
 
+  /** The supported authentication schemes, and their parser and renderer. */
   object AuthenticationScheme {
 
+    /** The `Basic` scheme. */
     case object Basic extends AuthenticationScheme {
       override val name: String = "Basic"
     }
 
+    /** The `Bearer` scheme. */
     case object Bearer extends AuthenticationScheme {
       override val name: String = "Bearer"
     }
 
+    /** The `Digest` scheme. */
     case object Digest extends AuthenticationScheme {
       override val name: String = "Digest"
     }
 
+    /** The `HOBA` scheme. */
     case object HOBA extends AuthenticationScheme {
       override val name: String = "HOBA"
     }
 
+    /** The `Mutual` scheme. */
     case object Mutual extends AuthenticationScheme {
       override val name: String = "Mutual"
     }
 
+    /** The `Negotiate` scheme. */
     case object Negotiate extends AuthenticationScheme {
       override val name: String = "Negotiate"
     }
 
+    /** The `OAuth` scheme. */
     case object OAuth extends AuthenticationScheme {
       override val name: String = "OAuth"
     }
 
+    /** The `SCRAM` scheme. */
     case object Scram extends AuthenticationScheme {
       override val name: String = "SCRAM"
     }
 
+    /** The `SCRAM-SHA-1` scheme. */
     case object ScramSha1 extends AuthenticationScheme {
       override val name: String = "SCRAM-SHA-1"
     }
 
+    /** The `SCRAM-SHA-256` scheme. */
     case object ScramSha256 extends AuthenticationScheme {
       override val name: String = "SCRAM-SHA-256"
     }
 
+    /** The `vapid` scheme. */
     case object Vapid extends AuthenticationScheme {
       override val name: String = "vapid"
     }
 
+    /** The `AWS4-HMAC-SHA256` scheme. */
     case object `AWS4-HMAC-SHA256` extends AuthenticationScheme {
       override val name: String = "AWS4-HMAC-SHA256"
     }
 
+    /**
+     * Parses a scheme name, trimmed and without regard to case. Returns `Left`
+     * with a message that starts with `Unsupported authentication scheme: ` for
+     * an unknown name.
+     */
     def parse(name: String): Either[String, AuthenticationScheme] = {
       name.trim.toUpperCase match {
         case "BASIC"            => Right(Basic)
@@ -1170,6 +1606,7 @@ object Header {
       }
     }
 
+    /** Returns the scheme `name`. */
     def render(authenticationScheme: AuthenticationScheme): String =
       authenticationScheme.name
 
@@ -1178,7 +1615,16 @@ object Header {
   /**
    * Authorization header value.
    *
-   * The Authorization header value contains one of the auth schemes
+   * The Authorization header value contains one of the auth schemes: `Basic`,
+   * `Digest`, `Bearer`, or `Unparsed` for any other scheme. Passwords and
+   * tokens are kept as `zio.Config.Secret`.
+   *
+   * {{{
+   * Header.Authorization.Basic("user", "pass").renderedValue // Basic dXNlcjpwYXNz
+   * Header.Authorization.Bearer("abc123").renderedValue      // Bearer abc123
+   * Header.Authorization.parse("Basic dXNlcjpwYXNz")
+   * // Right(Basic(user,Secret(<redacted>)))
+   * }}}
    */
   sealed trait Authorization extends Header {
     override type Self = Authorization
@@ -1186,30 +1632,57 @@ object Header {
     override def headerType: HeaderType.Typed[Authorization] = Authorization
   }
 
+  /**
+   * The header type of `Authorization`, named `authorization`: parses and
+   * renders `Authorization` values of every scheme.
+   */
   object Authorization extends HeaderType {
     override type HeaderValue = Authorization
 
     override def name: String = "authorization"
 
+    /** `Basic` credentials: a user name and a password. */
     final case class Basic(username: String, password: Secret) extends Authorization
 
+    /**
+     * Constructors for `Basic` credentials, and a header type, named
+     * `authorization`, for `Basic` values only.
+     */
     object Basic extends HeaderType {
+
+      /** Creates `Basic` credentials from a plain-text password. */
       def apply(username: String, password: String): Basic = new Basic(username, Secret(password))
 
       override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Basic
 
+      /**
+       * Decodes `value` as the Base64 text `username:password`, the part that
+       * follows `Basic ` in the header. The user name must not be empty, and
+       * the password is everything after the first `:`. Returns
+       * `Left("Basic Authorization header value is not a valid base64 encoded string")`
+       * or
+       * `Left("Basic Authorization header value is not in the format username:password")`
+       * otherwise.
+       */
       def parse(value: String): Either[String, Authorization.Basic] = {
         parseBasic(value).asInstanceOf[Either[String, Authorization.Basic]]
       }
 
+      /**
+       * Renders a `Basic` header. The value of `renderedValue` is `Basic `
+       * followed by the Base64 encoding of `username`, `:` and the password.
+       */
       def render(header: Authorization.Basic): String = {
         val encoded = Base64.getEncoder.encodeToString((header.username + ":" + header.password.value).getBytes)
         s"Basic $encoded"
       }
     }
 
+    /**
+     * `Digest` credentials, with the parameters of the Digest scheme.
+     */
     final case class Digest(
       response: String,
       username: String,
@@ -1224,6 +1697,10 @@ object Header {
       userhash: Boolean,
     ) extends Authorization
 
+    /**
+     * Constructors for `Digest` credentials, and a header type, named
+     * `authorization`, for `Digest` values only.
+     */
     object Digest
         extends AbstractFunction11[
           String,
@@ -1240,6 +1717,8 @@ object Header {
           Digest,
         ]
         with HeaderType {
+
+      /** Creates `Digest` credentials from their parameters. */
       def apply(
         response: String,
         username: String,
@@ -1259,25 +1738,52 @@ object Header {
 
       override type HeaderValue = Authorization.Digest
 
+      /**
+       * Parses the comma-separated `key=value` parameters of Digest
+       * credentials, the part that follows `Digest ` in the header. `response`,
+       * `realm`, `uri`, `opaque`, `algorithm`, `qop`, `cnonce`, `nonce` and a
+       * hexadecimal `nc` are required, with exactly one of `username` and
+       * `username*` (the latter only when `userhash` is not `true`). Returns
+       * `Left("Digest Authorization header value is not in the correct format")`
+       * otherwise.
+       */
       def parse(value: String): Either[String, Authorization.Digest] = {
         parseDigest(value).asInstanceOf[Either[String, Authorization.Digest]]
       }
 
+      /**
+       * Renders `Digest ` followed by all parameters, separated by `,` without
+       * spaces; `response`, `username`, `realm`, `opaque`, `cnonce` and `nonce`
+       * are quoted.
+       */
       def render(header: Digest): String = {
         s"""Digest response="${header.response}",username="${header.username}",realm="${header.realm}",uri=${header.uri.toString},opaque="${header.opaque}",algorithm=${header.algorithm},""" +
           s"""qop=${header.qop},cnonce="${header.cnonce}",nonce="${header.nonce}",nc=${header.nc},userhash=${header.userhash.toString}"""
       }
     }
 
+    /** `Bearer` credentials: a token. */
     final case class Bearer(token: Secret) extends Authorization
 
+    /**
+     * Constructors for `Bearer` credentials, and a header type, named
+     * `authorization`, for `Bearer` values only.
+     */
     object Bearer extends HeaderType {
+
+      /** Creates `Bearer` credentials from a plain-text token. */
       def apply(token: String): Bearer = Bearer(Secret(token))
 
       override def name: String = "authorization"
 
       override type HeaderValue = Authorization.Bearer
 
+      /**
+       * Reads the token from a value made of two space-separated parts, such as
+       * `Bearer abc123`. Returns
+       * `Left("Invalid Bearer Authorization header value")` when there are not
+       * exactly two parts.
+       */
       def parse(value: String): Either[String, Authorization.Bearer] = {
         val parts = value.split(" ").filter(_.nonEmpty)
         if (parts.length == 2) {
@@ -1287,15 +1793,35 @@ object Header {
         }
       }
 
+      /**
+       * Renders a `Bearer` header. The value of `renderedValue` is `Bearer `
+       * followed by the token.
+       */
       def render(header: Authorization.Bearer): String = s"Bearer ${header.token.value}"
     }
 
+    /**
+     * Credentials of a scheme without its own case, kept as the scheme name and
+     * the rest of the value. `authScheme` is empty when the header value has a
+     * single word.
+     */
     final case class Unparsed(authScheme: String, authParameters: Secret) extends Authorization
 
+    /** Constructors for `Unparsed` credentials. */
     object Unparsed {
+
+      /** Creates `Unparsed` credentials from plain-text parameters. */
       def apply(authScheme: String, authParameters: String): Unparsed = Unparsed(authScheme, Secret(authParameters))
     }
 
+    /**
+     * Parses the value by its scheme, matched without regard to case: `Basic`
+     * and `Digest` as their companions' `parse` does, and `Bearer` with the
+     * word that follows it. Another scheme gives `Unparsed` with the rest of
+     * the value, and a single word gives `Unparsed` with an empty scheme.
+     * Returns `Left` with a message that starts with
+     * `Invalid Authorization header value: ` for an empty or blank value.
+     */
     def parse(value: String): Either[String, Authorization] = {
       val parts  = value.split(" ").filter(_.nonEmpty)
       val nParts = parts.length
@@ -1311,6 +1837,12 @@ object Header {
       } else Left(s"Invalid Authorization header value: $value")
     }
 
+    /**
+     * Renders the credentials with their scheme, for example
+     * `Basic dXNlcjpwYXNz` for the user `user` and the password `pass`, or
+     * `Bearer` followed by the token. `Unparsed` renders as the scheme, a space
+     * and the parameters, trimmed.
+     */
     def render(header: Authorization): String = header match {
       case Basic(username, password) =>
         s"Basic ${Base64.getEncoder.encodeToString((s"$username:" ++: password.value).map(_.toByte).toArray)}"
@@ -1406,16 +1938,37 @@ object Header {
   }
 
   /**
-   * CacheControl header value.
+   * CacheControl header value: one directive, such as `NoCache` or `MaxAge`, or
+   * several in a `Multiple`.
+   *
+   * {{{
+   * import zio.NonEmptyChunk
+   *
+   * val header = Header.CacheControl.Multiple(
+   *   NonEmptyChunk(Header.CacheControl.Public, Header.CacheControl.MaxAge(3600)),
+   * )
+   * header.renderedValue // public,max-age=3600
+   *
+   * Header.CacheControl.parse("no-cache, no-store")
+   * // Right(Multiple(NonEmptyChunk(NoCache, NoStore)))
+   * }}}
    */
   sealed trait CacheControl extends Header {
     override type Self = CacheControl
     override def self: Self                                 = this
     override def headerType: HeaderType.Typed[CacheControl] = CacheControl
 
+    /**
+     * The directive name, such as `max-age`. For `Multiple`, the names joined
+     * with commas.
+     */
     val raw: String
   }
 
+  /**
+   * The header type of `Cache-Control`, named `cache-control`: parses and
+   * renders `CacheControl` values.
+   */
   object CacheControl extends HeaderType {
     override type HeaderValue = CacheControl
 
@@ -1475,7 +2028,7 @@ object Header {
     }
 
     /**
-     * Maintains a chunk of CacheControl values.
+     * Several directives, rendered separated by `,`.
      */
     final case class Multiple(values: NonEmptyChunk[CacheControl]) extends CacheControl {
       override val raw: String = values.map(_.raw).mkString(",")
@@ -1571,6 +2124,13 @@ object Header {
       override val raw: String = "stale-while-revalidate"
     }
 
+    /**
+     * Parses one directive, or several separated by commas into a `Multiple`.
+     * Directive names are case-sensitive; a directive that takes seconds, such
+     * as `max-age`, gets `0` when its value is missing or not a number. Returns
+     * `Left` with a message that starts with `Unknown cache control value: `
+     * for an unknown or empty directive.
+     */
     def parse(value: String): Either[String, CacheControl] = {
       val index = value.indexOf(",")
 
@@ -1607,6 +2167,11 @@ object Header {
         }
     }
 
+    /**
+     * Renders each directive by its name, as `name=seconds` for directives with
+     * seconds, and separates the directives of `Multiple` with `,` and no
+     * space.
+     */
     def render(value: CacheControl): String = {
       value match {
         case Immutable                         => Immutable.raw
@@ -1663,17 +2228,31 @@ object Header {
 
   }
 
+  /**
+   * The `Clear-Site-Data` response header: the kinds of browsing data, such as
+   * cookies or cache, that the browser should clear for the site.
+   */
   final case class ClearSiteData(directives: NonEmptyChunk[ClearSiteDataDirective]) extends Header {
     override type Self = ClearSiteData
     override def self: Self                                  = this
     override def headerType: HeaderType.Typed[ClearSiteData] = ClearSiteData
   }
 
+  /**
+   * The header type of `Clear-Site-Data`, named `clear-site-data`: parses and
+   * renders `ClearSiteData` values.
+   */
   object ClearSiteData extends HeaderType {
     override type HeaderValue = ClearSiteData
 
     override def name: String = "clear-site-data"
 
+    /**
+     * Parses a comma-separated list of quoted directives, such as
+     * `"cache", "cookies"`. Quoted directives with unknown names are dropped.
+     * Returns `Left("Invalid Clear-Site-Data header")` when a value is not
+     * between double quotes or no known directive is left.
+     */
     def parse(value: String): Either[String, ClearSiteData] = {
       val values     = value.split(",").map(_.trim)
       val directives = values.flatMap { directive =>
@@ -1698,6 +2277,7 @@ object Header {
       }
     }
 
+    /** Renders the directives between double quotes, separated by `, `. */
     def render(clearSiteData: ClearSiteData): String =
       clearSiteData.directives.map {
         case ClearSiteDataDirective.Cache             => """"cache""""
@@ -1709,14 +2289,29 @@ object Header {
       }.mkString(", ")
   }
 
+  /** A kind of data in a `Clear-Site-Data` header. */
   sealed trait ClearSiteDataDirective
+
+  /** The `Clear-Site-Data` directives. */
   object ClearSiteDataDirective {
-    case object Cache             extends ClearSiteDataDirective
-    case object ClientHints       extends ClearSiteDataDirective
-    case object Cookies           extends ClearSiteDataDirective
-    case object Storage           extends ClearSiteDataDirective
+
+    /** The `"cache"` directive. */
+    case object Cache extends ClearSiteDataDirective
+
+    /** The `"clientHints"` directive. */
+    case object ClientHints extends ClearSiteDataDirective
+
+    /** The `"cookies"` directive. */
+    case object Cookies extends ClearSiteDataDirective
+
+    /** The `"storage"` directive. */
+    case object Storage extends ClearSiteDataDirective
+
+    /** The `"executionContexts"` directive. */
     case object ExecutionContexts extends ClearSiteDataDirective
-    case object All               extends ClearSiteDataDirective
+
+    /** The `"*"` directive: all kinds of data. */
+    case object All extends ClearSiteDataDirective
   }
 
   /**
@@ -1727,9 +2322,14 @@ object Header {
     override def self: Self                               = this
     override def headerType: HeaderType.Typed[Connection] = Connection
 
+    /** The rendered value: `close` or `keep-alive`. */
     val value: String
   }
 
+  /**
+   * The header type of `Connection`, named `connection`: parses and renders
+   * `Connection` values.
+   */
   object Connection extends HeaderType {
     override type HeaderValue = Connection
 
@@ -1744,18 +2344,18 @@ object Header {
     }
 
     /**
-     * Any comma-separated list of HTTP headers [Usually keep-alive only]
-     * indicates that the client would like to keep the connection open. Keeping
-     * a connection open is the default on HTTP/1.1 requests. The list of
-     * headers are the name of the header to be removed by the first
-     * non-transparent proxy or cache in-between: these headers define the
-     * connection between the emitter and the first entity, not the destination
-     * node.
+     * The `keep-alive` value: the sender would like to keep the connection
+     * open. Keeping a connection open is the default on HTTP/1.1 requests.
      */
     case object KeepAlive extends Connection {
       override val value: String = "keep-alive"
     }
 
+    /**
+     * Parses `close` or `keep-alive`, trimmed and without regard to case.
+     * Returns `Left("Invalid Connection")` for any other value, including a
+     * list.
+     */
     def parse(connection: String): Either[String, Connection] = {
       connection.trim.toLowerCase() match {
         case Close.value     => Right(Close)
@@ -1764,42 +2364,83 @@ object Header {
       }
     }
 
+    /** Renders `close` or `keep-alive`. */
     def render(connection: Connection): String = connection.value
   }
 
+  /**
+   * The `Content-Base` header: the base URI for resolving relative URIs in the
+   * body.
+   */
   final case class ContentBase(uri: URI) extends Header {
     override type Self = ContentBase
     override def self: Self                                = this
     override def headerType: HeaderType.Typed[ContentBase] = ContentBase
   }
 
+  /**
+   * The header type of `Content-Base`, named `content-base`: parses and renders
+   * `ContentBase` values.
+   */
   object ContentBase extends HeaderType {
     override type HeaderValue = ContentBase
 
     override def name: String = "content-base"
 
+    /**
+     * Parses the value as a `java.net.URI`. Returns
+     * `Left("Invalid Content-Base header")` when it is not valid.
+     */
     def parse(s: String): Either[String, ContentBase] =
       Try(ContentBase(new java.net.URI(s))).toEither.left.map(_ => "Invalid Content-Base header")
 
+    /** Renders the URI with `toString`. */
     def render(cb: ContentBase): String =
       cb.uri.toString
 
+    /** Creates a `ContentBase` from this URI. */
     def uri(uri: URI): ContentBase = ContentBase(uri)
   }
 
+  /**
+   * The `Content-Disposition` header: whether the body is shown inline or
+   * downloaded as an attachment, or, in a multipart form, the name of the form
+   * field.
+   *
+   * {{{
+   * Header.ContentDisposition.attachment("report.pdf").renderedValue // attachment; filename=report.pdf
+   * Header.ContentDisposition.parse("form-data; name=\"file\"; filename=\"a.txt\"")
+   * // Right(FormField(file,Some(a.txt)))
+   * }}}
+   */
   sealed trait ContentDisposition extends Header {
     override type Self = ContentDisposition
     override def self: Self                                       = this
     override def headerType: HeaderType.Typed[ContentDisposition] = ContentDisposition
   }
 
+  /**
+   * The header type of `Content-Disposition`, named `content-disposition`:
+   * parses, renders and builds `ContentDisposition` values.
+   */
   object ContentDisposition extends HeaderType {
     override type HeaderValue = ContentDisposition
 
     override def name: String = "content-disposition"
 
-    final case class Attachment(filename: Option[String])              extends ContentDisposition
-    final case class Inline(filename: Option[String])                  extends ContentDisposition
+    /**
+     * The `attachment` disposition: the body should be downloaded, optionally
+     * as `filename`.
+     */
+    final case class Attachment(filename: Option[String]) extends ContentDisposition
+
+    /** The `inline` disposition: the body should be shown in the page. */
+    final case class Inline(filename: Option[String]) extends ContentDisposition
+
+    /**
+     * The `form-data` disposition of a multipart part: the form field `name`
+     * and, for a file, its `filename`.
+     */
     final case class FormField(name: String, filename: Option[String]) extends ContentDisposition
 
     private val AttachmentRegex         = """attachment; filename="(.*)"""".r
@@ -1807,6 +2448,14 @@ object Header {
     private val FormDataRegex           = """form-data; name="(.*)"; filename="(.*)"""".r
     private val FormDataNoFileNameRegex = """form-data; name="(.*)"""".r
 
+    /**
+     * Parses `attachment`, `inline` or `form-data` values, case-sensitively. A
+     * filename or field name is read only when it is between double quotes;
+     * otherwise an attachment or inline value gets no filename. Returns
+     * `Left("Invalid form-data content disposition")` for a `form-data` value
+     * without a quoted name, and `Left("Invalid content disposition")` for any
+     * other type.
+     */
     def parse(contentDisposition: String): Either[String, ContentDisposition] = {
       if (contentDisposition.startsWith("attachment")) {
         Right(contentDisposition match {
@@ -1829,6 +2478,13 @@ object Header {
       }
     }
 
+    /**
+     * Renders the type followed by `; `, then `name=` and the field name
+     * followed by `; ` for a form field, and `filename=` and the filename when
+     * set, without quotes, such as `form-data; name=f; filename=a.txt`. The
+     * `parse` needs quotes, so it returns a `Left` for a rendered form field
+     * and drops a rendered filename.
+     */
     def render(contentDisposition: ContentDisposition): String = {
       contentDisposition match {
         case Attachment(filename)      => s"attachment; ${filename.map("filename=" + _).getOrElse("")}"
@@ -1837,22 +2493,50 @@ object Header {
       }
     }
 
-    val inline: ContentDisposition                                   = Inline(None)
-    val attachment: ContentDisposition                               = Attachment(None)
-    def inline(filename: String): ContentDisposition                 = Inline(Some(filename))
-    def attachment(filename: String): ContentDisposition             = Attachment(Some(filename))
-    def formData(name: String): ContentDisposition                   = FormField(name, None)
+    /** An `inline` disposition without a filename. */
+    val inline: ContentDisposition = Inline(None)
+
+    /** An `attachment` disposition without a filename. */
+    val attachment: ContentDisposition = Attachment(None)
+
+    /** An `inline` disposition with this filename. */
+    def inline(filename: String): ContentDisposition = Inline(Some(filename))
+
+    /** An `attachment` disposition with this filename. */
+    def attachment(filename: String): ContentDisposition = Attachment(Some(filename))
+
+    /**
+     * A `form-data` disposition for the form field `name`, without a filename.
+     */
+    def formData(name: String): ContentDisposition = FormField(name, None)
+
+    /**
+     * A `form-data` disposition for the form field `name` that carries the file
+     * `filename`.
+     */
     def formData(name: String, filename: String): ContentDisposition = FormField(name, Some(filename))
   }
 
+  /**
+   * The `Content-Encoding` header: the codings, such as `gzip`, that were
+   * applied to the body.
+   */
   sealed trait ContentEncoding extends Header {
     override type Self = ContentEncoding
     override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentEncoding] = ContentEncoding
 
+    /**
+     * The coding name, such as `gzip`. For `Multiple`, the names joined with
+     * commas.
+     */
     val encoding: String
   }
 
+  /**
+   * The header type of `Content-Encoding`, named `content-encoding`: parses and
+   * renders `ContentEncoding` values.
+   */
   object ContentEncoding extends HeaderType {
     override type HeaderValue = ContentEncoding
 
@@ -1888,14 +2572,16 @@ object Header {
      * A format using the Lempel-Ziv coding (LZ77), with a 32-bit CRC. This is
      * the original format of the UNIX gzip program. The HTTP/1.1 standard also
      * recommends that the servers supporting this content-encoding should
-     * recognize x-gzip as an alias, for compatibility purposes.
+     * recognize x-gzip as an alias, for compatibility purposes. `parse` does
+     * not accept `x-gzip`.
      */
     case object GZip extends ContentEncoding {
       override val encoding: String = "gzip"
     }
 
     /**
-     * Maintains a list of ContentEncoding values.
+     * Several content codings, in the order they were applied, rendered
+     * separated by `,`.
      */
     final case class Multiple(encodings: NonEmptyChunk[ContentEncoding]) extends ContentEncoding {
       override val encoding: String = encodings.map(_.encoding).mkString(",")
@@ -1912,13 +2598,10 @@ object Header {
     }
 
     /**
-     * @param value
-     *   of string , seperated for multiple values
-     * @return
-     *   ContentEncoding
-     *
-     * Note: This implementation ignores the invalid string that might occur in
-     * MultipleEncodings case.
+     * Parses a comma-separated list of `br`, `compress`, `deflate` and `gzip`
+     * (case-sensitive). Entries with other names are dropped. One known entry
+     * gives that value, several give `Multiple`. Returns
+     * `Left("Empty ContentEncoding")` when no known entry is left.
      */
     def parse(value: String): Either[String, ContentEncoding] = {
       val encodings = Chunk.fromArray(value.split(",").map(findEncoding)).flatten
@@ -1931,97 +2614,153 @@ object Header {
       }
     }
 
+    /**
+     * Renders `encoding`: the coding name, or for `Multiple` the names joined
+     * with `,` and no space.
+     */
     def render(value: ContentEncoding): String = value.encoding
 
   }
 
+  /**
+   * The `Content-Language` header: the language of the content, one of a fixed
+   * list of languages.
+   */
   sealed trait ContentLanguage extends Header {
     override type Self = ContentLanguage
     override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentLanguage] = ContentLanguage
   }
 
+  /**
+   * The header type of `Content-Language`, named `content-language`: parses and
+   * renders `ContentLanguage` values.
+   */
   object ContentLanguage extends HeaderType {
     override type HeaderValue = ContentLanguage
 
     override def name: String = "content-language"
 
+    /** Arabic, `ar`. */
     case object Arabic extends ContentLanguage
 
+    /** Bulgarian, `bg`. */
     case object Bulgarian extends ContentLanguage
 
+    /** Catalan, `ca`. */
     case object Catalan extends ContentLanguage
 
+    /** Chinese, `zh`. */
     case object Chinese extends ContentLanguage
 
+    /** Croatian, `hr`. */
     case object Croatian extends ContentLanguage
 
+    /** Czech, `cs`. */
     case object Czech extends ContentLanguage
 
+    /** Danish, `da`. */
     case object Danish extends ContentLanguage
 
+    /** Dutch, `nl`. */
     case object Dutch extends ContentLanguage
 
+    /** English, `en`. */
     case object English extends ContentLanguage
 
+    /** Estonian, `et`. */
     case object Estonian extends ContentLanguage
 
+    /** Finnish, `fi`. */
     case object Finnish extends ContentLanguage
 
+    /** French, `fr`. */
     case object French extends ContentLanguage
 
+    /** German, `de`. */
     case object German extends ContentLanguage
 
+    /** Greek, `el`. */
     case object Greek extends ContentLanguage
 
+    /** Hebrew, `he`. */
     case object Hebrew extends ContentLanguage
 
+    /** Hindi, `hi`. */
     case object Hindi extends ContentLanguage
 
+    /** Hungarian, `hu`. */
     case object Hungarian extends ContentLanguage
 
+    /** Icelandic, `is`. */
     case object Icelandic extends ContentLanguage
 
+    /** Indonesian, `id`. */
     case object Indonesian extends ContentLanguage
 
+    /** Italian, `it`. */
     case object Italian extends ContentLanguage
 
+    /** Japanese, `ja`. */
     case object Japanese extends ContentLanguage
 
+    /** Korean, `ko`. */
     case object Korean extends ContentLanguage
 
+    /** Latvian, `lv`. */
     case object Latvian extends ContentLanguage
 
+    /** Lithuanian, `lt`. */
     case object Lithuanian extends ContentLanguage
 
+    /** Norwegian. `parse` reads it from `nb`, and `render` writes `no`. */
     case object Norwegian extends ContentLanguage
 
+    /** Polish, `pl`. */
     case object Polish extends ContentLanguage
 
+    /** Portuguese, `pt`. */
     case object Portuguese extends ContentLanguage
 
+    /** Romanian, `ro`. */
     case object Romanian extends ContentLanguage
 
+    /** Russian, `ru`. */
     case object Russian extends ContentLanguage
 
+    /** Serbian, `sr`. */
     case object Serbian extends ContentLanguage
 
+    /** Slovak, `sk`. */
     case object Slovak extends ContentLanguage
 
+    /** Slovenian, `sl`. */
     case object Slovenian extends ContentLanguage
 
+    /** Spanish, `es`. */
     case object Spanish extends ContentLanguage
 
+    /** Swedish, `sv`. */
     case object Swedish extends ContentLanguage
 
+    /** Thai, `th`. */
     case object Thai extends ContentLanguage
 
+    /** Turkish, `tr`. */
     case object Turkish extends ContentLanguage
 
+    /** Ukrainian, `uk`. */
     case object Ukrainian extends ContentLanguage
 
+    /** Vietnamese, `vi`. */
     case object Vietnamese extends ContentLanguage
 
+    /**
+     * Reads the language from the first two letters of the value, without
+     * regard to case, so `en-US` gives `English`. Returns `Left` with a message
+     * that starts with `Invalid ContentLanguage: ` when they are not a
+     * supported language code.
+     */
     def parse(value: String): Either[String, ContentLanguage] =
       value.toLowerCase.take(2) match {
         case "ar" => Right(Arabic)
@@ -2065,6 +2804,7 @@ object Header {
         case _    => Left(s"Invalid ContentLanguage: $value")
       }
 
+    /** Renders the two-letter language code, such as `en`. */
     def render(contentLanguage: ContentLanguage): String =
       contentLanguage match {
         case Arabic     => "ar"
@@ -2111,6 +2851,11 @@ object Header {
   /**
    * The Content-Length header indicates the size of the message body, in bytes,
    * sent to the recipient.
+   *
+   * {{{
+   * Header.ContentLength(1024L).renderedValue // 1024
+   * Header.ContentLength.parse(" 42 ")         // Right(ContentLength(42))
+   * }}}
    */
   final case class ContentLength(length: Long) extends Header {
     override type Self = ContentLength
@@ -2118,17 +2863,26 @@ object Header {
     override def headerType: HeaderType.Typed[ContentLength] = ContentLength
   }
 
+  /**
+   * The header type of `Content-Length`, named `content-length`: parses and
+   * renders `ContentLength` values.
+   */
   object ContentLength extends HeaderType {
     override type HeaderValue = ContentLength
 
     override def name: String = "content-length"
 
+    /**
+     * Parses a non-negative `Long`, with surrounding whitespace allowed.
+     * Returns `Left("Invalid Content-Length header")` otherwise.
+     */
     def parse(value: String): Either[String, ContentLength] =
       Try(value.trim.toLong) match {
         case Failure(_)     => Left("Invalid Content-Length header")
         case Success(value) => fromLong(value)
       }
 
+    /** Renders the length in bytes. */
     def render(contentLength: ContentLength): String =
       contentLength.length.toString
 
@@ -2140,30 +2894,48 @@ object Header {
 
   }
 
+  /**
+   * The `Content-Location` header: the URI of the resource that the body
+   * represents.
+   */
   final case class ContentLocation(value: URI) extends Header {
     override type Self = ContentLocation
     override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentLocation] = ContentLocation
   }
 
+  /**
+   * The header type of `Content-Location`, named `content-location`: parses and
+   * renders `ContentLocation` values.
+   */
   object ContentLocation extends HeaderType {
     override type HeaderValue = ContentLocation
 
     override def name: String = "content-location"
 
+    /**
+     * Parses the value as a `java.net.URI`, absolute or relative. Returns
+     * `Left("Invalid Content-Location header")` when it is not valid.
+     */
     def parse(value: String): Either[String, ContentLocation] =
       Try(ContentLocation(new URI(value))).toEither.left.map(_ => "Invalid Content-Location header")
 
+    /** Renders the URI with `toString`. */
     def render(contentLocation: ContentLocation): String =
       contentLocation.value.toString
   }
 
+  /** The `Content-MD5` header: an MD5 digest of the body. */
   final case class ContentMd5(value: String) extends Header {
     override type Self = ContentMd5
     override def self: Self                               = this
     override def headerType: HeaderType.Typed[ContentMd5] = ContentMd5
   }
 
+  /**
+   * The header type of `Content-MD5`, named `content-md5`: parses and renders
+   * `ContentMd5` values.
+   */
   object ContentMd5 extends HeaderType {
     override type HeaderValue = ContentMd5
 
@@ -2171,56 +2943,99 @@ object Header {
 
     private val MD5Regex = """[A-Fa-f0-9]{32}""".r
 
+    /**
+     * Keeps the value when it is exactly 32 hexadecimal digits. Returns
+     * `Left("Invalid Content-MD5 header")` otherwise, including for the Base64
+     * form.
+     */
     def parse(value: String): Either[String, ContentMd5] =
       value match {
         case MD5Regex() => Right(ContentMd5(value))
         case _          => Left("Invalid Content-MD5 header")
       }
 
+    /** Renders the digest unchanged. */
     def render(contentMd5: ContentMd5): String =
       contentMd5.value
   }
 
+  /**
+   * The `Content-Range` response header: which part of the full resource a
+   * partial body holds, and the full length.
+   */
   sealed trait ContentRange extends Header {
     override type Self = ContentRange
     override def self: Self                                 = this
     override def headerType: HeaderType.Typed[ContentRange] = ContentRange
 
+    /** The first byte position of the range, when known. */
     def start: Option[Int]
 
+    /** The last byte position of the range, inclusive, when known. */
     def end: Option[Int]
 
+    /** The total length of the resource, when known. */
     def total: Option[Int]
 
+    /** The range unit, such as `bytes`. */
     def unit: String
   }
 
+  /**
+   * The header type of `Content-Range`, named `content-range`: parses and
+   * renders `ContentRange` values.
+   */
   object ContentRange extends HeaderType {
     override type HeaderValue = ContentRange
 
     override def name: String = "content-range"
 
+    /**
+     * A range with its start, end and the total length, rendered as
+     * `unit s-e/t`.
+     */
     final case class EndTotal(unit: String, s: Int, e: Int, t: Int) extends ContentRange {
+
+      /** Returns `Some(s)`. */
       def start: Option[Int] = Some(s)
 
+      /** Returns `Some(e)`. */
       def end: Option[Int] = Some(e)
 
+      /** Returns `Some(t)`. */
       def total: Option[Int] = Some(t)
     }
 
+    /**
+     * A range with its start and end, of an unknown total length. It renders as
+     * `unit s-e/` followed by an asterisk in place of the total.
+     */
     final case class StartEnd(unit: String, s: Int, e: Int) extends ContentRange {
+
+      /** Returns `Some(s)`. */
       def start: Option[Int] = Some(s)
 
+      /** Returns `Some(e)`. */
       def end: Option[Int] = Some(e)
 
+      /** Returns `None`: the total length is unknown. */
       def total: Option[Int] = None
     }
 
+    /**
+     * Only the total length. It renders as the unit, a space, an asterisk in
+     * place of the range, and `/t`. In HTTP, this form goes with a
+     * `416 Range Not Satisfiable` response.
+     */
     final case class RangeTotal(unit: String, t: Int) extends ContentRange {
+
+      /** Returns `None`. */
       def start: Option[Int] = None
 
+      /** Returns `None`. */
       def end: Option[Int] = None
 
+      /** Returns `Some(t)`. */
       def total: Option[Int] = Some(t)
     }
 
@@ -2228,6 +3043,12 @@ object Header {
     private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/\*""".r
     private val contentRangeTotalRegex         = """(\w+) \*/(\d+)""".r
 
+    /**
+     * Parses `unit start-end/total`, the same with an asterisk in place of the
+     * total, or the unit followed by an asterisk in place of `start-end`, with
+     * exactly one space after the unit. Returns `Left("Invalid content range")`
+     * for other shapes.
+     */
     def parse(s: String): Either[String, ContentRange] =
       s match {
         case contentRangeStartEndTotalRegex(unit, start, end, total) =>
@@ -2240,6 +3061,10 @@ object Header {
           Left("Invalid content range")
       }
 
+    /**
+     * Renders the range in the form that `parse` reads, such as
+     * `bytes 0-499/1000`.
+     */
     def render(c: ContentRange): String =
       c match {
         case EndTotal(unit, start, end, total) =>
@@ -2253,6 +3078,20 @@ object Header {
   }
 
   // scalafmt: { maxColumn = 180 }
+  /**
+   * The `Content-Security-Policy` response header: directives that tell the
+   * browser which sources it may load content from.
+   *
+   * {{{
+   * import zio.http.Header.ContentSecurityPolicy
+   *
+   * val csp = ContentSecurityPolicy.combined(
+   *   ContentSecurityPolicy.defaultSrc(ContentSecurityPolicy.Source.Self),
+   *   ContentSecurityPolicy.UpgradeInsecureRequests,
+   * )
+   * csp.renderedValue // default-src 'self'; upgrade-insecure-requests
+   * }}}
+   */
   sealed trait ContentSecurityPolicy extends Header {
     override type Self = ContentSecurityPolicy
     override def self: Self                                          = this
@@ -2260,84 +3099,143 @@ object Header {
   }
 
   // TODO: Should we make deprecated types deprecated in code?
+  /**
+   * The header type of `Content-Security-Policy`, named
+   * `content-security-policy`: parses and renders `ContentSecurityPolicy`
+   * values, and builds source directives.
+   */
   object ContentSecurityPolicy extends HeaderType {
     override type HeaderValue = ContentSecurityPolicy
 
     override def name: String = "content-security-policy"
 
+    /**
+     * A fetch directive, such as `script-src`, with its sources. Rendered as
+     * the directive name, a space and the sources, such as `script-src 'self'`.
+     */
     final case class SourcePolicy(srcType: SourcePolicyType, src: Source) extends ContentSecurityPolicy
 
+    /** The `block-all-mixed-content` directive. */
     case object BlockAllMixedContent extends ContentSecurityPolicy
 
     // TODO: Deprecated and only Safari supports this and it is non-standard. Should we remove it?
+    /** The `plugin-types` directive, with its value kept as text. */
     final case class PluginTypes(value: String) extends ContentSecurityPolicy
 
     // TODO: no modern browser supports this. Should we remove it?
+    /** The `referrer` directive, with a referrer policy. */
     final case class Referrer(referrer: ReferrerPolicy) extends ContentSecurityPolicy
 
+    /** The `report-to` directive, with the name of the reporting group. */
     final case class ReportTo(groupName: String) extends ContentSecurityPolicy
 
+    /**
+     * The `report-uri` directive, with the URI that violation reports are sent
+     * to.
+     */
     final case class ReportUri(uri: URI) extends ContentSecurityPolicy
 
+    /**
+     * The `require-sri-for` directive: the resource kinds that must use
+     * Subresource Integrity.
+     */
     final case class RequireSriFor(requirement: RequireSriForValue) extends ContentSecurityPolicy
 
+    /** The `sandbox` directive, with its flags. */
     final case class Sandbox(value: SandboxValue) extends ContentSecurityPolicy
 
+    /** The `trusted-types` directive, with its policy names and keywords. */
     final case class TrustedTypes(value: TrustedTypesValue) extends ContentSecurityPolicy
 
+    /** The `upgrade-insecure-requests` directive. */
     case object UpgradeInsecureRequests extends ContentSecurityPolicy
 
+    /** Several directives, rendered separated by `; `. */
     final case class Combined(directives: Chunk[ContentSecurityPolicy]) extends ContentSecurityPolicy
 
+    /**
+     * Combines directives into one policy. Returns `first` when `rest` is
+     * empty, and a `Combined` of all of them otherwise.
+     */
     def combined(first: ContentSecurityPolicy, rest: ContentSecurityPolicy*): ContentSecurityPolicy =
       if (rest.isEmpty) first
       else Combined(Chunk(first) ++ Chunk.fromIterable(rest))
 
+    /**
+     * The name of a fetch directive, such as `script-src`. Each case object is
+     * named after the directive it renders.
+     */
     sealed trait SourcePolicyType
 
+    /** The fetch directive names, and their parser and renderer. */
     object SourcePolicyType {
+
+      /** The `base-uri` directive. */
       case object `base-uri` extends SourcePolicyType
 
+      /** The `child-src` directive. */
       case object `child-src` extends SourcePolicyType
 
+      /** The `connect-src` directive. */
       case object `connect-src` extends SourcePolicyType
 
+      /** The `default-src` directive. */
       case object `default-src` extends SourcePolicyType
 
+      /** The `font-src` directive. */
       case object `font-src` extends SourcePolicyType
 
+      /** The `form-action` directive. */
       case object `form-action` extends SourcePolicyType
 
+      /** The `frame-ancestors` directive. */
       case object `frame-ancestors` extends SourcePolicyType
 
+      /** The `frame-src` directive. */
       case object `frame-src` extends SourcePolicyType
 
+      /** The `img-src` directive. */
       case object `img-src` extends SourcePolicyType
 
+      /** The `manifest-src` directive. */
       case object `manifest-src` extends SourcePolicyType
 
+      /** The `media-src` directive. */
       case object `media-src` extends SourcePolicyType
 
+      /** The `object-src` directive. */
       case object `object-src` extends SourcePolicyType
 
+      /** The `prefetch-src` directive. */
       case object `prefetch-src` extends SourcePolicyType
 
+      /** The `script-src` directive. */
       case object `script-src` extends SourcePolicyType
 
+      /** The `script-src-attr` directive. */
       case object `script-src-attr` extends SourcePolicyType
 
+      /** The `script-src-elem` directive. */
       case object `script-src-elem` extends SourcePolicyType
 
+      /** The `style-src` directive. */
       case object `style-src` extends SourcePolicyType
 
+      /** The `style-src-attr` directive. */
       case object `style-src-attr` extends SourcePolicyType
 
+      /** The `style-src-elem` directive. */
       case object `style-src-elem` extends SourcePolicyType
 
+      /** The `upgrade-insecure-requests` name used as a source directive. */
       case object `upgrade-insecure-requests` extends SourcePolicyType
 
+      /** The `worker-src` directive. */
       case object `worker-src` extends SourcePolicyType
 
+      /**
+       * Returns the directive with this exact (case-sensitive) name, or `None`.
+       */
       def parse(s: String): Option[SourcePolicyType] = s match {
         case "base-uri"                  => Some(`base-uri`)
         case "child-src"                 => Some(`child-src`)
@@ -2363,6 +3261,7 @@ object Header {
         case _                           => None
       }
 
+      /** Returns the directive name, such as `script-src`. */
       def render(policyType: SourcePolicyType) =
         policyType match {
           case `base-uri`                  => "base-uri"
@@ -2389,50 +3288,98 @@ object Header {
         }
     }
 
+    /**
+     * A source in a fetch directive, such as `'self'`, a host or a nonce.
+     * Combine sources with `&&`.
+     */
     sealed trait Source {
       self =>
+
+      /**
+       * Combines this source with `other` into a `Sequence`, rendered separated
+       * by a space. Returns this source unchanged when `other` is
+       * `Source.none`.
+       */
       def &&(other: Source): Source =
         if (other == Source.none) self else Source.Sequence(self, other)
     }
 
+    /** The kinds of `Source`, their parser and renderer, and constructors. */
     object Source {
+
+      /**
+       * The `'none'` source. `none && other` returns `other`, so it acts as the
+       * empty start of a combination.
+       */
       case object none extends Source {
         override def &&(other: Source): Source = other
       }
 
+      /**
+       * A host or URL source, such as `https://example.com`, rendered with
+       * `URI.toString`.
+       */
       final case class Host(uri: URI) extends Source
 
+      /**
+       * A scheme source, rendered as `scheme:`, such as `https:`. `parse` does
+       * not produce it.
+       */
       final case class Scheme(scheme: String) extends Source
 
+      /** The `'self'` source. */
       case object Self extends Source
 
+      /** The `'unsafe-eval'` source. */
       case object UnsafeEval extends Source
 
+      /** The source that is parsed from and rendered as `'wasm-eval'`. */
       case object WasmUnsafeEval extends Source
 
+      /** The `'unsafe-hashes'` source. */
       case object UnsafeHashes extends Source
 
+      /** The `'unsafe-inline'` source. */
       case object UnsafeInline extends Source
 
+      /** A nonce source; `Nonce("abc")` renders as `'nonce-abc'`. */
       final case class Nonce(value: String) extends Source
 
+      /**
+       * A hash source. `parse` reads values such as `'sha256-abc'` (also with
+       * `sha384` and `sha512`), and `render` writes the algorithm with its
+       * case-object name, such as `'Sha256-abc'`.
+       */
       final case class Hash(algorithm: HashAlgorithm, value: String) extends Source
 
+      /** The `'strict-dynamic'` source. */
       case object StrictDynamic extends Source
 
+      /** The `'report-sample'` source. */
       case object ReportSample extends Source
 
+      /** Two sources, rendered separated by a space. `&&` builds it. */
       final case class Sequence(left: Source, right: Source) extends Source
 
+      /** The hash algorithm of a `Hash` source. */
       sealed trait HashAlgorithm
 
+      /** The supported hash algorithms. */
       object HashAlgorithm {
+
+        /** SHA-256. */
         case object Sha256 extends HashAlgorithm
 
+        /** SHA-384. */
         case object Sha384 extends HashAlgorithm
 
+        /** SHA-512. */
         case object Sha512 extends HashAlgorithm
 
+        /**
+         * Parses `sha256`, `sha384` or `sha512` (lower case). Returns `None`
+         * otherwise.
+         */
         def parse(s: String): Option[HashAlgorithm] = s match {
           case "sha256" => Some(Sha256)
           case "sha384" => Some(Sha384)
@@ -2446,6 +3393,12 @@ object Header {
       private val Sha384Regex = "'sha384-(.*)'".r
       private val Sha512Regex = "'sha512-(.*)'".r
 
+      /**
+       * Parses one source: a quoted keyword such as `'self'`, a nonce such as
+       * `'nonce-abc'`, a hash such as `'sha256-abc'`, or else any text that
+       * `java.net.URI.create` accepts, as a `Host`. Returns `None` otherwise,
+       * for example for several sources separated by spaces.
+       */
       def parse(s: String): Option[Source] = s match {
         case "'none'"           => Some(none)
         case "'self'"           => Some(Self)
@@ -2462,6 +3415,10 @@ object Header {
         case s                  => Try(URI.create(s)).map(Host(_)).toOption
       }
 
+      /**
+       * Renders the source as it appears in a directive; a `Sequence` renders
+       * its sources separated by spaces.
+       */
       def render(source: Source): String = source match {
         case Source.none           => "'none'"
         case Self                  => "'self'"
@@ -2478,48 +3435,83 @@ object Header {
         case Scheme(scheme)        => s"$scheme:"
       }
 
+      /** Creates a `Host` source. */
       def host(uri: URI): Source = Host(uri)
 
+      /** Creates a `Scheme` source, rendered as `scheme:`. */
       def scheme(scheme: String): Source = Scheme(scheme)
 
+      /** Creates a `Nonce` source; `nonce("abc")` renders as `'nonce-abc'`. */
       def nonce(value: String): Source = Nonce(value)
 
+      /** Creates a `Hash` source. */
       def hash(algorithm: HashAlgorithm, value: String): Source = Hash(algorithm, value)
     }
 
+    /**
+     * The flags of a `sandbox` directive, such as `allow-scripts`. Combine
+     * flags with `&&`.
+     */
     sealed trait SandboxValue {
       self =>
+
+      /**
+       * Combines this flag with `other` into a `Sequence`, rendered separated
+       * by a space. Returns this value unchanged when `other` is `Empty`.
+       */
       def &&(other: SandboxValue): SandboxValue =
         if (other == SandboxValue.Empty) self else SandboxValue.Sequence(self, other)
     }
 
+    /** The sandbox flags, and their parser and renderer. */
     object SandboxValue {
+
+      /**
+       * No flag: the most restrictive sandbox. Rendered as an empty string;
+       * `Empty && other` returns `other`.
+       */
       case object Empty extends SandboxValue {
         override def &&(other: SandboxValue): SandboxValue = other
       }
 
+      /** The `allow-forms` flag. */
       case object AllowForms extends SandboxValue
 
+      /** The `allow-same-origin` flag. */
       case object AllowSameOrigin extends SandboxValue
 
+      /** The `allow-scripts` flag. */
       case object AllowScripts extends SandboxValue
 
+      /** The `allow-popups` flag. */
       case object AllowPopups extends SandboxValue
 
+      /** The `allow-modals` flag. */
       case object AllowModals extends SandboxValue
 
+      /** The `allow-orientation-lock` flag. */
       case object AllowOrientationLock extends SandboxValue
 
+      /** The `allow-pointer-lock` flag. */
       case object AllowPointerLock extends SandboxValue
 
+      /** The `allow-presentation` flag. */
       case object AllowPresentation extends SandboxValue
 
+      /** The `allow-popups-to-escape-sandbox` flag. */
       case object AllowPopupsToEscapeSandbox extends SandboxValue
 
+      /** The `allow-top-navigation` flag. */
       case object AllowTopNavigation extends SandboxValue
 
+      /** Two flags, rendered separated by a space. `&&` builds it. */
       final case class Sequence(left: SandboxValue, right: SandboxValue) extends SandboxValue
 
+      /**
+       * Parses flags separated by single spaces, such as
+       * `allow-forms allow-scripts`; an empty string gives `Empty`. Returns
+       * `None` when a flag is unknown.
+       */
       def parse(value: String): Option[SandboxValue] = {
         def parseOne: String => Option[SandboxValue] = {
           case "allow-forms"                    => Some(AllowForms)
@@ -2545,6 +3537,7 @@ object Header {
         }
       }
 
+      /** Renders the flags separated by spaces. */
       def render(value: SandboxValue): String = {
         def toStringOne: SandboxValue => String = {
           case AllowForms                 => "allow-forms"
@@ -2565,27 +3558,48 @@ object Header {
       }
     }
 
+    /**
+     * The value of a `trusted-types` directive: policy names and keywords.
+     * Combine them with `&&`.
+     */
     sealed trait TrustedTypesValue extends scala.Product with Serializable {
       self =>
+
+      /**
+       * Combines this value with `other` into a `Sequence`, rendered separated
+       * by a space. Returns this value unchanged when `other` is
+       * `TrustedTypesValue.none`.
+       */
       def &&(other: TrustedTypesValue): TrustedTypesValue =
         if (other == TrustedTypesValue.none) self else TrustedTypesValue.Sequence(self, other)
     }
 
+    /** The kinds of `TrustedTypesValue`, and their parser and renderer. */
     object TrustedTypesValue {
+
+      /** The `'none'` keyword. `none && other` returns `other`. */
       case object none extends TrustedTypesValue {
         override def &&(other: TrustedTypesValue): TrustedTypesValue = other
       }
 
+      /** A policy name, rendered as it is. */
       final case class PolicyName(value: String) extends TrustedTypesValue
 
+      /** The `'allow-duplicates'` keyword. */
       case object `allow-duplicates` extends TrustedTypesValue
 
+      /** The `*` wildcard. */
       case object Wildcard extends TrustedTypesValue
 
+      /** Two values, rendered separated by a space. `&&` builds it. */
       final case class Sequence(left: TrustedTypesValue, right: TrustedTypesValue) extends TrustedTypesValue
 
       private val PolicyNameRegex = """\*|[a-zA-Z0-9-#=_/@.%]+|'allow-duplicates'|'none'""".r
 
+      /**
+       * Finds the policy names, `*`, `'none'` and `'allow-duplicates'` in the
+       * value and combines them with `&&`. Returns `None` when none is found.
+       */
       def parse(value: String): Option[TrustedTypesValue] = {
         val allValues = PolicyNameRegex.findAllIn(value).toList
         if (allValues.isEmpty) None
@@ -2601,6 +3615,10 @@ object Header {
         }
       }
 
+      /**
+       * Renders the value: `'none'`, `*`, `'allow-duplicates'` or the policy
+       * name, with the parts of a `Sequence` separated by spaces.
+       */
       def fromTrustedTypesValue(value: TrustedTypesValue): String =
         value match {
           case TrustedTypesValue.none                   => "'none'"
@@ -2612,20 +3630,31 @@ object Header {
         }
     }
 
+    /**
+     * The policy of a `referrer` directive. Each case object is named after the
+     * value it renders.
+     */
     sealed trait ReferrerPolicy extends scala.Product with Serializable
 
+    /** The referrer policies, and their parser and renderer. */
     object ReferrerPolicy {
 
+      /** The `no-referrer` policy. */
       case object `no-referrer` extends ReferrerPolicy
 
+      /** The `none-when-downgrade` policy. */
       case object `none-when-downgrade` extends ReferrerPolicy
 
+      /** The `origin` policy. */
       case object `origin` extends ReferrerPolicy
 
+      /** The `origin-when-cross-origin` policy. */
       case object `origin-when-cross-origin` extends ReferrerPolicy
 
+      /** The `unsafe-url` policy. */
       case object `unsafe-url` extends ReferrerPolicy
 
+      /** Returns the policy with this exact name, or `None`. */
       def parse(referrer: String): Option[ReferrerPolicy] =
         referrer match {
           case "no-referrer"              => Some(`no-referrer`)
@@ -2636,18 +3665,33 @@ object Header {
           case _                          => None
         }
 
+      /** Returns the policy name, such as `no-referrer`. */
       def render(referrer: ReferrerPolicy): String = referrer.productPrefix
     }
 
+    /**
+     * The value of a `require-sri-for` directive: `script`, `style`, or both.
+     */
     sealed trait RequireSriForValue extends scala.Product with Serializable
 
+    /** The `require-sri-for` values, and their parser and renderer. */
     object RequireSriForValue {
+
+      /** Scripts must use Subresource Integrity. Rendered as `script`. */
       case object Script extends RequireSriForValue
 
+      /** Style sheets must use Subresource Integrity. Rendered as `style`. */
       case object Style extends RequireSriForValue
 
+      /**
+       * Scripts and style sheets must use Subresource Integrity. Rendered as
+       * `script style`.
+       */
       case object ScriptStyle extends RequireSriForValue
 
+      /**
+       * Parses `script`, `style` or `script style`. Returns `None` otherwise.
+       */
       def parse(value: String): Option[RequireSriForValue] =
         value match {
           case "script"       => Some(Script)
@@ -2656,6 +3700,7 @@ object Header {
           case _              => None
         }
 
+      /** Renders `script`, `style` or `script style`. */
       def fromRequireSriForValue(value: RequireSriForValue): String =
         value match {
           case Script      => "script"
@@ -2664,30 +3709,66 @@ object Header {
         }
     }
 
+    /**
+     * Creates a `default-src` directive with these sources. Without a source,
+     * it renders as `default-src 'none'`.
+     */
     def defaultSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`default-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `script-src` directive with these sources. Without a source, it
+     * renders as `script-src 'none'`.
+     */
     def scriptSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`script-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `style-src` directive with these sources. Without a source, it
+     * renders as `style-src 'none'`.
+     */
     def styleSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`style-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates an `img-src` directive with these sources. Without a source, it
+     * renders as `img-src 'none'`.
+     */
     def imgSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`img-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `media-src` directive with these sources. Without a source, it
+     * renders as `media-src 'none'`.
+     */
     def mediaSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`media-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `frame-src` directive with these sources. Without a source, it
+     * renders as `frame-src 'none'`.
+     */
     def frameSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`frame-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `font-src` directive with these sources. Without a source, it
+     * renders as `font-src 'none'`.
+     */
     def fontSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`font-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates a `connect-src` directive with these sources. Without a source,
+     * it renders as `connect-src 'none'`.
+     */
     def connectSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`connect-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+    /**
+     * Creates an `object-src` directive with these sources. Without a source,
+     * it renders as `object-src 'none'`.
+     */
     def objectSrc(src: Source*): SourcePolicy =
       SourcePolicy(SourcePolicyType.`object-src`, src.foldLeft[Source](Source.none)(_ && _))
 
@@ -2700,6 +3781,15 @@ object Header {
     private val SandboxRegex      = "sandbox (.*)".r
     private val PolicyRegex       = "([a-z-]+) (.*)".r
 
+    /**
+     * Parses one directive, or several separated by `;` into a `Combined`.
+     * Directive names are case-sensitive, and a source directive such as
+     * `default-src 'self'` is read with one source. Returns
+     * `Left("Invalid Content-Security-Policy")` for an unknown directive or
+     * source, a more specific message such as `Invalid sandbox value` for a bad
+     * value, and, when several directives fail, their messages joined with
+     * `; `.
+     */
     def parse(value: String): Either[String, ContentSecurityPolicy] = {
       val parts = value.split(';').map(_.trim).filter(_.nonEmpty)
       if (parts.length > 1) {
@@ -2726,6 +3816,10 @@ object Header {
 
       }
 
+    /**
+     * Renders each directive as its name followed by its value, and the
+     * directives of a `Combined` separated by `; `.
+     */
     def render(csp: ContentSecurityPolicy): String =
       csp match {
         case ContentSecurityPolicy.BlockAllMixedContent    => "block-all-mixed-content"
@@ -2741,6 +3835,11 @@ object Header {
         case ContentSecurityPolicy.Combined(directives)    => directives.map(render).mkString("; ")
       }
 
+    /**
+     * Creates a `SourcePolicy` from a directive name, such as `script-src`, and
+     * the text of one source. Returns `Left("Invalid Content-Security-Policy")`
+     * when either does not parse.
+     */
     def fromTypeAndPolicy(policyType: String, policy: String): Either[String, ContentSecurityPolicy] =
       SourcePolicyType
         .parse(policyType)
@@ -2749,49 +3848,80 @@ object Header {
 
   }
 
+  /**
+   * The `Content-Security-Policy-Report-Only` response header: a policy that
+   * the browser reports violations of without enforcing it.
+   */
   final case class ContentSecurityPolicyReportOnly(policy: ContentSecurityPolicy) extends Header {
     override type Self = ContentSecurityPolicyReportOnly
     override def self: Self                                                    = this
     override def headerType: HeaderType.Typed[ContentSecurityPolicyReportOnly] = ContentSecurityPolicyReportOnly
   }
 
+  /**
+   * The header type of `Content-Security-Policy-Report-Only`, named
+   * `content-security-policy-report-only`: parses and renders
+   * `ContentSecurityPolicyReportOnly` values.
+   */
   object ContentSecurityPolicyReportOnly extends HeaderType {
     override type HeaderValue = ContentSecurityPolicyReportOnly
 
     override def name: String = "content-security-policy-report-only"
 
+    /** Parses the value as `ContentSecurityPolicy.parse` does. */
     def parse(value: String): Either[String, ContentSecurityPolicyReportOnly] =
       ContentSecurityPolicy.parse(value).map(ContentSecurityPolicyReportOnly(_))
 
+    /** Renders the policy as `ContentSecurityPolicy.render` does. */
     def render(cspro: ContentSecurityPolicyReportOnly): String =
       ContentSecurityPolicy.render(cspro.policy)
   }
 
+  /**
+   * The `Content-Transfer-Encoding` header of MIME parts: how the body is
+   * encoded, such as `base64`.
+   */
   sealed trait ContentTransferEncoding extends Header {
     override type Self = ContentTransferEncoding
     override def self: Self                                            = this
     override def headerType: HeaderType.Typed[ContentTransferEncoding] = ContentTransferEncoding
   }
 
+  /**
+   * The header type of `Content-Transfer-Encoding`, named
+   * `content-transfer-encoding`: parses and renders `ContentTransferEncoding`
+   * values.
+   */
   object ContentTransferEncoding extends HeaderType {
     override type HeaderValue = ContentTransferEncoding
 
     override def name: String = "content-transfer-encoding"
 
+    /** The `7bit` encoding. */
     case object SevenBit extends ContentTransferEncoding
 
+    /** The `8bit` encoding. */
     case object EightBit extends ContentTransferEncoding
 
+    /** The `binary` encoding. */
     case object Binary extends ContentTransferEncoding
 
+    /** The `quoted-printable` encoding. */
     case object QuotedPrintable extends ContentTransferEncoding
 
+    /** The `base64` encoding. */
     case object Base64 extends ContentTransferEncoding
 
+    /** A custom `x-` encoding. `token` is the part after `x-`. */
     final case class XToken(token: String) extends ContentTransferEncoding
 
     private val XRegex = "x-(.*)".r
 
+    /**
+     * Lower-cases the value and parses `7bit`, `8bit`, `binary`,
+     * `quoted-printable`, `base64`, or `x-` followed by a token. Returns
+     * `Left("Invalid Content-Transfer-Encoding header")` otherwise.
+     */
     def parse(s: String): Either[String, ContentTransferEncoding] =
       s.toLowerCase match {
         case "7bit"             => Right(SevenBit)
@@ -2803,6 +3933,9 @@ object Header {
         case _                  => Left("Invalid Content-Transfer-Encoding header")
       }
 
+    /**
+     * Renders the encoding name, or `x-` followed by the token for an `XToken`.
+     */
     def render(contentTransferEncoding: ContentTransferEncoding): String =
       contentTransferEncoding match {
         case SevenBit        => "7bit"
@@ -2814,6 +3947,21 @@ object Header {
       }
   }
 
+  /**
+   * The `Content-Type` header: the media type of the body, with an optional
+   * `boundary` for multipart bodies and an optional `charset`.
+   *
+   * {{{
+   * import java.nio.charset.StandardCharsets
+   *
+   * Header.ContentType(MediaType.application.json).renderedValue
+   * // application/json
+   * Header.ContentType(MediaType.text.plain, charset = Some(StandardCharsets.UTF_8)).renderedValue
+   * // text/plain; charset=utf-8
+   * Header.ContentType.parse("text/html; charset=UTF-8").map(_.charset)
+   * // Right(Some(UTF-8))
+   * }}}
+   */
   final case class ContentType(mediaType: MediaType, boundary: Option[Boundary] = None, charset: Option[Charset] = None) extends Header {
     override type Self = ContentType
 
@@ -2824,6 +3972,10 @@ object Header {
     override lazy val renderedValue: String = ContentType.render(this)
   }
 
+  /**
+   * The header type of `Content-Type`, named `content-type`: parses and renders
+   * `ContentType` values.
+   */
   object ContentType extends HeaderType {
     private final val CacheInitialSize = 64
     private final val CacheMaxSize     = 8192
@@ -2835,12 +3987,25 @@ object Header {
 
     override def name: String = "content-type"
 
+    /**
+     * Parses a media type with optional parameters, such as
+     * `multipart/form-data; boundary=abc`. It keeps the `charset` and
+     * `boundary` parameters and drops the others. The main type is
+     * case-sensitive and must be a known one or start with `x-` (in any case).
+     * A `charset` that names an unsupported charset, such as `charset=foo`, is
+     * dropped. Returns a `Left` with the decoding error otherwise.
+     */
     def parse(s: String): Either[String, ContentType] = {
       // Guard against malicious registering of invalid content types
       if (cache.size >= CacheMaxSize) cache.clear()
       cache.computeIfAbsent(s, parseFn)
     }
 
+    /**
+     * Renders the media type, followed by `; charset=` and the charset name in
+     * lower case, and `; boundary=` and the boundary, when they are set, such
+     * as `text/plain; charset=utf-8`.
+     */
     def render(contentType: ContentType): String = codec.encode(contentType).toOption.get
 
     private val codec: RichTextCodec[ContentType] = {
@@ -2902,24 +4067,31 @@ object Header {
     private[Header] sealed trait Parameter {
       self =>
 
+      /** Whether the value was between double quotes. */
       def isQuoted: Boolean = self match {
         case Parameter.Boundary(payload) => payload.isQuoted
         case Parameter.Charset(payload)  => payload.isQuoted
         case Parameter.Value(payload)    => payload.isQuoted
       }
 
+      /** The parameter name. */
       def key: String = self match {
         case Parameter.Value(payload)    => payload.key
         case Parameter.Charset(payload)  => payload.key
         case Parameter.Boundary(payload) => payload.key
       }
 
+      /** The parameter value; a charset name is given in lower case. */
       def value: String = self match {
         case Parameter.Value(payload)    => payload.value
         case Parameter.Boundary(payload) => payload.value.id
         case Parameter.Charset(payload)  => payload.value.toString.toLowerCase
       }
 
+      /**
+       * The name and the value, quoted (`Left`) or not (`Right`), in the form
+       * the codec writes.
+       */
       def toCodec: (String, Either[(Char, String, Char), String]) =
         (self.key, if (self.isQuoted) Left(('"', self.value, '"')) else Right(self.value))
     }
@@ -2957,6 +4129,7 @@ object Header {
     }
   }
 
+  /** The `Date` header: the date and time at which the message was created. */
   final case class Date(value: ZonedDateTime) extends Header {
     override type Self = Date
     override def self: Self                         = this
@@ -2972,30 +4145,46 @@ object Header {
 
     override def name: String = "date"
 
+    /**
+     * Parses an RFC 1123 date in GMT, such as `Wed, 21 Oct 2015 07:28:00 GMT`.
+     * Returns `Left("Invalid Date header")` for other formats.
+     */
     def parse(value: String): Either[String, Date] =
       DateEncoding.decodeDate(value).toRight("Invalid Date header").map(Date(_))
 
+    /** Renders the date in RFC 1123 format, converted to GMT. */
     def render(date: Date): String =
       DateEncoding.encodeDate(date.value)
   }
 
+  /**
+   * The `DNT` (Do Not Track) request header: whether the user allows tracking.
+   */
   sealed trait DNT extends Header {
     override type Self = DNT
     override def self: Self                        = this
     override def headerType: HeaderType.Typed[DNT] = DNT
   }
 
+  /** The header type of `DNT`, named `dnt`: parses and renders `DNT` values. */
   object DNT extends HeaderType {
     override type HeaderValue = DNT
 
     override def name: String = "dnt"
 
+    /** The user allows tracking. Rendered as `0`. */
     case object TrackingAllowed extends DNT
 
+    /** The user does not allow tracking. Rendered as `1`. */
     case object TrackingNotAllowed extends DNT
 
+    /** The user has not stated a preference. Rendered as `null`. */
     case object NotSpecified extends DNT
 
+    /**
+     * Parses `1`, `0` or `null`. Returns `Left("Invalid DNT header")` for any
+     * other value.
+     */
     def parse(value: String): Either[String, DNT] = {
       value match {
         case "null" => Right(NotSpecified)
@@ -3005,6 +4194,7 @@ object Header {
       }
     }
 
+    /** Renders `0`, `1` or `null`. */
     def render(dnt: DNT): String =
       dnt match {
         case NotSpecified       => "null"
@@ -3013,21 +4203,46 @@ object Header {
       }
   }
 
+  /**
+   * The `ETag` response header: an entity tag that identifies a version of a
+   * resource, either strong or weak.
+   *
+   * {{{
+   * Header.ETag.parse("W/\"v42\"")    // Right(Weak(v42))
+   * Header.ETag.Strong("v42").renderedValue // "v42"
+   * }}}
+   */
   sealed trait ETag extends Header {
     override type Self = ETag
     override def self: Self                         = this
     override def headerType: HeaderType.Typed[ETag] = ETag
   }
 
+  /**
+   * The header type of `ETag`, named `etag`: parses and renders `ETag` values.
+   */
   object ETag extends HeaderType {
     override type HeaderValue = ETag
 
     override def name: String = "etag"
 
+    /**
+     * A strong entity tag. `validator` is stored without quotes and rendered
+     * between double quotes.
+     */
     final case class Strong(validator: String) extends ETag
 
+    /**
+     * A weak entity tag. `validator` is stored without quotes and rendered as
+     * `W/"validator"`.
+     */
     final case class Weak(validator: String) extends ETag
 
+    /**
+     * Parses `"validator"` as `Strong` and `W/"validator"` or `w/"validator"`
+     * as `Weak`, removing the quotes. Returns `Left("Invalid ETag header")` for
+     * an unquoted value.
+     */
     def parse(value: String): Either[String, ETag] = {
       value match {
         case str if str.startsWith("w/\"") && str.endsWith("\"") => Right(Weak(str.drop(3).dropRight(1)))
@@ -3037,6 +4252,7 @@ object Header {
       }
     }
 
+    /** Renders `"validator"` for `Strong` and `W/"validator"` for `Weak`. */
     def render(eTag: ETag): String = {
       eTag match {
         case Weak(value)   => s"""W/"$value""""
@@ -3054,28 +4270,49 @@ object Header {
     override type Self = Expect
     override def self: Self                           = this
     override def headerType: HeaderType.Typed[Expect] = Expect
+
+    /** The rendered value, such as `100-continue`. */
     val value: String
   }
 
+  /**
+   * The header type of `Expect`, named `expect`: parses and renders `Expect`
+   * values.
+   */
   object Expect extends HeaderType {
     override type HeaderValue = Expect
 
     override def name: String = "expect"
 
+    /**
+     * The `100-continue` expectation: the client waits for a `100 Continue`
+     * response before it sends the body.
+     */
     case object `100-continue` extends Expect {
+
+      /** The rendered value: `100-continue`. */
       val value = "100-continue"
     }
 
+    /**
+     * Parses `100-continue`, matched case-sensitively. Returns
+     * `Left("Invalid Expect header")` otherwise.
+     */
     def parse(value: String): Either[String, Expect] =
       value match {
         case `100-continue`.value => Right(`100-continue`)
         case _                    => Left("Invalid Expect header")
       }
 
+    /** Renders `value`. */
     def render(expect: Expect): String =
       expect.value
   }
 
+  /**
+   * The `Expires` response header: the date and time after which the response
+   * is stale.
+   */
   final case class Expires(value: ZonedDateTime) extends Header {
     override type Self = Expires
     override def self: Self                            = this
@@ -3083,43 +4320,58 @@ object Header {
   }
 
   /**
-   * The Expires HTTP header contains the date/time after which the response is
-   * considered expired.
+   * The header type of `Expires`, named `expires`. The value is an HTTP date,
+   * such as `Expires: Wed, 21 Oct 2015 07:28:00 GMT`.
    *
-   * Invalid expiration dates with value 0 represent a date in the past and mean
-   * that the resource is already expired.
-   *
-   * Expires: <Date>
-   *
-   * Date: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
-   *
-   * Example:
-   *
-   * Expires: Wed, 21 Oct 2015 07:28:00 GMT
+   * HTTP treats an invalid date, such as `0`, as a date in the past, which
+   * means that the response is already stale. `parse` returns a `Left` for such
+   * values.
    */
   object Expires extends HeaderType {
     override type HeaderValue = Expires
 
     override def name: String = "expires"
 
+    /**
+     * Parses an RFC 1123 date in GMT, such as `Wed, 21 Oct 2015 07:28:00 GMT`.
+     * Returns `Left("Invalid Expires header")` for other values, including `0`.
+     */
     def parse(date: String): Either[String, Expires] =
       DateEncoding.decodeDate(date).toRight("Invalid Expires header").map(Expires(_))
 
+    /** Renders the date in RFC 1123 format, converted to GMT. */
     def render(expires: Expires): String =
       DateEncoding.encodeDate(expires.value)
   }
 
+  /**
+   * The `Forwarded` request header: information that proxies add about the
+   * client and the proxies, from the `by`, `for`, `host` and `proto`
+   * directives.
+   */
   final case class Forwarded(by: Option[String] = None, forValues: List[String] = Nil, host: Option[String] = None, proto: Option[String] = None) extends Header {
     override type Self = Forwarded
     override def self: Self                              = this
     override def headerType: HeaderType.Typed[Forwarded] = Forwarded
   }
 
+  /**
+   * The header type of `Forwarded`, named `forwarded`: parses and renders
+   * `Forwarded` values.
+   */
   object Forwarded extends HeaderType {
     override type HeaderValue = Forwarded
 
     override def name: String = "forwarded"
 
+    /**
+     * Reads the `by=`, `for=`, `host=` and `proto=` directives from a
+     * `;`-separated value, such as `for=192.0.2.60;proto=http;by=203.0.113.43`.
+     * A `for` directive can list several comma-separated `for=` values. A
+     * directive is found only when its part starts with the name, so
+     * `for=a; proto=http` gives no `proto`. It returns `Right` for any input;
+     * missing directives are left empty.
+     */
     def parse(forwarded: String): Either[String, Forwarded] = {
       val parts    = forwarded.split(";")
       val by       = parts.collectFirst { case s if s.startsWith("by=") => s.drop(3) }.map(_.trim)
@@ -3129,6 +4381,10 @@ object Header {
       Right(Forwarded(by, forValue, host, proto))
     }
 
+    /**
+     * Renders each set directive followed by `;`, in the order `by`, `for`,
+     * `host`, `proto`, with the `for` values as `for=a,for=b;`.
+     */
     def render(forwarded: Forwarded): String = {
       def formatDirective(directiveName: String, directiveValue: Option[String]) =
         directiveValue.map(v => s"${directiveName}=${v};").getOrElse("")
@@ -3146,6 +4402,9 @@ object Header {
     override def headerType: HeaderType.Typed[From] = From
   }
 
+  /**
+   * The header type of `From`, named `from`: parses and renders `From` values.
+   */
   object From extends HeaderType {
     override type HeaderValue = From
 
@@ -3154,29 +4413,53 @@ object Header {
     // Regex that does veery loose validation of email.
     private val emailRegex = "([^ ]+@[^ ]+[.][^ ]+)".r
 
+    /**
+     * Keeps the value when it looks like an email address: text without spaces
+     * that contains `@` and, after it, a `.`. Returns
+     * `Left("Invalid From header")` otherwise.
+     */
     def parse(fromHeader: String): Either[String, From] =
       fromHeader match {
         case emailRegex(_) => Right(From(fromHeader))
         case _             => Left("Invalid From header")
       }
 
+    /** Renders the email address. */
     def render(from: From): String =
       from.email
   }
 
+  /**
+   * The `Host` request header: the host name and optional port of the server
+   * the request is sent to.
+   *
+   * {{{
+   * Header.Host("example.com", 8080).renderedValue // example.com:8080
+   * Header.Host.parse("example.com")              // Right(Host(example.com,None))
+   * }}}
+   */
   final case class Host(hostAddress: String, port: Option[Int] = None) extends Header {
     override type Self = Host
     override def self: Self                         = this
     override def headerType: HeaderType.Typed[Host] = Host
   }
 
+  /**
+   * The header type of `Host`, named `host`: parses and renders `Host` values.
+   */
   object Host extends HeaderType {
     override type HeaderValue = Host
 
     override def name: String = "host"
 
+    /** Creates a `Host` with this host name and port. */
     def apply(hostAddress: String, port: Int): Host = Host(hostAddress, Some(port))
 
+    /**
+     * Parses `host` or `host:port`. Returns `Left("Invalid Host header")` for
+     * an empty value, a port that is not a number, or a value with more than
+     * one `:`, such as an IPv6 address.
+     */
     def parse(value: String): Either[String, Host] = {
       Chunk.fromArray(value.split(":")) match {
         case Chunk(host, portS)           =>
@@ -3188,6 +4471,7 @@ object Header {
       }
     }
 
+    /** Renders `host`, or `host:port` when a port is set. */
     def render(host: Host): String =
       host match {
         case Host(address, None)       => address
@@ -3195,21 +4479,39 @@ object Header {
       }
   }
 
+  /**
+   * The `If-Match` request header: the request applies only when the resource
+   * matches one of the entity tags, or any version for `*`.
+   */
   sealed trait IfMatch extends Header {
     override type Self = IfMatch
     override def self: Self                            = this
     override def headerType: HeaderType.Typed[IfMatch] = IfMatch
   }
 
+  /**
+   * The header type of `If-Match`, named `if-match`: parses and renders
+   * `IfMatch` values.
+   */
   object IfMatch extends HeaderType {
     override type HeaderValue = IfMatch
 
     override def name: String = "if-match"
 
+    /** The value `*`: any current version of the resource matches. */
     case object Any extends IfMatch
 
+    /**
+     * A list of entity tags, stored as they appear in the header, quotes
+     * included.
+     */
     final case class ETags(etags: NonEmptyChunk[String]) extends IfMatch
 
+    /**
+     * Splits the value on commas and trims each entity tag, dropping empty
+     * ones. A lone `*` gives `Any`. Returns `Left("Invalid If-Match header")`
+     * when no tag is left.
+     */
     def parse(value: String): Either[String, IfMatch] = {
       val etags = Chunk.fromArray(value.split(",").map(_.trim)).filter(_.nonEmpty)
       etags match {
@@ -3222,6 +4524,9 @@ object Header {
       }
     }
 
+    /**
+     * Renders `*` for `Any`, or the entity tags separated by `,` with no space.
+     */
     def render(ifMatch: IfMatch): String = ifMatch match {
       case Any          => "*"
       case ETags(etags) => etags.mkString(",")
@@ -3229,39 +4534,71 @@ object Header {
 
   }
 
+  /**
+   * The `If-Modified-Since` request header: the server sends the resource only
+   * when it has changed after this date.
+   */
   final case class IfModifiedSince(value: ZonedDateTime) extends Header {
     override type Self = IfModifiedSince
     override def self: Self                                    = this
     override def headerType: HeaderType.Typed[IfModifiedSince] = IfModifiedSince
   }
 
+  /**
+   * The header type of `If-Modified-Since`, named `if-modified-since`: parses
+   * and renders `IfModifiedSince` values.
+   */
   object IfModifiedSince extends HeaderType {
     override type HeaderValue = IfModifiedSince
 
     override def name: String = "if-modified-since"
 
+    /**
+     * Parses an RFC 1123 date in GMT. Returns
+     * `Left("Invalid If-Modified-Since header")` for other formats.
+     */
     def parse(value: String): Either[String, IfModifiedSince] =
       DateEncoding.decodeDate(value).toRight("Invalid If-Modified-Since header").map(IfModifiedSince(_))
 
+    /** Renders the date in RFC 1123 format, converted to GMT. */
     def render(ifModifiedSince: IfModifiedSince): String =
       DateEncoding.encodeDate(ifModifiedSince.value)
   }
 
+  /**
+   * The `If-None-Match` request header: the request applies only when the
+   * resource matches none of the entity tags, or when it does not exist for
+   * `*`.
+   */
   sealed trait IfNoneMatch extends Header {
     override type Self = IfNoneMatch
     override def self: Self                                = this
     override def headerType: HeaderType.Typed[IfNoneMatch] = IfNoneMatch
   }
 
+  /**
+   * The header type of `If-None-Match`, named `if-none-match`: parses and
+   * renders `IfNoneMatch` values.
+   */
   object IfNoneMatch extends HeaderType {
     override type HeaderValue = IfNoneMatch
 
     override def name: String = "if-none-match"
 
+    /** The value `*`: matches any current version of the resource. */
     case object Any extends IfNoneMatch
 
+    /**
+     * A list of entity tags, stored as they appear in the header, quotes
+     * included.
+     */
     final case class ETags(etags: NonEmptyChunk[String]) extends IfNoneMatch
 
+    /**
+     * Splits the value on commas and trims each entity tag, dropping empty
+     * ones. A lone `*` gives `Any`. Returns
+     * `Left("Invalid If-None-Match header")` when no tag is left.
+     */
     def parse(value: String): Either[String, IfNoneMatch] = {
       val etags = Chunk.fromArray(value.split(",").map(_.trim)).filter(_.nonEmpty)
       etags match {
@@ -3274,6 +4611,9 @@ object Header {
       }
     }
 
+    /**
+     * Renders `*` for `Any`, or the entity tags separated by `,` with no space.
+     */
     def render(ifMatch: IfNoneMatch): String = ifMatch match {
       case Any          => "*"
       case ETags(etags) => etags.mkString(",")
@@ -3283,10 +4623,10 @@ object Header {
   /**
    * The If-Range HTTP request header makes a range request conditional.
    * Possible values:
-   *   - <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
-   *   - <etag> a string of ASCII characters placed between double quotes (Like
-   *     "675af34563dc-tr34"). A weak entity tag (one prefixed by W/) must not
-   *     be used in this header.
+   *   - A date in HTTP date format, such as `Wed, 21 Oct 2015 07:28:00 GMT`.
+   *   - An entity tag: a string of ASCII characters placed between double
+   *     quotes (Like "675af34563dc-tr34"). A weak entity tag (one prefixed by
+   *     W/) must not be used in this header.
    */
   sealed trait IfRange extends Header {
     override type Self = IfRange
@@ -3294,15 +4634,28 @@ object Header {
     override def headerType: HeaderType.Typed[IfRange] = IfRange
   }
 
+  /**
+   * The header type of `If-Range`, named `if-range`: parses and renders
+   * `IfRange` values.
+   */
   object IfRange extends HeaderType {
     override type HeaderValue = IfRange
 
     override def name: String = "if-range"
 
+    /**
+     * An entity tag, stored without quotes and rendered between double quotes.
+     */
     final case class ETag(value: String) extends IfRange
 
+    /** A date, rendered in RFC 1123 format. */
     final case class DateTime(value: ZonedDateTime) extends IfRange
 
+    /**
+     * Parses a value between double quotes as an `ETag` and any other value as
+     * an RFC 1123 date. Returns `Left("Invalid If-Range header")` when the date
+     * does not parse, for example for a weak tag `W/"x"`.
+     */
     def parse(value: String): Either[String, IfRange] =
       value match {
         case value if value.startsWith("\"") && value.endsWith("\"") =>
@@ -3311,6 +4664,10 @@ object Header {
           DateEncoding.decodeDate(dateTime).toRight("Invalid If-Range header").map(DateTime(_))
       }
 
+    /**
+     * Renders the entity tag between double quotes, or the date in RFC 1123
+     * format.
+     */
     def render(ifRange: IfRange): String =
       ifRange match {
         case DateTime(value) => DateEncoding.encodeDate(value)
@@ -3318,6 +4675,10 @@ object Header {
       }
   }
 
+  /**
+   * The `If-Unmodified-Since` request header, with the date after which the
+   * resource must not have changed.
+   */
   final case class IfUnmodifiedSince(value: ZonedDateTime) extends Header {
     override type Self = IfUnmodifiedSince
     override def self: Self                                      = this
@@ -3335,43 +4696,75 @@ object Header {
 
     override def name: String = "if-unmodified-since"
 
+    /**
+     * Parses an RFC 1123 date in GMT. Returns
+     * `Left("Invalid If-Unmodified-Since header")` for other formats.
+     */
     def parse(value: String): Either[String, IfUnmodifiedSince] =
       DateEncoding.decodeDate(value).toRight("Invalid If-Unmodified-Since header").map(IfUnmodifiedSince(_))
 
+    /** Renders the date in RFC 1123 format, converted to GMT. */
     def render(ifModifiedSince: IfUnmodifiedSince): String =
       DateEncoding.encodeDate(ifModifiedSince.value)
 
   }
 
+  /**
+   * The `Last-Modified` response header: the date and time at which the
+   * resource last changed.
+   */
   final case class LastModified(value: ZonedDateTime) extends Header {
     override type Self = LastModified
     override def self: Self                                 = this
     override def headerType: HeaderType.Typed[LastModified] = LastModified
   }
 
+  /**
+   * The header type of `Last-Modified`, named `last-modified`: parses and
+   * renders `LastModified` values.
+   */
   object LastModified extends HeaderType {
     override type HeaderValue = LastModified
 
     override def name: String = "last-modified"
 
+    /**
+     * Parses an RFC 1123 date in GMT. Returns
+     * `Left("Invalid Last-Modified header")` for other formats.
+     */
     def parse(value: String): Either[String, LastModified] =
       DateEncoding.decodeDate(value).toRight("Invalid Last-Modified header").map(LastModified(_))
 
+    /** Renders the date in RFC 1123 format, converted to GMT. */
     def render(lastModified: LastModified): String =
       DateEncoding.encodeDate(lastModified.value)
   }
 
+  /**
+   * The `Link` header: a link to a related resource, with parameters such as
+   * `rel`.
+   */
   final case class Link(uri: URL, params: Map[String, String]) extends Header {
     override type Self = Link
     override def self: Self                         = this
     override def headerType: HeaderType.Typed[Link] = Link
   }
 
+  /**
+   * The header type of `Link`, named `link`: parses and renders `Link` values.
+   */
   object Link extends HeaderType {
     override type HeaderValue = Link
 
     override def name: String = "link"
 
+    /**
+     * Parses one link: a URL between angle brackets, followed by `;`-separated
+     * `key=value` parameters such as `rel="next"`, removing the quotes around
+     * values. Returns `Left("Invalid Link header")` when there is no parameter,
+     * the URL is not between angle brackets or is not valid, a parameter is not
+     * `key=value`, or a key appears twice.
+     */
     def parse(value: String): Either[String, Link] = {
       val parts = value.split(";").map(_.trim).filter(_.nonEmpty)
       if (parts.length < 2) Left("Invalid Link header")
@@ -3405,6 +4798,10 @@ object Header {
       }
     }
 
+    /**
+     * Renders the URL between angle brackets, then `; ` and the parameters as
+     * `key="value"`, separated by `; `.
+     */
     def render(link: Link): String = {
       val params = link.params.map { case (key, value) => s"""$key="$value"""" }.mkString("; ")
       s"""<${link.uri.encode}>; $params"""
@@ -3412,7 +4809,14 @@ object Header {
   }
 
   /**
-   * Location header value.
+   * Location header value: the URL that a redirect or a `201 Created` response
+   * points to.
+   *
+   * {{{
+   * Header.Location(URL.root / "login").renderedValue // /login
+   * Header.Location.parse("https://example.com/next").map(_.url.host)
+   * // Right(Some(example.com))
+   * }}}
    */
   final case class Location(url: URL) extends Header {
     override type Self = Location
@@ -3420,11 +4824,21 @@ object Header {
     override def headerType: HeaderType.Typed[Location] = Location
   }
 
+  /**
+   * The header type of `Location`, named `location`: parses and renders
+   * `Location` values.
+   */
   object Location extends HeaderType {
     override type HeaderValue = Location
 
     override def name: String = "location"
 
+    /**
+     * Parses the value as a URL, absolute or relative. Returns
+     * `Left("Invalid Location header (empty)")` for an empty value, and `Left`
+     * with a message that starts with `Invalid Location header: ` when the URL
+     * is not valid.
+     */
     def parse(value: String): Either[String, Location] = {
       if (value == "") Left("Invalid Location header (empty)")
       else
@@ -3435,6 +4849,7 @@ object Header {
           .map(url => Location(url))
     }
 
+    /** Renders the encoded URL. */
     def render(urlLocation: Location): String =
       urlLocation.url.encode
   }
@@ -3448,11 +4863,19 @@ object Header {
     override def headerType: HeaderType.Typed[MaxForwards] = MaxForwards
   }
 
+  /**
+   * The header type of `Max-Forwards`, named `max-forwards`: parses and renders
+   * `MaxForwards` values.
+   */
   object MaxForwards extends HeaderType {
     override type HeaderValue = MaxForwards
 
     override def name: String = "max-forwards"
 
+    /**
+     * Parses a non-negative `Int`. Returns
+     * `Left("Invalid Max-Forwards header")` otherwise.
+     */
     def parse(value: String): Either[String, MaxForwards] = {
       Try(value.toInt) match {
         case Success(value) if value >= 0L => Right(MaxForwards(value))
@@ -3460,6 +4883,7 @@ object Header {
       }
     }
 
+    /** Renders the number. */
     def render(maxForwards: MaxForwards): String =
       maxForwards.value.toString
   }
@@ -3471,6 +4895,10 @@ object Header {
     override def headerType: HeaderType.Typed[Origin] = Origin
   }
 
+  /**
+   * The header type of `Origin`, named `origin`: parses and renders `Origin`
+   * values.
+   */
   object Origin extends HeaderType {
     override type HeaderValue = Origin
 
@@ -3482,9 +4910,22 @@ object Header {
     /** The Origin header value contains scheme, host and maybe port. */
     final case class Value(scheme: String, host: String, port: Option[Int] = None) extends Origin
 
+    /**
+     * Creates an `Origin.Value` from a scheme, a host and an optional port.
+     *
+     * {{{
+     * Header.Origin("https", "example.com", Some(8443)).renderedValue // https://example.com:8443
+     * }}}
+     */
     def apply(scheme: String, host: String, port: Option[Int] = None): Origin =
       Value(scheme, host, port)
 
+    /**
+     * Parses `null` as `Null`, or an absolute URL as a `Value` with its scheme,
+     * host and port; a path or query in the URL is dropped. Returns
+     * `Left("Invalid Origin header")` when the URL is not valid or has no
+     * scheme or host.
+     */
     def parse(value: String): Either[String, Origin] =
       if (value == "null") Right(Null)
       else
@@ -3494,6 +4935,10 @@ object Header {
           case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.port))
         }
 
+    /**
+     * Renders `null`, or `scheme://host` followed by `:port` when a port is
+     * set.
+     */
     def render(origin: Origin): String = {
       origin match {
         case Null                           => "null"
@@ -3513,6 +4958,10 @@ object Header {
     override def headerType: HeaderType.Typed[Pragma] = Pragma
   }
 
+  /**
+   * The header type of `Pragma`, named `pragma`: parses and renders `Pragma`
+   * values.
+   */
   object Pragma extends HeaderType {
     override type HeaderValue = Pragma
 
@@ -3521,14 +4970,17 @@ object Header {
     /** Pragma no-cache value. */
     case object NoCache extends Pragma
 
-    /** Invalid pragma value. */
-
+    /**
+     * Parses `no-cache`, without regard to case. Returns
+     * `Left("Invalid Pragma header")` for any other value.
+     */
     def parse(value: String): Either[String, Pragma] =
       value.toLowerCase match {
         case "no-cache" => Right(NoCache)
         case _          => Left("Invalid Pragma header")
       }
 
+    /** Renders `no-cache`. */
     def render(pragma: Pragma): String =
       pragma match {
         case NoCache => "no-cache"
@@ -3553,11 +5005,21 @@ object Header {
     override def headerType: HeaderType.Typed[ProxyAuthenticate] = ProxyAuthenticate
   }
 
+  /**
+   * The header type of `Proxy-Authenticate`, named `proxy-authenticate`: parses
+   * and renders `ProxyAuthenticate` values.
+   */
   object ProxyAuthenticate extends HeaderType {
     override type HeaderValue = ProxyAuthenticate
 
     override def name: String = "proxy-authenticate"
 
+    /**
+     * Parses a scheme name, optionally followed by ` realm=` and the realm; the
+     * realm is kept as written, quotes included. The scheme name is matched
+     * without regard to case. Returns `Left` with a message that starts with
+     * `Unsupported authentication scheme: ` for an unknown scheme.
+     */
     def parse(value: String): Either[String, ProxyAuthenticate] = {
       val parts = value.split(" realm=").map(_.trim).filter(_.nonEmpty)
       parts match {
@@ -3567,6 +5029,10 @@ object Header {
       }
     }
 
+    /**
+     * Renders the scheme name, followed by ` realm=` and the realm when a realm
+     * is set.
+     */
     def render(proxyAuthenticate: ProxyAuthenticate): String = proxyAuthenticate match {
       case ProxyAuthenticate(scheme, Some(realm)) => s"${scheme.name} realm=$realm"
       case ProxyAuthenticate(scheme, None)        => s"${scheme.name}"
@@ -3577,15 +5043,11 @@ object Header {
   }
 
   /**
-   * Proxy-Authorization: <type> <credentials>
-   *
-   * <type> - AuthenticationScheme
-   *
-   * <credentials> - The resulting string is base64 encoded
-   *
-   * Example
-   *
-   * Proxy-Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l
+   * The `Proxy-Authorization` request header: an authentication scheme and the
+   * credential for a proxy, such as
+   * `Proxy-Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l`. The credential is
+   * kept and rendered as given; for `Basic` it is the Base64 encoding of
+   * `user:password`, which the caller supplies already encoded.
    */
   final case class ProxyAuthorization(authenticationScheme: AuthenticationScheme, credential: String) extends Header {
     override type Self = ProxyAuthorization
@@ -3604,6 +5066,13 @@ object Header {
 
     override def name: String = "proxy-authorization"
 
+    /**
+     * Parses a scheme name and a credential, two parts separated by whitespace,
+     * such as `Basic YWxh`. The scheme name is matched without regard to case.
+     * Returns `Left("Invalid Proxy-Authorization header")` when there are not
+     * exactly two parts, and `Left` with a message that starts with
+     * `Unsupported authentication scheme: ` for an unknown scheme.
+     */
     def parse(value: String): Either[String, ProxyAuthorization] = {
       value.split("\\s+") match {
         case Array(authorization, credential) if authorization.nonEmpty && credential.nonEmpty =>
@@ -3614,29 +5083,64 @@ object Header {
       }
     }
 
+    /** Renders the scheme name, a space and the credential. */
     def render(proxyAuthorization: ProxyAuthorization): String =
       s"${proxyAuthorization.authenticationScheme.name} ${proxyAuthorization.credential}"
   }
 
+  /**
+   * The `Range` request header: the parts of a resource that the client asks
+   * for, in a unit such as `bytes`.
+   *
+   * {{{
+   * Header.Range.parse("bytes=0-499")             // Right(Single(bytes,0,Some(499)))
+   * Header.Range.Suffix("bytes", 500).renderedValue // bytes=-500
+   * }}}
+   */
   sealed trait Range extends Header {
     override type Self = Range
     override def self: Self                          = this
     override def headerType: HeaderType.Typed[Range] = Range
   }
 
+  /**
+   * The header type of `Range`, named `range`: parses and renders `Range`
+   * values.
+   */
   object Range extends HeaderType {
     override type HeaderValue = Range
 
     override def name: String = "range"
 
+    /**
+     * One range from `start` to `end`, both inclusive. Without an end it runs
+     * to the end of the resource and renders as `unit=start-`.
+     */
     final case class Single(unit: String, start: Long, end: Option[Long]) extends Range
 
+    /**
+     * Several ranges in one unit, each a start with an optional end, rendered
+     * separated by `,`.
+     */
     final case class Multiple(unit: String, ranges: List[(Long, Option[Long])]) extends Range
 
+    /** The last `value` units of the resource, rendered as `unit=-value`. */
     final case class Suffix(unit: String, value: Long) extends Range
 
+    /**
+     * The range from `value` to the end of the resource, rendered as
+     * `unit=value-`. `parse` returns `Single` with no end for this form
+     * instead.
+     */
     final case class Prefix(unit: String, value: Long) extends Range
 
+    /**
+     * Parses `unit=start-end`, `unit=start-` (both as `Single`), `unit=-length`
+     * (as `Suffix`) and comma-separated lists of `start-end` or `start-` (as
+     * `Multiple`). A value without `-` after the `=`, such as `bytes=500`, also
+     * gives a `Suffix`. Returns `Left("Invalid Range header")` when there is
+     * not exactly one `=` or a number does not parse.
+     */
     def parse(value: String): Either[String, Range] = {
       val parts = value.split("=")
       if (parts.length != 2) Left("Invalid Range header")
@@ -3677,6 +5181,9 @@ object Header {
       }
     }
 
+    /**
+     * Renders `unit=` followed by the range in the forms that `parse` reads.
+     */
     def render(range: Range): String = range match {
       case Single(unit, start, end)   => s"$unit=$start-${end.getOrElse("")}"
       case Multiple(unit, ranges)     =>
@@ -3701,7 +5208,8 @@ object Header {
    * The Referer header can contain an origin, path, and querystring, and may
    * not contain URL fragments (i.e. #section) or username:password information.
    * The request's referrer policy defines the data that can be included. See
-   * Referrer-Policy for more information and examples.
+   * Referrer-Policy for more information and examples. `render` writes the URL
+   * as it is, so a fragment in `url` is kept.
    */
   final case class Referer(url: URL) extends Header {
     override type Self = Referer
@@ -3709,11 +5217,20 @@ object Header {
     override def headerType: HeaderType.Typed[Referer] = Referer
   }
 
+  /**
+   * The header type of `Referer`, named `referer`: parses and renders `Referer`
+   * values.
+   */
   object Referer extends HeaderType {
     override type HeaderValue = Referer
 
     override def name: String = "referer"
 
+    /**
+     * Parses a `Referer` value as a URL. Returns
+     * `Left("Invalid Referer header")` when the value is not a valid URL or has
+     * no scheme or host, so relative URLs are rejected.
+     */
     def parse(value: String): Either[String, Referer] = {
       URL.decode(value) match {
         case Left(_)                                              => Left("Invalid Referer header")
@@ -3722,10 +5239,22 @@ object Header {
       }
     }
 
+    /** Renders the encoded URL, or an empty string when the URL is relative. */
     def render(referer: Referer): String =
       if (referer.url.kind == URL.Location.Relative) "" else referer.url.encode
   }
 
+  /**
+   * The `Cookie` request header: one or more request cookies (name and content)
+   * that the client sends back to the server.
+   *
+   * {{{
+   * import zio.NonEmptyChunk
+   *
+   * val header = Header.Cookie(NonEmptyChunk(Cookie.Request("session", "abc123"), Cookie.Request("theme", "dark")))
+   * header.renderedValue // session=abc123; theme=dark
+   * }}}
+   */
   final case class Cookie(value: NonEmptyChunk[zio.http.Cookie.Request]) extends Header {
     override type Self = Cookie
     override def self: Self                           = this
@@ -3741,6 +5270,12 @@ object Header {
 
     override def name: String = "cookie"
 
+    /**
+     * Parses a `Cookie` value such as `a=1; b=2` into request cookies. Returns
+     * `Left("Invalid Cookie header")` when the value contains no cookie, and
+     * `Left` with a message that starts with `Invalid Cookie header: ` when
+     * decoding throws.
+     */
     def parse(value: String): Either[String, Cookie] =
       zio.http.Cookie.Request.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
@@ -3751,31 +5286,63 @@ object Header {
           }
       }
 
+    /**
+     * Renders the encoded cookies separated by `; `. A cookie that fails to
+     * encode renders as an empty string.
+     */
     def render(cookie: Cookie): String =
       cookie.value.map(_.encode.getOrElse("")).mkString("; ")
   }
 
+  /**
+   * The `Set-Cookie` response header: one response cookie, with its attributes
+   * (domain, path, max age, `Secure`, `HttpOnly`, `SameSite`), that the server
+   * asks the client to store.
+   *
+   * {{{
+   * val header = Header.SetCookie(Cookie.Response("session", "abc123", isHttpOnly = true))
+   * header.renderedValue // session=abc123; HTTPOnly
+   * }}}
+   */
   final case class SetCookie(value: zio.http.Cookie.Response) extends Header {
     override type Self = SetCookie
     override def self: Self                              = this
     override def headerType: HeaderType.Typed[SetCookie] = SetCookie
   }
 
+  /**
+   * The header type of `Set-Cookie`, named `set-cookie`: parses and renders
+   * `SetCookie` values.
+   */
   object SetCookie extends HeaderType {
     override type HeaderValue = SetCookie
 
     override def name: String = "set-cookie"
 
+    /**
+     * Parses a `Set-Cookie` value, such as `id=abc; Path=/; HttpOnly`, into a
+     * response cookie. Returns `Left` with a message that starts with
+     * `Invalid Cookie header: ` when decoding fails, for example for an empty
+     * value.
+     */
     def parse(value: String): Either[String, SetCookie] =
       zio.http.Cookie.Response.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) => Right(SetCookie(value))
       }
 
+    /**
+     * Renders the encoded response cookie with its attributes, or an empty
+     * string when encoding fails.
+     */
     def render(cookie: SetCookie): String =
       cookie.value.encode.getOrElse("")
   }
 
+  /**
+   * The `Retry-After` response header: how long the client should wait before
+   * its next request, either as a date (`ByDate`) or as a delay (`ByDuration`).
+   */
   sealed trait RetryAfter extends Header {
     override type Self = RetryAfter
     override def self: Self                               = this
@@ -3783,27 +5350,30 @@ object Header {
   }
 
   /**
-   * The RetryAfter HTTP header contains the date/time after which to retry
-   *
-   * RetryAfter: <Date>
-   *
-   * Date: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
-   *
-   * Example:
-   *
-   * Expires: Wed, 21 Oct 2015 07:28:00 GMT
-   *
-   * Or RetryAfter the delay seconds.
+   * The header type of `Retry-After`, named `retry-after`. The value is either
+   * an HTTP date, such as `Retry-After: Wed, 21 Oct 2015 07:28:00 GMT`, or a
+   * delay in seconds, such as `Retry-After: 120`.
    */
   object RetryAfter extends HeaderType {
     override type HeaderValue = RetryAfter
 
     override def name: String = "retry-after"
 
+    /** A `Retry-After` value that is a date and time. */
     final case class ByDate(date: ZonedDateTime) extends RetryAfter
 
+    /**
+     * A `Retry-After` value that is a delay. It is rendered in whole seconds.
+     */
     final case class ByDuration(delay: Duration) extends RetryAfter
 
+    /**
+     * Parses a `Retry-After` value: a non-negative whole number gives a
+     * `ByDuration` of that many seconds, and an RFC 1123 date such as
+     * `Wed, 21 Oct 2015 07:28:00 GMT` gives a `ByDate`. Returns
+     * `Left("Invalid RetryAfter")` otherwise, for example for a negative
+     * number.
+     */
     def parse(dateOrSeconds: String): Either[String, RetryAfter] =
       Try(dateOrSeconds.toLong) match {
         case Failure(_)     =>
@@ -3818,6 +5388,10 @@ object Header {
             Left("Invalid RetryAfter")
       }
 
+    /**
+     * Renders a `ByDate` as an RFC 1123 date and a `ByDuration` as its whole
+     * number of seconds.
+     */
     def render(retryAfter: RetryAfter): String =
       retryAfter match {
         case ByDate(date)         => DateEncoding.encodeDate(date)
@@ -3826,6 +5400,11 @@ object Header {
       }
   }
 
+  /**
+   * The `Sec-WebSocket-Accept` header that a server sends in the WebSocket
+   * opening handshake. `hashedKey` is the value derived from the client's
+   * `Sec-WebSocket-Key`.
+   */
   final case class SecWebSocketAccept(hashedKey: String) extends Header {
     override type Self = SecWebSocketAccept
     override def self: Self                                       = this
@@ -3846,14 +5425,24 @@ object Header {
 
     override def name: String = "sec-websocket-accept"
 
+    /**
+     * Keeps the value as it is. Returns
+     * `Left("Invalid Sec-WebSocket-Accept header")` when the value is empty or
+     * only whitespace.
+     */
     def parse(value: String): Either[String, SecWebSocketAccept] =
       if (value.trim.isEmpty) Left("Invalid Sec-WebSocket-Accept header")
       else Right(SecWebSocketAccept(value))
 
+    /** Renders `hashedKey` unchanged. */
     def render(secWebSocketAccept: SecWebSocketAccept): String =
       secWebSocketAccept.hashedKey
   }
 
+  /**
+   * The `Sec-WebSocket-Extensions` header: the WebSocket extensions, with their
+   * parameters, that the client offers or the server accepts.
+   */
   sealed trait SecWebSocketExtensions extends Header {
     override type Self = SecWebSocketExtensions
     override def self: Self                                           = this
@@ -3891,18 +5480,42 @@ object Header {
     //             ;after quoted-string unescaping MUST conform to the
     //             ;'token' ABNF.
 
+    /**
+     * One part of a WebSocket extension: its name, or a parameter with or
+     * without a value.
+     */
     sealed trait Extension
 
+    /** The two kinds of `Extension` part. */
     object Extension {
+
+      /** A part with a value, rendered as `name=value`. */
       final case class Parameter(name: String, value: String) extends Extension
 
+      /**
+       * A part without a value: an extension name or a parameter name, rendered
+       * as it is.
+       */
       final case class TokenParam(name: String) extends Extension
     }
 
+    /** One extension: its parts, rendered separated by `; `. */
     final case class Token(extension: Chunk[Extension]) extends SecWebSocketExtensions
 
+    /**
+     * A list of extensions, rendered separated by `, `. `parse` returns this
+     * case.
+     */
     final case class Extensions(extensions: Chunk[Token]) extends SecWebSocketExtensions
 
+    /**
+     * Parses a comma-separated list of extensions, each made of `;`-separated
+     * parts, into `Extensions`. In an extension with several parts, a part with
+     * `=` becomes a `Parameter`; an extension with one part becomes a
+     * `TokenParam`, even if it contains `=`. Returns
+     * `Left("Invalid Sec-WebSocket-Extensions header")` for an empty or blank
+     * value.
+     */
     def parse(value: String): Either[String, SecWebSocketExtensions] =
       if (value.trim().isEmpty) Left("Invalid Sec-WebSocket-Extensions header")
       else {
@@ -3927,6 +5540,10 @@ object Header {
         Right(Extensions(Chunk.fromArray(extensions)))
       }
 
+    /**
+     * Renders the extensions separated by `, ` and the parts of each extension
+     * separated by `; `.
+     */
     def render(secWebSocketExtensions: SecWebSocketExtensions): String =
       secWebSocketExtensions match {
         case Extensions(extensions)              =>
@@ -3946,6 +5563,10 @@ object Header {
 
   }
 
+  /**
+   * The `Sec-WebSocket-Key` header that a client sends in the WebSocket opening
+   * handshake: a Base64-encoded 16-byte value.
+   */
   final case class SecWebSocketKey(base64EncodedKey: String) extends Header {
     override type Self = SecWebSocketKey
     override def self: Self                                    = this
@@ -3968,6 +5589,10 @@ object Header {
 
     override def name: String = "sec-websocket-key"
 
+    /**
+     * Keeps the key when it is valid Base64 that decodes to 16 bytes. Returns
+     * `Left("Invalid Sec-WebSocket-Key header")` otherwise.
+     */
     def parse(key: String): Either[String, SecWebSocketKey] = {
       try {
         val decodedKey = java.util.Base64.getDecoder.decode(key)
@@ -3979,21 +5604,33 @@ object Header {
 
     }
 
+    /** Renders the Base64 key unchanged. */
     def render(secWebSocketKey: SecWebSocketKey): String =
       secWebSocketKey.base64EncodedKey
   }
 
+  /** The `Sec-WebSocket-Location` header: the URL of the WebSocket endpoint. */
   final case class SecWebSocketLocation(url: URL) extends Header {
     override type Self = SecWebSocketLocation
     override def self: Self                                         = this
     override def headerType: HeaderType.Typed[SecWebSocketLocation] = SecWebSocketLocation
   }
 
+  /**
+   * The header type of `Sec-WebSocket-Location`, named
+   * `sec-websocket-location`: parses and renders `SecWebSocketLocation` values.
+   */
   object SecWebSocketLocation extends HeaderType {
     override type HeaderValue = SecWebSocketLocation
 
     override def name: String = "sec-websocket-location"
 
+    /**
+     * Parses the value as a URL; a relative URL is accepted. Returns
+     * `Left("Invalid Sec-WebSocket-Location header: empty value")` for a blank
+     * value and `Left("Invalid Sec-WebSocket-Location header: invalid URL")`
+     * when it is not a valid URL.
+     */
     def parse(value: String): Either[String, SecWebSocketLocation] = {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Location header: empty value")
       else
@@ -4004,10 +5641,15 @@ object Header {
           .map(url => SecWebSocketLocation(url))
     }
 
+    /** Renders the encoded URL. */
     def render(secWebSocketLocation: SecWebSocketLocation): String =
       secWebSocketLocation.url.encode
   }
 
+  /**
+   * The `Sec-WebSocket-Origin` header: the origin of the script that opens the
+   * WebSocket connection.
+   */
   final case class SecWebSocketOrigin(url: URL) extends Header {
     override type Self = SecWebSocketOrigin
     override def self: Self                                       = this
@@ -4025,6 +5667,12 @@ object Header {
 
     override def name: String = "sec-websocket-origin"
 
+    /**
+     * Parses the value as a URL. Returns
+     * `Left("Invalid Sec-WebSocket-Origin header: empty value")` for a blank
+     * value and `Left("Invalid Sec-WebSocket-Origin header: invalid URL")` when
+     * it is not a valid URL.
+     */
     def parse(value: String): Either[String, SecWebSocketOrigin] = {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Origin header: empty value")
       else
@@ -4035,12 +5683,17 @@ object Header {
           .map(url => SecWebSocketOrigin(url))
     }
 
+    /** Renders the encoded URL. */
     def render(secWebSocketOrigin: SecWebSocketOrigin): String = {
       secWebSocketOrigin.url.encode
 
     }
   }
 
+  /**
+   * The `Sec-WebSocket-Protocol` header: the WebSocket subprotocols that the
+   * client offers, or the one that the server selects.
+   */
   final case class SecWebSocketProtocol(subProtocols: NonEmptyChunk[String]) extends Header {
     override type Self = SecWebSocketProtocol
     override def self: Self                                         = this
@@ -4062,6 +5715,11 @@ object Header {
 
     override def name: String = "sec-websocket-protocol"
 
+    /**
+     * Splits the value on commas and trims each subprotocol, dropping empty
+     * ones. Returns `Left("Invalid Sec-WebSocket-Protocol header")` when none
+     * is left.
+     */
     def parse(subProtocols: String): Either[String, SecWebSocketProtocol] = {
       NonEmptyChunk.fromChunk(Chunk.fromArray(subProtocols.split(",")).map(_.trim).filter(_.nonEmpty)) match {
         case Some(value) => Right(SecWebSocketProtocol(value))
@@ -4069,10 +5727,15 @@ object Header {
       }
     }
 
+    /** Renders the subprotocols separated by `, `. */
     def render(secWebSocketProtocol: SecWebSocketProtocol): String =
       secWebSocketProtocol.subProtocols.mkString(", ")
   }
 
+  /**
+   * The `Sec-WebSocket-Version` header: the WebSocket protocol version that the
+   * client wants to use.
+   */
   final case class SecWebSocketVersion(version: Int) extends Header {
     override type Self = SecWebSocketVersion
     override def self: Self                                        = this
@@ -4094,6 +5757,11 @@ object Header {
 
     // https://www.iana.org/assignments/websocket/websocket.xml#version-number
 
+    /**
+     * Parses a version number from 0 to 13. Returns
+     * `Left("Invalid Sec-WebSocket-Version header")` for another number or a
+     * value that is not a number.
+     */
     def parse(version: String): Either[String, SecWebSocketVersion] =
       try {
         val v = version.toInt
@@ -4103,6 +5771,7 @@ object Header {
         case NonFatal(_) => Left("Invalid Sec-WebSocket-Version header")
       }
 
+    /** Renders the version number. */
     def render(secWebSocketVersion: SecWebSocketVersion): String =
       secWebSocketVersion.version.toString
 
@@ -4117,11 +5786,19 @@ object Header {
     override def headerType: HeaderType.Typed[Server] = Server
   }
 
+  /**
+   * The header type of `Server`, named `server`: parses and renders `Server`
+   * values.
+   */
   object Server extends HeaderType {
     override type HeaderValue = Server
 
     override def name: String = "server"
 
+    /**
+     * Trims the value and keeps it as the server name. Returns
+     * `Left("Invalid Server header: empty value")` when nothing is left.
+     */
     def parse(value: String): Either[String, Server] = {
       val trimmedValue = value.trim
       if (trimmedValue.isEmpty)
@@ -4129,6 +5806,7 @@ object Header {
       else Right(Server(trimmedValue))
     }
 
+    /** Renders the server name. */
     def render(server: Server): String =
       server.name
   }
@@ -4151,11 +5829,23 @@ object Header {
     override def headerType: HeaderType.Typed[StrictTransportSecurity] = StrictTransportSecurity
   }
 
+  /**
+   * The header type of `Strict-Transport-Security`, named
+   * `strict-transport-security`: parses and renders `StrictTransportSecurity`
+   * values.
+   */
   object StrictTransportSecurity extends HeaderType {
     override type HeaderValue = StrictTransportSecurity
 
     override def name: String = "strict-transport-security"
 
+    /**
+     * Parses the `;`-separated directives, with directive names matched without
+     * regard to case. `max-age` must be present with a non-negative whole
+     * number; `includeSubDomains` and `preload` set their flags, and other
+     * directives are ignored. Returns
+     * `Left("Invalid Strict-Transport-Security header")` otherwise.
+     */
     def parse(value: String): Either[String, StrictTransportSecurity] = {
       val parts             = value.split(";").map(_.trim).filter(_.nonEmpty)
       var maxAge: Long      = -1
@@ -4186,6 +5876,10 @@ object Header {
         Left("Invalid Strict-Transport-Security header")
     }
 
+    /**
+     * Renders `max-age=` and the number of seconds, followed by
+     * `; includeSubDomains` and `; preload` when those flags are set.
+     */
     def render(sts: StrictTransportSecurity): String = {
       val sb = new StringBuilder
       sb.append("max-age=")
@@ -4195,13 +5889,24 @@ object Header {
       sb.toString
     }
   }
-  sealed trait Te                extends Header     {
+
+  /**
+   * The `TE` request header: the transfer codings the client accepts, each with
+   * an optional quality weight, and whether it accepts trailer fields.
+   */
+  sealed trait Te extends Header {
     override type Self = Te
     override def self: Self                       = this
     override def headerType: HeaderType.Typed[Te] = Te
+
+    /**
+     * The coding name, such as `gzip`. For `Multiple`, the `toString` of each
+     * entry joined with commas.
+     */
     def raw: String
   }
 
+  /** The header type of `TE`, named `te`: parses and renders `Te` values. */
   object Te extends HeaderType {
     override type HeaderValue = Te
 
@@ -4231,16 +5936,15 @@ object Header {
     }
 
     /**
-     * Indicates the identity function (that is, without modification or
-     * compression). This value is always considered as acceptable, even if
-     * omitted.
+     * The `trailers` keyword: the client accepts trailer fields in a chunked
+     * response. It has no weight.
      */
     case object Trailers extends Te {
       override def raw: String = "trailers"
     }
 
     /**
-     * Maintains a chunk of AcceptEncoding values.
+     * Several `TE` entries, rendered separated by `, `.
      */
     final case class Multiple(encodings: NonEmptyChunk[Te]) extends Te {
       override def raw: String = encodings.mkString(",")
@@ -4265,6 +5969,13 @@ object Header {
       }
     }
 
+    /**
+     * Parses a comma-separated list of `compress`, `deflate`, `gzip` and
+     * `trailers`, each optionally followed by a weight such as `;q=0.5`; the
+     * names are case-sensitive. One entry gives that value, several give
+     * `Multiple`. Returns `Left("Invalid TE header")` when any entry is not one
+     * of these.
+     */
     def parse(value: String): Either[String, Te] = {
       val index = value.indexOf(",")
 
@@ -4293,6 +6004,10 @@ object Header {
         }
     }
 
+    /**
+     * Renders each coding name, with a weight suffix such as `;q=0.5` when a
+     * weight is set, and separates the entries of `Multiple` with `, `.
+     */
     def render(encoding: Te): String = encoding match {
       case c @ Compress(weight) => weight.fold(c.raw)(value => s"${c.raw};q=$value")
       case d @ Deflate(weight)  => weight.fold(d.raw)(value => s"${d.raw};q=$value")
@@ -4310,6 +6025,10 @@ object Header {
     override def headerType: HeaderType.Typed[Trailer] = Trailer
   }
 
+  /**
+   * The header type of `Trailer`, named `trailer`: parses and renders `Trailer`
+   * values.
+   */
   object Trailer extends HeaderType {
     override type HeaderValue = Trailer
 
@@ -4317,23 +6036,42 @@ object Header {
 
     private val headerRegex = "([a-z-_]*)".r
 
+    /**
+     * Lower-cases the value and keeps it as the header name when it contains
+     * only letters, `-` and `_`; an empty value is accepted. Returns
+     * `Left("Invalid Trailer header")` otherwise.
+     */
     def parse(value: String): Either[String, Trailer] =
       value.toLowerCase match {
         case headerRegex(value) => Right(Trailer(value))
         case _                  => Left("Invalid Trailer header")
       }
 
+    /** Renders the header name. */
     def render(trailer: Trailer): String =
       trailer.header
   }
 
+  /**
+   * The `Transfer-Encoding` header: the codings applied to the message body to
+   * transfer it, such as `chunked` or `gzip`.
+   */
   sealed trait TransferEncoding extends Header {
     override type Self = TransferEncoding
     override def self: Self                                     = this
     override def headerType: HeaderType.Typed[TransferEncoding] = TransferEncoding
+
+    /**
+     * The coding name, such as `chunked`. For `Multiple`, the names joined with
+     * commas.
+     */
     val encoding: String
   }
 
+  /**
+   * The header type of `Transfer-Encoding`, named `transfer-encoding`: parses
+   * and renders `TransferEncoding` values.
+   */
   object TransferEncoding extends HeaderType {
     override type HeaderValue = TransferEncoding
 
@@ -4369,7 +6107,8 @@ object Header {
      * A format using the Lempel-Ziv coding (LZ77), with a 32-bit CRC. This is
      * the original format of the UNIX gzip program. The HTTP/1.1 standard also
      * recommends that the servers supporting this content-encoding should
-     * recognize x-gzip as an alias, for compatibility purposes.
+     * recognize x-gzip as an alias, for compatibility purposes. `parse` does
+     * not accept `x-gzip`.
      */
     case object GZip extends TransferEncoding {
       override val encoding: String = "gzip"
@@ -4393,13 +6132,10 @@ object Header {
     }
 
     /**
-     * @param value
-     *   of string , separated for multiple values
-     * @return
-     *   TransferEncoding
-     *
-     * Note: This implementation ignores the invalid string that might occur in
-     * MultipleEncodings case.
+     * Parses a comma-separated list of `chunked`, `compress`, `deflate` and
+     * `gzip` (case-sensitive). Entries with other names are dropped. One known
+     * entry gives that value, several give `Multiple`. Returns
+     * `Left("Empty TransferEncoding")` when no known entry is left.
      */
     def parse(value: String): Either[String, TransferEncoding] = {
       val encodings = Chunk.fromArray(value.split(",")).map(findEncoding).flatten
@@ -4412,25 +6148,49 @@ object Header {
       }
     }
 
+    /**
+     * Renders `encoding`: the coding name, or for `Multiple` the names joined
+     * with `,` and no space.
+     */
     def render(value: TransferEncoding): String = value.encoding
 
   }
 
+  /**
+   * The `Upgrade` header: the protocols that the sender wants to switch the
+   * connection to, such as `websocket`.
+   */
   sealed trait Upgrade extends Header {
     override type Self = Upgrade
     override def self: Self                            = this
     override def headerType: HeaderType.Typed[Upgrade] = Upgrade
   }
 
+  /**
+   * The header type of `Upgrade`, named `upgrade`: parses and renders `Upgrade`
+   * values.
+   */
   object Upgrade extends HeaderType {
     override type HeaderValue = Upgrade
 
     override def name: String = "upgrade"
 
+    /** Several protocols, rendered separated by `, `. */
     final case class Multiple(protocols: NonEmptyChunk[Protocol]) extends Upgrade
 
+    /**
+     * One protocol with its version, rendered as `protocol/version`.
+     * `Protocol("websocket", "")` renders as `websocket`.
+     */
     final case class Protocol(protocol: String, version: String) extends Upgrade
 
+    /**
+     * Parses a comma-separated list of `name/version` entries; `websocket`
+     * (lower case) is also accepted without a version. One entry gives a
+     * `Protocol`, several give `Multiple`. Returns
+     * `Left("Invalid Upgrade header")` when an entry has another shape, for
+     * example `h2c`.
+     */
     def parse(value: String): Either[String, Upgrade] = {
       NonEmptyChunk.fromChunk(Chunk.fromArray(value.split(",")).map(parseProtocol)) match {
         case None        => Left("Invalid Upgrade header")
@@ -4447,6 +6207,10 @@ object Header {
       }
     }
 
+    /**
+     * Renders each protocol as `protocol/version`, or `websocket` for the
+     * WebSocket protocol without a version, separated by `, `.
+     */
     def render(upgrade: Upgrade): String =
       upgrade match {
         case Multiple(protocols)         => protocols.map(render).mkString(", ")
@@ -4462,6 +6226,7 @@ object Header {
       }
   }
 
+  /** The `Upgrade-Insecure-Requests` request header, always rendered as `1`. */
   final case class UpgradeInsecureRequests() extends Header {
     override type Self = UpgradeInsecureRequests
     override def self: Self                                            = this
@@ -4478,14 +6243,31 @@ object Header {
 
     override def name: String = "upgrade-insecure-requests"
 
+    /**
+     * Accepts `1`, with surrounding whitespace allowed. Returns
+     * `Left("Invalid Upgrade-Insecure-Requests header")` otherwise.
+     */
     def parse(value: String): Either[String, UpgradeInsecureRequests] =
       if (value.trim == "1") Right(UpgradeInsecureRequests())
       else Left("Invalid Upgrade-Insecure-Requests header")
 
+    /** Renders `1`. */
     def render(upgradeInsecureRequests: UpgradeInsecureRequests): String =
       "1"
   }
 
+  /**
+   * The `User-Agent` request header: a first product with an optional version,
+   * followed by more products and comments.
+   *
+   * {{{
+   * val header = Header.UserAgent(Header.UserAgent.ProductOrComment.Product("zio-http", Some("3.12.0")))
+   * header.renderedValue // zio-http/3.12.0
+   *
+   * Header.UserAgent.parse("Mozilla/5.0 (X11; Linux x86_64) Firefox/42.0").map(_.parts)
+   * // Right(List(Comment(X11; Linux x86_64), Product(Firefox,Some(42.0))))
+   * }}}
+   */
   final case class UserAgent(
     product: UserAgent.ProductOrComment.Product,
     parts: List[UserAgent.ProductOrComment] = Nil,
@@ -4507,10 +6289,24 @@ object Header {
 
     override def name: String = "user-agent"
 
+    /**
+     * A part of a `User-Agent` value: a product token or a comment in
+     * parentheses.
+     */
     sealed trait ProductOrComment
+
+    /** The two kinds of `User-Agent` part. */
     object ProductOrComment {
+
+      /**
+       * A product, rendered as `name/version`, or `name` when there is no
+       * version.
+       */
       final case class Product(name: String, version: Option[String]) extends ProductOrComment
 
+      /**
+       * A comment, stored without its parentheses and rendered as `(comment)`.
+       */
       final case class Comment(comment: String) extends ProductOrComment
     }
 
@@ -4532,6 +6328,12 @@ object Header {
       isValid && balance == 0
     }
 
+    /**
+     * Parses a product, such as `Mozilla/5.0`, followed by products and
+     * parenthesized comments. Returns `Left("Invalid User-Agent header")` when
+     * the value does not start with a product or its parentheses are not
+     * balanced.
+     */
     def parse(userAgent: String): Either[String, UserAgent] = {
       userAgent match {
         case productRegex(name, version, tail) if hasBalancedParentheses(tail) =>
@@ -4546,6 +6348,7 @@ object Header {
       }
     }
 
+    /** Renders the product followed by the other parts, separated by spaces. */
     def render(userAgent: UserAgent): String =
       (userAgent.product :: userAgent.parts).map(fromProductOrComment).mkString(" ")
 
@@ -4565,17 +6368,28 @@ object Header {
     override def headerType: HeaderType.Typed[Vary] = Vary
   }
 
+  /**
+   * The header type of `Vary`, named `vary`: parses and renders `Vary` values.
+   */
   object Vary extends HeaderType {
     override type HeaderValue = Vary
 
     override def name: String = "vary"
 
+    /** The names of the request headers that the response varies on. */
     case class Headers(headers: NonEmptyChunk[String]) extends Vary
 
+    /** The value `*`: the response varies on more than request headers. */
     case object Star extends Vary
 
+    /** Creates a `Vary` value that lists these header names. */
     def apply(first: String, rest: String*): Vary = Headers(NonEmptyChunk(first, rest: _*))
 
+    /**
+     * Lower-cases the value and splits it on commas and spaces. A lone `*`
+     * gives `Star`, other values give `Headers`. Returns
+     * `Left("Invalid Vary header")` for an empty value.
+     */
     def parse(value: String): Either[String, Vary] = {
       Chunk.fromArray(value.toLowerCase().split("[, ]+")) match {
         case Chunk("*")              => Right(Star)
@@ -4588,6 +6402,7 @@ object Header {
       }
     }
 
+    /** Renders `*` for `Star`, or the header names separated by `, `. */
     def render(vary: Vary): String = {
       vary match {
         case Star          => "*"
@@ -4596,6 +6411,10 @@ object Header {
     }
   }
 
+  /**
+   * The `Via` header: the proxies that the message passed through, each with
+   * the protocol it was received with and an optional comment.
+   */
   sealed trait Via extends Header {
     override type Self = Via
     override def self: Self                        = this
@@ -4613,18 +6432,38 @@ object Header {
 
     override def name: String = "via"
 
+    /**
+     * The protocol a proxy received the message with: a version alone, or a
+     * protocol name and version.
+     */
     sealed trait ReceivedProtocol
 
+    /** The two forms of `ReceivedProtocol`. */
     object ReceivedProtocol {
+
+      /** A version without a protocol name, such as `1.1`. */
       final case class Version(version: String) extends ReceivedProtocol
 
+      /** A protocol name with a version, such as `HTTP/1.1`. */
       final case class ProtocolVersion(protocol: String, version: String) extends ReceivedProtocol
     }
 
+    /**
+     * One proxy entry: the received protocol, the host or pseudonym of the
+     * proxy, and an optional comment. The comment is kept with its parentheses.
+     */
     final case class Detailed(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String]) extends Via
 
+    /** Several proxy entries, rendered separated by `, `. */
     final case class Multiple(values: NonEmptyChunk[Via]) extends Via
 
+    /**
+     * Parses a comma-separated list of entries, each made of two or three
+     * space-separated parts: the received protocol, the receiver and an
+     * optional comment without spaces. One entry gives `Detailed`, several give
+     * `Multiple`. Returns `Left("Invalid Via header")`, or
+     * `Left("Invalid received protocol")`, when an entry has another shape.
+     */
     def parse(values: String): Either[String, Via] = {
       val viaValues = Chunk.fromArray(values.split(",")).map(_.trim).map { value =>
         Chunk.fromArray(value.split(" ")) match {
@@ -4656,6 +6495,11 @@ object Header {
       }
     }
 
+    /**
+     * Renders each entry as the received protocol, the receiver and the
+     * comment, separated by spaces, and separates the entries with `, `. An
+     * entry without a comment ends with a space.
+     */
     def render(via: Via): String =
       via match {
         case Multiple(values)                                =>
@@ -4680,19 +6524,36 @@ object Header {
 
   }
 
+  /**
+   * The `WWW-Authenticate` response header: the authentication scheme, and its
+   * parameters, that the client must use to get access to a resource.
+   */
   sealed trait WWWAuthenticate extends Header {
     override type Self = WWWAuthenticate
     override def self: Self                                    = this
     override def headerType: HeaderType.Typed[WWWAuthenticate] = WWWAuthenticate
   }
 
+  /**
+   * The header type of `WWW-Authenticate`, named `www-authenticate`: parses and
+   * renders `WWWAuthenticate` values.
+   */
   object WWWAuthenticate extends HeaderType {
     override type HeaderValue = WWWAuthenticate
 
     override def name: String = "www-authenticate"
 
+    /**
+     * A challenge of the `Basic` scheme, with an optional realm and a charset
+     * (`UTF-8` by default). `render` writes the charset as a parameter named
+     * after its own value, for example `UTF-8="UTF-8"`.
+     */
     final case class Basic(realm: Option[String] = None, charset: String = "UTF-8") extends WWWAuthenticate
 
+    /**
+     * A challenge of the `Bearer` scheme. `parse` reads `error_description`
+     * into `errorDescription` and fails when `realm` is missing.
+     */
     final case class Bearer(
       realm: String,
       scope: Option[String] = None,
@@ -4700,6 +6561,10 @@ object Header {
       errorDescription: Option[String] = None,
     ) extends WWWAuthenticate
 
+    /**
+     * A challenge of the `Digest` scheme. `render` writes `stale` and
+     * `userhash` as `false` when they are not set.
+     */
     final case class Digest(
       realm: Option[String],
       domain: Option[String] = None,
@@ -4712,18 +6577,31 @@ object Header {
       userhash: Option[Boolean] = None,
     ) extends WWWAuthenticate
 
+    /**
+     * A challenge of the `HOBA` scheme. `maxAge` is the `max_age` parameter.
+     */
     final case class HOBA(realm: Option[String], challenge: String, maxAge: Int) extends WWWAuthenticate
 
+    /** A challenge of the `Mutual` scheme. */
     final case class Mutual(realm: String, error: Option[String] = None, errorDescription: Option[String] = None) extends WWWAuthenticate
 
+    /**
+     * A challenge of the `Negotiate` scheme. `authData` is the text after the
+     * scheme name, kept as it is.
+     */
     final case class Negotiate(authData: Option[String] = None) extends WWWAuthenticate
 
+    /** A challenge of the `SCRAM` scheme. */
     final case class SCRAM(
       realm: String,
       sid: String,
       data: String,
     ) extends WWWAuthenticate
 
+    /**
+     * A challenge of the `AWS4-HMAC-SHA256` scheme. `parse` does not produce
+     * it, because it reads only a scheme name made of letters, digits and `_`.
+     */
     final case class `AWS4-HMAC-SHA256`(
       realm: String,
       credentials: Option[String] = None,
@@ -4731,12 +6609,25 @@ object Header {
       signature: String,
     ) extends WWWAuthenticate
 
+    /**
+     * A challenge of a scheme without its own case, such as `OAuth`, with all
+     * of its parameters. `parse` produces it for `OAuth` and `vapid` challenges
+     * that have a `realm`.
+     */
     final case class Unknown(scheme: String, realm: String, params: Map[String, String]) extends WWWAuthenticate
 
     private val challengeRegEx  = """(\w+) (.*)""".r
     private val auth            = """(\w+)=(?:"([^"]+)"|([^,]+))""".r
     private val nonQuotedValues = Set("max_age", "stale", "userhash", "algorithm", "charset")
 
+    /**
+     * Parses a challenge such as `Bearer realm="api", scope="read"`: a scheme
+     * name, a space, and comma-separated `key=value` or `key="value"`
+     * parameters. The scheme name is matched without regard to case. Returns
+     * `Left("Invalid WWW-Authenticate header")` when the shape is wrong or a
+     * required parameter is missing, and `Left` with a message that starts with
+     * `Unsupported authentication scheme: ` for an unknown scheme.
+     */
     def parse(value: String): Either[String, WWWAuthenticate] =
       Try {
         val challengeRegEx(scheme, challenge) = value: @unchecked
@@ -4806,6 +6697,12 @@ object Header {
         case Left(value)  => Left(value)
       }
 
+    /**
+     * Renders the scheme name followed by the non-empty parameters as
+     * `key="value"`, separated by `, `. The parameters `max_age`, `stale`,
+     * `userhash`, `algorithm` and `charset` are written without quotes, and
+     * `Negotiate` data is written as it is.
+     */
     def render(wwwAuthenticate: WWWAuthenticate): String = {
       val (scheme, params) = wwwAuthenticate match {
         case Basic(realm, charset)                                                          =>
@@ -4872,21 +6769,38 @@ object Header {
     }
   }
 
+  /**
+   * The `X-Frame-Options` response header: whether a browser may show the page
+   * in a frame (`Deny` or `SameOrigin`).
+   */
   sealed trait XFrameOptions extends Header {
     override type Self = XFrameOptions
     override def self: Self                                  = this
     override def headerType: HeaderType.Typed[XFrameOptions] = XFrameOptions
   }
 
+  /**
+   * The header type of `X-Frame-Options`, named `x-frame-options`: parses and
+   * renders `XFrameOptions` values.
+   */
   object XFrameOptions extends HeaderType {
     override type HeaderValue = XFrameOptions
 
     override def name: String = "x-frame-options"
 
+    /** The page must not be shown in a frame. Rendered as `DENY`. */
     case object Deny extends XFrameOptions
 
+    /**
+     * The page may be shown in a frame on the same origin only. Rendered as
+     * `SAMEORIGIN`.
+     */
     case object SameOrigin extends XFrameOptions
 
+    /**
+     * Parses `DENY` or `SAMEORIGIN`, trimmed and without regard to case.
+     * Returns `Left("Invalid X-Frame-Options header")` otherwise.
+     */
     def parse(value: String): Either[String, XFrameOptions] = {
       value.trim.toUpperCase match {
         case "DENY"       => Right(Deny)
@@ -4895,6 +6809,7 @@ object Header {
       }
     }
 
+    /** Renders `DENY` or `SAMEORIGIN`. */
     def render(xFrameOptions: XFrameOptions): String =
       xFrameOptions match {
         case Deny       => "DENY"
@@ -4903,19 +6818,29 @@ object Header {
 
   }
 
+  /**
+   * The `X-Requested-With` request header, such as `XMLHttpRequest`, which some
+   * clients send to mark script-made requests.
+   */
   final case class XRequestedWith(value: String) extends Header {
     override type Self = XRequestedWith
     override def self: Self                                   = this
     override def headerType: HeaderType.Typed[XRequestedWith] = XRequestedWith
   }
 
+  /**
+   * The header type of `X-Requested-With`, named `x-requested-with`: parses and
+   * renders `XRequestedWith` values.
+   */
   object XRequestedWith extends HeaderType {
     override type HeaderValue = XRequestedWith
     override def name: String = "x-requested-with"
 
+    /** Keeps any value unchanged; it never fails. */
     def parse(value: String): Either[String, XRequestedWith] =
       Right(XRequestedWith(value))
 
+    /** Renders the value unchanged. */
     def render(xRequestedWith: XRequestedWith): String =
       xRequestedWith.value
   }
