@@ -380,9 +380,9 @@ object JsonSchema {
   /**
    * The `Schema` that reads and writes a [[JsonSchema]] as JSON Schema
    * keywords. Decoding throws a `java.lang.IllegalArgumentException` (`Can't
-   * convert ...`) instead of returning a `Left` for a `type` list, such as the
-   * `["string","null"]` that `nullable(true)` writes, and for an unknown
-   * `type`, such as `"foo"`.
+   * convert ...`) instead of returning a `Left` for a `type` list without an
+   * `enum`, such as the `["string","null"]` that `nullable(true)` writes on a
+   * `String`, and for an unknown `type`, such as `"foo"`.
    */
   implicit val schema: Schema[JsonSchema] =
     SerializableJsonSchema.schema.transform[JsonSchema](JsonSchema.fromSerializableSchema, _.toSerializableSchema)
@@ -629,8 +629,8 @@ object JsonSchema {
     /**
      * The `Schema` that reads and writes a [[JsonSchemaRoot]], with the
      * children under `\$defs`. Decoding throws a
-     * `java.lang.IllegalArgumentException` for a `type` list, such as the one
-     * that an optional field writes.
+     * `java.lang.IllegalArgumentException` for a `type` list without an `enum`,
+     * such as the one that an optional field writes.
      */
     implicit val schema: Schema[JsonSchemaRoot] =
       SerializableJsonSchema.schema
@@ -906,9 +906,13 @@ object JsonSchema {
    * Converts a ZIO `Schema` to a [[JsonSchema]]. With `SchemaStyle.Inline` the
    * schemas of nested records and enums are written in place; with `Compact` or
    * `Reference` a named record or enum, the root included, becomes a
-   * `RefSchema`, such as `{"\$ref":"#/components/schemas/Customer"}`. An
-   * `Option` becomes a nullable schema. A `Schema.Fail` throws a
-   * `java.lang.IllegalArgumentException` (`Fail schema is not supported.`).
+   * `RefSchema`, such as `{"\$ref":"#/components/schemas/Customer"}`. With
+   * `Compact` or `Reference` an `Option` becomes a nullable schema. With
+   * `Inline` only an `Option` field of a record does; an `Option` at the root
+   * or inside a collection is written as its element schema, so
+   * `Schema[Option[Int]]` gives `{"type":"integer","format":"int32"}`. A
+   * `Schema.Fail` throws a `java.lang.IllegalArgumentException` (`Fail schema
+   * is not supported.`).
    */
   def fromZSchema(schema: Schema[_], refType: SchemaRef): JsonSchema =
     if (refType.style == SchemaStyle.Inline) {
@@ -1156,9 +1160,10 @@ object JsonSchema {
   }
 
   /**
-   * How `fromZSchema` and `fromZSchemaMultiple` handle named records and enums:
-   * write them in place (`Inline`), or refer to them by a name built from the
-   * full type path (`Reference`) or from the type name (`Compact`).
+   * How `fromZSchema` and `fromZSchemaMultiple` name records and enums: no
+   * reference name (`Inline`), a name built from the full type path
+   * (`Reference`), or one built from the type name (`Compact`). With `Inline`,
+   * `fromZSchema` writes them in place.
    */
   sealed trait SchemaStyle extends Product with Serializable
 
