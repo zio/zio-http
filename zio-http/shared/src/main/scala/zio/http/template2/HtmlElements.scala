@@ -107,17 +107,17 @@ trait HtmlElements {
   val footer: Dom.Element        = Dom.element("footer")
   /** Returns an element with the tag `<form>` (a form). Call it with attributes and children to fill it. */
   val form: Dom.Element          = Dom.element("form")
-  /** Returns an element with the tag `<h1>` (a level 1 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h1` (a level 1 heading). Call it with attributes and children to fill it. */
   val h1: Dom.Element            = Dom.element("h1")
-  /** Returns an element with the tag `<h2>` (a level 2 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h2` (a level 2 heading). Call it with attributes and children to fill it. */
   val h2: Dom.Element            = Dom.element("h2")
-  /** Returns an element with the tag `<h3>` (a level 3 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h3` (a level 3 heading). Call it with attributes and children to fill it. */
   val h3: Dom.Element            = Dom.element("h3")
-  /** Returns an element with the tag `<h4>` (a level 4 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h4` (a level 4 heading). Call it with attributes and children to fill it. */
   val h4: Dom.Element            = Dom.element("h4")
-  /** Returns an element with the tag `<h5>` (a level 5 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h5` (a level 5 heading). Call it with attributes and children to fill it. */
   val h5: Dom.Element            = Dom.element("h5")
-  /** Returns an element with the tag `<h6>` (a level 6 heading). Call it with attributes and children to fill it. */
+  /** Returns an element with the tag `h6` (a level 6 heading). Call it with attributes and children to fill it. */
   val h6: Dom.Element            = Dom.element("h6")
   /** Returns an element with the tag `<head>` (the document head). Call it with attributes and children to fill it. */
   val head: Dom.Element          = Dom.element("head")
