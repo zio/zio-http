@@ -18,4 +18,8 @@ package zio.http.endpoint
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+/**
+ * The failure of an [[EndpointLocator]] that cannot locate `api`. `message` is
+ * the exception message.
+ */
 final case class EndpointNotFound(message: String, api: Endpoint[_, _, _, _, _]) extends Exception(message)
