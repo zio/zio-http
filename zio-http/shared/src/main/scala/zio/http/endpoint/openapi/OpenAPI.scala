@@ -1880,18 +1880,31 @@ object OpenAPI {
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
+  /**
+   * A security scheme declared in the document (the Security Scheme Object): an
+   * API key (`ApiKey`), HTTP authentication (`Http`), OAuth 2 (`OAuth2`) or
+   * OpenID Connect (`OpenIdConnect`).
+   */
   @discriminatorName("type")
   sealed trait SecurityScheme {
+
+    /** A short description of the security scheme. */
     def description: Option[Doc]
   }
 
+  /** The cases of `SecurityScheme`, and the types they use. */
   object SecurityScheme {
 
+    /**
+     * The schema of `SecurityScheme`. It writes the case in a `type` field:
+     * `apiKey`, `http`, `oauth2` or `openIdConnect`.
+     */
     implicit val schema: Schema[SecurityScheme] =
       DeriveSchema.gen[SecurityScheme]
 
     /**
-     * Defines an HTTP security scheme that can be used by the operations.
+     * An API key security scheme (`type` `apiKey`), with the name and location
+     * of the key.
      *
      * @param description
      *   A short description for security scheme.
@@ -1903,10 +1916,20 @@ object OpenAPI {
     @caseName("apiKey")
     final case class ApiKey(description: Option[Doc], name: String, in: ApiKey.In) extends SecurityScheme
 
+    /** The companion of `ApiKey`, with the key locations `In`. */
     object ApiKey {
+
+      /** The location of an API key: `Query`, `Header` or `Cookie`. */
       sealed trait In extends Product with Serializable
 
+      /** The three locations of an API key. */
       object In {
+
+        /**
+         * The schema of `In`: the location as `query`, `header` or `cookie`.
+         * Decoding ignores case, so `HEADER` reads as `Header`. Another string
+         * fails, for example with `Invalid ApiKey.In body` for `body`.
+         */
         implicit val schema: Schema[In] =
           Schema[String]
             .transformOrFail(
@@ -1924,15 +1947,21 @@ object OpenAPI {
               },
             )
 
+        /** A query parameter, written as `query`. */
         case object Query extends In
 
+        /** A request header, written as `header`. */
         case object Header extends In
 
+        /** A cookie, written as `cookie`. */
         case object Cookie extends In
       }
     }
 
     /**
+     * An HTTP authentication security scheme (`type` `http`), such as basic or
+     * bearer authentication.
+     *
      * @param description
      *   A short description for security scheme.
      * @param scheme
@@ -1948,6 +1977,8 @@ object OpenAPI {
     final case class Http(description: Option[Doc], scheme: String, bearerFormat: Option[String]) extends SecurityScheme
 
     /**
+     * An OAuth 2 security scheme (`type` `oauth2`), with its flows.
+     *
      * @param description
      *   A short description for security scheme.
      * @param flows
@@ -1958,6 +1989,8 @@ object OpenAPI {
     final case class OAuth2(description: Option[Doc], flows: OAuthFlows) extends SecurityScheme
 
     /**
+     * An OpenID Connect security scheme (`type` `openIdConnect`).
+     *
      * @param description
      *   A short description for security scheme.
      * @param openIdConnectUrl
@@ -1987,12 +2020,26 @@ object OpenAPI {
       authorizationCode: Option[OAuthFlow.AuthorizationCode],
     )
 
+    /**
+     * The settings shared by the OAuth flows of `OAuthFlows`: an optional
+     * refresh URL and the available scopes.
+     */
     sealed trait OAuthFlow {
+
+      /** The URL to be used for obtaining refresh tokens, if any. */
       def refreshUrl: Option[URI]
 
+      /**
+       * The available scopes, as a map from each scope name to a short
+       * description. The map may be empty.
+       */
       def scopes: Map[String, String]
     }
 
+    /**
+     * The four OAuth flows: `Implicit`, `AuthorizationCode`, `Password` and
+     * `ClientCredentials`.
+     */
     object OAuthFlow {
 
       /**
@@ -2083,11 +2130,24 @@ object OpenAPI {
     final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
   }
 
+  /**
+   * Specification extensions of an object, keyed without the `x-` prefix. The
+   * schemas of `Info`, `PathItem`, `Operation`, `Parameter`, `Response` and
+   * `Tag` write each entry as a field named `x-` followed by the key.
+   */
   final case class Extensions(underlying: Map[String, Json]) {
+
+    /**
+     * Combines two sets of extensions. For a key in both, the value of `other`
+     * is kept.
+     */
     def ++(other: Extensions): Extensions = Extensions(underlying ++ other.underlying)
   }
 
+  /** The companion of `Extensions`, with `empty`. */
   object Extensions {
+
+    /** No extensions. */
     val empty = Extensions(Map.empty)
   }
 }
