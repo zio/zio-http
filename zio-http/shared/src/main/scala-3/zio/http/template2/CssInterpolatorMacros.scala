@@ -19,9 +19,13 @@ package zio.http.template2
 import scala.quoted.*
 
 /**
- * Macro implementations for CSS interpolation (Scala 3.x)
+ * Macro implementations of the `css` and `selector` string interpolators.
  */
 object CssInterpolatorMacros {
+
+  /**
+   * Expands a `css` interpolation to `Css.apply` of the `s`-interpolated string. When the string has no arguments, it first checks the text and reports a compile error with the message `Invalid CSS syntax:` followed by the text when the check fails.
+   */
   def cssImpl(args: Expr[Seq[Any]], sc: Expr[StringContext])(using Quotes): Expr[Css] = {
     import quotes.reflect.*
 
@@ -49,6 +53,9 @@ object CssInterpolatorMacros {
     '{ Css.apply($sc.s($args: _*)) }
   }
 
+  /**
+   * Expands a `selector` interpolation to `CssSelector.raw` of the `s`-interpolated string. When the string has no arguments, it first checks the text and reports a compile error with the message `Invalid CSS selector syntax:` followed by the text when the check fails.
+   */
   def selectorImpl(args: Expr[Seq[Any]], sc: Expr[StringContext])(using Quotes): Expr[CssSelector] = {
     import quotes.reflect.*
 
