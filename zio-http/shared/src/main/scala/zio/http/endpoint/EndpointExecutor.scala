@@ -209,7 +209,9 @@ object EndpointExecutor {
    * A layer that builds an executor from the `Client` in the environment and
    * the base URL at the key `url` nested under `serviceName` in the
    * configuration, using `authProvider` for credentials. Fails with a
-   * `zio.Config.Error` when the configuration is missing or invalid.
+   * `zio.Config.Error` when the configuration is missing or invalid. A valid
+   * URI that is not a valid URL, such as `mailto:someone@example.com`, makes
+   * the layer die with a `java.lang.RuntimeException` instead.
    */
   @nowarn("msg=deprecated")
   def make[R: Tag, Auth: Tag](serviceName: String, authProvider: URIO[R, Auth])(implicit
@@ -226,7 +228,9 @@ object EndpointExecutor {
    * A layer that builds an executor without credentials from the `Client` in
    * the environment and the base URL at the key `url` nested under
    * `serviceName` in the configuration. Fails with a `zio.Config.Error` when
-   * the configuration is missing or invalid.
+   * the configuration is missing or invalid. A valid URI that is not a valid
+   * URL, such as `mailto:someone@example.com`, makes the layer die with a
+   * `java.lang.RuntimeException` instead.
    */
   @nowarn("msg=deprecated")
   def make(

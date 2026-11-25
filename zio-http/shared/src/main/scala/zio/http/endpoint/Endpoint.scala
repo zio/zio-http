@@ -38,8 +38,9 @@ import zio.http.internal.StringBuilderPool
  * the request input it reads (path parameters, query parameters, headers and
  * body), the output and error types it writes in the response, its
  * authentication type and its documentation. `Endpoint(route)` creates one, and
- * builder methods such as `query`, `header`, `in`, `out`, `outError` and `auth`
- * each return a new endpoint with one more part.
+ * builder methods such as `query`, `header`, `in`, `out` and `outError` each
+ * return a new endpoint with one more part, and `auth` returns one with a new
+ * authentication type.
  *
  * The type parameters are the type of the path parameters (`PathInput`), the
  * type of the whole request input (`Input`), the error type (`Err`), the output
@@ -458,8 +459,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
   /**
    * Converts this endpoint into a server [[zio.http.Route]] that decodes each
    * request into `Input`, runs `f`, and encodes its success with the output
-   * codec and its failure with the error codec. A request that fails to decode
-   * gets status 400 Bad Request with a body that names the problem.
+   * codec and its failure with the error codec. A request whose input fails to
+   * decode, such as one with a missing query parameter, gets status 400 Bad
+   * Request with a body that names the problem.
    */
   def implement[Env](f: Input => ZIO[Env, Err, Output])(implicit
     trace: Trace,
@@ -544,9 +546,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Auth <: AuthType](
    * For each request, the route tries the input alternatives in order, decodes
    * the request together with the credentials of the auth type, runs
    * `original`, and encodes the result in a media type chosen from the `Accept`
-   * header and the media types the codec supports. Decoding failures are
-   * encoded with the codec error codec (by default status 400 Bad Request and a
-   * JSON body).
+   * header and the media types the codec supports. Input decoding failures,
+   * such as a missing query parameter, are encoded with the codec error codec
+   * (by default status 400 Bad Request and a JSON body).
    */
   def implementHandler[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     import HttpCodecError.asHttpCodecError
