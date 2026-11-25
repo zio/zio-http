@@ -50,6 +50,7 @@ final case class Signal[A](
     name.ref
   }
 
+  /** The same as `ref`, so it throws in the same way for a non-primitive schema. */
   override def toString: String = ref
 
   /**
@@ -131,7 +132,11 @@ object Signal {
       Signal(Schema[A], SignalName(path :+ name, caseModifier))
   }
 
-  /** Converts a signal to `Js` that holds its reference. */
+  /**
+   * Converts a signal to `Js` that holds its reference. Throws a
+   * `java.lang.RuntimeException` when the schema of the signal is not a
+   * primitive, as `Signal#ref` does.
+   */
   implicit def signalToJs[A](signal: Signal[A]): Js = js"$signal"
 }
 

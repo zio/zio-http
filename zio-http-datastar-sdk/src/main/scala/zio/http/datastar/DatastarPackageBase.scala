@@ -456,7 +456,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B](a: ValueOrSignal[A], b: ValueOrSignal[B])(implicit
       ev: (A, B) <:< PathInput,
@@ -483,7 +485,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C](
       a: ValueOrSignal[A],
@@ -516,7 +520,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D](
       a: ValueOrSignal[A],
@@ -551,7 +557,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E](
       a: ValueOrSignal[A],
@@ -588,7 +596,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F](
       a: ValueOrSignal[A],
@@ -627,7 +637,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G](
       a: ValueOrSignal[A],
@@ -668,7 +680,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H](
       a: ValueOrSignal[A],
@@ -711,7 +725,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I](
       a: ValueOrSignal[A],
@@ -758,7 +774,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J](
       a: ValueOrSignal[A],
@@ -807,7 +825,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K](
       a: ValueOrSignal[A],
@@ -858,7 +878,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L](
       a: ValueOrSignal[A],
@@ -911,7 +933,9 @@ trait DatastarPackageBase extends Attributes {
      * a signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M](
       a: ValueOrSignal[A],
@@ -966,7 +990,9 @@ trait DatastarPackageBase extends Attributes {
      * a signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
       a: ValueOrSignal[A],
@@ -1023,7 +1049,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
       a: ValueOrSignal[A],
@@ -1082,7 +1110,9 @@ trait DatastarPackageBase extends Attributes {
      * signal is written into the path as its reference, for example
      * `/users/\$uid`. Throws a `java.lang.IllegalArgumentException` when the
      * values cannot be encoded into the path, or when a segment has a
-     * transformation and its argument is a signal.
+     * transformation and its argument is a signal. When a signal is among the
+     * arguments and the path ends in a trailing segment, that segment's
+     * argument is not written; the path keeps `...` in its place.
      */
     def datastarRequest[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
       a: ValueOrSignal[A],
@@ -1171,6 +1201,7 @@ trait DatastarPackageBase extends Attributes {
    *
    * {{{
    * import zio.http._
+   * import zio.http.datastar._
    * import zio.http.template2._
    *
    * val routes = Routes(Method.GET / "clock" -> events {

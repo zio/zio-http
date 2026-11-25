@@ -142,6 +142,8 @@ object DatastarEvent {
    * Returns an event that runs a script in the browser. The event is an element
    * patch that appends a `script` element to the `body`. `script0` is the
    * JavaScript source.
+   *
+   * The element gets the attribute `data-effect="el.remove()"`.
    */
   def executeScript(script0: Js): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions.default)
@@ -222,6 +224,8 @@ object DatastarEvent {
    * Returns an event that runs a script in the browser. The event is an element
    * patch that appends a `script` element to the `body`. `script0` is the
    * JavaScript source.
+   *
+   * The element gets the attribute `data-effect="el.remove()"`.
    */
   def executeScript(script0: String): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions.default)
@@ -302,6 +306,8 @@ object DatastarEvent {
    * Returns an event that runs a script in the browser. The event is an element
    * patch that appends a `script` element to the `body`. `script0` is the
    * `script` element to send.
+   *
+   * The element gets the attribute `data-effect="el.remove()"`.
    */
   def executeScript(script0: Dom.Element.Script): ExecuteScript =
     executeScript(script0, ExecuteScriptOptions.default)

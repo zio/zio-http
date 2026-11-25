@@ -11,9 +11,11 @@ import zio.http.template2.Dom.AttributeValue
 import zio.http.template2._
 
 /**
- * Builders for the Datastar `data-*` attributes. Each method returns a value
- * that renders as an HTML attribute whose name starts with the package prefix,
- * which is `data` in the `zio.http.datastar` package object.
+ * Builders for the Datastar `data-*` attributes. A method that is complete
+ * returns an attribute; the others return a partial value that renders only
+ * after `apply` or `:=` is called on it. The attribute name starts with the
+ * package prefix, which is `data` in the `zio.http.datastar` package object and
+ * `data-star` in `zio.http.datastar.aliased`.
  */
 trait Attributes {
   self: DatastarPackageBase =>
@@ -381,7 +383,8 @@ object Attributes {
   /**
    * The `data-signals` attribute before a signal is chosen. `:=` with an
    * expression renders `data-signals` and `caseModifier` converts signal names
-   * given as strings.
+   * given as strings. The `ifMissing` field is not used by `:=` or `apply`, so
+   * the attributes they return never have `__if-missing`.
    */
   final case class PartialSignalsAttr(
     prefix: String,
@@ -465,28 +468,32 @@ object Attributes {
 
     /**
      * Returns a copy that uses camel case for the signal name. Camel case is
-     * the default, so the rendered attribute has no `__case` suffix.
+     * the default, so the rendered attribute has no `__case` suffix; it still
+     * ends in `__if-missing` when `ifMissing` is `true`.
      */
     def camel: SignalsAttr[A] =
       copy(caseModifier = CaseModifier.Camel, signal = signal.caseModifier(CaseModifier.Camel))
 
     /**
      * Returns a copy that uses kebab case for the signal name. The rendered
-     * attribute ends in `__case.kebab`.
+     * attribute has the `__case.kebab` suffix, followed by `__if-missing` when
+     * `ifMissing` is `true`.
      */
     def kebab: SignalsAttr[A] =
       copy(caseModifier = CaseModifier.Kebab, signal = signal.caseModifier(CaseModifier.Kebab))
 
     /**
      * Returns a copy that uses snake case for the signal name. The rendered
-     * attribute ends in `__case.snake`.
+     * attribute has the `__case.snake` suffix, followed by `__if-missing` when
+     * `ifMissing` is `true`.
      */
     def snake: SignalsAttr[A] =
       copy(caseModifier = CaseModifier.Snake, signal = signal.caseModifier(CaseModifier.Snake))
 
     /**
      * Returns a copy that uses pascal case for the signal name. The rendered
-     * attribute ends in `__case.pascal`.
+     * attribute has the `__case.pascal` suffix, followed by `__if-missing` when
+     * `ifMissing` is `true`.
      */
     def pascal: SignalsAttr[A] =
       copy(caseModifier = CaseModifier.Pascal, signal = signal.caseModifier(CaseModifier.Pascal))
@@ -527,19 +534,19 @@ object Attributes {
 
     /**
      * Returns a copy that converts signal names given as strings to kebab case.
-     * The rendered attribute ends in `__case.kebab`.
+     * A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def kebab: PartialDataIndicator = copy(caseModifier = CaseModifier.Kebab)
 
     /**
      * Returns a copy that converts signal names given as strings to snake case.
-     * The rendered attribute ends in `__case.snake`.
+     * A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def snake: PartialDataIndicator = copy(caseModifier = CaseModifier.Snake)
 
     /**
      * Returns a copy that converts signal names given as strings to pascal
-     * case. The rendered attribute ends in `__case.pascal`.
+     * case. A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def pascal: PartialDataIndicator = copy(caseModifier = CaseModifier.Pascal)
   }
@@ -1386,8 +1393,8 @@ object Attributes {
   sealed trait OnIntervalModifier extends Product with Serializable {
 
     /**
-     * The suffix this modifier adds to the attribute name, such as `__once`. It
-     * is an empty string when the modifier adds nothing.
+     * The suffix this modifier adds to the attribute name, such as
+     * `__duration.1000ms`. It is an empty string when the modifier adds nothing.
      */
     val render: String
 
@@ -1501,8 +1508,8 @@ object Attributes {
   sealed trait InitModifier extends Product with Serializable {
 
     /**
-     * The suffix this modifier adds to the attribute name, such as `__once`. It
-     * is an empty string when the modifier adds nothing.
+     * The suffix this modifier adds to the attribute name, such as
+     * `__delay.500ms`. It is an empty string when the modifier adds nothing.
      */
     val render: String
 
@@ -1614,8 +1621,8 @@ object Attributes {
   sealed trait LoadModifier extends Product with Serializable {
 
     /**
-     * The suffix this modifier adds to the attribute name, such as `__once`. It
-     * is an empty string when the modifier adds nothing.
+     * The suffix this modifier adds to the attribute name, such as
+     * `__delay.500ms`. It is an empty string when the modifier adds nothing.
      */
     val render: String
 
@@ -1732,8 +1739,8 @@ object Attributes {
   sealed trait OnSignalPatchModifier extends Product with Serializable {
 
     /**
-     * The suffix this modifier adds to the attribute name, such as `__once`. It
-     * is an empty string when the modifier adds nothing.
+     * The suffix this modifier adds to the attribute name, such as
+     * `__delay.500ms`. It is an empty string when the modifier adds nothing.
      */
     val render: String
 
@@ -1896,19 +1903,19 @@ object Attributes {
 
     /**
      * Returns a copy that converts signal names given as strings to kebab case.
-     * The rendered attribute ends in `__case.kebab`.
+     * A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def kebab: PartialDataBind = copy(caseModifier = CaseModifier.Kebab)
 
     /**
      * Returns a copy that converts signal names given as strings to snake case.
-     * The rendered attribute ends in `__case.snake`.
+     * A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def snake: PartialDataBind = copy(caseModifier = CaseModifier.Snake)
 
     /**
      * Returns a copy that converts signal names given as strings to pascal
-     * case. The rendered attribute ends in `__case.pascal`.
+     * case. A `SignalName` or `Signal` passed to `apply` keeps its own case.
      */
     def pascal: PartialDataBind = copy(caseModifier = CaseModifier.Pascal)
   }
@@ -1935,21 +1942,24 @@ object Attributes {
 
     /**
      * Returns a copy that uses kebab case for the signal name. The rendered
-     * attribute ends in `__case.kebab`.
+     * attribute has the `__case.kebab` suffix, followed by any `__prop` or
+     * `__event` suffix.
      */
     def kebab: DataBind =
       copy(caseModifier = CaseModifier.Kebab, signalName = signalName.caseModifier(CaseModifier.Kebab))
 
     /**
      * Returns a copy that uses snake case for the signal name. The rendered
-     * attribute ends in `__case.snake`.
+     * attribute has the `__case.snake` suffix, followed by any `__prop` or
+     * `__event` suffix.
      */
     def snake: DataBind =
       copy(caseModifier = CaseModifier.Snake, signalName = signalName.caseModifier(CaseModifier.Snake))
 
     /**
      * Returns a copy that uses pascal case for the signal name. The rendered
-     * attribute ends in `__case.pascal`.
+     * attribute has the `__case.pascal` suffix, followed by any `__prop` or
+     * `__event` suffix.
      */
     def pascal: DataBind =
       copy(caseModifier = CaseModifier.Pascal, signalName = signalName.caseModifier(CaseModifier.Pascal))
@@ -2086,19 +2096,19 @@ object Attributes {
 
     /**
      * Returns a copy that converts signal names given as strings to kebab case.
-     * The rendered attribute ends in `__case.kebab`.
+     * A `SignalName` passed to `apply` keeps its own case.
      */
     def kebab: PartialDataRef = copy(caseModifier = CaseModifier.Kebab)
 
     /**
      * Returns a copy that converts signal names given as strings to snake case.
-     * The rendered attribute ends in `__case.snake`.
+     * A `SignalName` passed to `apply` keeps its own case.
      */
     def snake: PartialDataRef = copy(caseModifier = CaseModifier.Snake)
 
     /**
      * Returns a copy that converts signal names given as strings to pascal
-     * case. The rendered attribute ends in `__case.pascal`.
+     * case. A `SignalName` passed to `apply` keeps its own case.
      */
     def pascal: PartialDataRef = copy(caseModifier = CaseModifier.Pascal)
   }
