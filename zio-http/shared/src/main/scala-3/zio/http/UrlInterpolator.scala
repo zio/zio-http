@@ -18,9 +18,29 @@ package zio.http
 
 import scala.quoted.*
 
+/**
+ * Provides the `url` string interpolator, which builds a `URL` and checks its
+ * static text at compile time. It is mixed into the `zio.http` package object,
+ * so `url"..."` is available with `import zio.http._`.
+ */
 trait UrlInterpolator {
 
   extension(inline sc: StringContext) {
+    /**
+     * Creates a `URL` from the interpolated string. At compile time the text is
+     * decoded with `URL.decode`, and an invalid URL is a compile error that
+     * shows the decoding message. Interpolated values must be of type `String`,
+     * `Byte`, `Short`, `Int`, `Long`, `Boolean`, `Float`, `Double` or
+     * `java.util.UUID`, and any other type is a compile error; for the check
+     * each value is replaced by an example value of its type. The result is
+     * built at runtime with `URL.fromURI`.
+     *
+     * {{{
+     * val id        = 42
+     * val user: URL = url"https://example.com/users/\$id"
+     * val path      = user.path.encode // /users/42
+     * }}}
+     */
     inline def url(inline args: Any*): URL = ${ UrlInterpolatorMacro.url('sc, 'args) }
   }
 

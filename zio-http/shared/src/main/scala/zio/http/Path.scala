@@ -26,6 +26,26 @@ import zio.http.internal.{QueryParamEncoding, ThreadLocals}
  * stores each element of a path in a sequence of text, together with flags on
  * whether there are leading and trailing slashes in the path. This allows for a
  * combination of precision and performance and supports a rich API.
+ *
+ * The leading and trailing slashes count in `size`, `take` and `dropRight`, and
+ * the leading slash counts in `drop`. Two paths are equal when they have the
+ * same segments and the same slash flags, so `/a` and `a` are different paths.
+ * A path without segments is compared as the empty path or as the root path.
+ *
+ * {{{
+ * val path    = Path("/users") / "42"
+ * val encoded = path.encode // /users/42
+ * val parent  = path.dropRight(1).encode // /users
+ * val isUsers = path.startsWith(Path("/users")) // true
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/routing/routes/ Routes]]
+ * @param flags
+ *   the slash flags, a bit set of `Path.Flag.LeadingSlash` and
+ *   `Path.Flag.TrailingSlash`
+ * @param segments
+ *   the elements of the path, without slashes
  */
 final case class Path private[http] (flags: Path.Flags, segments: Chunk[String]) { self =>
   import Path.{Flag, Flags}
@@ -35,7 +55,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
    *
    * If there is already a trailing slash when you append a segment, then the
    * trailing slash will be removed (more precisely, it becomes the slash that
-   * separates the existing path from the new segment).
+   * separates the existing path from the new segment). An empty `name` adds a
+   * trailing slash instead.
    */
   def /(name: String): Path =
     if (name == "") addTrailingSlash
@@ -56,10 +77,10 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
 
   /**
    * Combines two paths together to create a new one, having a leading slash if
-   * only the left path has a leading slash, and a trailing slash if only the
-   * right path has a trailing slash. Note that if you concat the empty path to
-   * any other path, either on the left or right hand side, you get back that
-   * same path unmodified.
+   * the left path has a leading slash, and a trailing slash if the right path
+   * has a trailing slash or is the root path. Note that if you concat the empty
+   * path to any other path, either on the left or right hand side, you get back
+   * that same path unmodified.
    */
   def ++(that: Path): Path =
     if (self.isEmpty) that
@@ -88,8 +109,10 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   def concat(other: Path): Path = self ++ other
 
   /**
-   * Drops the first n segments from the path, treating both leading and
-   * trailing slashes as segments.
+   * Drops the first n segments from the path. A leading slash counts as one
+   * segment. A trailing slash is not dropped, so dropping every segment of a
+   * path that has segments and a trailing slash leaves `/`, while the root path
+   * becomes the empty path. A non-positive `n` returns the path unchanged.
    */
   def drop(n: Int): Path =
     if (n <= 0) self
@@ -101,12 +124,12 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
 
   /**
    * Drops the last n segments from the path, treating both leading and trailing
-   * slashes as segments.
+   * slashes as segments. A non-positive `n` returns the path unchanged.
    */
   def dropRight(n: Int): Path = take(size - n)
 
   /**
-   * Drops the leading slash if available.
+   * Drops the leading slash if available. The root path becomes the empty path.
    */
   def dropLeadingSlash: Path =
     if (isRoot) Path.empty
@@ -114,7 +137,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     else copy(Flag.LeadingSlash.remove(flags))
 
   /**
-   * Drops the trailing slash if available.
+   * Drops the trailing slash if available. The root path becomes the empty
+   * path.
    */
   def dropTrailingSlash: Path =
     if (isRoot) Path.empty
@@ -122,7 +146,9 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     else copy(flags = Flag.TrailingSlash.remove(flags))
 
   /**
-   * Encodes the current path into a valid string.
+   * Returns the path as a string: the segments joined with `/`, with a leading
+   * `/` and a trailing `/` when the path has them. The empty path gives `""`
+   * and the root path gives `"/"`.
    */
   def encode: String =
     if (isEmpty) ""
@@ -143,6 +169,10 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     sb
   }
 
+  /**
+   * Returns `true` when `that` is a `Path` with the same segments and the same
+   * slash flags, after both are normalized.
+   */
   override def equals(that: Any): Boolean =
     that match {
       case that: Path =>
@@ -164,6 +194,7 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
    */
   def hasTrailingSlash: Boolean = Flag.TrailingSlash.check(flags)
 
+  /** Returns a hash code that is consistent with `equals`. */
   override def hashCode: Int = {
     val normalized = normalize
 
@@ -179,8 +210,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   def isEmpty: Boolean = (self eq Path.empty) || segments.isEmpty && (flags == Flags.none)
 
   /**
-   * Checks if the path is equal to "/".
-   * @return
+   * Checks if the path is equal to "/". A path with no segments and any slash,
+   * such as the one decoded from `//`, is the root path.
    */
   def isRoot: Boolean = segments.isEmpty && (hasLeadingSlash || hasTrailingSlash)
 
@@ -263,7 +294,8 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
   }
 
   /**
-   * Creates a new path from this one with it's segments reversed.
+   * Creates a new path from this one with its segments reversed. The leading
+   * and trailing slash flags swap, so `/a/b` becomes `b/a/`.
    */
   def reverse: Path = Path(Flags.reverse(flags), segments.reverse)
 
@@ -277,7 +309,10 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
     else segments.length + (if (hasLeadingSlash) 1 else 0) + (if (hasTrailingSlash) 1 else 0)
 
   /**
-   * Checks if the path starts with the provided path
+   * Checks if the path starts with the provided path: both paths must have the
+   * same leading slash flag, and the segments of `other` must be a prefix of
+   * the segments of this path. The trailing slash flags are not compared. For
+   * example, `/a/b` starts with `/a` but does not start with `a`.
    */
   def startsWith(other: Path): Boolean =
     (self.hasLeadingSlash == other.hasLeadingSlash) && segments.startsWith(other.segments)
@@ -293,14 +328,29 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
       else Path(Flag.TrailingSlash.remove(flags), segments = segments.take(n - (if (hasLeadingSlash) 1 else 0)))
     }
 
+  /** Returns the same string as `encode`. */
   override def toString: String = encode
 
+  /**
+   * Splits off the first element of the path, for pattern matching. A path with
+   * a leading slash gives `("", rest)` where `rest` is the path without the
+   * leading slash, so `/a/b` gives `("", a/b)`. Otherwise the first segment is
+   * returned together with the rest of the path, so `a/b` gives `("a", b)`. The
+   * empty path gives `None`.
+   */
   lazy val unapply: Option[(String, Path)] =
     if (hasLeadingSlash) Some(("", drop(1)))
     else if (segments.nonEmpty) Some((segments.head, copy(segments = segments.drop(1))))
     else if (hasTrailingSlash) Some(("", Path.empty))
     else None
 
+  /**
+   * Splits off the last element of the path, for pattern matching. A path with
+   * a trailing slash gives `(rest, "")` where `rest` is `dropRight(1)`, so
+   * `/a/` gives `(/a, "")`. Otherwise the last segment is returned together
+   * with the rest of the path, so `a/b` gives `(a, "b")`. The root path gives
+   * `(Path.empty, "")`, and the empty path gives `None`.
+   */
   lazy val unapplyRight: Option[(Path, String)] =
     if (hasTrailingSlash) Some((dropRight(1), ""))
     else if (segments.nonEmpty) Some((copy(segments = segments.dropRight(1)), segments.last))
@@ -309,17 +359,28 @@ final case class Path private[http] (flags: Path.Flags, segments: Chunk[String])
 
   /**
    * Unnests a path that has been nested at the specified prefix. If the path is
-   * not nested at the specified prefix, the same path is returned.
+   * not nested at the specified prefix, the same path is returned. When
+   * `startsWith(prefix)` holds, it drops `prefix.size` elements, where a
+   * leading and a trailing slash of the prefix count as one each, so `/a/b/c`
+   * unnested at `/a` is `b/c`.
    */
   def unnest(prefix: Path): Path =
     if (startsWith(prefix)) drop(prefix.size) else self
 }
 
+/**
+ * Constructors and building blocks for `Path`.
+ */
 object Path {
+
+  /** Returns the same path as `Path.decode`. */
   def apply(path: String): Path = decode(path)
 
   /**
-   * Decodes a path string into a Path.
+   * Decodes a path string into a Path. The string is split at `/`, empty
+   * segments are dropped, and a leading or trailing `/` sets the matching slash
+   * flag. Dot segments are removed as by `removeDotSegments`. The empty string
+   * gives `Path.empty`.
    */
   def decode(path: String): Path =
     if (path.isEmpty) Path.empty
@@ -416,7 +477,7 @@ object Path {
     }
 
   /**
-   * Represents a empty path which is rendered as "".
+   * Represents an empty path which is rendered as "".
    */
   val empty: Path = Path(Flags.none, Chunk.empty)
 
@@ -427,7 +488,9 @@ object Path {
 
   /**
    * Creates a PathCodec[Unit] from this path for convenient round-trip
-   * conversion. Useful for encoding paths back into PathCodec form.
+   * conversion. Useful for encoding paths back into PathCodec form. Each
+   * segment becomes a literal, the leading and trailing slashes are not
+   * represented, and the empty and root paths give `PathCodec.empty`.
    *
    * @return
    *   a PathCodec[Unit] that matches this path
@@ -441,11 +504,23 @@ object Path {
     }
   }
 
+  /** The slash flags of a path, stored as the bits of an `Int`. */
   type Flags = Int
+
+  /** Operations on `Path.Flags` values. */
   object Flags {
+
+    /**
+     * Returns the flags with the bits of `flag` and of every flag in `flags`
+     * set.
+     */
     def apply(flag: Flag, flags: Flag*): Flags =
       flags.foldLeft(flag.mask)((acc, flag) => acc | flag.mask)
 
+    /**
+     * Returns the flags of the concatenation of two paths: the leading slash
+     * flag of `first` and the trailing slash flag of `last`.
+     */
     def concat(first: Flags, last: Flags): Int = {
       var result = 0
       if (Flag.LeadingSlash.check(first)) result = result | Flag.LeadingSlash.mask
@@ -453,13 +528,17 @@ object Path {
       result
     }
 
+    /** Returns `true` when both flags have the same bits. */
     def equivalent(left: Flags, right: Flags): Boolean =
       essential(left) == essential(right)
 
+    /** Returns the flags unchanged. */
     def essential(flags: Flags): Flags = flags
 
+    /** The flags with no slash set. */
     val none: Flags = 0
 
+    /** Returns the flags with the leading and trailing slash bits swapped. */
     def reverse(flags: Flags): Int = {
       var result = 0
       if (Flag.LeadingSlash.check(flags)) result |= Flag.TrailingSlash.mask
@@ -469,6 +548,10 @@ object Path {
 
   }
 
+  /**
+   * One of the slash flags of a path: `Flag.LeadingSlash` or
+   * `Flag.TrailingSlash`.
+   */
   sealed trait Flag {
     private[http] val shift: Int
     private[http] val mask: Int
@@ -480,24 +563,48 @@ object Path {
 
     private[http] def remove(flags: Flags): Flags = flags & invertMask
   }
-  object Flag       {
-    case object LeadingSlash  extends Flag {
+
+  /** The two slash flags. */
+  object Flag {
+
+    /**
+     * The flag of a path that starts with `/`. Used as a function, it adds a
+     * leading slash to a path, and used as an extractor it matches a path that
+     * has one and returns the path without it.
+     */
+    case object LeadingSlash extends Flag {
       private[http] final val shift      = 0
       private[http] final val mask       = 1 << shift
       private[http] final val invertMask = ~mask
 
+      /** Returns `path.addLeadingSlash`. */
       def apply(path: Path): Path = path.addLeadingSlash
 
+      /**
+       * Matches a path with a leading slash and returns
+       * `path.dropLeadingSlash`.
+       */
       def unapply(path: Path): Option[Path] =
         if (path.hasLeadingSlash) Some(path.dropLeadingSlash) else None
     }
+
+    /**
+     * The flag of a path that ends with `/`. Used as a function, it adds a
+     * trailing slash to a path, and used as an extractor it matches a path that
+     * has one and returns the path without it.
+     */
     case object TrailingSlash extends Flag {
       private[http] final val shift      = 1
       private[http] final val mask       = 1 << shift
       private[http] final val invertMask = ~mask
 
+      /** Returns `path.addTrailingSlash`. */
       def apply(path: Path): Path = path.addTrailingSlash
 
+      /**
+       * Matches a path with a trailing slash and returns
+       * `path.dropTrailingSlash`.
+       */
       def unapply(path: Path): Option[Path] =
         if (path.hasTrailingSlash) Some(path.dropTrailingSlash) else None
     }

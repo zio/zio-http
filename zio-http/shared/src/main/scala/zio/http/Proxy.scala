@@ -35,12 +35,30 @@ final case class Proxy(
   headers: Headers = Headers.empty,
 ) { self =>
 
-  def url(url: URL): Proxy                         = self.copy(url = url)
+  /**
+   * Returns a copy with the given proxy URL. The proxy address is taken from
+   * the host and the explicit port of the URL; with no explicit port, or no
+   * host, the client does not connect to the proxy at this address.
+   */
+  def url(url: URL): Proxy = self.copy(url = url)
+
+  /** Returns a copy with the given credentials for the proxy. */
   def credentials(credentials: Credentials): Proxy = self.copy(credentials = Some(credentials))
-  def headers(headers: Headers): Proxy             = self.copy(headers = headers)
+
+  /** Returns a copy with the given headers for the proxy. */
+  def headers(headers: Headers): Proxy = self.copy(headers = headers)
 }
 
+/** Constructors for `Proxy`, and its `Config` reader. */
 object Proxy {
+
+  /**
+   * Reads a proxy from the key `url`, the optional keys `credentials.user` and
+   * `credentials.password`, and the optional list `headers` of `name` and
+   * `value` pairs. A `url` that is not a valid URL fails with a
+   * `Config.Error.InvalidData` whose message is that of `URL.decode`,
+   * `Invalid URL: ` followed by the input in double quotes.
+   */
   def config: Config[Proxy] =
     (
       Config
@@ -56,5 +74,6 @@ object Proxy {
       Proxy(url, creds, headers)
     }
 
+  /** A proxy with an empty URL, no credentials and no headers. */
   val empty: Proxy = Proxy(URL.empty)
 }

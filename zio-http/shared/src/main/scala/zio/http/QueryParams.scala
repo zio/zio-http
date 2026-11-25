@@ -28,22 +28,40 @@ import zio.http.QueryParams.JavaLinkedHashMapQueryParams
 import zio.http.internal._
 
 /**
- * A collection of query parameters.
+ * A collection of query parameters. A key can have several values, and the keys
+ * keep the order in which they were first added.
+ *
+ * {{{
+ * val params   = QueryParams("page" -> "2", "tag" -> "scala", "tag" -> "http")
+ * val tags     = params.getAll("tag") // Chunk(scala, http)
+ * val rendered = params.encode // ?page=2&tag=scala&tag=http
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/request/ Request]]
  */
 trait QueryParams extends QueryOps[QueryParams] {
   self: QueryParams =>
 
   /**
-   * Encodes the query parameters into a string.
+   * Encodes the query parameters into a string that starts with `?`, with the
+   * pairs joined by `&`. Empty query parameters give the empty string. A key
+   * without values is written as `key=`, and a key that is the empty string is
+   * left out.
    */
   def encode: String = encode(Charsets.Utf8)
 
   /**
-   * Encodes the query parameters into a string using the specified charset.
+   * Encodes the query parameters into a string, as `encode` does, using the
+   * specified charset.
    */
   def encode(charset: Charset): String =
     QueryParamEncoding.encode(ThreadLocals.stringBuilder, self, charset)
 
+  /**
+   * Returns `true` when `that` is a `QueryParams` whose normalized entries are
+   * equal, in the same order.
+   */
   override def equals(that: Any): Boolean = that match {
     case queryParams: QueryParams => normalize.seq == queryParams.normalize.seq
     case _                        => false
@@ -55,17 +73,19 @@ trait QueryParams extends QueryOps[QueryParams] {
   def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
     QueryParams.fromEntries(seq.filter { entry => p(entry.getKey, Chunk.fromIterable(entry.getValue.asScala)) }: _*)
 
+  /**
+   * Retrieves all query parameter values having the specified name. The result
+   * is empty when the key is missing, and the key is matched case-sensitively.
+   */
   def getAll(key: String): Chunk[String] =
     seq.find(_.getKey == key).map(e => Chunk.fromIterable(e.getValue.asScala)).getOrElse(Chunk.empty)
 
-  /**
-   * Retrieves all query parameter values having the specified name.
-   */
-
+  /** Returns a hash code that is consistent with `equals`. */
   override def hashCode: Int = normalize.seq.hashCode
 
   /**
-   * Determines if the query parameters are empty.
+   * Determines if the query parameters are empty. A key that has no values
+   * still makes them non-empty.
    */
   def isEmpty: Boolean = seq.isEmpty
 
@@ -85,7 +105,8 @@ trait QueryParams extends QueryOps[QueryParams] {
   def nonEmpty: Boolean = !isEmpty
 
   /**
-   * Normalizes the query parameters by removing empty keys and values.
+   * Normalizes the query parameters by removing empty keys and blank values. A
+   * key that is left without values stays in the result.
    */
   def normalize: QueryParams =
     self match {
@@ -154,6 +175,7 @@ trait QueryParams extends QueryOps[QueryParams] {
 
     }
 
+  /** Returns these query parameters. */
   override def queryParameters: QueryParams =
     self
 
@@ -169,6 +191,9 @@ trait QueryParams extends QueryOps[QueryParams] {
 
 }
 
+/**
+ * Constructors and codecs for `QueryParams`.
+ */
 object QueryParams {
   private final case class JavaLinkedHashMapQueryParams(
     private val underlying: java.util.LinkedHashMap[String, java.util.List[String]],
@@ -218,15 +243,25 @@ object QueryParams {
       case x                                                          => new java.util.LinkedHashMap(x)
     }
 
+  /**
+   * Creates query parameters from a Java map of keys to lists of values. A map
+   * that is not a `java.util.LinkedHashMap` is copied into one.
+   */
   def apply(map: java.util.Map[String, java.util.List[String]]): QueryParams =
     apply(javaMapAsLinkedHashMap(map))
 
+  /** Creates query parameters that use the given map as their storage. */
   def apply(map: java.util.LinkedHashMap[String, java.util.List[String]]): QueryParams =
     JavaLinkedHashMapQueryParams(map)
 
+  /** Creates query parameters from a map of keys to values. */
   def apply(map: Map[String, Chunk[String]]): QueryParams =
     apply(map.toSeq: _*)
 
+  /**
+   * Creates query parameters from pairs of a key and its values. When a key
+   * appears more than once, its values are appended.
+   */
   def apply(tuples: (String, Chunk[String])*): QueryParams = {
     val result = new java.util.LinkedHashMap[String, java.util.List[String]]()
     tuples.foreach { case (key, values) =>
@@ -264,7 +299,10 @@ object QueryParams {
   }
 
   /**
-   * Construct from tuples of k, v with singular v
+   * Construct from tuples of k, v with singular v. A blank value (empty or only
+   * whitespace) adds no value to its key. When the key already has values, a
+   * blank value removes them, so `QueryParams("a" -> "1", "a" -> "")` has no
+   * values for `a`.
    */
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams = {
     val entries = new java.util.LinkedHashMap[String, java.util.List[String]]()
@@ -293,7 +331,12 @@ object QueryParams {
   }
 
   /**
-   * Decodes the specified string into a collection of query parameters.
+   * Decodes the specified string into a collection of query parameters. A
+   * leading `?` is skipped. The pairs are separated by `&`, and a key without a
+   * `=` or with an empty value gets the empty string as its value. A pair with
+   * an empty key, as in `=1`, uses its value as the key, with the empty string
+   * as its value. A `null` string gives empty query parameters. The charset is
+   * used to decode the text of the keys and values.
    */
   def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
     QueryParamEncoding.decode(queryStringFragment, charset)

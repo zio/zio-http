@@ -3,7 +3,16 @@ package zio.http
 import zio.http.codec.Doc
 import zio.http.template2._
 
+/**
+ * Renders the HTML page that lists route patterns, which `Handler.error` uses
+ * for 404 Not Found responses in `Mode.Dev`.
+ */
 object RoutesOverview {
+
+  /**
+   * Renders an HTML page that lists `patterns`, sorted by path and then by
+   * method. The page lets the reader fill in path parameters and open a route.
+   */
   def apply(patterns: Iterable[RoutePattern[_]]): Dom = {
     val sortedPatterns = patterns.toSeq.sortBy(_.method.asInstanceOf[Product].productPrefix).sortBy(_.pathCodec.render)
     html(

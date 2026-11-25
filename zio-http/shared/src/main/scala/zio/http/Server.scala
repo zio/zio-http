@@ -28,11 +28,33 @@ import com.lihaoyi.unroll
 /**
  * Represents a server, which is capable of serving zero or more HTTP
  * applications.
+ *
+ * A `Server` is a ZIO service: build it with a layer such as `Server.default`,
+ * `Server.defaultWithPort` or `Server.defaultWith`, then run routes on it with
+ * `Server.serve`, which installs the routes and never returns. The server's
+ * settings live in `Server.Config`. On the JVM the server runs on Netty; on
+ * Scala.js the server layers are not implemented.
+ *
+ * {{{
+ * import zio._
+ * val routes = Routes(Method.GET / "health" -> handler(Response.text("up")))
+ *
+ * val program: ZIO[Any, Throwable, Nothing] =
+ *   Server.serve(routes).provide(Server.defaultWithPort(8081))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/server/ Server]]
  */
 trait Server {
 
   /**
    * Installs the given HTTP application into the server.
+   *
+   * The first call starts the server. The effect completes once the server has
+   * started and the routes are installed; routes installed later are added to
+   * the ones already there. The routes run with the environment of the calling
+   * effect.
    */
   final def install[R](
     routes: Routes[R, Response],
@@ -51,12 +73,39 @@ trait Server {
   /**
    * The port on which the server is listening.
    *
-   * @return
+   * The effect waits until the server has started, which happens on the first
+   * `install`. With `Server.Config.onAnyOpenPort` it returns the port that was
+   * picked. If the server fails to start, the effect dies.
    */
   def port: UIO[Int]
 }
 
+/**
+ * Layers that build a [[Server]], the server's `Config`, and the `serve` and
+ * `install` functions that run [[Routes]] on the `Server` in the environment.
+ */
 object Server extends ServerPlatformSpecific {
+
+  /**
+   * The settings of a [[Server]]: the address to bind, TLS, keep-alive,
+   * compression, request body streaming, the longest request line and headers
+   * accepted, timeouts and WebSocket settings.
+   *
+   * Start from `Server.Config.default` and change it with the builder methods,
+   * each of which returns a copy.
+   *
+   * {{{
+   * import zio._
+   * val config: Server.Config =
+   *   Server.Config.default
+   *     .port(9000)
+   *     .enableRequestStreaming
+   *     .idleTimeout(30.seconds)
+   * }}}
+   *
+   * @see
+   *   [[https://zio.dev/zio-http/reference/server/ Server]]
+   */
   final case class Config(
     sslConfig: Option[SSLConfig],
     address: InetSocketAddress,
@@ -133,37 +182,61 @@ object Server extends ServerPlatformSpecific {
     /** Enables streaming request bodies */
     def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
 
-    /** Enables hybrid request streaming */
+    /**
+     * Enables hybrid request streaming: a request whose `Content-Length` header
+     * is larger than `maxAggregatedLength` bytes gets a streaming body, and
+     * other requests are aggregated first.
+     */
     def hybridRequestStreaming(maxAggregatedLength: Int): Config =
       self.copy(requestStreaming = RequestStreaming.Hybrid(maxAggregatedLength))
 
+    /**
+     * When `true`, a `HEAD` request is handled by the matching `GET` route, but
+     * only when the routes contain no `HEAD` route at all (a route for
+     * `Method.ANY` counts as one). The default is `false`.
+     */
     def generateHeadRoutes(enable: Boolean): Config = self.copy(generateHeadRoutes = enable)
 
+    /**
+     * Sets how long the server waits, when it shuts down, for requests that are
+     * still running to finish. The default is 10 seconds.
+     */
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
+    /**
+     * Closes a connection when nothing is read from it for `duration`. By
+     * default there is no idle timeout.
+     */
     def idleTimeout(duration: Duration): Config = self.copy(idleTimeout = Some(duration))
 
     /**
-     * Configure the server to use netty's HttpServerKeepAliveHandler to close
-     * persistent connections when enable is true (@see <a
-     * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
+     * Configure the server to use netty's HttpServerKeepAliveHandler when
+     * `enable` is true (the default). The handler keeps a connection open
+     * between requests, and closes it after a response when the request or the
+     * response asks for that (for example with `Connection: close`).
      */
     def keepAlive(enable: Boolean): Config = self.copy(keepAlive = enable)
 
     /**
-     * Log a warning in case of fatal errors when an error response cannot be
-     * sent back to the client
+     * When `true` (the default), logs a warning with the exception whenever
+     * Netty reports an exception on a connection, except for a connection reset
+     * by the peer.
      */
     def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
+    /**
+     * Sets the longest request line (method, URI and version) that the server
+     * accepts, in bytes. The default is 4096.
+     */
     def maxInitialLineLength(initialLineLength: Int): Config = self.copy(maxInitialLineLength = initialLineLength)
 
     /**
-     * Configure the server to use `maxHeaderSize` value when encode/decode
-     * headers.
+     * Configure the server to use `maxHeaderSize` value when decoding request
+     * headers. The default is 8192 bytes.
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
 
+    /** Removes the idle timeout, so idle connections stay open. */
     def noIdleTimeout: Config = self.copy(idleTimeout = None)
 
     /**
@@ -178,16 +251,20 @@ object Server extends ServerPlatformSpecific {
 
     /**
      * Configure the new server with netty's HttpContentCompressor to compress
-     * Http responses (@see <a href =
-     * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html"HttpContentCompressor</a>).
+     * Http responses (see
+     * [[https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html HttpContentCompressor]]).
+     * Without an argument it uses `ResponseCompressionConfig.default` (gzip and
+     * deflate, no size threshold).
      */
     def responseCompression(rCfg: ResponseCompressionConfig = Config.ResponseCompressionConfig.default): Config =
       self.copy(responseCompression = Option(rCfg))
 
     /**
      * Configure the server to use netty's HttpContentDecompressor to decompress
-     * Http requests (@see <a href =
-     * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
+     * Http requests (see
+     * [[https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html HttpContentDecompressor]]).
+     * `isStrict` selects `Decompression.Strict` when `true` and
+     * `Decompression.NonStrict` when `false`.
      */
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
@@ -255,11 +332,32 @@ object Server extends ServerPlatformSpecific {
     def tcpNoDelay(value: Boolean): Config =
       self.copy(tcpNoDelay = value)
 
+    /**
+     * Sets the WebSocket settings that the server uses for a WebSocket
+     * connection whose `WebSocketApp` has no settings of its own.
+     */
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
 
+  /** The default server settings and a `zio.Config` that reads them. */
   object Config {
+
+    /**
+     * A `zio.Config` that reads server settings from kebab-case keys:
+     * `binding-host`, `binding-port`, `accept-continue`, `keep-alive`,
+     * `request-decompression`, `response-compression`, `request-streaming`,
+     * `max-initial-line-length`, `max-header-size`,
+     * `log-warning-on-fatal-error`, `graceful-shutdown-timeout`,
+     * `idle-timeout`, `avoid-context-switching`, `so-backlog`, `tcp-nodelay`,
+     * `request-body-pre-connect-buffer-size`, `max-discarded-request-body-size`
+     * and the SSL keys of `SSLConfig.config`.
+     *
+     * A missing key takes its value from `Config.default`, except
+     * `request-streaming`: when its `enabled` key is missing, request streaming
+     * is enabled. `webSocketConfig` and `generateHeadRoutes` are not read and
+     * keep their default values.
+     */
     def config: zio.Config[Config] = {
       SSLConfig.config.optional ++
         zio.Config.string("binding-host").optional ++
@@ -326,6 +424,14 @@ object Server extends ServerPlatformSpecific {
         )
     }
 
+    /**
+     * The default settings: listen on port 8080 of all interfaces, no TLS,
+     * keep-alive on, no request decompression or response compression, request
+     * bodies aggregated up to 100 KiB (`RequestStreaming.Disabled(102400)`), a
+     * request line of up to 4096 bytes, headers of up to 8192 bytes, a
+     * 10-second graceful shutdown timeout, no idle timeout, a backlog of 100
+     * and `TCP_NODELAY` on.
+     */
     val default: Config = Config(
       sslConfig = None,
       address = new InetSocketAddress(8080),
@@ -347,12 +453,25 @@ object Server extends ServerPlatformSpecific {
       maxDiscardedRequestBodySize = 1024 * 1024,
     )
 
+    /**
+     * Response compression settings for Netty's `HttpContentCompressor`:
+     * responses whose body is larger than `contentThreshold` bytes are
+     * compressed with one of the algorithms in `options` that the request's
+     * `Accept-Encoding` header allows.
+     */
     final case class ResponseCompressionConfig(
       contentThreshold: Int,
       options: IndexedSeq[CompressionOptions],
     )
 
+    /** The default response compression settings and their `zio.Config`. */
     object ResponseCompressionConfig {
+
+      /**
+       * A `zio.Config` that reads `content-threshold` (default 0) and a list of
+       * compression options under `options`, each read with
+       * `CompressionOptions.config`.
+       */
       def config: zio.Config[ResponseCompressionConfig] =
         (
           zio.Config.int("content-threshold").withDefault(ResponseCompressionConfig.default.contentThreshold) ++
@@ -361,19 +480,35 @@ object Server extends ServerPlatformSpecific {
           ResponseCompressionConfig(contentThreshold, options)
         }
 
+      /**
+       * Compresses every response body (threshold 0) with gzip or deflate, at
+       * the default levels of `CompressionOptions.gzip()` and
+       * `CompressionOptions.deflate()`.
+       */
       val default: ResponseCompressionConfig =
         ResponseCompressionConfig(0, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()))
     }
 
+    /**
+     * A compression algorithm and its settings, used in response compression.
+     */
     sealed trait CompressionOptions {
+
+      /** The algorithm's name: `"gzip"`, `"deflate"` or `"brotli"`. */
       val name: String
     }
 
+    /** Constructors and a `zio.Config` for [[CompressionOptions]]. */
     object CompressionOptions {
 
-      final case class GZip(cfg: DeflateConfig)    extends CompressionOptions { val name = "gzip"    }
+      /** gzip compression with the given deflate settings. */
+      final case class GZip(cfg: DeflateConfig) extends CompressionOptions { val name = "gzip" }
+
+      /** deflate compression with the given settings. */
       final case class Deflate(cfg: DeflateConfig) extends CompressionOptions { val name = "deflate" }
-      final case class Brotli(cfg: BrotliConfig)   extends CompressionOptions { val name = "brotli"  }
+
+      /** Brotli compression with the given settings. */
+      final case class Brotli(cfg: BrotliConfig) extends CompressionOptions { val name = "brotli" }
 
       /**
        * @param level
@@ -397,30 +532,68 @@ object Server extends ServerPlatformSpecific {
         mem: Int,
       )
 
+      /** The default values of [[DeflateConfig]]. */
       object DeflateConfig {
+
+        /** The default compression level, 6. */
         val DefaultLevel = 6
-        val DefaultBits  = 15
-        val DefaultMem   = 8
+
+        /** The default window bits, 15. */
+        val DefaultBits = 15
+
+        /** The default memory level, 8. */
+        val DefaultMem = 8
       }
 
+      /**
+       * Brotli settings, passed to Netty's `BrotliOptions`.
+       *
+       * @param quality
+       *   the compression quality
+       * @param lgwin
+       *   the base two logarithm of the sliding window size; `-1` lets the
+       *   encoder choose
+       * @param mode
+       *   the kind of input the encoder tunes for
+       */
       final case class BrotliConfig(
         quality: Int,
         lgwin: Int,
         mode: Mode,
       )
 
+      /** The default values of [[BrotliConfig]]. */
       object BrotliConfig {
+
+        /** The default quality, 4. */
         val DefaultQuality = 4
-        val DefaultLgwin   = -1
-        val DefaultMode    = Mode.Text
+
+        /** The default window setting, -1. */
+        val DefaultLgwin = -1
+
+        /** The default mode, `Mode.Text`. */
+        val DefaultMode = Mode.Text
       }
 
+      /** The kind of input a Brotli encoder tunes for. */
       sealed trait Mode
-      object Mode {
-        case object Generic extends Mode
-        case object Text    extends Mode
-        case object Font    extends Mode
 
+      /** The Brotli modes. */
+      object Mode {
+
+        /** No assumption about the input. */
+        case object Generic extends Mode
+
+        /** UTF-8 text input. */
+        case object Text extends Mode
+
+        /** WOFF 2.0 font input. */
+        case object Font extends Mode
+
+        /**
+         * Parses `"generic"`, `"text"` or `"font"`, ignoring case. Any other
+         * string gives `Text`.
+         */
         def fromString(s: String): Mode = s.toLowerCase match {
           case "generic" => Generic
           case "text"    => Text
@@ -462,6 +635,13 @@ object Server extends ServerPlatformSpecific {
       ): CompressionOptions =
         CompressionOptions.Brotli(BrotliConfig(quality, lgwin, mode))
 
+      /**
+       * A `zio.Config` that reads `type` (`gzip`, `deflate` or `brotli`, any
+       * case) and the settings of that algorithm: `level`, `bits` and `mem` for
+       * gzip and deflate; `quantity` (the Brotli quality), `lgwin` and `mode`
+       * for Brotli. Missing settings take the default values. A `type` outside
+       * these three makes loading the config die with a `MatchError`.
+       */
       def config: zio.Config[CompressionOptions] =
         (
           (zio.Config.int("level").withDefault(DeflateConfig.DefaultLevel) ++
@@ -481,8 +661,14 @@ object Server extends ServerPlatformSpecific {
     }
   }
 
+  /**
+   * How the server reads request bodies: aggregated before the handler runs
+   * (`Disabled`), streamed to the handler (`Enabled`), or chosen per request
+   * from its `Content-Length` (`Hybrid`).
+   */
   sealed trait RequestStreaming
 
+  /** The request streaming modes and a `zio.Config` that reads them. */
   object RequestStreaming {
 
     /** Enable streaming request bodies */
@@ -496,10 +682,18 @@ object Server extends ServerPlatformSpecific {
 
     /**
      * Hybrid streaming option: Aggregate requests up to a certain size, and
-     * stream if larger.
+     * stream if larger. The size is read from the `Content-Length` header: a
+     * request whose `Content-Length` exceeds `maximumAggregatedLength` is
+     * streamed, and any other request is aggregated.
      */
     final case class Hybrid(maximumAggregatedLength: Int) extends RequestStreaming
 
+    /**
+     * A `zio.Config` that reads `enabled` (default `true`) and
+     * `maximum-content-length` (default 102400). It gives `Enabled` when
+     * `enabled` is `true`, and `Disabled(maximum-content-length)` otherwise; it
+     * never gives `Hybrid`.
+     */
     val config: zio.Config[RequestStreaming] =
       (zio.Config.boolean("enabled").withDefault(true) ++
         zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
@@ -517,6 +711,20 @@ object Server extends ServerPlatformSpecific {
       ZIO.never
   }
 
+  /**
+   * Installs `routes` on the [[Server]] in the environment and never returns.
+   * It logs "Starting the server..." before installing and "Server started"
+   * after. The routes run with the environment `R` of this effect, which must
+   * not contain a `Scope`.
+   *
+   * {{{
+   * import zio._
+   * val routes = Routes(Method.GET / "ping" -> handler(Response.text("pong")))
+   *
+   * val program: ZIO[Any, Throwable, Nothing] =
+   *   Server.serve(routes).provide(Server.default)
+   * }}}
+   */
   def serve[R](
     routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Nothing] =
@@ -527,6 +735,10 @@ object Server extends ServerPlatformSpecific {
   )(implicit trace: Trace, tag: EnvironmentTag[R]): URIO[R with Server, Nothing] =
     serveRoutes(routes)
 
+  /**
+   * Builds [[Routes]] from the given routes, installs them on the [[Server]] in
+   * the environment and never returns, like `serve` with a `Routes` value.
+   */
   def serve[R](
     route: Route[R, Response],
     routes: Route[R, Response]*,
@@ -541,6 +753,12 @@ object Server extends ServerPlatformSpecific {
     serveRoutes(Routes(route, routes: _*))
   }
 
+  /**
+   * Installs `routes` on the [[Server]] in the environment and never returns.
+   * It compiles only when the error type `Err` is `Response` or `Nothing`;
+   * handle other errors first, for example with `routes.handleError` or
+   * `routes.sandbox`.
+   */
   def serve[R, Err](
     routes: Routes[R, Err],
   )(implicit
@@ -551,6 +769,11 @@ object Server extends ServerPlatformSpecific {
   ): URIO[R with Server, Nothing] =
     serveRoutes(ev.toResponse(routes))
 
+  /**
+   * Installs `routes` on the [[Server]] in the environment and returns the port
+   * it listens on. Unlike `serve`, it returns once the routes are installed, so
+   * the caller decides how long the server runs.
+   */
   def install[R](
     routes: Routes[R, Response],
   )(implicit trace: Trace, tag: EnvironmentTag[R], hasNoScope: HasNoScope[R]): URIO[R with Server, Int] = {
@@ -609,6 +832,12 @@ object Server extends ServerPlatformSpecific {
     }
   }
 
+  /**
+   * A layer that reads `Server.Config` with `Config.config` from the ZIO config
+   * provider, under the keys at `path` (by default `zio.http.server`), and
+   * builds the server from it. A config error becomes a `RuntimeException`
+   * whose message starts with "Configuration error: ".
+   */
   def configured(
     path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server"),
   )(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
@@ -616,12 +845,23 @@ object Server extends ServerPlatformSpecific {
       new RuntimeException(s"Configuration error: $error"),
     ) >>> live
 
+  /** A layer that builds a server from `Config.default` with the given port. */
   def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     defaultWith(_.port(port))
 
+  /**
+   * A layer that builds a server from `Config.default` changed by `f`.
+   *
+   * {{{
+   * import zio._
+   * val layer: ZLayer[Any, Throwable, Server] =
+   *   Server.defaultWith(_.port(8082).enableRequestStreaming)
+   * }}}
+   */
   def defaultWith(f: Config => Config)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     ZLayer.succeed(f(Config.default)) >>> live
 
+  /** A layer that builds a server from `Config.default`, on port 8080. */
   val default: ZLayer[Any, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.succeed(Config.default) >>> live

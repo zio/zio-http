@@ -31,6 +31,39 @@ import zio.http.internal._
 
 import com.lihaoyi.unroll
 
+/**
+ * A `ZClient` sends HTTP requests. Most code uses the type alias `Client`,
+ * which is `ZClient[Any, Scope, Body, Throwable, Response]`: it takes a
+ * [[Body]], fails with a `Throwable`, and returns a [[Response]] whose body is
+ * streamed while the `Scope` of the request is open.
+ *
+ * A client holds a base URL, headers, an SSL configuration and a proxy that are
+ * added to every request, a body encoder and decoder that convert the input to
+ * a `Body` and the `Response` to the output (`contramap`, `map`), and a driver
+ * that sends the request. Operators such as `url`, `addPath`, `addHeader` and
+ * `@@` return a new client. `batched` reads the whole response body before it
+ * returns, so it needs no `Scope`; requests made with `apply` or
+ * `ZClient.streaming` need one.
+ *
+ * Get a `Client` from a layer such as `Client.default`, `Client.configured()`
+ * or `Client.customized`.
+ *
+ * {{{
+ * import zio._
+ *
+ * val userName: ZIO[Client, Throwable, String] =
+ *   ZIO.serviceWithZIO[Client] { client =>
+ *     client
+ *       .url(url"http://localhost:8080")
+ *       .addPath("users")
+ *       .batched(Request.get(URL(Path("/42"))))
+ *       .flatMap(_.body.asString)
+ *   }
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/client/ Client]]
+ */
 final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   version: Version,
   url: URL,
@@ -41,6 +74,15 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   bodyDecoder: ZClient.BodyDecoder[Env, Err, Out],
   driver: ZClient.Driver[Env, ReqEnv, Err],
 ) extends HeaderOps[ZClient[Env, ReqEnv, In, Err, Out]] { self =>
+
+  /**
+   * Sends `request`, after merging it with the client's settings, and decodes
+   * the response. The request URL is appended to the client's URL with
+   * `URL#++`, the request headers are added to the client's headers, and the
+   * client's SSL configuration and proxy are used. For a `Client`, the response
+   * body is streamed, and the effect needs a `Scope` that keeps the connection
+   * open.
+   */
   @nowarn("msg=deprecated")
   def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     self.request(request)
@@ -66,27 +108,55 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   ): ZClient[UpperEnv, ReqEnv, UpperIn, LowerErr, LowerOut] =
     aspect(self)
 
+  /**
+   * Returns a client whose URL has `path` appended to its path.
+   */
   def addPath(path: String): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(path = url.path ++ Path(path)))
 
+  /**
+   * Returns a client whose URL has `path` appended to its path.
+   */
   def addPath(path: Path): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(path = url.path ++ path))
 
+  /**
+   * Returns a client whose URL path starts with a slash.
+   */
   def addLeadingSlash: ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.addLeadingSlash)
 
+  /**
+   * Returns a client whose URL has the query parameter `key` with `value`
+   * added.
+   */
   def addQueryParam(key: String, value: String): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(queryParams = url.queryParams.addQueryParam(key, value)))
 
+  /**
+   * Returns a client whose URL has `params` added to its query parameters.
+   */
   def addQueryParams(params: QueryParams): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(queryParams = url.queryParams ++ params))
 
+  /**
+   * Returns a client whose URL path ends with a slash.
+   */
   def addTrailingSlash: ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.addTrailingSlash)
 
+  /**
+   * Returns a client whose URL is its current URL combined with `url` by
+   * `URL#++`.
+   */
   def addUrl(url: URL): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = self.url ++ url)
 
+  /**
+   * Sends `request` like `apply`, and reads the whole response body before the
+   * effect completes, so no `Scope` is needed. Same as
+   * `batched.apply(request)`.
+   */
   def batched(
     request: Request,
   )(implicit trace: Trace, ev1: ReqEnv =:= Scope, ev3: Body <:< In): ZIO[Env, Err, Out] =
@@ -106,9 +176,17 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       self.driver.disableStreaming,
     )
 
+  /**
+   * Returns a client that takes inputs of type `In2` and converts them with `f`
+   * before encoding them.
+   */
   def contramap[In2](f: In2 => In)(implicit trace: Trace): ZClient[Env, ReqEnv, In2, Err, Out] =
     contramapZIO(in => ZIO.succeed(f(in)))
 
+  /**
+   * Returns a client that takes inputs of type `In2` and converts them with the
+   * effect `f` before encoding them. A failure of `f` fails the request.
+   */
   def contramapZIO[Err1 >: Err, In2](f: In2 => IO[Err1, In]): ZClient[Env, ReqEnv, In2, Err1, Out] =
     transform(
       self.bodyEncoder.contramapZIO(f),
@@ -116,33 +194,61 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       self.driver,
     )
 
+  /**
+   * Sends a `DELETE` request with an empty body to the client's URL with
+   * `suffix` appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def delete(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.DELETE, suffix)(ev(Body.empty))
 
+  /**
+   * Returns a client that turns the errors for which `f` is true into defects.
+   */
   def dieOn(
     f: Err => Boolean,
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, ReqEnv, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
 
+  /**
+   * Same as `batched`.
+   */
   @deprecated("use `batched` instead", since = "3.0.0")
   def disableStreaming(implicit ev1: ReqEnv =:= Scope): ZClient[Env, Any, In, Err, Out] =
     batched
 
+  /**
+   * Sends a `GET` request with an empty body to the client's URL with `suffix`
+   * appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def get(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.GET, suffix)(ev(Body.empty))
 
+  /**
+   * Sends a `HEAD` request with an empty body to the client's URL with `suffix`
+   * appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def head(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.HEAD, suffix)(ev(Body.empty))
 
+  /**
+   * Returns a client whose URL has the host `host`.
+   */
   def host(host: String): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.host(host))
 
+  /**
+   * Returns a client whose output is the output of this client mapped with `f`.
+   */
   def map[Out2](f: Out => Out2)(implicit trace: Trace): ZClient[Env, ReqEnv, In, Err, Out2] =
     mapZIO(out => ZIO.succeed(f(out)))
 
+  /**
+   * Returns a client whose errors are mapped with `f`, in encoding, sending and
+   * decoding.
+   */
   def mapError[Err2](f: Err => Err2): ZClient[Env, ReqEnv, In, Err2, Out] =
     transform(
       bodyEncoder.mapError(f),
@@ -150,6 +256,10 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       driver.mapError(f),
     )
 
+  /**
+   * Returns a client whose output is the output of this client mapped with the
+   * effect `f`. A failure of `f` fails the request.
+   */
   def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, ReqEnv, In, Err1, Out2] =
     transform(
       bodyEncoder,
@@ -157,28 +267,56 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       driver,
     )
 
+  /**
+   * Returns a client whose URL has the path `path`, replacing the current path.
+   */
   def path(path: String): ZClient[Env, ReqEnv, In, Err, Out] = self.path(Path(path))
 
+  /**
+   * Returns a client whose URL has the path `path`, replacing the current path.
+   */
   def path(path: Path): ZClient[Env, ReqEnv, In, Err, Out] = updatePath(_ => path)
 
+  /**
+   * Returns a client whose URL path is updated with `f`.
+   */
   def updatePath(f: Path => Path): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.copy(path = f(url.path)))
 
+  /**
+   * Sends a `PATCH` request with an empty body to the client's URL with
+   * `suffix` appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def patch(suffix: String)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.PATCH, suffix)(ev(Body.empty))
 
+  /**
+   * Returns a client whose URL has the port `port`.
+   */
   def port(port: Int): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.port(port))
 
+  /**
+   * Sends a `POST` request with the encoded `body` to the client's URL with
+   * `suffix` appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.POST, suffix)(body)
 
+  /**
+   * Sends a `PUT` request with the encoded `body` to the client's URL with
+   * `suffix` appended to its path (`URL#addPath`), and decodes the response.
+   */
   @nowarn("msg=deprecated")
   def put(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     request(Method.PUT, suffix)(body)
 
+  /**
+   * Returns a client that keeps the errors for which `pf` is defined, mapped by
+   * `pf`, and turns the other errors into defects.
+   */
   def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
   )(implicit
@@ -188,6 +326,10 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
   ): ZClient[Env, ReqEnv, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
+  /**
+   * Sends `request`; same as `apply`. Use `batched`, or `ZClient.streaming` for
+   * a streamed body, instead.
+   */
   @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & ReqEnv, Err, Out] = {
     def makeRequest(body: Body) = {
@@ -209,18 +351,36 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
         .flatMap(body => bodyDecoder.decodeZIO(makeRequest(body)))
   }
 
+  /**
+   * Sends a request with `method` and the encoded `body` to the client's URL
+   * with `suffix` appended to its path (`URL#addPath`). Use `batched`, or
+   * `ZClient.streaming` for a streamed body, instead.
+   */
   @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Out] =
     bodyEncoder
       .encode(body)
       .flatMap(body => bodyDecoder.decodeZIO[Env & ReqEnv, Err](requestRaw(method, suffix, body)))
 
+  /**
+   * Returns a client that sends a request again, following `policy`, when
+   * sending it fails. `Schedule.recurs(2)` allows up to three attempts.
+   */
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, ReqEnv, In, Err, Out] =
     transform[Env1, ReqEnv, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
 
+  /**
+   * Returns a client whose URL has the scheme `scheme`.
+   */
   def scheme(scheme: Scheme): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(url = url.scheme(scheme))
 
+  /**
+   * Opens a WebSocket connection to the client's URL (an `http` scheme becomes
+   * `ws`, and `https` becomes `wss`), runs `app` on the connection in a
+   * separate fiber, and returns the handshake response. The connection stays
+   * open until either side closes it or the `Scope` is closed.
+   */
   def socket[Env1 <: Env](
     app: WebSocketApp[Env1],
   )(implicit trace: Trace, ev: ReqEnv =:= Scope): ZIO[Env1 & ReqEnv, Err, Out] =
@@ -259,12 +419,24 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       .fold(ZStream.fail(_), f)
   }
 
+  /**
+   * Returns a client that uses `ssl` as its SSL configuration, instead of the
+   * one from its [[ZClient.Config]].
+   */
   def ssl(ssl: ClientSSLConfig): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(sslConfig = Some(ssl))
 
+  /**
+   * Returns a client that sends requests through `proxy`, instead of the proxy
+   * from its [[ZClient.Config]].
+   */
   def proxy(proxy: Proxy): ZClient[Env, ReqEnv, In, Err, Out] =
     copy(proxy = Some(proxy))
 
+  /**
+   * Returns a client with the same URL, headers, SSL configuration and proxy,
+   * and the given body encoder, body decoder and driver.
+   */
   def transform[Env2, S2, In2, Err2, Out2](
     bodyEncoder: ZClient.BodyEncoder[Env2, Err2, In2],
     bodyDecoder: ZClient.BodyDecoder[Env2, Err2, Out2],
@@ -281,10 +453,20 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
       driver,
     )
 
+  /**
+   * Returns a client whose URL is `uri`. When `uri` can't be converted to a
+   * [[URL]], the URL becomes `URL.empty`.
+   */
   def uri(uri: URI): ZClient[Env, ReqEnv, In, Err, Out] = url(URL.fromURI(uri).getOrElse(URL.empty))
 
+  /**
+   * Returns a client whose URL is `url`, replacing the current URL.
+   */
   def url(url: URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = url)
 
+  /**
+   * Returns a client whose URL is updated with `f`.
+   */
   def updateURL(f: URL => URL): ZClient[Env, ReqEnv, In, Err, Out] = copy(url = f(url))
 
   private def requestRaw(method: Method, suffix: String, body: Body)(implicit
@@ -293,8 +475,22 @@ final case class ZClient[-Env, ReqEnv, -In, +Err, +Out](
     driver.request(version, method, if (suffix.nonEmpty) url.addPath(suffix) else url, headers, body, sslConfig, proxy)
 }
 
+/**
+ * Accessors for the `Client` service (`batched`, `streaming`, `streamingWith`,
+ * `socket`), the layers that create a `Client`, and the parts of a client:
+ * [[ZClient.Config]], [[ZClient.Driver]], [[ZClient.BodyEncoder]] and
+ * [[ZClient.BodyDecoder]].
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/client/ Client]]
+ */
 object ZClient extends ZClientPlatformSpecific {
 
+  /**
+   * The `User-Agent` header that the client layers add when
+   * `Config.addUserAgentHeader` is true: the product `Zio-Http-Client` with the
+   * zio-http version, and the Scala version as a comment.
+   */
   lazy val defaultUAHeader: UserAgent                  = UserAgent(
     UserAgent.ProductOrComment.Product("Zio-Http-Client", zioHttpVersionNormalized),
     List(UserAgent.ProductOrComment.Comment(s"Scala $scalaVersion")),
@@ -318,6 +514,11 @@ object ZClient extends ZClientPlatformSpecific {
   def batched(request: Request)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.batched.request(request))
 
+  /**
+   * Creates a client that sends requests with `driver`, with an empty URL, no
+   * headers, no SSL configuration or proxy, and identity body encoder and
+   * decoder.
+   */
   def fromDriver[Env, ReqEnv, Err](driver: Driver[Env, ReqEnv, Err]): ZClient[Env, ReqEnv, Body, Err, Response] =
     ZClient(
       Version.Default,
@@ -330,6 +531,10 @@ object ZClient extends ZClientPlatformSpecific {
       driver,
     )
 
+  /**
+   * Sends `request` with the `Client` from the environment; same as
+   * `streaming`.
+   */
   @deprecated("Use `batched` or `streaming` instead", since = "3.0.0")
   @nowarn("msg=deprecated")
   def request(request: Request)(implicit trace: Trace): ZIO[Client & Scope, Throwable, Response] =
@@ -367,30 +572,60 @@ object ZClient extends ZClientPlatformSpecific {
   ): ZStream[R & Client, Throwable, A] =
     ZStream.serviceWithStream[Client](_.stream(request)(f))
 
+  /**
+   * Opens a WebSocket connection with the `Client` from the environment, runs
+   * `socketApp` on it, and returns the handshake response. See
+   * `ZClient#socket`.
+   */
   def socket[R](socketApp: WebSocketApp[R])(implicit trace: Trace): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
 
+  /**
+   * Opens a WebSocket connection with the `Client` from the environment and
+   * returns its channel. See `ZClient#socketChannel`.
+   */
   def socketChannel(implicit trace: Trace): ZIO[Client & Scope, Throwable, WebSocketChannel] =
     ZIO.serviceWithZIO[Client](_.socketChannel)
 
+  /**
+   * Converts the [[Response]] that a client receives into the client's output
+   * type `Out`.
+   */
   trait BodyDecoder[-Env, +Err, +Out] { self =>
+
+    /**
+     * Converts `response` into an output.
+     */
     def decode(response: Response)(implicit trace: Trace): ZIO[Env, Err, Out]
 
+    /**
+     * Runs `zio` and converts the response it produces into an output.
+     */
     def decodeZIO[Env1 <: Env, Err1 >: Err](zio: ZIO[Env1, Err1, Response])(implicit
       trace: Trace,
     ): ZIO[Env1, Err1, Out] =
       zio.flatMap(decode)
 
+    /**
+     * Returns a decoder whose errors are mapped with `f`.
+     */
     final def mapError[Err2](f: Err => Err2): BodyDecoder[Env, Err2, Out] =
       new BodyDecoder[Env, Err2, Out] {
         def decode(response: Response)(implicit trace: Trace): ZIO[Env, Err2, Out] = self.decode(response).mapError(f)
       }
 
+    /**
+     * Returns a decoder whose output is mapped with the effect `f`.
+     */
     final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): BodyDecoder[Env1, Err1, Out2] =
       new BodyDecoder[Env1, Err1, Out2] {
         def decode(response: Response)(implicit trace: Trace): ZIO[Env1, Err1, Out2] = self.decode(response).flatMap(f)
       }
 
+    /**
+     * Returns a decoder that keeps the errors for which `pf` is defined, mapped
+     * by `pf`, and turns the others into defects.
+     */
     final def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyDecoder[Env, Err2, Out] =
@@ -399,23 +634,45 @@ object ZClient extends ZClientPlatformSpecific {
           self.decode(response).refineOrDie(pf)
       }
 
+    /**
+     * Changes the error type to `E1`, given evidence that `Err` is a subtype of
+     * `E1`.
+     */
     final def widenError[E1](implicit ev: Err <:< E1): BodyDecoder[Env, E1, Out] =
       self.asInstanceOf[BodyDecoder[Env, E1, Out]]
   }
 
+  /**
+   * Converts the client's input type `In` into the [[Body]] of the request.
+   */
   trait BodyEncoder[-Env, +Err, -In] { self =>
+
+    /**
+     * Returns an encoder that converts its input with the effect `f` before
+     * encoding it.
+     */
     final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): BodyEncoder[Env1, Err1, In2] =
       new BodyEncoder[Env1, Err1, In2] {
         def encode(in: In2)(implicit trace: Trace): ZIO[Env1, Err1, Body] = f(in).flatMap(self.encode)
       }
 
+    /**
+     * Converts `in` into a body.
+     */
     def encode(in: In)(implicit trace: Trace): ZIO[Env, Err, Body]
 
+    /**
+     * Returns an encoder whose errors are mapped with `f`.
+     */
     final def mapError[Err2](f: Err => Err2): BodyEncoder[Env, Err2, In] =
       new BodyEncoder[Env, Err2, In] {
         def encode(in: In)(implicit trace: Trace): ZIO[Env, Err2, Body] = self.encode(in).mapError(f)
       }
 
+    /**
+     * Returns an encoder that keeps the errors for which `pf` is defined,
+     * mapped by `pf`, and turns the others into defects.
+     */
     final def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyEncoder[Env, Err2, In] =
@@ -423,14 +680,34 @@ object ZClient extends ZClientPlatformSpecific {
         def encode(in: In)(implicit trace: Trace): ZIO[Env, Err2, Body] = self.encode(in).refineOrDie(pf)
       }
 
+    /**
+     * Changes the error type to `E1`, given evidence that `Err` is a subtype of
+     * `E1`.
+     */
     final def widenError[E1](implicit ev: Err <:< E1): BodyEncoder[Env, E1, In] =
       self.asInstanceOf[BodyEncoder[Env, E1, In]]
   }
 
+  /**
+   * Sends requests and opens WebSocket connections for a [[ZClient]]. The
+   * client layers provide a driver that uses the network; a custom driver
+   * passed to `ZClient.fromDriver` can answer requests in another way, for
+   * example in tests.
+   */
   trait Driver[-Env, ReqEnv, +Err] { self =>
+
+    /**
+     * Sends `request` as it is, without an SSL configuration or proxy of its
+     * own.
+     */
     final def apply(request: Request)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
       self.request(request.version, request.method, request.url, request.headers, request.body, None, None)
 
+    /**
+     * Returns a driver that reads the whole response body before it returns, so
+     * it needs no `Scope`. Its `socket` and `socketChannel` die with an
+     * `UnsupportedOperationException`.
+     */
     def disableStreaming(implicit ev1: ReqEnv =:= Scope): Driver[Env, Any, Err] =
       new Driver[Env, Any, Err] {
 
@@ -465,6 +742,9 @@ object ZClient extends ZClientPlatformSpecific {
           ZIO.die(new UnsupportedOperationException("Streaming is disabled"))
       }
 
+    /**
+     * Returns a driver whose errors are mapped with `f`.
+     */
     final def mapError[Err2](f: Err => Err2): Driver[Env, ReqEnv, Err2] =
       new Driver[Env, ReqEnv, Err2] {
         override def request(
@@ -495,6 +775,10 @@ object ZClient extends ZClientPlatformSpecific {
           self.socketChannel(version, url, headers, config).mapError(f)
       }
 
+    /**
+     * Returns a driver that keeps the errors for which `pf` is defined, mapped
+     * by `pf`, and turns the others into defects.
+     */
     final def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): Driver[Env, ReqEnv, Err2] =
@@ -527,6 +811,12 @@ object ZClient extends ZClientPlatformSpecific {
           self.socketChannel(version, url, headers, config).refineOrDie(pf)
       }
 
+    /**
+     * Sends a request built from its parts and returns the response. A
+     * [[ZClient]] passes its own SSL configuration and proxy; the network
+     * driver of the client layers uses them, when they are defined, instead of
+     * the ones from its [[ZClient.Config]].
+     */
     def request(
       version: Version,
       method: Method,
@@ -537,9 +827,17 @@ object ZClient extends ZClientPlatformSpecific {
       proxy: Option[Proxy],
     )(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response]
 
+    /**
+     * Sends `req` as it is, without an SSL configuration or proxy of its own.
+     * Same as `apply`.
+     */
     final def request(req: Request)(implicit trace: Trace): ZIO[Env & ReqEnv, Err, Response] =
       request(req.version, req.method, req.url, req.headers, req.body, None, None)
 
+    /**
+     * Returns a driver that sends a request, or opens a WebSocket connection,
+     * again following `policy` when it fails.
+     */
     final def retry[Env1 <: Env, Err1 >: Err](policy: zio.Schedule[Env1, Err1, Any]) =
       new Driver[Env1, ReqEnv, Err1] {
         override def request(
@@ -570,6 +868,10 @@ object ZClient extends ZClientPlatformSpecific {
           self.socketChannel(version, url, headers, config).retry(policy)
       }
 
+    /**
+     * Opens a WebSocket connection to `url`, runs `app` on it, and returns the
+     * handshake response.
+     */
     def socket[Env1 <: Env](
       version: Version,
       url: URL,
@@ -603,6 +905,19 @@ object ZClient extends ZClientPlatformSpecific {
 
   }
 
+  /**
+   * Configuration of the client that the layers `Client.default`,
+   * `Client.fromConfig`, `Client.live`, `Client.configured` and
+   * `Client.customized` create. `Config.default` has no SSL configuration or
+   * proxy, a fixed connection pool of 10 connections, a maximum initial line
+   * length of 4096 and a maximum header size of 8192, no response
+   * decompression, the `User-Agent` header, an idle timeout of 50 seconds, no
+   * connection timeout, and no body read timeout of its own (the idle timeout
+   * still applies while the body is read).
+   *
+   * On Scala.js, the client sends requests with the Fetch API, and only
+   * `addUserAgentHeader` is used.
+   */
   final case class Config(
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
@@ -620,6 +935,10 @@ object ZClient extends ZClientPlatformSpecific {
   ) {
     self =>
 
+    /**
+     * Returns a config that adds the `User-Agent` header
+     * `ZClient.defaultUAHeader` to requests when `addUserAgentHeader` is true.
+     */
     def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
       self.copy(addUserAgentHeader = addUserAgentHeader)
 
@@ -638,15 +957,31 @@ object ZClient extends ZClientPlatformSpecific {
     def bodyReadTimeout(timeout: Duration): Config =
       self.copy(bodyReadTimeout = Some(timeout))
 
+    /**
+     * Returns a config with `timeout` as the time allowed to establish a
+     * connection.
+     */
     def connectionTimeout(timeout: Duration): Config =
       self.copy(connectionTimeout = Some(timeout))
 
+    /**
+     * Returns a config with `timeout` as the time a connection may go without
+     * reading data before it fails.
+     */
     def idleTimeout(timeout: Duration): Config =
       self.copy(idleTimeout = Some(timeout))
 
+    /**
+     * Returns a config that opens a new connection for each request instead of
+     * using a pool.
+     */
     def disabledConnectionPool: Config =
       self.copy(connectionPool = ConnectionPoolConfig.Disabled)
 
+    /**
+     * Returns a config with `initialLineLength` as the maximum length of the
+     * status line of a response.
+     */
     def maxInitialLineLength(initialLineLength: Int): Config = self.copy(maxInitialLineLength = initialLineLength)
 
     /**
@@ -655,25 +990,57 @@ object ZClient extends ZClientPlatformSpecific {
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
 
+    /**
+     * Returns a config without a body read timeout.
+     */
     def noBodyReadTimeout: Config = self.copy(bodyReadTimeout = None)
 
+    /**
+     * Returns a config without a connection timeout.
+     */
     def noConnectionTimeout: Config = self.copy(connectionTimeout = None)
 
+    /**
+     * Returns a config without an idle timeout.
+     */
     def noIdleTimeout: Config = self.copy(idleTimeout = None)
 
+    /**
+     * Returns a config that sends requests through `proxy`.
+     */
     def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
 
+    /**
+     * Returns a config that decompresses response bodies: with
+     * `Decompression.Strict` when `isStrict` is true, and
+     * `Decompression.NonStrict` otherwise.
+     */
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
+    /**
+     * Returns a config that uses `ssl` for HTTPS connections.
+     */
     def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
 
+    /**
+     * Returns a config with a connection pool of `size` connections for each
+     * location (scheme, host and port).
+     */
     def fixedConnectionPool(size: Int): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
 
+    /**
+     * Returns a config with a connection pool of `minimum` to `maximum`
+     * connections for each location (scheme, host and port). Connections above
+     * `minimum` are closed after they stay unused for `ttl`.
+     */
     def dynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
+    /**
+     * Returns a config that uses `webSocketConfig` for WebSocket connections.
+     */
     def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
@@ -847,7 +1214,14 @@ object ZClient extends ZClientPlatformSpecific {
       }
   }
 
+  /**
+   * Instances of [[ZClient.BodyDecoder]].
+   */
   object BodyDecoder {
+
+    /**
+     * The decoder that returns the response unchanged.
+     */
     val identity: BodyDecoder[Any, Nothing, Response] =
       new BodyDecoder[Any, Nothing, Response] {
         final def decode(response: Response)(implicit trace: Trace): ZIO[Any, Nothing, Response] =
@@ -860,14 +1234,28 @@ object ZClient extends ZClientPlatformSpecific {
       }
   }
 
+  /**
+   * Instances of [[ZClient.BodyEncoder]].
+   */
   object BodyEncoder {
+
+    /**
+     * The encoder that uses its input body unchanged.
+     */
     val identity: BodyEncoder[Any, Nothing, Body] =
       new BodyEncoder[Any, Nothing, Body] {
         def encode(body: Body)(implicit trace: Trace): ZIO[Any, Nothing, Body] = Exit.succeed(body)
       }
   }
 
+  /**
+   * Default values and the `zio.Config` description of [[ZClient.Config]].
+   */
   object Config {
+
+    /**
+     * The default client configuration. See [[ZClient.Config]] for its values.
+     */
     val default: Config = Config(
       ssl = None,
       proxy = None,
@@ -883,6 +1271,15 @@ object ZClient extends ZClientPlatformSpecific {
       bodyReadTimeout = None, // Defaults to idleTimeout when None
     )
 
+    /**
+     * Reads a [[ZClient.Config]] with ZIO Config, from the keys `ssl`, `proxy`,
+     * `connection-pool`, `max-initial-line-length`, `max-header-size`,
+     * `request-decompression`, `add-user-agent-header`, `idle-timeout`,
+     * `connection-timeout` and `body-read-timeout`. A missing key takes its
+     * value from `Config.default`, except `idle-timeout`: when it is missing,
+     * the config has no idle timeout, while `Config.default` has 50 seconds.
+     * `localAddress` and `webSocketConfig` always keep their default values.
+     */
     def config: zio.Config[Config] =
       (
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++

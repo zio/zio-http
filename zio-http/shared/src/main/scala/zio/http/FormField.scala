@@ -33,8 +33,14 @@ import zio.http.internal.FormAST
  * (perhaps just plaintext), type-specific content, and an optional filename.
  */
 sealed trait FormField {
+
+  /** The name of the field. */
   def name: String
+
+  /** The media type of the field. */
   def contentType: MediaType
+
+  /** The file name given in the `Content-Disposition` of the part, if any. */
   def filename: Option[String]
 
   /**
@@ -49,7 +55,9 @@ sealed trait FormField {
 
   /**
    * Gets the value of this form field as a String. If it is a binary field, the
-   * value is interpreted as an UTF-8 byte stream.
+   * value is interpreted as an UTF-8 byte stream. Bytes that are not valid
+   * UTF-8 become the replacement character for a `FormField.Binary`, while a
+   * `FormField.StreamingBinary` fails with a `CharacterCodingException`.
    */
   final def asText(implicit trace: Trace): ZIO[Any, CharacterCodingException, String] = this match {
     case FormField.Text(_, value, _, _)                =>
@@ -78,7 +86,7 @@ sealed trait FormField {
   }
 
   /**
-   * Gets the value of this form field as a chunk of bytes. If it is a text
+   * Gets the value of this form field as a stream of bytes. If it is a text
    * field, the value gets encoded as an UTF-8 byte stream.
    */
   final def asStream(implicit trace: Trace): ZStream[Any, Nothing, Byte] = this match {
@@ -92,6 +100,7 @@ sealed trait FormField {
       ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
+  /** Returns a copy of this field with the given name. */
   def name(newName: String): FormField = this match {
     case FormField.Binary(_, data, contentType, transferEncoding, filename)          =>
       FormField.Binary(newName, data, contentType, transferEncoding, filename)
@@ -104,6 +113,9 @@ sealed trait FormField {
   }
 }
 
+/**
+ * The kinds of form fields and constructors for them.
+ */
 object FormField {
 
   /**
@@ -124,6 +136,8 @@ object FormField {
    *   not encoded in any way relative to the provided `transferEncoding`. It is
    *   the responsibility of the user to encode the `data` accordingly.
    * @param filename
+   *   The file name of this form data part, if any. This is the value of the
+   *   `filename` field in the `Content-Disposition` within this part.
    */
   final case class Binary(
     name: String,
@@ -133,6 +147,10 @@ object FormField {
     filename: Option[String] = None,
   ) extends FormField
 
+  /**
+   * A binary form data part whose data is a stream of bytes. It takes the same
+   * parameters as `Binary`, with `data` as a stream.
+   */
   final case class StreamingBinary(
     name: String,
     contentType: MediaType,
@@ -140,6 +158,11 @@ object FormField {
     filename: Option[String] = None,
     data: ZStream[Any, Nothing, Byte],
   ) extends FormField {
+
+    /**
+     * Runs the stream and returns the collected bytes as a `Binary` field with
+     * the same name, content type, transfer encoding and file name.
+     */
     def collect(implicit trace: Trace): ZIO[Any, Nothing, Binary] = {
       data.runCollect.map { bytes =>
         Binary(name, bytes, contentType, transferEncoding, filename)
@@ -147,6 +170,18 @@ object FormField {
     }
   }
 
+  /**
+   * A form data part with a text value and a content type.
+   *
+   * @param name
+   *   the name of the part
+   * @param value
+   *   the text of the part
+   * @param contentType
+   *   the content type of the part
+   * @param filename
+   *   the file name of the part, if any
+   */
   final case class Text(
     name: String,
     value: String,
@@ -154,6 +189,15 @@ object FormField {
     filename: Option[String] = None,
   ) extends FormField
 
+  /**
+   * A simple name and value pair, as in a URL encoded form. Its content type is
+   * `text/plain` and it has no file name.
+   *
+   * @param name
+   *   the name of the field
+   * @param value
+   *   the value of the field
+   */
   final case class Simple(name: String, value: String) extends FormField {
     override val contentType: MediaType   = MediaType.text.plain
     override val filename: Option[String] = None
@@ -247,11 +291,17 @@ object FormField {
     )
   }
 
+  /**
+   * Creates a `FormField.Text` field without a file name. The media type
+   * defaults to `text/plain`.
+   */
   def textField(name: String, value: String, mediaType: MediaType = MediaType.text.plain): FormField =
     Text(name, value, mediaType, None)
 
+  /** Creates a `FormField.Simple` field. */
   def simpleField(name: String, value: String): FormField = Simple(name, value)
 
+  /** Creates a `FormField.Binary` field. */
   def binaryField(
     name: String,
     data: Chunk[Byte],
@@ -260,6 +310,7 @@ object FormField {
     filename: Option[String] = None,
   ): FormField = Binary(name, data, mediaType, transferEncoding, filename)
 
+  /** Creates a `FormField.StreamingBinary` field. */
   def streamingBinaryField(
     name: String,
     data: ZStream[Any, Nothing, Byte],

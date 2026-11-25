@@ -26,17 +26,29 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.codec._
 
 /**
- * Server-Sent Event (SSE) as defined by
- * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
+ * A Server-Sent Event (SSE) as defined by
+ * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events.
+ * `T` is the type of the event data.
+ *
+ * {{{
+ * val event: ServerSentEvent[String] = ServerSentEvent("temperature: 21", Some("reading"), Some("7"))
+ * val text: String                   = event.encoded
+ * // "event: reading\ndata: temperature: 21\nid: 7\n\n"
+ * }}}
  *
  * @param data
- *   data, may span multiple lines
+ *   the event data, which may span multiple lines
  * @param eventType
- *   optional type, must not contain \n or \r
+ *   the optional event type, sent as the `event` field. Line breaks in it are
+ *   replaced with a space when the event is encoded.
  * @param id
- *   optional id, must not contain \n or \r
+ *   the optional event id, sent as the `id` field. Line breaks in it are
+ *   replaced with a space when the event is encoded.
  * @param retry
- *   optional reconnection delay
+ *   the optional reconnection delay, sent as the `retry` field in milliseconds
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/examples/server-sent-events-in-endpoints/ Server-Sent Events in Endpoints]]
  */
 final case class ServerSentEvent[T](
   data: T,
@@ -45,15 +57,40 @@ final case class ServerSentEvent[T](
   retry: Option[Duration] = None,
 ) {
 
+  /**
+   * Encodes this event as Server-Sent Events text. `String` data is used as it
+   * is; any other data is encoded with the implicit codec and read as UTF-8
+   * text. See `encodeWith` for the format.
+   */
   def encode(implicit binaryCodec: BinaryCodec[T]): String =
     encodeWith {
       case s: String => s
       case data      => binaryCodec.encode(data).asString(Charsets.Utf8)
     }
 
+  /**
+   * Encodes this event, whose data is a `String`, as Server-Sent Events text.
+   * See `encodeWith` for the format.
+   */
   def encoded(implicit ev: T <:< String): String =
     encodeWith(ev)
 
+  /**
+   * Encodes this event as Server-Sent Events text, using `f` to turn the data
+   * into text.
+   *
+   * The fields are written in the order `event`, `data`, `id`, `retry`, and a
+   * blank line ends the event. Each line of the data text is written as a
+   * `data: ` line, except for comments such as `ServerSentEvent.heartbeat`.
+   * Line breaks in `eventType` and `id` are replaced with a space, and `retry`
+   * is written in milliseconds.
+   *
+   * {{{
+   * val event = ServerSentEvent("temperature: 21", Some("reading"), Some("7"))
+   * val text: String = event.encodeWith(identity)
+   * // "event: reading\ndata: temperature: 21\nid: 7\n\n"
+   * }}}
+   */
   def encodeWith(f: T => String): String = {
     val dataString: String = f(data)
 
@@ -109,31 +146,50 @@ final case class ServerSentEvent[T](
 
 }
 
+/** Constructors, schemas and codecs for `ServerSentEvent`. */
 object ServerSentEvent {
 
   /**
-   * Server-Sent Event (SSE) as defined by
-   * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
+   * Creates an event whose reconnection delay is given in milliseconds. A
+   * negative `retry` gives an event without a reconnection delay.
    *
    * @param data
-   *   data, may span multiple lines
+   *   the event data, which may span multiple lines
    * @param eventType
-   *   type, must not contain \n or \r
+   *   the optional event type
    * @param id
-   *   id, must not contain \n or \r
+   *   the optional event id
    * @param retry
-   *   reconnection delay in milliseconds, must be >= 0
+   *   the optional reconnection delay in milliseconds
    */
   def apply[T](data: T, eventType: Option[String], id: Option[String], retry: Option[Int])(implicit
     di: DummyImplicit,
   ): ServerSentEvent[T] =
     ServerSentEvent(data, eventType, id, retry.filter(_ >= 0).map(_.milliseconds))
 
+  /** Derives the `Schema` of `ServerSentEvent[T]` from the schema of `T`. */
   implicit def schema[T](implicit schema: Schema[T]): Schema[ServerSentEvent[T]] = DeriveSchema.gen[ServerSentEvent[T]]
 
+  /**
+   * The binary codec of the default content codec (`defaultContentCodec`) for
+   * `ServerSentEvent[T]`.
+   */
   implicit def defaultBinaryCodec[T](implicit schema: Schema[T]): BinaryCodec[ServerSentEvent[T]] =
     defaultContentCodec(schema).defaultCodec
 
+  /**
+   * A codec for events whose data is the list of the `data` lines of the event.
+   *
+   * Decoding reads the fields `data`, `event`, `id` and `retry`. A line `data`
+   * without a colon is an empty data line, an empty `event` or `id` value gives
+   * `None`, and `retry` is kept only when its value is a non-negative integer
+   * number of milliseconds. Other lines, such as comments, are ignored.
+   * `decode` of a whole chunk fails with a `DecodeError.EmptyContent` when the
+   * event has neither a `data` line nor a `retry` field. The stream decoder
+   * emits an event at each blank line, and skips events that have neither.
+   *
+   * Encoding writes each element of the data as a `data` line.
+   */
   val rawEventLines: BinaryCodec[ServerSentEvent[Chunk[String]]] =
     new BinaryCodec[ServerSentEvent[Chunk[String]]] {
 
@@ -186,6 +242,11 @@ object ServerSentEvent {
 
     }
 
+  /**
+   * A codec for events whose data is a `String`, with the same field handling
+   * as `rawEventLines`. When decoding, the `data` lines of an event are
+   * concatenated without a line separator.
+   */
   val rawEvent: BinaryCodec[ServerSentEvent[String]] =
     new BinaryCodec[ServerSentEvent[String]] {
 
@@ -203,6 +264,12 @@ object ServerSentEvent {
 
     }
 
+  /**
+   * A codec for `ServerSentEvent[T]` that uses the given codec for the data.
+   * When decoding, the `data` lines of an event are joined with a newline
+   * character and decoded with that codec; encoding is
+   * `ServerSentEvent#encode`. The fields are handled as in `rawEventLines`.
+   */
   implicit def binaryCodec[T](implicit binaryCodec: BinaryCodec[T]): BinaryCodec[ServerSentEvent[T]] =
     new BinaryCodec[ServerSentEvent[T]] {
 
@@ -225,6 +292,10 @@ object ServerSentEvent {
 
     }
 
+  /**
+   * The content codec of `ServerSentEvent[T]` for the media type
+   * `text/event-stream`, with the given codec and schema for the data.
+   */
   implicit def contentCodec[T](implicit
     codecT: BinaryCodec[T],
     schemaT: Schema[T],
@@ -232,6 +303,11 @@ object ServerSentEvent {
     MediaType.text.`event-stream` -> BinaryCodecWithSchema(binaryCodec(codecT), schema(schemaT)),
   )
 
+  /**
+   * The content codec of `ServerSentEvent[T]` for the media type
+   * `text/event-stream`. The data of `T` with a primitive schema is encoded as
+   * text, and any other data as JSON.
+   */
   implicit def defaultContentCodec[T](implicit
     schema: Schema[T],
   ): HttpContentCodec[ServerSentEvent[T]] = {
@@ -239,5 +315,9 @@ object ServerSentEvent {
     else contentCodec(JsonCodec.schemaBasedBinaryCodec, schema)
   }
 
+  /**
+   * An event whose data is the comment `:heartbeat`. It is encoded as the
+   * comment line `:heartbeat` followed by a blank line.
+   */
   val heartbeat: ServerSentEvent[String] = new ServerSentEvent(":heartbeat")
 }

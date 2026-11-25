@@ -36,14 +36,13 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * layers can fail, and the types of handlers they may be applied to.
  *
  * In particular, protocol stacks can be applied to handlers that fail with the
- * same type as their output type. This guarantees that should a handler fail,
- * it will still produce an outgoing value that can be processed by all the
- * layers that successfully transformed the incoming value.
+ * same type as their output type. When the handler itself fails, `apply`
+ * returns that failure as it is: no layer's outgoing step runs on it.
  *
  * Further, a layer may only fail while it processes an incoming value, and it
- * may only value with the same type as its outgoing value. This guarantees that
- * should a layer fail, it will still produce an outgoing value that can be
- * processed by all the earlier layers that successfully transformed the
+ * may only fail with a value of the same type as its outgoing value. This
+ * guarantees that should a layer fail, it will still produce an outgoing value
+ * that is processed by all the earlier layers that successfully transformed the
  * incoming value.
  *
  * In a way, the entire design of protocol stacks is geared at ensuring layers
@@ -54,12 +53,33 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * two stacks together. This operator is associative and has an identity (which
  * is the protocol stack that neither transforms incoming nor outgoing values,
  * and which acts as an identity when used to transform handlers).
+ *
+ * {{{
+ * val stack: ProtocolStack[Any, Int, Int, String, String] =
+ *   ProtocolStack.identity[Int, String].mapIncoming((n: Int) => n * 2).mapOutgoing((s: String) => s.toUpperCase)
+ *
+ * val doubled: Handler[Any, String, Int, String] = stack(Handler.fromFunction[Int](n => "n=" + n))
+ * // doubled(21) succeeds with "N=42"
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/aop/protocol-stack/ ProtocolStack]]
  */
 sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +OutgoingOut] { self =>
   import ProtocolStack._
 
+  /**
+   * The state that a layer's incoming step passes to its outgoing step for the
+   * same value.
+   */
   type State
 
+  /**
+   * Wraps `handler` with this stack: each input goes through the incoming
+   * steps, then the handler, then the outgoing steps. When an incoming step
+   * fails, the result is that failure after the outgoing steps of the earlier
+   * layers; when the handler fails, the result is the handler's failure.
+   */
   final def apply[Env1 <: Env, Err >: OutgoingOut, IncomingOut1 >: IncomingOut, OutgoingIn1 <: OutgoingIn](
     handler: Handler[Env1, Err, IncomingOut1, OutgoingIn1],
   )(implicit trace: Trace): Handler[Env1, Err, IncomingIn, OutgoingOut] =
@@ -77,16 +97,28 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   private[http] def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Scope & Env, OutgoingOut, (State, IncomingOut)]
 
   // TODO: Make this the one true representation and delete `incoming`
+  /**
+   * The incoming step of this stack as a handler: it turns an incoming value
+   * into the state and the value passed on, or fails with an outgoing value.
+   */
   val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] = {
     implicit val trace: Trace = Trace.empty
     Handler.scoped[Env](Handler.fromFunctionZIO[IncomingIn](incoming(_)))
   }
 
+  /**
+   * Returns a stack that applies `f` to the incoming value after this stack's
+   * incoming steps.
+   */
   def mapIncoming[IncomingOut2](
     f: IncomingOut => IncomingOut2,
   ): ProtocolStack[Env, IncomingIn, IncomingOut2, OutgoingIn, OutgoingOut] =
     self ++ ProtocolStack.interceptIncomingHandler(Handler.fromFunction(f))
 
+  /**
+   * Returns a stack that applies `f` to the outgoing value after this stack's
+   * outgoing steps.
+   */
   def mapOutgoing[OutgoingOut2](
     f: OutgoingOut => OutgoingOut2,
   ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut2] =
@@ -97,6 +129,10 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   ): ZIO[Scope & Env, Nothing, OutgoingOut]
 
   // TODO: Make this the one true representation and delete `outgoing`
+  /**
+   * The outgoing step of this stack as a handler: it turns the state and an
+   * outgoing value into the final outgoing value.
+   */
   val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] = {
     implicit val trace: Trace = Trace.empty
     Handler.scoped[Env] {
@@ -107,6 +143,10 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
     }
   }
 
+  /**
+   * Returns a stack that needs no environment, with `env` provided to its
+   * steps.
+   */
   def provideEnvironment(env: ZEnvironment[Env])(implicit
     trace: Trace,
   ): ProtocolStack[Any, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
@@ -114,28 +154,55 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
       outgoingHandler.provideEnvironment(env),
     )
 
+  /**
+   * Chains two stacks: `self` is the outer layer and `that` the inner one.
+   * Incoming values go through `self` and then `that`; outgoing values go
+   * through `that` and then `self`. When an incoming step of `that` fails, the
+   * failure goes through the outgoing step of `self`.
+   */
   final def ++[Env1 <: Env, MiddleIncoming, MiddleOutgoing](
     that: ProtocolStack[Env1, IncomingOut, MiddleIncoming, MiddleOutgoing, OutgoingIn],
   ): ProtocolStack[Env1, IncomingIn, MiddleIncoming, MiddleOutgoing, OutgoingOut] =
     Concat(self, that)
 }
 
+/** Constructors for [[ProtocolStack]]. */
 @nowarn("msg=shadows")
 object ProtocolStack {
+
+  /**
+   * Starts a stack that picks one of two stacks per incoming value: the one
+   * given first when `predicate` is `true`, the other one otherwise. The picked
+   * stack also handles the outgoing value for that input.
+   */
   def cond[IncomingIn](predicate: IncomingIn => Boolean): CondBuilder[IncomingIn] = new CondBuilder(predicate)
 
+  /**
+   * Like `cond`, with an effectful predicate. A failure of the predicate fails
+   * the incoming step.
+   */
   def condZIO[IncomingIn]: CondZIOBuilder[IncomingIn] = new CondZIOBuilder[IncomingIn](())
 
+  /** A stack whose incoming step always fails with `out`. */
   def fail[Incoming, OutgoingOut](out: OutgoingOut): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
     interceptIncomingHandler[Any, Incoming, Incoming, OutgoingOut](Handler.fail(out))
 
+  /**
+   * A stack whose incoming step always fails with `f` applied to the incoming
+   * value.
+   */
   def failWith[Incoming, OutgoingOut](
     f: Incoming => OutgoingOut,
   )(implicit trace: Trace): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
     interceptIncomingHandler[Any, Incoming, Incoming, OutgoingOut](Handler.fromFunctionZIO(in => ZIO.fail(f(in))))
 
+  /** A stack that passes incoming and outgoing values through unchanged. */
   def identity[I, O]: ProtocolStack[Any, I, I, O, O] = interceptIncomingHandler(Handler.identity)
 
+  /**
+   * A stack with one layer: `incoming0` transforms incoming values (or fails
+   * with an outgoing value), and `outgoing0` transforms outgoing values.
+   */
   def interceptHandler[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
     incoming0: Handler[Env, OutgoingOut, IncomingIn, IncomingOut],
   )(
@@ -143,6 +210,11 @@ object ProtocolStack {
   )(implicit trace: Trace): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
     interceptHandlerStateful(incoming0.map(((), _)))(outgoing0.contramap[(Unit, OutgoingIn)](_._2))
 
+  /**
+   * A stack with one stateful layer: `incoming0` turns an incoming value into a
+   * state and the value passed on, and `outgoing0` receives that state together
+   * with the outgoing value.
+   */
   def interceptHandlerStateful[Env, State0, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
     incoming0: Handler[Env, OutgoingOut, IncomingIn, (State0, IncomingOut)],
   )(
@@ -150,11 +222,19 @@ object ProtocolStack {
   ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
     IncomingOutgoing(incoming0, outgoing0)
 
+  /**
+   * A stack whose layer transforms incoming values with `handler` and passes
+   * outgoing values through. A failure of `handler` becomes the outgoing value.
+   */
   def interceptIncomingHandler[Env, IncomingIn, IncomingOut, Outgoing](
     handler: Handler[Env, Outgoing, IncomingIn, IncomingOut],
   ): ProtocolStack[Env, IncomingIn, IncomingOut, Outgoing, Outgoing] =
     Incoming(handler)
 
+  /**
+   * A stack whose layer passes incoming values through and transforms outgoing
+   * values with `handler`.
+   */
   def interceptOutgoingHandler[Env, Incoming, OutgoingIn, OutgoingOut](
     handler: Handler[Env, Nothing, OutgoingIn, OutgoingOut],
   ): ProtocolStack[Env, Incoming, Incoming, OutgoingIn, OutgoingOut] =
@@ -257,7 +337,10 @@ object ProtocolStack {
       }
   }
 
+  /** The second step of `cond`: takes the two stacks to choose between. */
   class CondBuilder[IncomingIn](val predicate: IncomingIn => Boolean) extends AnyVal {
+
+    /** Uses `ifTrue` when the predicate holds and `ifFalse` otherwise. */
     def apply[Env, IncomingOut, OutgoingIn, OutgoingOut](
       ifTrue: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
       ifFalse: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
@@ -265,12 +348,21 @@ object ProtocolStack {
       Cond(predicate, ifTrue, ifFalse)
   }
 
+  /** The second step of `condZIO`: takes the effectful predicate. */
   class CondZIOBuilder[IncomingIn](val dummy: Unit) extends AnyVal {
+
+    /** Sets the effectful predicate. */
     def apply[Env, Err](predicate: IncomingIn => ZIO[Env, Err, Boolean]): CondZIOBuilder1[Env, IncomingIn, Err] =
       new CondZIOBuilder1(predicate)
   }
 
+  /** The last step of `condZIO`: takes the two stacks to choose between. */
   class CondZIOBuilder1[Env, IncomingIn, Err](val predicate: IncomingIn => ZIO[Env, Err, Boolean]) extends AnyVal {
+
+    /**
+     * Uses `ifTrue` when the predicate succeeds with `true` and `ifFalse`
+     * otherwise.
+     */
     def apply[Env1 <: Env, IncomingOut, OutgoingIn, OutgoingOut >: Err](
       ifTrue: ProtocolStack[Env1, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
       ifFalse: ProtocolStack[Env1, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],

@@ -35,6 +35,27 @@ import zio.http.multipart.mixed.MultipartMixed
  * of bytes, a stream of bytes, or form data, or any type that can be encoded
  * into such representations (such as textual data using some character
  * encoding, the contents of files, JSON, etc.).
+ *
+ * The companion builds bodies (`Body.fromString`, `Body.fromChunk`,
+ * `Body.fromStream...`, `Body.fromFile`, `Body.json`, forms); the `as...`
+ * methods read a body back as bytes, a string, a stream, a form or JSON.
+ *
+ * A body may carry a [[Body.ContentType]]. A [[Request]] sends it as its
+ * `Content-Type` header (see `Request#allHeaders`). A [[Response]] made with
+ * `Response(body = ...)` does not: set the header on the response, or use a
+ * constructor that sets it, such as `Response.json` or
+ * `Response.error(status, body)`.
+ *
+ * {{{
+ * import zio._
+ * val body: Body = Body.fromString("qty=3").contentType(MediaType.application.`x-www-form-urlencoded`)
+ *
+ * body.knownContentLength // Some(5)
+ * val text: Task[String] = body.asString // succeeds with "qty=3"
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/body/ Body]]
  */
 trait Body { self =>
 
@@ -59,14 +80,17 @@ trait Body { self =>
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
 
   /**
-   * Decodes the content of the body as JSON using zio-schema.
+   * Decodes the content of the body as JSON using zio-schema. A decoding error
+   * fails the effect with a `RuntimeException` whose message starts with
+   * "Failed to decode JSON: ".
    *
    * Example:
    * {{{
+   * import zio._
    * import zio.schema.{DeriveSchema, Schema}
    * case class Person(name: String, age: Int)
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-   * val body = ???
+   * val body = Body.fromString("""{"name":"Ada","age":36}""")
    * val decodedPerson: Task[Person] = body.asJson[Person]
    * }}}
    */
@@ -80,15 +104,18 @@ trait Body { self =>
   }
 
   /**
-   * Decodes the content of the body as JSON using zio-json.
+   * Decodes the content of the body as JSON using zio-json. A decoding error
+   * fails the effect with a `RuntimeException` whose message starts with
+   * "Failed to decode JSON: ".
    *
    * Example:
    * {{{
+   * import zio._
    * import zio.json._
    * case class Person(name: String, age: Int)
    * implicit val decoder: JsonDecoder[Person] = DeriveJsonDecoder.gen[Person]
-   * val body = ???
-   * val decodedPerson: Task[Person] = body.asJsonZio[Person]
+   * val body = Body.fromString("""{"name":"Lin","age":29}""")
+   * val decodedPerson: Task[Person] = body.asJsonFromCodec[Person]
    * }}}
    */
   def asJsonFromCodec[A](implicit decoder: zio.json.JsonDecoder[A], trace: Trace): Task[A] = {
@@ -121,7 +148,8 @@ trait Body { self =>
    * The result is a stream of FormField objects, where each FormField may be a
    * StreamingBinary or a Text object. The StreamingBinary object contains a
    * stream of bytes, which has to be consumed asynchronously by the user to get
-   * the next FormField from the stream.
+   * the next FormField from the stream. Fails with an `IllegalStateException`
+   * when the body has no boundary in its content type.
    */
   def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
     boundary match {
@@ -139,8 +167,9 @@ trait Body { self =>
    * Returns an effect that decodes the streaming body as a multipart/mixed.
    *
    * The result is a stream of Part objects, where each Part has headers and
-   * contents (binary stream), Part objects can be easily converted to a Body
-   * objects which provide vast API for extracting their contents.
+   * contents (binary stream); a Part can be converted to a Body to read its
+   * contents. Fails with an `IllegalStateException` when the body has no
+   * boundary in its content type.
    */
   def asMultipartMixed(implicit trace: Trace): Task[MultipartMixed] =
     ZIO.fromOption {
@@ -149,6 +178,10 @@ trait Body { self =>
     }
       .orElseFail(new IllegalStateException("Cannot decode body as multipart/mixed without a known boundary"))
 
+  /**
+   * Decodes the body as a stream of server-sent events, decoding each event's
+   * data as a `T` with the default codec.
+   */
   def asServerSentEvents[T: Schema](implicit trace: Trace): ZStream[Any, Throwable, ServerSentEvent[T]] = {
     val codec = ServerSentEvent.defaultBinaryCodec[T]
     asStream >>> codec.streamDecoder
@@ -165,6 +198,9 @@ trait Body { self =>
    * Decodes the content of the body as a string with the default charset. Note
    * that attempting to decode a large stream of bytes into a string could
    * result in an out of memory error.
+   *
+   * The default charset is UTF-8; the charset of the body's content type is not
+   * used. Use the overload that takes a `Charset` for other encodings.
    */
   final def asString(implicit trace: Trace): Task[String] =
     asArray.map(new String(_, Charsets.Http))
@@ -178,7 +214,8 @@ trait Body { self =>
     asArray.map(new String(_, charset))
 
   /**
-   * Returns an effect that decodes the content of the body as form data.
+   * Returns an effect that decodes the content of the body as form data, read
+   * as a URL-encoded UTF-8 string.
    */
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
     asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
@@ -189,11 +226,14 @@ trait Body { self =>
    *
    * Example:
    * {{{
-   * case class Login(username: String, password: String)
-   * implicit val schema: Schema[Login] = DeriveSchema.gen[Login]
-   * val body = Body.fromString("username=john&password=secret")
+   * import zio._
+   * import zio.schema.{DeriveSchema, Schema}
+   * case class Search(term: String, page: Int)
+   * implicit val schema: Schema[Search] = DeriveSchema.gen[Search]
+   * val body = Body
+   *   .fromString("term=lamp&page=2")
    *   .contentType(MediaType.application.`x-www-form-urlencoded`)
-   * val login: Task[Login] = body.asForm[Login]
+   * val search: Task[Search] = body.asForm[Search] // succeeds with Search(lamp,2)
    * }}}
    */
   def asForm[A](implicit schema: Schema[A], trace: Trace): Task[A] =
@@ -203,8 +243,13 @@ trait Body { self =>
       ZIO.attempt(codec.decode(queryParams))
     }
 
+  /** The content type attached to this body, if any. */
   def contentType: Option[Body.ContentType]
 
+  /**
+   * Returns a body with the given content type. The empty body, a failed body
+   * and a WebSocket body ignore it and return themselves.
+   */
   def contentType(newContentType: Body.ContentType): Body
 
   /**
@@ -218,13 +263,16 @@ trait Body { self =>
         .getOrElse(Body.ContentType(newMediaType))
     }
 
+  /** Returns a body with the given media type and multipart boundary. */
   final def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
     contentType(
       Body.ContentType(newMediaType, Some(newBoundary)),
     )
 
   /**
-   * Returns whether or not the bytes of the body have been fully read.
+   * Returns whether or not the bytes of the body have been fully read: `true`
+   * for bodies held in memory (empty, string, chunk and array bodies), `false`
+   * for stream and file bodies.
    */
   def isComplete: Boolean
 
@@ -240,7 +288,9 @@ trait Body { self =>
   def knownContentLength: Option[Long]
 
   /**
-   * Materializes the body of the request into memory
+   * Materializes the body of the request into memory. When reading the body
+   * fails, the result is a body whose reads fail with the same error. A body
+   * that is already in memory is returned as is.
    */
   def materialize(implicit trace: Trace): UIO[Body] =
     asArray.foldCause(Body.ErrorBody(_), Body.ArrayBody(_, self.contentType))
@@ -257,12 +307,13 @@ trait Body { self =>
    *
    * Example for json:
    * {{{
-   * import zio.schema.json.codec._
+   * import zio._
+   * import zio.schema.{DeriveSchema, Schema}
+   * import zio.schema.codec.JsonCodec._
    * case class Person(name: String, age: Int)
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-   * val person = Person("John", 42)
-   * val body = ???
-   * val decodedPerson = body.to[Person]
+   * val body = Body.fromString("""{"name":"Noor","age":41}""")
+   * val decodedPerson: Task[Person] = body.to[Person]
    * }}}
    */
   def to[A](implicit codec: BinaryCodec[A], trace: Trace): Task[A] =
@@ -291,6 +342,7 @@ trait Body { self =>
 
 }
 
+/** Constructors for [[Body]] and the [[Body.ContentType]] of a body. */
 object Body {
 
   /**
@@ -298,16 +350,25 @@ object Body {
    */
   val empty: Body = EmptyBody
 
+  /**
+   * The content type of a body: a media type with an optional multipart
+   * boundary and an optional charset.
+   */
   final case class ContentType(
     mediaType: MediaType,
     boundary: Option[Boundary] = None,
     charset: Option[Charset] = None,
   ) {
+
+    /** Returns this content type as a `Content-Type` header. */
     def asHeader: Header.ContentType =
       Header.ContentType(mediaType, boundary, charset)
   }
 
+  /** Conversion from a `Content-Type` header. */
   object ContentType {
+
+    /** Returns the content type held by the `Content-Type` header `h`. */
     def fromHeader(h: Header.ContentType): ContentType =
       ContentType(h.mediaType, h.boundary, h.charset)
   }
@@ -316,6 +377,7 @@ object Body {
    * Constructs a [[zio.http.Body]] from a value based on a zio-schema
    * [[zio.schema.codec.BinaryCodec]].<br> Example for json:
    * {{{
+   * import zio.schema.{DeriveSchema, Schema}
    * import zio.schema.codec.JsonCodec._
    * case class Person(name: String, age: Int)
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
@@ -334,7 +396,9 @@ object Body {
   def fromArray(data: Array[Byte]): Body = ArrayBody(data)
 
   /**
-   * Constructs a [[zio.http.Body]] from the contents of a file.
+   * Constructs a [[zio.http.Body]] from a char sequence, encoded with `charset`
+   * (UTF-8 by default). An empty char sequence with the default charset gives
+   * `Body.empty`.
    */
   def fromCharSequence(
     charSequence: CharSequence,
@@ -383,11 +447,19 @@ object Body {
   def fromChunk(data: Chunk[Byte], mediaType: MediaType): Body =
     fromChunk(data, Body.ContentType(mediaType))
 
+  /**
+   * Constructs a [[zio.http.Body]] from a chunk of bytes and sets the content
+   * type.
+   */
   def fromChunk(data: Chunk[Byte], contentType: Body.ContentType): Body =
     ChunkBody(data, Some(contentType))
 
   /**
-   * Constructs a [[zio.http.Body]] from the contents of a file.
+   * Constructs a [[zio.http.Body]] from the contents of a file. When the body
+   * is streamed, the file is read in chunks of `chunkSize` bytes; `asArray`,
+   * `asChunk` and `asString` read the whole file at once. The file length is
+   * read when the body is built; a file that does not exist gives a body of
+   * length 0 whose reads fail.
    */
   def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4)(implicit trace: Trace): ZIO[Any, Nothing, Body] = {
     ZIO.attemptBlocking(file.length()).orDie.map { fileSize =>
@@ -418,7 +490,9 @@ object Body {
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
-   * encoding and the specified character set, which defaults to UTF-8.
+   * encoding and the character set of `specificBoundary` (UTF-8 for a boundary
+   * made with `Boundary(id)`). The content type is `multipart/form-data` with
+   * that boundary.
    */
   def fromMultipartForm(
     form: Form,
@@ -437,8 +511,7 @@ object Body {
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
-   * encoding and the specified character set, which defaults to UTF-8. Utilizes
-   * a random boundary based on a UUID.
+   * encoding and UTF-8. Utilizes a random boundary based on a UUID.
    */
   def fromMultipartFormUUID(
     form: Form,
@@ -534,7 +607,9 @@ object Body {
    *
    * Example for json:
    * {{{
+   * import zio.schema.{DeriveSchema, Schema}
    * import zio.schema.codec.JsonCodec._
+   * import zio.stream.ZStream
    * case class Person(name: String, age: Int)
    * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
    * val persons = ZStream(Person("John", 42))
@@ -600,11 +675,16 @@ object Body {
   ): RIO[R, Body] =
     fromStreamChunkedEnv(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
+  /**
+   * Constructs a body that carries a WebSocket app. It holds no bytes; a
+   * response with this body switches the connection to the WebSocket protocol.
+   */
   def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
   /**
-   * Helper to create Body from String
+   * Helper to create Body from String, encoded with `charset` (UTF-8 by
+   * default). An empty string with the default charset gives `Body.empty`.
    */
   def fromString(text: String, charset: Charset = Charsets.Http): Body =
     if (charset == Charsets.Http && text.isEmpty) EmptyBody
@@ -612,14 +692,16 @@ object Body {
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the
-   * default character set.
+   * given character set, UTF-8 by default. The media type is
+   * `application/x-www-form-urlencoded`.
    */
   def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
     fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
   /**
-   * Constructs a [[zio.http.Body]] from a value as JSON using zio-schema.
+   * Constructs a [[zio.http.Body]] from a value as JSON using zio-schema. The
+   * media type is `application/json`.
    *
    * Example:
    * {{{
@@ -637,7 +719,8 @@ object Body {
   }
 
   /**
-   * Constructs a [[zio.http.Body]] from a value as JSON using zio-json.
+   * Constructs a [[zio.http.Body]] from a value as JSON using zio-json. The
+   * media type is `application/json`.
    *
    * Example:
    * {{{
@@ -645,7 +728,7 @@ object Body {
    * case class Person(name: String, age: Int)
    * implicit val encoder: JsonEncoder[Person] = DeriveJsonEncoder.gen[Person]
    * val person = Person("John", 42)
-   * val body = Body.jsonZio(person)
+   * val body = Body.jsonCodec(person)
    * }}}
    */
   def jsonCodec[A](a: A)(implicit encoder: zio.json.JsonEncoder[A]): Body = {
