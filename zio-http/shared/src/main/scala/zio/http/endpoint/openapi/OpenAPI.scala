@@ -38,7 +38,48 @@ import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 import com.lihaoyi.unroll
 
 /**
- * This is the root document object of the OpenAPI document.
+ * The root object of an OpenAPI document (the OpenAPI Object): the API
+ * metadata, its paths and operations, reusable components, security
+ * requirements and tags. `OpenAPIGen.fromEndpoints` builds one from endpoints,
+ * `toJson` and `toJsonPretty` render it as JSON, and `OpenAPI.fromJson` parses
+ * one.
+ *
+ * {{{
+ * import zio.http.Status
+ * import zio.http.codec.Doc
+ * import zio.http.endpoint.openapi.OpenAPI
+ * import zio.http.endpoint.openapi.OpenAPI.{Operation, Path, PathItem, ReferenceOr, Response, StatusOrDefault}
+ *
+ * val api: OpenAPI = OpenAPI.empty
+ *   .title("Weather API")
+ *   .version("1.0.0")
+ *   .path(
+ *     Path.fromString("/forecasts").get,
+ *     PathItem.empty.addGet(
+ *       Operation(
+ *         summary = Some("List forecasts"),
+ *         description = None,
+ *         externalDocs = None,
+ *         operationId = Some("listForecasts"),
+ *         requestBody = None,
+ *         responses = Map(
+ *           StatusOrDefault.StatusValue(Status.Ok) ->
+ *             ReferenceOr.Or(Response(description = Some(Doc.p("Forecasts"))))
+ *         )
+ *       )
+ *     )
+ *   )
+ *
+ * val json: String = api.toJson
+ * // {"openapi":"3.1.0","info":{"title":"Weather API","version":"1.0.0"},"paths":{"/forecasts":{"get":{"summary":"List forecasts", ...
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/endpoint/ Endpoint]], whose OpenAPI
+ *   section shows how to generate a document from endpoints
+ * @see
+ *   [[https://zio.dev/zio-http/reference/openapi-gen-sbt-plugin/ OpenAPI Gen sbt plugin]],
+ *   which generates endpoint code from an OpenAPI document
  *
  * @param openapi
  *   This string MUST be the semantic version number of the OpenAPI
@@ -50,10 +91,12 @@ import com.lihaoyi.unroll
  *   required.
  * @param servers
  *   A List of Server Objects, which provide connectivity information to a
- *   target server. If the servers property is empty, the default value would be
- *   a Server Object with a url value of /.
+ *   target server. An empty list is left out of the JSON, and the OpenAPI
+ *   specification then reads the servers as one Server Object with a url value
+ *   of /.
  * @param paths
- *   The available paths and operations for the API.
+ *   The available paths and operations for the API. The JSON lists the paths
+ *   sorted by name.
  * @param components
  *   An element to hold various schemas for the specification.
  * @param security
@@ -82,6 +125,19 @@ final case class OpenAPI(
   tags: List[OpenAPI.Tag] = List.empty,
   externalDocs: Option[OpenAPI.ExternalDoc],
 ) {
+
+  /**
+   * Merges `other` into this document. The result keeps `openapi`, `info` and
+   * `externalDocs` of this document, appends the `servers`, `security` and
+   * `tags` of `other` (duplicates are kept), and merges `components` with
+   * `Components.++`.
+   *
+   * For a path in both documents, the merged path item keeps each operation of
+   * this document and takes from `other` only the methods that are missing
+   * here. It keeps this item's description when this item has an operation,
+   * appends the other item's description when the other item adds a method, and
+   * combines the servers, parameters and extensions of both.
+   */
   def ++(other: OpenAPI): OpenAPI = OpenAPI(
     openapi = openapi,
     info = info,
@@ -150,9 +206,21 @@ final case class OpenAPI(
         .toSeq: _*,
     )
 
+  /**
+   * Returns a copy with `pathItem` added at `path`. When `path` already has a
+   * path item, the two are merged as in `++` with `pathItem` first, so an
+   * operation of `pathItem` replaces the existing operation for the same
+   * method.
+   */
   def path(path: OpenAPI.Path, pathItem: OpenAPI.PathItem): OpenAPI =
     copy(paths = mergePaths(ListMap(path -> pathItem), paths))
 
+  /**
+   * Encodes the document as compact JSON. Fields that are `None` and empty
+   * collections are left out, paths and component names are sorted by name,
+   * `Doc` descriptions are written as CommonMark strings, and extensions are
+   * written as `x-` fields.
+   */
   def toJson: String =
     JsonCodec
       .jsonEncoder(
@@ -164,6 +232,9 @@ final case class OpenAPI(
       .encodeJson(this, None)
       .toString
 
+  /**
+   * Encodes the document as indented JSON, with the same fields as `toJson`.
+   */
   def toJsonPretty: String =
     JsonCodec
       .jsonEncoder(
@@ -175,21 +246,50 @@ final case class OpenAPI(
       .encodeJson(this, Some(0))
       .toString
 
+  /** Returns a copy with `info.title` set to `title`. */
   def title(title: String): OpenAPI = copy(info = info.copy(title = title))
 
+  /**
+   * Returns a copy with `info.version` set to `version`, the version of the API
+   * document (not the OpenAPI Specification version in `openapi`).
+   */
   def version(version: String): OpenAPI = copy(info = info.copy(version = version))
 }
 
+/**
+ * The companion of [[OpenAPI]]: its schema, `fromJson`, `empty`, and the types
+ * of the OpenAPI document model, such as `Info`, `PathItem`, `Operation` and
+ * `Components`.
+ */
 object OpenAPI {
 
+  /**
+   * The schema that `toJson`, `toJsonPretty` and `fromJson` use to encode and
+   * decode a document.
+   */
   implicit val schema: Schema[OpenAPI] =
     DeriveSchema.gen[OpenAPI]
 
+  /**
+   * Decodes a document from JSON. Returns `Left` with the error message when
+   * the input is not a valid document: for example `Unexpected end of input`
+   * for `{`, and `.info(missing)` when the `info` field is missing.
+   *
+   * An `x-` field of the root object is ignored. Descriptions are read back as
+   * raw CommonMark `Doc` values, so `fromJson(api.toJson)` is not equal to
+   * `api` when `api` has a description built with `Doc.p`.
+   */
   def fromJson(json: String): Either[String, OpenAPI] =
     JsonCodec
       .jsonDecoder(OpenAPI.schema)
       .decodeJson(json)
 
+  /**
+   * A document with `openapi` set to `3.1.0`, an empty title and version, and
+   * no servers, paths, components, security requirements, tags or external
+   * docs. `toJson` renders it as
+   * `{"openapi":"3.1.0","info":{"title":"","version":""}}`.
+   */
   def empty: OpenAPI = OpenAPI(
     openapi = "3.1.0",
     info = Info(
