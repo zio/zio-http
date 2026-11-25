@@ -27,8 +27,10 @@ package zio.http
  *   - both outputs are constant types: `Lower` and `Upper` are those of the
  *     left side, and `Out` is the output of the right side. The left output
  *     must lie between the lower and upper bound of the right side;
- *   - both outputs are `Identity`: `Lower` is the right lower bound, `Upper` is
- *     the intersection of the two upper bounds, and `Out` is `Identity`;
+ *   - both outputs are `Identity`: `Lower` is the wider of the two lower
+ *     bounds (the right one when the left lower bound is a subtype of it,
+ *     otherwise the left one), `Upper` is the intersection of the two upper
+ *     bounds, and `Out` is `Identity`;
  *   - only the left output is `Identity`: `Lower` and `Upper` as for two
  *     `Identity` outputs, and `Out` is the right output;
  *   - only the right output is `Identity`: `Lower` and `Upper` are those of the
