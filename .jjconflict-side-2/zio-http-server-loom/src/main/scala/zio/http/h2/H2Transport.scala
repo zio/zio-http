@@ -94,6 +94,7 @@ final class H2Transport[Ctx](
                   idleTimeoutMs = H2ConnectionControl.idleTimeoutMs(connector),
                   requestTimeoutMs = connector.requestTimeoutMs,
                   headerTimeoutMs = connector.headerTimeoutMs,
+                  readBufferSize = connector.readBufferBytes,
                 )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection, peer, peerTrusted))
             } catch {

@@ -33,7 +33,10 @@ final class H2Connection(
   // Appended last (never inserted mid-list) so existing positional call
   // sites cannot silently rebind.
   headerTimeoutMs: Long = 5000,
+  /** Initial per-connection read buffer size; grows on demand for large frames. */
+  readBufferSize: Int = 1024,
 ) {
+  require(readBufferSize > 0, s"readBufferSize must be positive: $readBufferSize")
   import H2Connection._
   import H2Frame._
 
@@ -52,6 +55,8 @@ final class H2Connection(
   private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
   private val writeLock                             = new Object
   private var readBuffer: Chunk[Byte]               = Chunk.empty
+  private val maxReadBufferSize                     = H2Settings.DefaultMaxFrameSize.toInt + 9
+  private var readScratch: Array[Byte]              = new Array[Byte](readBufferSize)
   private var peerSettings: List[Setting]           = Nil
   private var pendingHeaders: PendingHeaders        = null
   @volatile private var pendingTimer: ScheduledFuture[?] = null
@@ -584,19 +589,24 @@ final class H2Connection(
       FrameCodec.decode(readBuffer) match {
         case Right((frame, rest))           =>
           readBuffer = rest
+          // Release a grown scratch buffer so an idle connection that once saw a
+          // large frame goes back to the small footprint.
+          if (readScratch.length > readBufferSize) readScratch = new Array[Byte](readBufferSize)
           return frame
-        case Left(H2Error.InsufficientData) => appendInput()
+        case Left(H2Error.InsufficientData) => appendInput(grow = readBuffer.nonEmpty)
         case Left(error)                    => throw protocolError("Failed to decode frame: " + error)
       }
     }
     throw protocolError("Unreachable frame read state")
   }
 
-  private def appendInput(): Unit = {
-    val bytes = new Array[Byte](8192)
-    val read  = input.read(bytes)
+  private def appendInput(grow: Boolean): Unit = {
+    if (grow && readScratch.length < maxReadBufferSize) {
+      readScratch = new Array[Byte](math.min(readScratch.length * 2, maxReadBufferSize))
+    }
+    val read = input.read(readScratch)
     if (read < 0) throw new EOFException("Connection closed while reading HTTP/2 frame")
-    readBuffer = readBuffer ++ Chunk.fromArray(java.util.Arrays.copyOf(bytes, read))
+    readBuffer = readBuffer ++ Chunk.fromArray(java.util.Arrays.copyOf(readScratch, read))
   }
 
   private def readFully(bytes: Array[Byte], offset: Int, length: Int): Unit = {
