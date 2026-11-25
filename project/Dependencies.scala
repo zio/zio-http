@@ -3,6 +3,7 @@ import sbt.*
 object Dependencies {
   val JwtCoreVersion               = "11.0.4"
   val NettyVersion                 = "4.2.21.Final"
+  val BouncyCastleVersion          = "1.87"
   val ScalaCompatCollectionVersion = "2.14.0"
   val ZioVersion                   = "2.1.27"
   // zio-test 2.1.27 overflows the stack when a ZTestLogger.LogEntry is printed (zio/zio#11297).
@@ -37,6 +38,13 @@ object Dependencies {
 
   // Test-only Netty module (pulls in BouncyCastle), needed only by `SSLConfig.generate`.
   val `netty-pkitesting` = "io.netty" % "netty-pkitesting" % NettyVersion
+
+  // `netty-pkitesting` with BouncyCastle raised above the vulnerable 1.84 Netty pins (CVE-2026-8763, CVE-2026-58062).
+  val pkiTesting = Seq(
+    `netty-pkitesting`,
+    "org.bouncycastle" % "bcprov-jdk18on" % BouncyCastleVersion,
+    "org.bouncycastle" % "bcpkix-jdk18on" % BouncyCastleVersion,
+  )
 
   // Pinned to 0.2.0: 0.3.0's `unroll-plugin` is cross-published per full Scala version and has no
   // build for Scala 3.9.0.

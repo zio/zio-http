@@ -219,10 +219,11 @@ lazy val zioHttp = crossProject(JSPlatform, JVMPlatform)
       `zio-test`,
       `zio-test-sbt`,
       `scala-compat-collection`,
+    ) ++ netty ++ {
       // The shaded artifact renames the `netty-pkitesting` classes, so it has to bundle them: sbt-shading only bundles
       // dependencies of the `compile` configuration, which excludes `Optional` ones.
-      if (Shading.shadingEnabled) `netty-pkitesting` else `netty-pkitesting` % Optional,
-    ) ++ netty,
+      if (Shading.shadingEnabled) pkiTesting else pkiTesting.map(_ % Optional)
+    },
   )
   .jvmSettings(MimaSettings.mimaSettings(failOnProblem = true))
   .jsSettings(
@@ -497,11 +498,10 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= netty ++ Seq(
+    libraryDependencies ++= netty ++ pkiTesting ++ Seq(
       `zio`,
       "dev.zio" %% "zio-test" % ZioVersion,
       `zio-test-sbt`,
-      `netty-pkitesting`,
     ),
   )
   .dependsOn(zioHttpJVM)
