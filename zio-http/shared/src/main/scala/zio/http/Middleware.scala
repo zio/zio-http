@@ -25,16 +25,44 @@ import zio.metrics._
 
 import zio.http.codec.{PathCodec, SegmentCodec}
 
+/**
+ * A `Middleware` transforms a whole [[Routes]] value: it can wrap every
+ * handler, and it can add routes of its own (the CORS middleware adds an
+ * `OPTIONS` route; the static file middlewares add a `GET` route). Apply it
+ * with `routes @@ middleware`. A `HandlerAspect` is the narrower tool that
+ * only wraps handlers; the companion object also has all the `HandlerAspect`
+ * constructors.
+ *
+ * `UpperEnv` is the largest environment the middleware works with: it applies
+ * to any routes whose environment is a subtype of it.
+ *
+ * {{{
+ * import zio._
+ * val routes = Routes(Method.GET / "orders" -> handler(Response.text("[]")))
+ *
+ * val guarded: Routes[Any, Response] =
+ *   routes @@ (Middleware.timeout(5.seconds) ++ Middleware.ensureHeader("x-request-id")("generated"))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-http/reference/aop/middleware/ Middleware]]
+ */
 @nowarn("msg=shadows type")
 trait Middleware[-UpperEnv] { self =>
 
+  /** Applies this middleware to `routes`. */
   def apply[Env1 <: UpperEnv, Err](routes: Routes[Env1, Err]): Routes[Env1, Err]
 
+  /** The same as `++`. */
   def @@[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
   ): Middleware[UpperEnv1] =
     self ++ that
 
+  /**
+   * Combines two middlewares: `that` is applied to the routes first and
+   * `self` to the result, so on a request `self` runs before `that`.
+   */
   def ++[UpperEnv1 <: UpperEnv](
     that: Middleware[UpperEnv1],
   ): Middleware[UpperEnv1] =
@@ -46,6 +74,12 @@ trait Middleware[-UpperEnv] { self =>
     }
 }
 
+/**
+ * Built-in middlewares: CORS, metrics, tracing, log annotations, timeouts,
+ * header forwarding, and serving static files. It also has every
+ * `HandlerAspect` constructor, such as `Middleware.basicAuth` or
+ * `Middleware.requestLogging`.
+ */
 @nowarn("msg=shadows type")
 object Middleware extends HandlerAspects {
 
@@ -67,7 +101,7 @@ object Middleware extends HandlerAspects {
 
   /**
    * Creates a aspect for Cross-Origin Resource Sharing (CORS) using default
-   * options.
+   * options, the defaults of [[CorsConfig]].
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
@@ -75,6 +109,16 @@ object Middleware extends HandlerAspects {
 
   /**
    * Creates a aspect for Cross-Origin Resource Sharing (CORS).
+   *
+   * It adds an `OPTIONS` route for every path that answers preflight requests:
+   * 204 No Content with the CORS headers when the request has an `Origin`
+   * that `config.allowedOrigin` accepts and an
+   * `Access-Control-Request-Method` in `config.allowedMethods`, and 404 Not
+   * Found otherwise. Other requests that carry an `Origin` get the CORS
+   * headers added to their response when the origin is accepted, and a 403
+   * Forbidden response when it is not. Requests without an `Origin` header
+   * pass through unchanged.
+   *
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
@@ -198,6 +242,11 @@ object Middleware extends HandlerAspects {
     }
   }
 
+  /**
+   * Adds a header of type `header`, with the value from `make`, to every
+   * request that has no header with that name. `make` is evaluated for each
+   * such request.
+   */
   def ensureHeader(header: Header.HeaderType)(make: => header.HeaderValue): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -211,6 +260,18 @@ object Middleware extends HandlerAspects {
         }
     }
 
+  /**
+   * Adds the header `headerName`, with the value from `make`, to every request
+   * that has no header with that name. `make` is evaluated for each such
+   * request.
+   *
+   * {{{
+   * val routes = Routes(Method.GET / "items" -> handler((req: Request) => Response.text(req.headers.get("x-trace-id").getOrElse("none"))))
+   *
+   * val traced = routes @@ Middleware.ensureHeader("x-trace-id")("t-0001")
+   * // a request without x-trace-id gets the body "t-0001"
+   * }}}
+   */
   def ensureHeader(headerName: String)(make: => String): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -226,6 +287,11 @@ object Middleware extends HandlerAspects {
 
   private[http] case class ForwardedHeaders(headers: Headers)
 
+  /**
+   * Stores the headers that `f` picks from each request in the request's
+   * `RequestStore`, so that a [[ZClient]] with `ZClientAspect.forwardHeaders`
+   * adds them to the requests it sends while that request is handled.
+   */
   def forwardHeaders(f: Headers => Headers)(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -244,6 +310,12 @@ object Middleware extends HandlerAspects {
         }
     }
 
+  /**
+   * Stores the request's headers of the given types in the request's
+   * `RequestStore`, so that a [[ZClient]] with `ZClientAspect.forwardHeaders`
+   * adds them to the requests it sends while that request is handled. Headers
+   * the request does not have are skipped.
+   */
   def forwardHeaders(header: Header.HeaderType, headers: Header.HeaderType*)(implicit
     trace: Trace,
   ): Middleware[Any] = {
@@ -275,6 +347,12 @@ object Middleware extends HandlerAspects {
     }
   }
 
+  /**
+   * Stores the request's headers with the given names in the request's
+   * `RequestStore`, so that a [[ZClient]] with `ZClientAspect.forwardHeaders`
+   * adds them to the requests it sends while that request is handled. Headers
+   * the request does not have are skipped.
+   */
   def forwardHeaders(headerName: String, headerNames: String*)(implicit trace: Trace): Middleware[Any] = {
     val allHeaders = headerName +: headerNames
     new Middleware[Any] {
@@ -304,14 +382,27 @@ object Middleware extends HandlerAspects {
     }
   }
 
+  /**
+   * Creates a middleware that annotates the log messages logged while a
+   * request is handled with the annotation `key` = `value`.
+   */
   def logAnnotate(key: => String, value: => String)(implicit trace: Trace): Middleware[Any] =
     logAnnotate(LogAnnotation(key, value))
 
+  /**
+   * Creates a middleware that annotates the log messages logged while a
+   * request is handled with the given annotations.
+   */
   def logAnnotate(logAnnotation: => LogAnnotation, logAnnotations: LogAnnotation*)(implicit
     trace: Trace,
   ): Middleware[Any] =
     logAnnotate((logAnnotation +: logAnnotations).toSet)
 
+  /**
+   * Creates a middleware that annotates the log messages logged while a
+   * request is handled with the given annotations. `logAnnotations` is
+   * evaluated for each request.
+   */
   def logAnnotate(logAnnotations: => Set[LogAnnotation])(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -321,6 +412,11 @@ object Middleware extends HandlerAspects {
         }
     }
 
+  /**
+   * Creates a middleware that runs `logAnnotations` for each request and
+   * annotates the log messages logged while the request is handled with the
+   * result.
+   */
   def logAnnotateZIO[Env](
     logAnnotations: => URIO[Env, Set[LogAnnotation]],
   )(implicit trace: Trace): Middleware[Env] =
@@ -346,7 +442,8 @@ object Middleware extends HandlerAspects {
   /**
    * Creates a middleware that will annotate log messages that are logged while
    * a request is handled with the names and the values of the specified
-   * headers.
+   * headers. A header the request does not have is annotated with an empty
+   * value.
    */
   def logAnnotateHeaders(headerName: String, headerNames: String*)(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
@@ -379,6 +476,11 @@ object Middleware extends HandlerAspects {
   ): Middleware[Any] =
     logAnnotateHeaders(header.name, headers.map(_.name): _*)
 
+  /**
+   * Creates a middleware that answers a request with an empty 408 Request
+   * Timeout response when its handler does not finish within `duration`. The
+   * handler is interrupted.
+   */
   def timeout(duration: Duration)(implicit trace: Trace): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
@@ -390,6 +492,13 @@ object Middleware extends HandlerAspects {
   /**
    * Creates middleware that will track metrics.
    *
+   * Each metric is tagged with `method`, `path` (the route pattern, such as
+   * `/user/{id}`) and the `extraLabels`; the request counter and the duration
+   * histogram are also tagged with the response `status`. Handler failures
+   * and defects are counted with the status of the response they turn into.
+   *
+   * @param concurrentRequestsName
+   *   Concurrent HTTP requests metric name, a gauge.
    * @param totalRequestsName
    *   Total HTTP requests metric name.
    * @param requestDurationName
@@ -466,6 +575,9 @@ object Middleware extends HandlerAspects {
    * @param responseLabels
    *   A pure function that derives additional metric labels from the response
    *   (e.g. status class, specific headers). Invoked once per response.
+   * @param pathLabelMapper
+   *   Maps the rendered route pattern (such as `/user/{id}`) to the value of
+   *   the `path` label.
    * @param concurrentRequestsName
    *   Concurrent HTTP requests metric name.
    * @param totalRequestsName
@@ -545,6 +657,9 @@ object Middleware extends HandlerAspects {
    * @param responseLabels
    *   A pure function that derives additional metric labels from the response
    *   (e.g. status class, specific headers). Invoked once per response.
+   * @param pathLabelMapper
+   *   Maps the rendered route pattern (such as `/user/{id}`) to the value of
+   *   the `path` label.
    * @param extraLabels
    *   A set of extra labels all metrics will be tagged with.
    */
@@ -565,8 +680,10 @@ object Middleware extends HandlerAspects {
 
   /**
    * Creates middleware for HTTP request tracing using ZIO's built-in log spans
-   * and annotations. When used with a ZIO OpenTelemetry backend, spans are
-   * automatically exported as OpenTelemetry traces.
+   * and annotations. Each request runs inside a log span named by `spanName`,
+   * with the log annotations `http.method`, `http.route` (the route pattern)
+   * and `http.target` (the path and query string), plus those from
+   * `additionalAttributes`.
    *
    * @param spanName
    *   Derives the span name from the route pattern and request. Defaults to
@@ -682,6 +799,9 @@ object Middleware extends HandlerAspects {
    * With this middleware in place, a request to
    * `https://www.domain.com/assets/folder/file1.jpg` would serve the local file
    * `/some/local/path/folder/file1.jpg`.
+   *
+   * It adds a `GET` route under `path`; a file that does not exist gives 404
+   * Not Found.
    */
   def serveDirectory(path: Path, docRoot: File)(implicit trace: Trace): Middleware[Any] =
     toMiddleware(path, StaticServe.fromDirectory(docRoot))
@@ -711,7 +831,9 @@ object Middleware extends HandlerAspects {
     toMiddleware(path, StaticServe.fromResource(resourcePrefix))
 
   /**
-   * Creates a middleware for managing the flash scope.
+   * Creates a middleware for managing the flash scope. When a request carries
+   * the flash cookie, the response gets a `Set-Cookie` header that clears it,
+   * so a flash value is shown once.
    */
   def flashScopeHandling: HandlerAspect[Any, Unit] = Middleware.intercept { (req, resp) =>
     req.cookie(Flash.COOKIE_NAME).fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
