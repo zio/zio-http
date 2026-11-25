@@ -75,8 +75,10 @@ object DnsResolver {
   object ExpireAction {
 
     /**
-     * Resolves the host again in the background. Until the new lookup
-     * completes, or when it fails, the resolver returns the previous addresses.
+     * Resolves the host again in the background. When the expired entry holds
+     * the addresses of a successful lookup, the resolver returns them until the
+     * new lookup completes, and also when it fails; otherwise callers wait for
+     * the new lookup.
      */
     case object Refresh extends ExpireAction
 
