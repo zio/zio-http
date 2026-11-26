@@ -17,7 +17,7 @@ object Versions {
   val Zio                   = "2.1.24"
   val ZioSchema             = "1.8.3"
   val ScalaCompatCollection = "2.14.0"
-  val ZioBlocks             = "0.0.46+6-46f1890f-SNAPSHOT"
+  val ZioBlocks             = "0.0.47"
 }
 
 val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
