@@ -33,7 +33,12 @@ final class H2Connection(
   // Appended last (never inserted mid-list) so existing positional call
   // sites cannot silently rebind.
   headerTimeoutMs: Long = 5000,
+  /**
+   * Initial per-connection read buffer size; grows on demand for large frames.
+   */
+  readBufferSize: Int = 1024,
 ) {
+  require(readBufferSize > 0, s"readBufferSize must be positive: $readBufferSize")
   import H2Connection._
   import H2Frame._
 
@@ -52,6 +57,8 @@ final class H2Connection(
   private val decodedRequestHeaders                 = new ConcurrentHashMap[Int, List[HeaderField]]()
   private val writeLock                             = new Object
   private var readBuffer: Chunk[Byte]               = Chunk.empty
+  private val maxReadBufferSize                     = H2Settings.DefaultMaxFrameSize.toInt + 9
+  private var readScratch: Array[Byte]              = new Array[Byte](readBufferSize)
   private var peerSettings: List[Setting]           = Nil
   private var pendingHeaders: PendingHeaders        = null
   @volatile private var pendingTimer: ScheduledFuture[?] = null
@@ -132,8 +139,21 @@ final class H2Connection(
       markLocalFrameWrite(stream, frame)
     }
 
+  /**
+   * Writes a response DATA frame directly under the connection write lock,
+   * serialized with HEADERS/control writes. This replaces the per-connection
+   * writer virtual thread for DATA: the calling handler runs on its own
+   * per-stream VT, and a blocking socket write there provides natural
+   * backpressure instead of a queue + poller.
+   */
+  def writeDataFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame.Data): Unit =
+    writeLock.synchronized {
+      output.write(FrameCodec.encode(frame).toArray)
+      output.flush()
+      markLocalFrameWrite(stream, frame)
+    }
+
   def run(onStream: MuxStream[Int, H2Frame, H2Frame] => Unit): Unit = {
-    val writer = Thread.ofVirtual().name("zio-http-h2-writer").start(runnable(writerLoop()))
     control.startIdleTimer()
 
     try {
@@ -158,11 +178,6 @@ final class H2Connection(
       cancelPendingDeadline()
       control.stopIdleTimer()
       shutdown(connectionCancelled("closed"))
-      writer.interrupt()
-      try writer.join()
-      catch {
-        case _: InterruptedException => Thread.currentThread().interrupt()
-      }
     }
   }
 
@@ -554,39 +569,6 @@ final class H2Connection(
   private def existingStream(streamId: Int): MuxStream[Int, H2Frame, H2Frame] =
     mux.get(streamId).getOrElse(throw protocolError("Unknown stream id: " + streamId))
 
-  private def writerLoop(): Unit =
-    try {
-      while (!closed.get() || !activeStreams.isEmpty) {
-        var wrote = false
-        val it    = activeStreams.values().iterator()
-
-        while (it.hasNext) {
-          val stream = it.next()
-          var drain  = true
-
-          while (drain) {
-            toOptionalFrame(stream.takeOutbound()) match {
-              case Left(_: MuxError)  =>
-                activeStreams.remove(stream.id)
-                drain = false
-              case Right(Some(frame)) =>
-                writeFrame(frame, flush = false)
-                wrote = true
-                markLocalFrameWrite(stream, frame)
-              case Right(None)        => drain = false
-            }
-          }
-
-          if (stream.isClosed) activeStreams.remove(stream.id)
-        }
-
-        if (wrote) flushOutput()
-        else parkWriter()
-      }
-    } catch {
-      case _: IOException => shutdown(connectionCancelled("writer I/O failure"))
-    }
-
   private def markLocalFrameWrite(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
     frame match {
       case data: Data if data.endStream          => stream.halfClose()
@@ -609,19 +591,24 @@ final class H2Connection(
       FrameCodec.decode(readBuffer) match {
         case Right((frame, rest))           =>
           readBuffer = rest
+          // Release a grown scratch buffer so an idle connection that once saw a
+          // large frame goes back to the small footprint.
+          if (readScratch.length > readBufferSize) readScratch = new Array[Byte](readBufferSize)
           return frame
-        case Left(H2Error.InsufficientData) => appendInput()
+        case Left(H2Error.InsufficientData) => appendInput(grow = readBuffer.nonEmpty)
         case Left(error)                    => throw protocolError("Failed to decode frame: " + error)
       }
     }
     throw protocolError("Unreachable frame read state")
   }
 
-  private def appendInput(): Unit = {
-    val bytes = new Array[Byte](8192)
-    val read  = input.read(bytes)
+  private def appendInput(grow: Boolean): Unit = {
+    if (grow && readScratch.length < maxReadBufferSize) {
+      readScratch = new Array[Byte](math.min(readScratch.length * 2, maxReadBufferSize))
+    }
+    val read = input.read(readScratch)
     if (read < 0) throw new EOFException("Connection closed while reading HTTP/2 frame")
-    readBuffer = readBuffer ++ Chunk.fromArray(java.util.Arrays.copyOf(bytes, read))
+    readBuffer = readBuffer ++ Chunk.fromArray(java.util.Arrays.copyOf(readScratch, read))
   }
 
   private def readFully(bytes: Array[Byte], offset: Int, length: Int): Unit = {
@@ -665,11 +652,6 @@ final class H2Connection(
     }
   }
 
-  private def parkWriter(): Unit =
-    try Thread.sleep(1L)
-    catch {
-      case _: InterruptedException => Thread.currentThread().interrupt()
-    }
 }
 
 private object H2Connection {
@@ -793,15 +775,6 @@ private object H2Connection {
       case Left(error: MuxError) => Some(error)
       case error: MuxError       => Some(error)
       case _                     => None
-    }
-
-  private def toOptionalFrame(result: Any): Either[MuxError, Option[H2Frame]] =
-    result match {
-      case Right(value)          => Right(value.asInstanceOf[Option[H2Frame]])
-      case Left(error: MuxError) => Left(error)
-      case error: MuxError       => Left(error)
-      case value: Option[_]      => Right(value.asInstanceOf[Option[H2Frame]])
-      case other                 => Left(MuxError.ProtocolError("Unexpected mux frame result: " + other))
     }
 
   private def closeQuietly(resource: AutoCloseable): Unit =

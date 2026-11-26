@@ -8,6 +8,8 @@ import java.util.concurrent.{
   CountDownLatch,
   ExecutionException,
   ScheduledFuture,
+  ScheduledThreadPoolExecutor,
+  ThreadFactory,
   TimeUnit,
   TimeoutException,
 }
@@ -40,7 +42,7 @@ final class H2ConnectionControl(
   private val lastActivityNanos          = new AtomicLong(System.nanoTime())
   private val lastStreamIdState          = new AtomicInteger(Int.MaxValue)
   private val idleTimerState             = new AtomicBoolean(false)
-  private val idleTimerThread            = new AtomicReference[Thread](null)
+  private val idleFuture                 = new AtomicReference[ScheduledFuture[?]](null)
   private val trackedStreams             = new ConcurrentHashMap[Int, java.lang.Boolean]()
 
   def trackStream(streamId: Int): Unit   = trackedStreams.put(streamId, java.lang.Boolean.TRUE)
@@ -71,18 +73,24 @@ final class H2ConnectionControl(
   def startIdleTimer(): Unit                          =
     if (idleTimeoutMs > 0L && idleTimerState.compareAndSet(false, true)) {
       lastActivityNanos.set(System.nanoTime())
-      val thread = Thread
-        .ofVirtual()
-        .name("zio-http-h2-idle-timeout")
-        .start(runnable(idleTimerLoop()))
-      idleTimerThread.set(thread)
+      scheduleIdle(idleTimeoutMs)
     }
 
-  def resetIdleTimer(): Unit = {
+  /** Schedules the single idle-deadline task on the shared timer. */
+  private def scheduleIdle(delayMs: Long): Unit =
+    if (!closedState.get()) {
+      val future   = H2ConnectionControl.scheduler.schedule(
+        runnable(idleTimerTick()),
+        delayMs.max(0L),
+        TimeUnit.MILLISECONDS,
+      )
+      val previous = idleFuture.getAndSet(future)
+      if (previous != null) previous.cancel(false)
+    }
+
+  /** Cheap activity update: no thread wake-up, no reschedule. */
+  def resetIdleTimer(): Unit =
     lastActivityNanos.set(System.nanoTime())
-    val thread = idleTimerThread.get()
-    if (thread != null) thread.interrupt()
-  }
 
   /**
    * Stops the idle timer thread. Safe to call from any thread, including the
@@ -90,8 +98,8 @@ final class H2ConnectionControl(
    */
   def stopIdleTimer(): Unit = {
     closedState.set(true)
-    val thread = idleTimerThread.get()
-    if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
+    val future = idleFuture.getAndSet(null)
+    if (future != null) future.cancel(false)
   }
 
   /**
@@ -116,106 +124,110 @@ final class H2ConnectionControl(
     stillPending: () => Boolean,
     requireOpenStream: Boolean = true,
   ): ScheduledFuture[?] = {
-    val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L)))
+    val future    = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L)))
     if (timeoutMs <= 0L) {
       future.complete()
       return future
     }
-    val thread = Thread
-      .ofVirtual()
-      .name("zio-http-h2-stream-timeout-" + streamId)
-      .start(runnable {
-        try {
-          TimeUnit.MILLISECONDS.sleep(timeoutMs)
-          // Re-check at send time (mirrors startRequestTimer's isStreamOpen
-          // guard): the stream may have completed between the wake-up check
-          // and the wire write below — never RST a completed stream.
-          if (!future.isCancelled && stillPending() && (!requireOpenStream || isStreamOpen(streamId))) {
-            try sendRstStream(streamId, errorCode)
-            catch {
-              case NonFatal(_) => ()
-            }
-          }
-          future.complete()
-        } catch {
-          case _: InterruptedException =>
-            if (future.isCancelled) future.complete()
-            else {
-              Thread.currentThread().interrupt()
-              future.complete()
-            }
-          case NonFatal(error)         => future.fail(error)
+    // Scheduled on the shared timer (no VT per request). Only if the deadline
+    // actually fires do we spawn a short-lived VT: the RST write blocks on the
+    // socket and must never stall the single timer thread.
+    val scheduled = H2ConnectionControl.scheduler.schedule(
+      runnable {
+        if (future.isCancelled) future.complete()
+        else {
+          val task = Thread
+            .ofVirtual()
+            .name("zio-http-h2-stream-timeout-" + streamId)
+            .unstarted(runnable {
+              try {
+                // Re-check at send time: the stream may have completed between
+                // the deadline firing and the wire write below.
+                if (!future.isCancelled && stillPending() && (!requireOpenStream || isStreamOpen(streamId))) {
+                  try sendRstStream(streamId, errorCode)
+                  catch { case NonFatal(_) => () }
+                }
+                future.complete()
+              } catch {
+                case NonFatal(error) => future.fail(error)
+              }
+            })
+          task.start()
         }
-      })
-    future.attach(thread)
+      },
+      timeoutMs,
+      TimeUnit.MILLISECONDS,
+    )
+    future.attachScheduled(scheduled)
     future
   }
 
   def startRequestTimer(streamId: Int): ScheduledFuture[?] = {
-    val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
+    val future    = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
     if (requestTimeoutMs <= 0L) {
       future.complete()
       return future
     }
-    val thread = Thread
-      .ofVirtual()
-      .name("zio-http-h2-request-timeout-" + streamId)
-      .start(runnable {
-        try {
-          TimeUnit.MILLISECONDS.sleep(requestTimeoutMs)
-          if (!future.isCancelled && isStreamOpen(streamId)) sendRstStream(streamId, H2Error.Code.CANCEL)
-          future.complete()
-        } catch {
-          case _: InterruptedException =>
-            if (future.isCancelled) future.complete()
-            else {
-              Thread.currentThread().interrupt()
-              future.complete()
-            }
-          case NonFatal(error)         => future.fail(error)
+    val scheduled = H2ConnectionControl.scheduler.schedule(
+      runnable {
+        if (future.isCancelled) future.complete()
+        else {
+          val task = Thread
+            .ofVirtual()
+            .name("zio-http-h2-request-timeout-" + streamId)
+            .unstarted(runnable {
+              try {
+                if (!future.isCancelled && isStreamOpen(streamId)) sendRstStream(streamId, H2Error.Code.CANCEL)
+                future.complete()
+              } catch {
+                case NonFatal(error) => future.fail(error)
+              }
+            })
+          task.start()
         }
-      })
-    future.attach(thread)
+      },
+      requestTimeoutMs,
+      TimeUnit.MILLISECONDS,
+    )
+    future.attachScheduled(scheduled)
     future
   }
 
-  private def idleTimerLoop(): Unit                   = {
-    val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(idleTimeoutMs)
-    while (!closedState.get()) {
-      val elapsed   = System.nanoTime() - lastActivityNanos.get()
-      val remaining = timeoutNanos - elapsed
-      if (remaining <= 0L) {
-        if (System.nanoTime() - lastActivityNanos.get() >= timeoutNanos) {
-          // RFC 9113 6.8: GOAWAY carries the real highest processed stream
-          // id (never Int.MaxValue), then the connection drains in-flight
-          // streams before closing. Guarded so a second firing is a no-op.
-          if (goingAwayState.compareAndSet(false, true)) {
-            try sendGoAway(lastStreamId(), H2Error.Code.NO_ERROR)
-            catch {
-              case NonFatal(_) => ()
-            }
-          }
-          try onGracefulShutdown()
-          catch {
-            case NonFatal(_) => ()
-          }
-          try closeConnection(MuxError.Cancelled("connection", "idle timeout"))
-          finally return
-        }
-      } else {
-        try TimeUnit.NANOSECONDS.sleep(remaining)
-        catch {
-          case _: InterruptedException => ()
-        }
-      }
+  private def idleTimerTick(): Unit =
+    if (!closedState.get()) {
+      val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(idleTimeoutMs)
+      val elapsed      = System.nanoTime() - lastActivityNanos.get()
+      if (elapsed >= timeoutNanos) fireIdleTimeout()
+      else scheduleIdle(TimeUnit.NANOSECONDS.toMillis(timeoutNanos - elapsed).max(1L))
     }
+
+  /**
+   * RFC 9113 6.8 idle close. Runs the GOAWAY + bounded drain off the shared
+   * timer thread (both do blocking I/O / a drain loop): one VT per idle-timeout
+   * event (at most once per connection lifetime), never one per connection.
+   */
+  private def fireIdleTimeout(): Unit                 = {
+    val drain = Thread
+      .ofVirtual()
+      .name("zio-http-h2-idle-shutdown")
+      .unstarted(runnable {
+        if (goingAwayState.compareAndSet(false, true)) {
+          try sendGoAway(lastStreamId(), H2Error.Code.NO_ERROR)
+          catch { case NonFatal(_) => () }
+        }
+        try onGracefulShutdown()
+        catch { case NonFatal(_) => () }
+        try closeConnection(MuxError.Cancelled("connection", "idle timeout"))
+        catch { case NonFatal(_) => () }
+      })
+    drain.start()
   }
   private def closeConnection(reason: MuxError): Unit =
     if (closedState.compareAndSet(false, true)) {
       mux.closeAll(reason)
       closeQuietly(output)
-      val thread = idleTimerThread.get()
-      if (thread != null && (thread ne Thread.currentThread())) thread.interrupt()
+      val future = idleFuture.getAndSet(null)
+      if (future != null) future.cancel(false)
     }
 
   private def writeFrame(frame: H2Frame, flush: Boolean): Unit              = {
@@ -256,10 +268,13 @@ final class H2ConnectionControl(
   private final class VirtualTimerFuture(deadlineNanos: Long) extends ScheduledFuture[Unit] {
     private val doneRef                                              = new AtomicBoolean(false)
     private val cancelledRef                                         = new AtomicBoolean(false)
-    private val threadRef                                            = new AtomicReference[Thread](null)
+    private val threadRef                                            = new AtomicReference[ScheduledFuture[?]](null)
     private val failureRef                                           = new AtomicReference[Throwable](null)
     private val doneLatch                                            = new CountDownLatch(1)
-    def attach(thread: Thread): Unit                                 = threadRef.set(thread)
+    def attachScheduled(future: ScheduledFuture[?]): Unit            = {
+      threadRef.set(future)
+      if (cancelledRef.get()) future.cancel(false)
+    }
     def complete(): Unit                                             =
       if (doneRef.compareAndSet(false, true)) doneLatch.countDown()
     def fail(error: Throwable): Unit                                 = {
@@ -277,10 +292,8 @@ final class H2ConnectionControl(
       else {
         val cancelled = cancelledRef.compareAndSet(false, true)
         if (cancelled) {
-          if (mayInterruptIfRunning) {
-            val thread = threadRef.get()
-            if (thread != null) thread.interrupt()
-          }
+          val scheduled = threadRef.get()
+          if (scheduled != null) scheduled.cancel(false)
           complete()
         }
         cancelled
@@ -307,6 +320,29 @@ final class H2ConnectionControl(
 }
 
 object H2ConnectionControl {
+
+  /**
+   * Shared deadline scheduler. One daemon platform thread services every
+   * connection's idle deadline, so an idle connection costs O(1) heap for its
+   * scheduled task instead of a dedicated virtual thread (~3 VTs/conn -> 2
+   * VTs/conn with the writer still parked). Tasks are cheap: on fire they
+   * either reschedule at the remaining time or hand GOAWAY/drain to a fresh
+   * virtual thread, so the timer thread never blocks on socket I/O.
+   */
+  private val scheduler: ScheduledThreadPoolExecutor = {
+    val factory: ThreadFactory = new ThreadFactory {
+      private val counter                = new AtomicInteger(0)
+      def newThread(r: Runnable): Thread = {
+        val thread = new Thread(r, "zio-http-h2-timer-" + counter.incrementAndGet())
+        thread.setDaemon(true)
+        thread
+      }
+    }
+    val executor               = new ScheduledThreadPoolExecutor(1, factory)
+    executor.setRemoveOnCancelPolicy(true)
+    executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false)
+    executor
+  }
 
   /**
    * The single conversion site from [[Connector.idleTimeout]] (a

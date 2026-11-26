@@ -91,6 +91,7 @@ final class H2Transport[Ctx](
                   idleTimeoutMs = H2ConnectionControl.idleTimeoutMs(connector),
                   requestTimeoutMs = connector.requestTimeoutMs,
                   headerTimeoutMs = connector.headerTimeoutMs,
+                  readBufferSize = connector.readBufferBytes,
                 )
               connection.run(stream => handleStream(stream, flowController, hpackCodec, connection, peer, peerTrusted))
             } catch {
@@ -207,39 +208,41 @@ final class H2Transport[Ctx](
     }
   }
 
-  private def instrumentRequest(request: Request): Response = {
-    val startedAtNanos = System.nanoTime()
-    val requestPath    = request.url.path.encode
+  private def instrumentRequest(request: Request): Response =
+    if (!connector.requestTelemetry) handleRequest(request)
+    else {
+      val startedAtNanos = System.nanoTime()
+      val requestPath    = request.url.path.encode
 
-    trace.span("http.request", SpanKind.Server) { span =>
-      span.setAttribute("http.request.method", request.method.toString)
-      span.setAttribute("url.path", requestPath)
-      span.setAttribute("network.protocol.name", protocolName)
+      trace.span("http.request", SpanKind.Server) { span =>
+        span.setAttribute("http.request.method", request.method.toString)
+        span.setAttribute("url.path", requestPath)
+        span.setAttribute("network.protocol.name", protocolName)
 
-      val response   = handleRequest(request)
-      val durationMs = nanosToMillis(System.nanoTime() - startedAtNanos)
+        val response   = handleRequest(request)
+        val durationMs = nanosToMillis(System.nanoTime() - startedAtNanos)
 
-      span.setAttribute("http.response.status_code", response.status.code.toLong)
-      span.setAttribute("http.server.active_connections", activeConnectionCount.get())
-      span.setAttribute("http.server.duration_ms", durationMs)
-      requestCounter.add(
-        1L,
-        "method"      -> request.method.toString,
-        "path"        -> requestPath,
-        "status"      -> response.status.code,
-        "protocol"    -> protocolName,
-      )
-      logger.info(
-        "HTTP request",
-        "method"      -> AttributeValue.StringValue(request.method.toString),
-        "path"        -> AttributeValue.StringValue(requestPath),
-        "status"      -> AttributeValue.LongValue(response.status.code.toLong),
-        "duration_ms" -> AttributeValue.LongValue(durationMs),
-      )
+        span.setAttribute("http.response.status_code", response.status.code.toLong)
+        span.setAttribute("http.server.active_connections", activeConnectionCount.get())
+        span.setAttribute("http.server.duration_ms", durationMs)
+        requestCounter.add(
+          1L,
+          "method"      -> request.method.toString,
+          "path"        -> requestPath,
+          "status"      -> response.status.code,
+          "protocol"    -> protocolName,
+        )
+        logger.info(
+          "HTTP request",
+          "method"      -> AttributeValue.StringValue(request.method.toString),
+          "path"        -> AttributeValue.StringValue(requestPath),
+          "status"      -> AttributeValue.LongValue(response.status.code.toLong),
+          "duration_ms" -> AttributeValue.LongValue(durationMs),
+        )
 
-      response
+        response
+      }
     }
-  }
 
   private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame], connection: H2Connection): Headers =
     awaitFrame(stream, connection, Long.MaxValue) match {
@@ -589,8 +592,12 @@ final class H2Transport[Ctx](
           throw new H2Transport.Aborted
         }
         flowController.consumeSendWindow(stream.id, chunk.length, http2Config.sendWindowTimeoutMs)
-        sendFrame(stream, Data(stream.id, chunk, endStream = endStream))
-        if (stream.isClosed) {
+        connection.writeDataFrame(stream, Data(stream.id, chunk, endStream = endStream))
+        // A local END_STREAM legitimately moves a remotely-half-closed stream to
+        // CLOSED; only a non-terminal frame closing means the peer reset us, in
+        // which case abort. Without this guard every response would emit a
+        // spurious RST_STREAM(CANCEL) after its final DATA.
+        if (!endStream && stream.isClosed) {
           abort()
           throw new H2Transport.Aborted
         }
@@ -839,13 +846,6 @@ final class H2Transport[Ctx](
     if (connector.bodyTimeoutMs <= 0L) Long.MaxValue
     else streamStartNanos + connector.bodyTimeoutMs * 1000000L
 
-  private def sendFrame(stream: MuxStream[Int, H2Frame, H2Frame], frame: H2Frame): Unit = {
-    val result = stream.send(frame)
-    toSendError(result).foreach { error =>
-      throw new IllegalStateException("HTTP/2 stream send failed: " + error)
-    }
-  }
-
   private def collectPseudoHeaders(headers: List[HeaderField]): H2Transport.PseudoHeaders = {
     var method: String    = null
     var path: String      = null
@@ -1036,16 +1036,6 @@ final class H2Transport[Ctx](
       case other                       => Left(MuxError.ProtocolError("Unexpected mux receive result: " + other))
     }
 
-  private def toSendError(result: Any): Option[MuxError] =
-    result match {
-      case Left(error: MuxError) => Some(error)
-      case Right(_)              => None
-      case ()                    => None
-      case unexpected            =>
-        throw new IllegalStateException(
-          s"Stream send failed with unexpected result: $unexpected (${unexpected.getClass.getSimpleName})",
-        )
-    }
 }
 
 object H2Transport {
@@ -1079,9 +1069,10 @@ object H2Transport {
 
   /**
    * Per-stream abort marker: lives on the companion (static, stable prefix)
-   * rather than on the StreamSender instance, keeping type tests against
-   * `H2Transport.Aborted` stable. Stackless: aborts are routine control flow,
-   * not defects.
+   * rather than on the StreamSender instance so `case _: H2Transport.Aborted`
+   * type tests compile on both Scala 3 and 2.13 (where a path-dependent
+   * `sender.Aborted` test is an "outer reference cannot be checked" error).
+   * Stackless: aborts are routine control flow, not defects.
    */
   private final class Aborted extends RuntimeException("HTTP/2 response stream aborted") {
     override def fillInStackTrace(): Throwable = this
