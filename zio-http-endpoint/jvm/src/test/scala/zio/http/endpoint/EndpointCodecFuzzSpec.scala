@@ -44,10 +44,9 @@ import zio.test._
  *   - Query-encoding mismatch: query values must survive render -> parse
  *     (`QueryParams.encode` -> `QueryParams.fromEncoded`) byte-stable.
  *
- * Cross-version note: this file lives in the version-shared test sources and
- * must compile on BOTH Scala 2.13 and Scala 3. It therefore uses only shared
- * syntax (no `derives`, no union types, no significant indentation), only
- * primitive schemas, and passes combiner instances explicitly.
+ * Syntax note: this file uses only shared syntax (no `derives`, no union types,
+ * no significant indentation), only primitive schemas, and passes combiner
+ * instances explicitly.
  */
 object EndpointCodecFuzzSpec extends ZIOSpecDefault {
 

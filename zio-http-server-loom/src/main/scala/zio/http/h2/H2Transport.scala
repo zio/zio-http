@@ -1079,10 +1079,9 @@ object H2Transport {
 
   /**
    * Per-stream abort marker: lives on the companion (static, stable prefix)
-   * rather than on the StreamSender instance so `case _: H2Transport.Aborted`
-   * type tests compile on both Scala 3 and 2.13 (where a path-dependent
-   * `sender.Aborted` test is an "outer reference cannot be checked" error).
-   * Stackless: aborts are routine control flow, not defects.
+   * rather than on the StreamSender instance, keeping type tests against
+   * `H2Transport.Aborted` stable. Stackless: aborts are routine control flow,
+   * not defects.
    */
   private final class Aborted extends RuntimeException("HTTP/2 response stream aborted") {
     override def fillInStackTrace(): Throwable = this

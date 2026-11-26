@@ -221,9 +221,8 @@ private[http] object RouteBindingMacros {
       }
 
     // `true` iff `sym` is one of `scala.Tuple1` .. `scala.Tuple22` (a NOMINAL tuple case class),
-    // detected by fully-qualified symbol name - mirroring the Scala 2.13 sibling's
-    // `RouteBindingMacros.isTupleType` (`sym.fullName.matches("scala\\.Tuple[0-9]+")`) so both
-    // macros use the identical detection style. This is DISTINCT from the `*:`-cons chain handled
+    // detected by fully-qualified symbol name (the nominal tuple detection style). This is
+    // DISTINCT from the `*:`-cons chain handled
     // separately below: zio-blocks' `combinators.Tuples` Scala 3 givens produce their multi-value
     // results as literal `(L, R)`/`Tuple2`/... syntax (nominal case classes), and `.dealias`/
     // `.simplified` does NOT collapse a `Tuple2[A,B]` TypeRepr into an `A *: B *: EmptyTuple` chain -

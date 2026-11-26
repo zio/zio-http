@@ -38,8 +38,7 @@ import zio.http.{Body, ContentType, Path}
  * The result is consumed by `EndpointBridge.buildRequest` (Todo 11), which
  * renders the decomposed slots into a real [[zio.http.Request]].
  *
- * Cross-version note: this file lives in the version-shared sources and must
- * compile on BOTH Scala 2.13 and Scala 3 — shared syntax only.
+ * Syntax note: this file uses only shared syntax.
  */
 object EndpointCodecWalker {
 
@@ -109,9 +108,8 @@ object EndpointCodecWalker {
 
   private def walk[A](codec: HttpCodec[CodecKind.Request, A], value: A): Either[String, Fragments] =
     // The match is exhaustive for request-side codecs (`StatusCodec` is
-    // response-only); `@unchecked` keeps both toolchains' exhaustivity
-    // checkers quiet (Scala 3 proves it, Scala 2.13 cannot), with `null`
-    // handled explicitly above the match.
+    // response-only); `@unchecked` keeps the exhaustivity checker quiet,
+    // with `null` handled explicitly above the match.
     if (codec == null) Left("Cannot decompose input: codec is null")
     else
       (codec: HttpCodec[CodecKind.Request, A] @unchecked) match {
