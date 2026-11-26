@@ -7,7 +7,6 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-import scala.annotation.experimental
 import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
@@ -16,7 +15,6 @@ import zio.blocks.mux.{Mux, MuxError, MuxStream}
 import zio.http.Http2Config
 import zio.http.h2.hpack.{HeaderField, HpackCodec}
 
-@experimental
 final class H2Connection(
   input: InputStream,
   output: OutputStream,
@@ -506,9 +504,8 @@ final class H2Connection(
     if ((streamId & 1) == 0 || streamId <= highestStreamId)
       throw protocolError("Invalid client-initiated stream id: " + streamId)
 
-    // Widened to MuxOpenResult (see alias): matching Left(_) covers 2.13,
-    // the bare error covers the 3.x union; both keep the exact same refusal
-    // semantics.
+    // Widened to MuxOpenResult (see alias): the `Left(_)` arm and the
+    // bare-error arm both preserve the exact same refusal semantics.
     val openedResult: MuxOpenResult = mux.open(streamId)
     openedResult match {
       case Left(_: MuxError.CapacityExceeded) | _: MuxError.CapacityExceeded =>
@@ -675,15 +672,13 @@ final class H2Connection(
     }
 }
 
-@experimental
 private object H2Connection {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
 
   /**
-   * Mux `open` result across toolchains: the Scala 3 Mux returns a
-   * `MuxStream | MuxError` union while the 2.13 Mux boxes the same result into
-   * an `Either` (see `toStream`, which shims both shapes the same way). Named
-   * so the open site does not widen to a bare `Any`.
+   * Mux `open` result type: the Scala 3 Mux returns a `MuxStream | MuxError`
+   * union, and `toStream` normalizes the shape at the call site. Named so the
+   * open site does not widen to a bare `Any` in its declared signature.
    */
   private type MuxOpenResult = Any
 

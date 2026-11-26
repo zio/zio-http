@@ -30,7 +30,7 @@ final class Routes[-Ctx] private (private[http] val routes: Chunk[Route[Ctx]]) {
    * this Routes' type parameters unchanged.
    *
    * A separate operator from `@@` because JVM erasure forbids overloading `@@`
-   * with `Middleware[Any, Any]` in shared (Scala 2.13 + Scala 3) sources.
+   * with `Middleware[Any, Any]` in shared sources.
    *
    * Note: prefer the typed `@@` when the middleware reads or provides context.
    */

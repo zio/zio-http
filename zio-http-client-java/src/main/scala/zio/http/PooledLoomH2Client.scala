@@ -14,7 +14,6 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLSocket
 
-import scala.annotation.experimental
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 
@@ -64,7 +63,6 @@ import scala.util.control.NonFatal
  * [[IllegalStateException]], and leaves in-flight exchanges to their own
  * deadlines.
  */
-@experimental
 final class PooledLoomH2Client private (
   config: ClientConfig,
   sslContextOverride: Option[SSLContext],
@@ -544,7 +542,6 @@ final class PooledLoomH2Client private (
       )
 }
 
-@experimental
 object PooledLoomH2Client {
   final case class Stats(checkedOut: Int, idle: Int, queued: Int)
 

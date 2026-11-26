@@ -15,8 +15,6 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
-import scala.annotation.experimental
-
 import zio._
 import zio.test.TestAspect.sequential
 import zio.test._
@@ -39,7 +37,6 @@ import zio.http.h2.hpack.HpackCodec
  * gauge proves caps, recorded RST_STREAM ids prove cancellation, and an 8 MiB
  * `/big` route proves heap-bounded streaming.
  */
-@experimental
 object ClientPoolStreamingSpec extends ZIOSpecDefault {
 
   private val BigBodyBytes: Int    = 8 * 1024 * 1024

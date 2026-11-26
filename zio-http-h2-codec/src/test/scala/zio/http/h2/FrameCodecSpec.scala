@@ -1,7 +1,5 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.test._
 
@@ -19,7 +17,6 @@ import zio.http.h2.H2Frame.{
   WindowUpdate,
 }
 
-@experimental
 object FrameCodecSpec extends ZIOSpecDefault {
   override def spec =
     suite("FrameCodecSpec")(

@@ -2,7 +2,6 @@ package zio.http.h2
 
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
 import zio._
@@ -43,7 +42,6 @@ import zio.http.sse.{ServerSentEvent, SseCodec}
  * the field — the "construction rejects ..." and "fixed limits ..." suites pin
  * the IAE, and multiline `data` remains legitimate framing.
  */
-@experimental
 object SseGrammarSpec extends ZIOSpecDefault {
 
   private val Utf8 = StandardCharsets.UTF_8

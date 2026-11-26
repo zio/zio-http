@@ -11,16 +11,15 @@ import mill.scalalib.publish.{Developer, License, PomSettings, VersionControl}
 import mill.util.VcsVersion
 
 object Versions {
-  val Scala213              = "2.13.18"
   val Scala3                = "3.9.0"
   val ScalaJS               = "1.20.2"
   val Zio                   = "2.1.24"
   val ZioSchema             = "1.8.3"
   val ScalaCompatCollection = "2.14.0"
-  val ZioBlocks             = "0.0.46+6-46f1890f-SNAPSHOT"
+  val ZioBlocks             = "0.0.47"
 }
 
-val scalaVersions = Seq(Versions.Scala213, Versions.Scala3)
+val scalaVersions = Seq(Versions.Scala3)
 val wsRoot        = BuildCtx.workspaceRoot
 
 trait ZioHttpPublishModule extends PublishModule {
@@ -83,35 +82,19 @@ trait ZioHttpModule extends CrossScalaModule {
   }
 
   override def scalacOptions = Task {
-    val base = Seq("-deprecation", "-encoding", "UTF-8", "-feature", "-unchecked", "-language:postfixOps")
-    crossScalaVersion match {
-      case v if v.startsWith("2.13") =>
-        base ++ Seq(
-          "-language:existentials",
-          "-language:higherKinds",
-          "-explaintypes",
-          "-Wconf:cat=unused:info",
-          "-Werror",
-        )
-      case v if v.startsWith("3.")   =>
-        base ++ Seq(
-          "-Xignore-scala2-macros",
-          "-noindent",
-          "-experimental",
-          "-Wconf:msg=with as a type operator has been deprecated:s",
-          "-Wconf:msg=Implicit parameters should be provided with a `using` clause:s",
-          "-Werror",
-        )
-      case _                          => base
-    }
-  }
-
-  override def mvnDeps = {
-    val scalaReflect =
-      if (crossScalaVersion.startsWith("2"))
-        Seq(mvn"org.scala-lang:scala-reflect:${crossScalaVersion}")
-      else Seq.empty
-    super.mvnDeps() ++ scalaReflect
+    Seq(
+      "-deprecation",
+      "-encoding",
+      "UTF-8",
+      "-feature",
+      "-unchecked",
+      "-language:postfixOps",
+      "-noindent",
+      "-experimental",
+      "-Wconf:msg=with as a type operator has been deprecated:s",
+      "-Wconf:msg=Implicit parameters should be provided with a `using` clause:s",
+      "-Werror",
+    )
   }
 }
 
@@ -138,12 +121,12 @@ object core extends Module {
   object jvm      extends Cross[JvmModule](scalaVersions)
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName       = "zio-http-core"
-    override def sources   = {
-      val vDir =
-        if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
-      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
-      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base) *)
-    }
+    override def sources   =
+      Task.Sources(
+        r / "shared" / "src" / "main" / "scala",
+        r / "jvm" / "src" / "main" / "scala",
+        r / "shared" / "src" / "main" / "scala-3",
+      )
     override def resources =
       Task.Sources(r / "shared" / "src" / "main" / "resources", r / "jvm" / "src" / "main" / "resources")
     override def mvnDeps   = super.mvnDeps() ++ Seq(
@@ -169,17 +152,13 @@ object core extends Module {
         client.jvm(),
         server.jvm(),
       )
-      override def sources    = {
-        val vDir =
-          if (crossScalaVersion.startsWith("2.")) "scala-2"
-          else if (crossScalaVersion.startsWith("3.")) "scala-3"
-          else ""
-        val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
+      override def sources    =
         Task.Sources(
-          (if (vDir.nonEmpty) base ++ Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir)
-           else base) *,
+          r / "shared" / "src" / "test" / "scala",
+          r / "jvm" / "src" / "test" / "scala",
+          r / "shared" / "src" / "test" / "scala-3",
+          r / "jvm" / "src" / "test" / "scala-3",
         )
-      }
       override def resources  =
         Task.Sources(r / "shared" / "src" / "test" / "resources", r / "jvm" / "src" / "test" / "resources")
       // `ScoverageTests` (like plain `ScalaTests`) inherits the outer module's `scalacOptions`
@@ -197,10 +176,11 @@ object core extends Module {
   trait JsModule  extends ZioHttpJSModule {
     def artifactName     = "zio-http-core"
     override def sources = {
-      val vDir =
-        if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
-      val baseDirs = Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
-      val sourceDirs = if (vDir.nonEmpty) baseDirs :+ (r / "shared" / "src" / "main" / vDir) else baseDirs
+      val sourceDirs = Seq(
+        r / "shared" / "src" / "main" / "scala",
+        r / "js" / "src" / "main" / "scala",
+        r / "shared" / "src" / "main" / "scala-3",
+      )
       val excludedNames = Set(
         "Handler.scala",
         "ToHandler.scala",
@@ -290,31 +270,27 @@ object endpoint extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       blocksDep("endpoint"),
     )
-    override def sources = {
-      val vDir =
-        if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
-      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "jvm" / "src" / "main" / "scala")
-      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base) *)
-    }
+    override def sources =
+      Task.Sources(
+        r / "shared" / "src" / "main" / "scala",
+        r / "jvm" / "src" / "main" / "scala",
+        r / "shared" / "src" / "main" / "scala-3",
+      )
     object test extends ScoverageTests with ZioHttpTestModule {
        override def moduleDeps =
          Seq(endpoint.jvm(), core.jvm().test)
-       override def sources    = {
-         val vDir =
-           if (crossScalaVersion.startsWith("2.")) "scala-2"
-           else if (crossScalaVersion.startsWith("3.")) "scala-3"
-           else ""
-         val base = Seq(r / "shared" / "src" / "test" / "scala", r / "jvm" / "src" / "test" / "scala")
+       override def sources    =
          Task.Sources(
-           (if (vDir.nonEmpty) base ++ Seq(r / "shared" / "src" / "test" / vDir, r / "jvm" / "src" / "test" / vDir)
-            else base) *,
+           r / "shared" / "src" / "test" / "scala",
+           r / "jvm" / "src" / "test" / "scala",
+           r / "shared" / "src" / "test" / "scala-3",
+           r / "jvm" / "src" / "test" / "scala-3",
          )
-       }
        override def resources  =
          Task.Sources(r / "shared" / "src" / "test" / "resources", r / "jvm" / "src" / "test" / "resources")
        // `ScoverageTests` (like plain `ScalaTests`) inherits the outer module's `scalacOptions`
        // verbatim, including `-Werror`. `EndpointAuthSpec`, `EndpointCallRoundtripSpec`, and
-       // `EndpointImplementSpec` intentionally exercise the `.implement` Scala 2 macro's
+       // `EndpointImplementSpec` intentionally exercise the `.implement` macro's
        // deliberately-emitted `c.warning("Input is not a case class; assuming single parameter...")
        // message for non-case-class Input types, as a demonstrative test of that diagnostic - so
        // this test module alone must not be fatal-warnings-as-errors. Scoverage instrumentation is
@@ -331,12 +307,12 @@ object endpoint extends Module {
     override def mvnDeps = super.mvnDeps() ++ Seq(
       blocksDep("endpoint"),
     )
-    override def sources = {
-      val vDir =
-        if (crossScalaVersion.startsWith("2.")) "scala-2" else if (crossScalaVersion.startsWith("3.")) "scala-3" else ""
-      val base = Seq(r / "shared" / "src" / "main" / "scala", r / "js" / "src" / "main" / "scala")
-      Task.Sources((if (vDir.nonEmpty) base :+ (r / "shared" / "src" / "main" / vDir) else base) *)
-    }
+    override def sources =
+      Task.Sources(
+        r / "shared" / "src" / "main" / "scala",
+        r / "js" / "src" / "main" / "scala",
+        r / "shared" / "src" / "main" / "scala-3",
+      )
   }
 }
 
@@ -427,24 +403,30 @@ object zio extends Module {
   }
 }
 
-/** Aggregate command that runs every engine-relevant JVM test module - and validates each
-  * one's Scoverage coverage minimums - for a single Scala version. This is the ONE place that
-  * lists those modules: CI's `testJvm` job calls `testEngine` once per Scala version, so adding
-  * a new engine test module here is the only change needed - `.github/workflows/ci.yml` never
-  * has to be touched again.
+/** Aggregate command that runs every shipped JVM test module - and validates each
+  * one's Scoverage coverage minimums - on Scala 3. This is the ONE place that
+  * lists those modules: CI's `testJvm` job calls `testJvm` once, so adding
+  * a new shipped JVM test module here is the only change needed - `.github/workflows/ci.yml`
+  * never has to be touched again.
+  *
+  * Coverage data accumulates in `out/` across runs, so minimums are trustworthy
+  * only from a clean output directory: run `rm -rf out` first locally (CI
+  * runners always start clean; `out/` is deliberately not cached there).
   *
   * Failure propagation: `testForked()` and `validateCoverageMinimums()` both throw (via
   * `mill.api.Result.Failure`) when tests fail or coverage drops below the configured minimums.
   * Since this command body calls them directly and does not catch exceptions, any failure
-  * aborts `testEngine` immediately with a non-zero exit code.
+  * aborts `testJvm` immediately with a non-zero exit code.
   */
-def testEngine(scalaVersion: String) = Task.Command {
+def testJvm(scalaVersion: String) = Task.Command {
   core.jvm(scalaVersion).test.testForked()()
   core.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   h2Codec.jvm(scalaVersion).test.testForked()()
   h2Codec.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   serverLoom.jvm(scalaVersion).test.testForked()()
   serverLoom.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
+  clientJava.jvm(scalaVersion).test.testForked()()
+  clientJava.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   zio.jvm(scalaVersion).test.testForked()()
   zio.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   endpoint.jvm(scalaVersion).test.testForked()()
@@ -488,17 +470,14 @@ object benchmarks extends Module {
     // plan, not wired into any build before this todo, and not compiling against the current
     // API - same class of pre-existing dormant code as zio-http-example/zio-http-testkit per
     // Todo 7's findings). Only this todo's own new Scala-version-specific sources are compiled.
-    override def sources = {
-      val vDir = if (crossScalaVersion.startsWith("2.")) "scala-2" else "scala-3"
-      Task.Sources(r / "src" / "main" / vDir)
-    }
+    override def sources = Task.Sources(r / "src" / "main" / "scala-3")
   }
 }
 
 object profiling extends ScalaModule {
-  def scalaVersion           = Versions.Scala213
+  def scalaVersion           = Versions.Scala3
   def artifactName           = "zio-http-profiling"
-  def moduleDeps             = Seq(server.jvm(Versions.Scala213))
+  def moduleDeps             = Seq(server.jvm(Versions.Scala3))
   override def scalacOptions = Task {
     Seq(
       "-deprecation",
@@ -507,12 +486,10 @@ object profiling extends ScalaModule {
       "-feature",
       "-unchecked",
       "-language:postfixOps",
-      "-language:existentials",
-      "-language:higherKinds",
-      "-explaintypes",
-      "-Wconf:cat=unused:info",
+      "-noindent",
+      "-experimental",
+      "-Werror",
     )
   }
-  override def mvnDeps       = super.mvnDeps() ++ Seq(mvn"org.scala-lang:scala-reflect:${scalaVersion()}")
   override def sources       = Task.Sources(wsRoot / "profiling" / "src" / "main" / "scala")
 }

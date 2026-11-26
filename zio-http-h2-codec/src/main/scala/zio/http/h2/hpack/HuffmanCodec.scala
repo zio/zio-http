@@ -3,12 +3,9 @@ package zio.http.h2.hpack
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 
 // SIZE_OK: RFC 7541 Appendix B requires a 257-entry canonical Huffman table.
-@experimental
 object HuffmanCodec {
   private final class Node {
     var zero: Node          = null

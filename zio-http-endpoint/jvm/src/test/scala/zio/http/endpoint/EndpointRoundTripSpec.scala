@@ -39,8 +39,8 @@ import zio.test._
  * `decodeResponse`: a `Header` node in the output codec must land on the real
  * [[zio.http.Response]] headers, not be dropped.
  *
- * Cross-version note: shared test sources, so shared syntax only (no `derives`,
- * no union types), only primitive schemas, and combiner/alternator instances
+ * Syntax note: shared test sources, so shared syntax only (no `derives`, no
+ * union types), only primitive schemas, and combiner/alternator instances
  * passed explicitly.
  */
 object EndpointRoundTripSpec extends ZIOSpecDefault {

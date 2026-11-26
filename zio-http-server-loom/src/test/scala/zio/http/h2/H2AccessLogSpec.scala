@@ -2,7 +2,6 @@ package zio.http.h2
 
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -51,7 +50,6 @@ import zio.http.{
  * composed above the transport's internal OpenTelemetry span (which is never
  * touched here).
  */
-@experimental
 object H2AccessLogSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -321,7 +319,7 @@ object H2AccessLogSpec extends ZIOSpecDefault {
             bind = BindAddress.localhost(0),
             trustedProxy = trusted,
           )
-          new LoomServer(connector).serve(routes @@ Middleware.accessLog(sink), Context.empty)
+          LoomServer(connector).serve(routes @@ Middleware.accessLog(sink), Context.empty)
         },
       )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>

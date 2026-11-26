@@ -3,8 +3,6 @@ package zio.http.h2
 import java.net.Socket
 import javax.net.ssl.{SSLContext, SSLSocket, TrustManager, X509TrustManager}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.config.Secret
 import zio.blocks.context.Context
@@ -17,8 +15,8 @@ import zio.http.{
   BindAddress,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
+  LoomServer,
   Protocol,
   Response,
   Route,
@@ -45,7 +43,6 @@ import zio.http.{
  * rejection vs. acceptance. It is independent from any future client-side
  * `ClientAlpnPolicy`.
  */
-@experimental
 object AlpnConfigSpec extends ZIOSpecDefault {
 
   private val TestCert =
@@ -262,16 +259,14 @@ tylLU8iZnM9E7+/GSVghdQ==
     ZIO
       .acquireRelease(
         ZIO.attempt {
-          new H2Transport(
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
             Routes(Route(RoutePattern.GET, Handler.succeed(Response.text("alpn-config-ok")))),
             Context.empty,
-            Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-            DefectHandler.default,
-          ).start()
+          )
         },
-      )(handle => ZIO.succeed(handle.close0()))
+      )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
-        val port = handle.binding.address match {
+        val port = handle.bindings.head.address match {
           case BoundAddress.Tcp(_, thePort) => thePort
           case other                        => throw new AssertionError("Expected TCP: " + other)
         }

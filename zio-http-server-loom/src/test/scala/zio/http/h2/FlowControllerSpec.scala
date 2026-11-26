@@ -1,11 +1,8 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio._
 import zio.test._
 
-@experimental
 object FlowControllerSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("FlowControllerSpec")(

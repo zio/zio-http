@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -49,9 +48,9 @@ import zio.http.{
  *
  * Runs the adversarial cells — oversize headers (G1), oversize body (G1), slow
  * loris (G2), spoofed forwarding headers (G3), and the HMAC raw-body tap plus
- * the access-log sink (G4) — against ONE hardened `LoomServer` loopback with
- * all knobs on, plus a knobs-off cell proving the timeouts are what reset slow
- * streams. Each cell isolates its attack per-stream: the reset carries the
+ * the access-log sink (G4) — against ONE hardened direct-transport loopback
+ * with all knobs on, plus a knobs-off cell proving the timeouts are what reset
+ * slow streams. Each cell isolates its attack per-stream: the reset carries the
  * expected `RST_STREAM` code and a sibling stream on the same connection still
  * gets a 200, except for the HPACK-poison cell where the attack corrupts
  * connection-level compression state and the server correctly tears the whole
@@ -63,7 +62,6 @@ import zio.http.{
  * them, it does not redefine enforcement semantics. If a cell fails, the bug is
  * reported, not fixed here.
  */
-@experimental
 object H2HardeningMatrixSpec extends ZIOSpecDefault {
 
   private val BodyCap: Long         = 1024L
@@ -348,7 +346,7 @@ object H2HardeningMatrixSpec extends ZIOSpecDefault {
         ZIO.attempt {
           val sink   = CaptureSink()
           val handle =
-            new LoomServer(connector).serve(MatrixRoutes @@ Middleware.accessLog(sink), Context.empty)
+            LoomServer(connector).serve(MatrixRoutes @@ Middleware.accessLog(sink), Context.empty)
           (handle, sink)
         },
       ) { case (handle, _) => ZIO.attemptBlocking(handle.shutdownAndWait()).ignore }

@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -23,15 +22,14 @@ import zio.http.{
   DefectHandler,
   Handler,
   Halt,
+  LoomServer,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
 }
 
 /** Tests that call H2CSmokeTest.main() and cover additional edge cases. */
-@experimental
 object H2SmokeAndExtraSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -156,8 +154,8 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
           }
         }
       },
-      // ── LoomServer.withDefectHandler covers withDefectHandler code path ──
-      test("LoomServer.withDefectHandler returns server using new defect handler") {
+      // ── Transport serves with a custom defect handler mapping defects to 503 ──
+      test("Custom defect handler maps handler defects to 503") {
         import zio.blocks.context.Context
         val customDefect = new DefectHandler {
           override def handleDefect(request: zio.http.Request, throwable: Throwable) =
@@ -171,12 +169,11 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
             },
           ),
         )
-        val server       = zio.http
-          .LoomServer()
-          .withDefectHandler(customDefect)
         ZIO
           .acquireRelease(
-            ZIO.attempt(server.serve(routes, Context.empty)),
+            ZIO.attempt(
+              LoomServer(Connector.default).withDefectHandler(customDefect).serve(routes, Context.empty),
+            ),
           )(h => ZIO.succeed(h.shutdownAndWait()))
           .flatMap { handle =>
             val port = handle.bindings.head.address match {
@@ -241,12 +238,7 @@ object H2SmokeAndExtraSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
-                .start(),
-            ),
-          ),
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(routes, Context.empty),
         ),
       )(h => ZIO.succeed(h.shutdownAndWait()))
       .flatMap { handle =>

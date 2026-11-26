@@ -15,8 +15,6 @@
  */
 package com.example
 
-import scala.language.implicitConversions
-
 import zio.test._
 
 import zio.blocks.context.Context
@@ -70,8 +68,8 @@ object EndpointExternalUsageSpec extends ZIOSpecDefault {
       case Left(error) => throw new RuntimeException(s"Route pattern did not match: $error")
     }
     lengthRoute.handler.handle(req, Context.empty, vars, Scope.global) match {
-      case Left(response)        => response
-      case Right(Halt(response)) => response
+      case response: Response => response
+      case Halt(response)     => response
     }
   }
 

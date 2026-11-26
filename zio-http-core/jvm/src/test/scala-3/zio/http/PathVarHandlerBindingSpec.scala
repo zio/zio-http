@@ -312,8 +312,7 @@ private object FatalWarningsProof {
   /**
    * Compiles `source` with `dotc -usejavacp -experimental -Werror`. Returns
    * (exitCode, combined stdout+stderr). `-experimental` mirrors this module's
-   * own `scalacOptions` (build.mill), since `RouteBinding`/`RouteBindingMacros`
-   * are themselves `@experimental`.
+   * own `scalacOptions` (build.mill).
    */
   def compileScala3(source: String): (Int, String) = {
     val root             = coursierRoot()

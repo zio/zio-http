@@ -61,8 +61,6 @@ private[endpoint] object EndpointCodec {
 
   /**
    * Encodes a response-side value into an HTTP [[Response]] with a 200 status.
-   * Shared-syntax seam for cross-toolchain tests (Scala 3 takes a [[Status]],
-   * Scala 2.13 takes an `Int`).
    */
   def encodeResponse[A](codec: HttpCodec[CodecKind.Response, A], value: A): Response =
     encodeResponse(codec, value, Status.Ok)
@@ -117,9 +115,8 @@ private[endpoint] object EndpointCodec {
     request: Request,
   ): Either[String, A] =
     // The match is exhaustive for request-side codecs (`StatusCodec` is
-    // response-only); `@unchecked` keeps both toolchains' exhaustivity
-    // checkers quiet (Scala 3 proves it, Scala 2.13 cannot), with `null`
-    // handled explicitly above the match.
+    // response-only); `@unchecked` keeps the exhaustivity checker quiet,
+    // with `null` handled explicitly above the match.
     if (codec == null) Left("Cannot decode request: codec is null")
     else
       (codec: HttpCodec[CodecKind.Request, A] @unchecked) match {

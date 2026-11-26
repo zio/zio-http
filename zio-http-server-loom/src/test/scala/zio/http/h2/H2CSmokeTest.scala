@@ -4,28 +4,24 @@ import java.io.InputStream
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
 import zio.blocks.endpoint.RoutePattern
 import zio.http.h2.H2Frame.{GoAway, Headers, Settings}
 import zio.http.h2.hpack.{HeaderField, Hpack}
-import zio.http.{BindAddress, BoundAddress, Connector, DefectHandler, Handler, Response, Route, Routes}
+import zio.http.{BindAddress, BoundAddress, Connector, Handler, LoomServer, Response, Route, Routes, Server}
 
-@experimental
 object H2CSmokeTest {
   private val ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII)
   private val StreamId      = 1
 
   def main(args: Array[String]): Unit = {
-    val routes    = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
-    val transport =
-      new H2Transport(routes, Context.empty, Connector(bind = BindAddress.localhost(0)), DefectHandler.default)
-    val handle    = transport.start()
+    val routes = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
+    val server = LoomServer(Connector(bind = BindAddress.localhost(0)))
+    val handle = Server.serve(routes, Context.empty.add(server))
 
     try {
-      val port = handle.binding.address match {
+      val port = handle.bindings.head.address match {
         case BoundAddress.Tcp(_, value) => value
         case other                      => throw new AssertionError("Expected TCP binding but found: " + other)
       }
@@ -38,7 +34,7 @@ object H2CSmokeTest {
       }
       println(s"✓ H2C smoke test passed: status=${statusHeader.getOrElse("<missing>")}, port=$port")
     } finally {
-      handle.close0()
+      handle.shutdownAndWait()
     }
   }
 

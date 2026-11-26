@@ -35,11 +35,10 @@ import zio.test._
  * shape from the plan is expressed here with the real constructor API
  * (`RoutePattern` + `HttpCodec`); the rendered wire request is identical.
  *
- * Cross-version note: this file lives in the version-shared test sources and
- * must compile on BOTH Scala 2.13 and Scala 3. It therefore uses only shared
- * syntax (no `derives`, no union types, no significant indentation), only
- * primitive schemas, and passes combiner/alternator instances explicitly (never
- * relying on implicit search for tuples/eithers in shared sources).
+ * Syntax note: this file uses only shared syntax (no `derives`, no union types,
+ * no significant indentation), only primitive schemas, and passes
+ * combiner/alternator instances explicitly (never relying on implicit search
+ * for tuples/eithers).
  */
 object EndpointBridgeRenderingSpec extends ZIOSpecDefault {
 

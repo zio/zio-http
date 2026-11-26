@@ -4,8 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -16,7 +14,6 @@ import zio.test._
 import zio.http.h2.H2Frame._
 import zio.http._
 
-@experimental
 object Http2SettingsWireSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -112,15 +109,9 @@ object Http2SettingsWireSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                SimpleRoutes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config)),
-                DefectHandler.default,
-              ).start(),
-            ),
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))).serve(
+            SimpleRoutes,
+            Context.empty,
           ),
         ),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))

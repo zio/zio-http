@@ -7,8 +7,6 @@ import java.security.cert.X509Certificate
 import java.time.Duration
 import javax.net.ssl.{SSLContext, SSLEngine, TrustManager, X509ExtendedTrustManager}
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.config.Secret
@@ -23,8 +21,8 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
+  LoomServer,
   Protocol,
   Response,
   Route,
@@ -58,7 +56,6 @@ import zio.http.{
  * deliberately-insecure test-only certificate rather than a real trust
  * boundary).
  */
-@experimental
 object H2IndependentClientSpec extends ZIOSpecDefault {
 
   private val TestCert =
@@ -153,16 +150,14 @@ tylLU8iZnM9E7+/GSVghdQ==
             certChain = TlsSource.PemString(Secret(TestCert)),
             privateKey = TlsSource.PemString(Secret(TestKey)),
           )
-          new H2Transport(
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))).serve(
             routes,
             Context.empty,
-            Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg)),
-            DefectHandler.default,
-          ).start()
+          )
         },
-      )(handle => ZIO.succeed(handle.close0()))
+      )(handle => ZIO.succeed(handle.shutdownAndWait()))
       .flatMap { handle =>
-        val port = handle.binding.address match {
+        val port = handle.bindings.head.address match {
           case BoundAddress.Tcp(_, thePort) => thePort
           case other                        => throw new AssertionError("Expected TCP: " + other)
         }

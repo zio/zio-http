@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -24,14 +23,13 @@ import zio.http.{
   Body,
   BoundAddress,
   Connector,
-  DefectHandler,
   Http2Config,
+  LoomServer,
   Protocol,
   Request,
   Response,
   Route,
   Routes,
-  ServerHandle,
   Status,
   handler,
 }
@@ -61,7 +59,6 @@ import zio.http.{
  * 9113 section 6.9 (see [[RawH2Client.topUp]]); without it the server's
  * FlowController parks forever and the test — not the server — is at fault.
  */
-@experimental
 object SseDelayIntegrationSpec extends ZIOSpecDefault {
 
   private val Utf8 = StandardCharsets.UTF_8
@@ -143,7 +140,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
     suite("SseDelayIntegrationSpec")(
       test("paced SSE handler preserves inter-message delay end-to-end, one DATA frame per event") {
         val events = (0 until EventCount).map(i => ServerSentEvent(s"e$i")).toList
-        withRawServer(sseRoutes(pacedEvents(EventCount, SpacingMs))) { port =>
+        withServer(sseRoutes(pacedEvents(EventCount, SpacingMs))) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -189,7 +186,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
         // coalesced events, the main test would fail exactly like the inverse
         // of this assertion.
         val events = (0 until EventCount).map(i => ServerSentEvent(s"e$i")).toList
-        withRawServer(batchingRoutes(events)) { port =>
+        withServer(batchingRoutes(events)) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -209,7 +206,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       },
       test("client disconnect mid-stream cancels the server Stream and sends RST, no thread leak") {
         val before = countStreamThreads()
-        withRawServer(sseRoutes(endlessEvents(50L))) { port =>
+        withServer(sseRoutes(endlessEvents(50L))) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -244,7 +241,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
         val payload      = "v" * 200
         val events       = (0 until totalEvents).map(i => ServerSentEvent(s"slow-$i-$payload")).toList
         val expectedWire = events.map(e => new String(SseCodec.encode(e).toArray[Byte], Utf8)).mkString
-        withRawServer(sseRoutes(Stream.fromIterable(events))) { port =>
+        withServer(sseRoutes(Stream.fromIterable(events))) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port, autoWindowUpdate = false)
             try {
@@ -303,7 +300,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
         val before = countStreamThreads()
         // First event needs 2000ms; response HEADERS prove the stream opened
         // server-side, so the RST below deterministically races zero DATA.
-        withRawServer(sseRoutes(slowStartEvents(2000L))) { port =>
+        withServer(sseRoutes(slowStartEvents(2000L))) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -345,7 +342,7 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       test("event larger than maxFrameSize survives framing across DATA frames") {
         val big  = ServerSentEvent("z" * 40000)
         val wire = new String(SseCodec.encode(big).toArray[Byte], Utf8)
-        withRawServer(sseRoutes(Stream.fromIterable(List(big)))) { port =>
+        withServer(sseRoutes(Stream.fromIterable(List(big)))) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -364,26 +361,22 @@ object SseDelayIntegrationSpec extends ZIOSpecDefault {
       },
     ) @@ sequential
 
-  private def withRawServer[R](
+  private def withServer[R](
     routes: Routes[Any],
     http2Config: Http2Config = Http2Config(),
   )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                routes,
-                Context.empty,
-                Connector(
-                  bind = BindAddress.localhost(0),
-                  protocol = Protocol.H2C(http2Config),
-                  idleTimeout = java.time.Duration.ofSeconds(60),
-                ),
-                DefectHandler.default,
-              ).start(),
+          LoomServer(
+            Connector(
+              bind = BindAddress.localhost(0),
+              protocol = Protocol.H2C(http2Config),
+              idleTimeout = java.time.Duration.ofSeconds(60),
             ),
+          ).serve(
+            routes,
+            Context.empty,
           ),
         ),
       )(h => ZIO.succeed(h.shutdownAndWait()))

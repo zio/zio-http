@@ -1,10 +1,7 @@
 package zio.http.h2.hpack
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 
-@experimental
 object IntegerCodec {
   private val MaxContinuationBytes = 5
 

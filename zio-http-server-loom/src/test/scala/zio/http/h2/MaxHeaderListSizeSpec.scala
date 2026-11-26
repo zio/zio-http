@@ -4,8 +4,6 @@ import java.io.EOFException
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
-
 import zio._
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
@@ -19,14 +17,13 @@ import zio.http.{
   BindAddress,
   BoundAddress,
   Connector,
-  DefectHandler,
   Handler,
   Http2Config,
+  LoomServer,
   Protocol,
   Response,
   Route,
   Routes,
-  ServerHandle,
 }
 
 /**
@@ -35,7 +32,6 @@ import zio.http.{
  * PROTOCOL_ERROR or a stream error of type ENHANCE_YOUR_CALM. The list must
  * never be silently truncated and must never reach the handler.
  */
-@experimental
 object MaxHeaderListSizeSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -179,15 +175,9 @@ object MaxHeaderListSizeSpec extends ZIOSpecDefault {
     ZIO
       .acquireRelease(
         ZIO.attempt(
-          ServerHandle.live(
-            List(
-              new H2Transport(
-                SimpleRoutes,
-                Context.empty,
-                Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config)),
-                DefectHandler.default,
-              ).start(),
-            ),
+          LoomServer(Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C(http2Config))).serve(
+            SimpleRoutes,
+            Context.empty,
           ),
         ),
       )(handle => ZIO.succeed(handle.shutdownAndWait()))

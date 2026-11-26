@@ -3,7 +3,6 @@ package zio.http.h2
 import java.net.{Socket, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.experimental
 import scala.collection.mutable
 
 import zio._
@@ -26,6 +25,7 @@ import zio.http.{
   Handler,
   Header,
   Http2Config,
+  LoomServer,
   Method,
   Protocol,
   Request,
@@ -38,7 +38,6 @@ import zio.http.{
 }
 
 /** Extra integration tests targeting uncovered branches in H2Transport. */
-@experimental
 object H2TransportCoverageSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment & Scope, Any] =
@@ -108,7 +107,7 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -171,7 +170,7 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -282,7 +281,7 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
             },
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -323,7 +322,7 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
             ),
           ),
         )
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try {
@@ -418,7 +417,7 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
       // ── regression: server SETTINGS must never advertise SETTINGS_ENABLE_PUSH=1 ──
       test("server connection preface never advertises SETTINGS_ENABLE_PUSH=1") {
         val routes = Routes(Route(RoutePattern.GET, Handler.succeed(Response.ok)))
-        withRawServer(routes) { port =>
+        withServer(routes) { port =>
           ZIO.attemptBlocking {
             val client = new RawH2Client(port)
             try assertTrue(!client.initialSettings.exists(s => s.id == Setting.ENABLE_PUSH && s.value == 1L))
@@ -505,6 +504,28 @@ object H2TransportCoverageSpec extends ZIOSpecDefault {
 
   // ─── helpers (copied from H2ConnectionSpec pattern) ───────────────────────
 
+  private def withServer[R](
+    routes: Routes[Any],
+  )(use: Int => ZIO[R, Throwable, TestResult]): ZIO[R & Scope, Throwable, TestResult] =
+    ZIO
+      .acquireRelease(
+        ZIO.attempt(
+          LoomServer(Connector(bind = BindAddress.localhost(0))).serve(routes, Context.empty),
+        ),
+      )(h => ZIO.succeed(h.shutdownAndWait()))
+      .flatMap { handle =>
+        val port = handle.bindings.head.address match {
+          case BoundAddress.Tcp(_, p) => p
+          case other                  => throw new AssertionError("Expected TCP: " + other)
+        }
+        use(port)
+      }
+
+  /**
+   * Raw-transport fixture for wire-level cells (mid-body window updates,
+   * missing pseudo-headers, DATA-before-HEADERS, connection teardown): inputs
+   * no public HTTP call can produce.
+   */
   private def withRawServer[R](
     routes: Routes[Any],
     http2Config: Http2Config = Http2Config(),

@@ -27,10 +27,8 @@ import zio.test._
  * Spec for [[EndpointCodecWalker]]: decomposing an endpoint `Input` value into
  * path / query / header / body slots by walking the `HttpCodec` ADT explicitly.
  *
- * Cross-version note: this file lives in the version-shared test sources and
- * must compile on BOTH Scala 2.13 and Scala 3. It therefore uses only shared
- * syntax (no `derives`, no union types, no significant indentation) and only
- * primitive schemas (no `Schema.derived`, which differs per toolchain).
+ * Syntax note: this file uses only shared syntax (no `derives`, no union types,
+ * no significant indentation) and only primitive schemas (no `Schema.derived`).
  */
 object HttpCodecWalkerSpec extends ZIOSpecDefault {
 
@@ -53,12 +51,10 @@ object HttpCodecWalkerSpec extends ZIOSpecDefault {
   /**
    * Tuple-append combiners, passed EXPLICITLY to `++`.
    *
-   * The pinned zio-blocks snapshot predates `Tuples.tupleValue`/`tupleTuple` on
-   * Scala 3, so a 3-element `++` chain would infer different shapes per
-   * toolchain (Scala 3 `fallback` nests, the 2.13 macro appends flat). These
-   * hand-rolled instances pin the flat shape on BOTH toolchains; explicit
-   * application skips implicit search entirely, so there is no ambiguity with
-   * the companion-provided instances.
+   * A 3-element `++` chain could otherwise infer an unexpected shape. These
+   * hand-rolled instances pin the flat shape; explicit application skips
+   * implicit search entirely, so there is no ambiguity with the
+   * companion-provided instances.
    */
   private val appendBodyString: Tuples.Tuples.WithOut[(Boolean, String), String, (Boolean, String, String)] =
     new Tuples.Tuples[(Boolean, String), String] {

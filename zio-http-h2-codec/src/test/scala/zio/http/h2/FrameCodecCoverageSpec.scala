@@ -1,6 +1,5 @@
 package zio.http.h2
 
-import scala.annotation.experimental
 import scala.util.Try
 
 import zio.blocks.chunk.Chunk
@@ -9,7 +8,6 @@ import zio.test._
 import zio.http.h2.H2Error.{InvalidFrameSize, InvalidPadding, ProtocolViolation}
 import zio.http.h2.H2Frame.{Continuation, Data, Headers, Ping, Priority => PriorityFrame, PushPromise, Settings}
 
-@experimental
 object FrameCodecCoverageSpec extends ZIOSpecDefault {
   override def spec =
     suite("FrameCodecCoverageSpec")(

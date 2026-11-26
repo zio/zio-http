@@ -12,7 +12,6 @@ import java.util.concurrent.{
   TimeoutException,
 }
 
-import scala.annotation.experimental
 import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
@@ -20,7 +19,6 @@ import zio.blocks.mux.{Mux, MuxError}
 
 import zio.http.Connector
 
-@experimental
 final class H2ConnectionControl(
   output: OutputStream,
   mux: Mux[Int, H2Frame, H2Frame],
@@ -308,7 +306,6 @@ final class H2ConnectionControl(
   }
 }
 
-@experimental
 object H2ConnectionControl {
 
   /**
