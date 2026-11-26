@@ -33,7 +33,9 @@ final class H2Connection(
   // Appended last (never inserted mid-list) so existing positional call
   // sites cannot silently rebind.
   headerTimeoutMs: Long = 5000,
-  /** Initial per-connection read buffer size; grows on demand for large frames. */
+  /**
+   * Initial per-connection read buffer size; grows on demand for large frames.
+   */
   readBufferSize: Int = 1024,
 ) {
   require(readBufferSize > 0, s"readBufferSize must be positive: $readBufferSize")

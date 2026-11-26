@@ -5,20 +5,18 @@ import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.concurrent.locks.LockSupport
 
-import scala.annotation.experimental
-
 import zio.blocks.chunk.Chunk
 import zio.blocks.mux.MuxStream
 import zio.http.h2.hpack.{HeaderField, Hpack}
 
-/** SSE fan-out benchmark: N long-lived streams, one producer broadcasting events
-  * (the Datastar push shape). Each connection holds a parked reader VT and a
-  * parked stream VT (the handler waits until the benchmark ends), matching a real
-  * `text/event-stream` lifecycle. Measures broadcast events/s and CPU.
-  *
-  *   java -cp <serverLoom.test cp> zio.http.h2.PerfSse <conns> <seconds> <tickMs>
-  */
-@experimental
+/**
+ * SSE fan-out benchmark: N long-lived streams, one producer broadcasting events
+ * (the Datastar push shape). Each connection holds a parked reader VT and a
+ * parked stream VT (the handler waits until the benchmark ends), matching a
+ * real `text/event-stream` lifecycle. Measures broadcast events/s and CPU.
+ *
+ * java -cp <serverLoom.test cp> zio.http.h2.PerfSse <conns> <seconds> <tickMs>
+ */
 object PerfSse {
   private val Preface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes("US-ASCII")
 
@@ -40,8 +38,8 @@ object PerfSse {
   }
 
   final class OnceIn(initial: Array[Byte]) extends InputStream {
-    private var i = 0
-    override def read(): Int = read(new Array[Byte](1), 0, 1)
+    private var i                                              = 0
+    override def read(): Int                                   = read(new Array[Byte](1), 0, 1)
     override def read(b: Array[Byte], off: Int, len: Int): Int =
       if (i < initial.length) {
         val n = math.min(len, initial.length - i)
@@ -56,7 +54,8 @@ object PerfSse {
     override def write(b: Array[Byte], off: Int, len: Int): Unit = ()
   }
 
-  private def os = java.lang.management.ManagementFactory.getOperatingSystemMXBean.asInstanceOf[com.sun.management.OperatingSystemMXBean]
+  private def os = java.lang.management.ManagementFactory.getOperatingSystemMXBean
+    .asInstanceOf[com.sun.management.OperatingSystemMXBean]
 
   def main(args: Array[String]): Unit = {
     val n       = if (args.nonEmpty) args(0).toInt else 1000
@@ -70,34 +69,40 @@ object PerfSse {
     var i = 0
     while (i < n) {
       val conn = new H2Connection(new OnceIn(requestBytes()), new NullOut)
-      Thread.ofVirtual().name("perf-sse-conn-" + i).start(() =>
-        conn.run { stream =>
-          streams.add((conn, stream))
-          ready.countDown()
-          try done.await()
-          catch { case _: InterruptedException => () }
-        },
-      )
+      Thread
+        .ofVirtual()
+        .name("perf-sse-conn-" + i)
+        .start(() =>
+          conn.run { stream =>
+            streams.add((conn, stream))
+            ready.countDown()
+            try done.await()
+            catch { case _: InterruptedException => () }
+          },
+        )
       i += 1
     }
     ready.await(30, TimeUnit.SECONDS)
     println(s"opened ${streams.size()}/$n streams")
 
-    val payload   = Chunk.fromArray("data: event\n\n".getBytes("US-ASCII"))
-    val count     = new AtomicLong(0)
-    val stop      = new AtomicBoolean(false)
-    val producer  = Thread.ofPlatform().name("perf-sse-producer").start(() => {
-      while (!stop.get()) {
-        val it = streams.iterator()
-        while (it.hasNext) {
-          val (c, s) = it.next()
-          try { c.writeDataFrame(s, H2Frame.Data(s.id, payload, endStream = false)); count.incrementAndGet() }
-          catch { case _: Throwable => () }
+    val payload  = Chunk.fromArray("data: event\n\n".getBytes("US-ASCII"))
+    val count    = new AtomicLong(0)
+    val stop     = new AtomicBoolean(false)
+    val producer = Thread
+      .ofPlatform()
+      .name("perf-sse-producer")
+      .start(() => {
+        while (!stop.get()) {
+          val it = streams.iterator()
+          while (it.hasNext) {
+            val (c, s) = it.next()
+            try { c.writeDataFrame(s, H2Frame.Data(s.id, payload, endStream = false)); count.incrementAndGet() }
+            catch { case _: Throwable => () }
+          }
+          try Thread.sleep(tickMs)
+          catch { case _: InterruptedException => () }
         }
-        try Thread.sleep(tickMs)
-        catch { case _: InterruptedException => () }
-      }
-    })
+      })
 
     Thread.sleep(2000) // warm up
     val c0 = os.getProcessCpuTime

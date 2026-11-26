@@ -1,37 +1,37 @@
 package zio.http.h2
 
-import scala.annotation.experimental
-
 import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
 
-/** Microbenchmark for the per-request telemetry that `H2Transport.instrumentRequest`
-  * used to run unconditionally: an always-on span + 6 attributes, a 4-label
-  * counter increment, and a stdout log line.
-  *
-  *   java -cp <serverLoom.test cp> zio.http.h2.PerfTelemetry <span|metric|log|all> <iters>
-  *
-  * Redirect stdout to /dev/null for the log/all modes (each iteration writes a line).
-  */
-@experimental
+/**
+ * Microbenchmark for the per-request telemetry that
+ * `H2Transport.instrumentRequest` used to run unconditionally: an always-on
+ * span + 6 attributes, a 4-label counter increment, and a stdout log line.
+ *
+ * java -cp <serverLoom.test cp> zio.http.h2.PerfTelemetry <span|metric|log|all>
+ * <iters>
+ *
+ * Redirect stdout to /dev/null for the log/all modes (each iteration writes a
+ * line).
+ */
 object PerfTelemetry {
   private val logger  = LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("perf")
   private val counter = metric.counter("perf.requests")
 
   def main(args: Array[String]): Unit = {
-    val mode  = if (args.nonEmpty) args(0) else "all"
-    val iters = if (args.length > 1) args(1).toInt else 20000
+    val mode           = if (args.nonEmpty) args(0) else "all"
+    val iters          = if (args.length > 1) args(1).toInt else 20000
     val op: () => Unit = mode match {
       case "span"   => spanOp
       case "metric" => metricOp
       case "log"    => logOp
       case _        => allOp
     }
-    var i = 0
+    var i              = 0
     while (i < 5000) { op(); i += 1 }
-    val t0 = System.nanoTime
+    val t0             = System.nanoTime
     i = 0
     while (i < iters) { op(); i += 1 }
-    val dt = (System.nanoTime - t0) / 1e9
+    val dt             = (System.nanoTime - t0) / 1e9
     println(f"mode=$mode iters=$iters secs=$dt ops_per_sec=${iters / dt}%.0f ns_per_op=${dt * 1e9 / iters}%.1f")
   }
 

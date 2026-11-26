@@ -70,7 +70,7 @@ final class H2ConnectionControl(
   def isGoingAway: Boolean                            = goingAwayState.get()
   def lastPeerStreamId: Int                           = lastStreamIdState.get()
   def getWriteLock: Object                            = effectiveWriteLock
-  def startIdleTimer(): Unit =
+  def startIdleTimer(): Unit                          =
     if (idleTimeoutMs > 0L && idleTimerState.compareAndSet(false, true)) {
       lastActivityNanos.set(System.nanoTime())
       scheduleIdle(idleTimeoutMs)
@@ -79,7 +79,7 @@ final class H2ConnectionControl(
   /** Schedules the single idle-deadline task on the shared timer. */
   private def scheduleIdle(delayMs: Long): Unit =
     if (!closedState.get()) {
-      val future = H2ConnectionControl.scheduler.schedule(
+      val future   = H2ConnectionControl.scheduler.schedule(
         runnable(idleTimerTick()),
         delayMs.max(0L),
         TimeUnit.MILLISECONDS,
@@ -124,7 +124,7 @@ final class H2ConnectionControl(
     stillPending: () => Boolean,
     requireOpenStream: Boolean = true,
   ): ScheduledFuture[?] = {
-    val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L)))
+    val future    = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.max(0L)))
     if (timeoutMs <= 0L) {
       future.complete()
       return future
@@ -163,7 +163,7 @@ final class H2ConnectionControl(
   }
 
   def startRequestTimer(streamId: Int): ScheduledFuture[?] = {
-    val future = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
+    val future    = new VirtualTimerFuture(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(requestTimeoutMs.max(0L)))
     if (requestTimeoutMs <= 0L) {
       future.complete()
       return future
@@ -206,7 +206,7 @@ final class H2ConnectionControl(
    * timer thread (both do blocking I/O / a drain loop): one VT per idle-timeout
    * event (at most once per connection lifetime), never one per connection.
    */
-  private def fireIdleTimeout(): Unit = {
+  private def fireIdleTimeout(): Unit                 = {
     val drain = Thread
       .ofVirtual()
       .name("zio-http-h2-idle-shutdown")
@@ -331,14 +331,14 @@ object H2ConnectionControl {
    */
   private val scheduler: ScheduledThreadPoolExecutor = {
     val factory: ThreadFactory = new ThreadFactory {
-      private val counter       = new AtomicInteger(0)
+      private val counter                = new AtomicInteger(0)
       def newThread(r: Runnable): Thread = {
         val thread = new Thread(r, "zio-http-h2-timer-" + counter.incrementAndGet())
         thread.setDaemon(true)
         thread
       }
     }
-    val executor = new ScheduledThreadPoolExecutor(1, factory)
+    val executor               = new ScheduledThreadPoolExecutor(1, factory)
     executor.setRemoveOnCancelPolicy(true)
     executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false)
     executor

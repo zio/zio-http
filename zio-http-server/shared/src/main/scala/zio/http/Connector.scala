@@ -82,9 +82,37 @@ case class Connector(
    * shared-connector policies the listener/engine work executes.
    */
   negotiation: NegotiationPolicy = NegotiationPolicy.Single,
+  /**
+   * Enables per-request tracing, metrics and request logging on the HTTP/2
+   * transport.
+   *
+   * Off by default. When enabled, every request records an `http.request` span
+   * (the default tracer samples always-on), increments the
+   * `http.requests.total` counter with four labels, and writes one formatted
+   * log line to stdout. Those are meaningful costs on the hot path (the log
+   * write is a syscall per request), and a library should not print every
+   * request by default. Use the `AccessLog` middleware with a sink for access
+   * logging; enable this only when per-request spans/metrics are actually
+   * wanted.
+   */
+  requestTelemetry: Boolean = false,
+  /**
+   * Initial per-connection read buffer size, in bytes (default 1024).
+   *
+   * A blocking `read(dst)` holds `dst` for as long as the reader is parked, so
+   * under the Loom transport this buffer is live per idle keep-alive
+   * connection. A small initial size keeps idle cost low (SSE / long-poll
+   * fan-out); the buffer grows on demand up to one max-size frame when a
+   * partial frame needs more, then shrinks back after that frame is consumed.
+   * Raise it for upload-heavy workloads to trade idle memory for fewer read
+   * syscalls.
+   */
+  readBufferBytes: Int = 1024,
 ) {
   if (maxRequestBodySize < 0L)
     throw new IllegalArgumentException("maxRequestBodySize must be non-negative")
+  if (readBufferBytes < 1)
+    throw new IllegalArgumentException("readBufferBytes must be positive")
 
   /**
    * The validated protocol set for this connector, migrated from the legacy
