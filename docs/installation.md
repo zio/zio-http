@@ -31,6 +31,5 @@ Use the checked-in wrapper to compile the codebase:
 Run the currently configured JVM test suites with:
 
 ```shell
-./mill core.jvm[2.13.18].test
 ./mill core.jvm[3.9.0].test
 ```

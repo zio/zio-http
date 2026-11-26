@@ -1,4 +1,4 @@
-//> using scala "2.13.18"
+//> using scala "3.9.0"
 //> using dep "dev.zio::zio-http-client-java:4.0.0-SNAPSHOT"
 //> using repo "https://central.sonatype.com/repository/maven-snapshots/"
 

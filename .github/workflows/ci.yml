@@ -33,13 +33,9 @@ jobs:
         run: chmod +x ./mill && ./mill mill.scalalib.scalafmt/checkFormatAll
 
   testJvm:
-    name: JVM tests — Scala ${{ matrix.scala }}
+    name: JVM tests — Scala 3.9.0
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        scala: ['2.13.18', '3.9.0']
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -57,7 +53,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coursier-
       - name: Run JVM release tests and validate coverage minimums
-        run: chmod +x ./mill && ./mill testJvm --scalaVersion '${{ matrix.scala }}'
+        run: chmod +x ./mill && ./mill testJvm --scalaVersion '3.9.0'
 
   docsSite:
     name: Build website
