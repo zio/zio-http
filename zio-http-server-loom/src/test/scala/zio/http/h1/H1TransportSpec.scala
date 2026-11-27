@@ -357,6 +357,30 @@ object H1TransportSpec extends ZIOSpecDefault {
           }
         }
       },
+      test("answers HEAD on bodyless statuses with the status and no Content-Length") {
+        withH1Server(routes) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH1Client(port)
+            try {
+              client.sendRaw("HEAD /no-content HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+              val noContent   = client.readResponse(readBody = false)
+              client.sendRaw("HEAD /not-modified HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+              val notModified = client.readResponse(readBody = false)
+              client.sendRaw("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+              val followUp    = client.readResponse()
+              assertTrue(
+                noContent.status == 204,
+                noContent.body.isEmpty,
+                noContent.header("content-length").isEmpty,
+                notModified.status == 304,
+                notModified.body.isEmpty,
+                notModified.header("content-length").isEmpty,
+                followUp.status == 200 && followUp.bodyText == "ok",
+              )
+            } finally client.close()
+          }
+        }
+      },
       test("serves 204 and 304 responses without body bytes and keeps the connection usable") {
         withH1Server(routes) { port =>
           ZIO.attemptBlocking {

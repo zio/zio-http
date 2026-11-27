@@ -388,9 +388,14 @@ final class H1Transport[Ctx](
     val isHead    = method == Method.HEAD
     val bodyless  = isHead || status == 204 || status == 304 || (status >= 100 && status <= 199)
     if (bodyless) {
-      val base    = H1Transport.stripFraming(response.headers.toList)
-      val withLen =
-        if (isHead) {
+      val base                   = H1Transport.stripFraming(response.headers.toList)
+      // A HEAD response may advertise the representation length (RFC 9110
+      // 8.6), but 1xx/204/304 must not carry Content-Length at all; the
+      // hardened encoder rejects that combination, so omit it here.
+      val headMayAdvertiseLength =
+        isHead && !(status == 204 || status == 304 || (status >= 100 && status <= 199))
+      val withLen                =
+        if (headMayAdvertiseLength) {
           response.body.length match {
             case Some(length) => base :+ ("content-length" -> length.toString)
             case None         => base
