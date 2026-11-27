@@ -59,6 +59,9 @@ object ConnectorProtocolSetSpec extends ZIOSpecDefault {
           ProtocolSet.fromSeq(Nil) == Left(ConnectorFailure.EmptyProtocolSet),
         )
       },
+      test("legacy H1C maps to the H1-only protocol set") {
+        assertTrue(ProtocolSet.fromLegacy(Protocol.H1C()) == Right(ProtocolSet.h1Only))
+      },
       test("legacy H2C maps to the H2C-only set") {
         assertTrue(ProtocolSet.fromLegacy(Protocol.H2C()) == Right(ProtocolSet.h2cOnly))
       },
@@ -122,6 +125,10 @@ object ConnectorProtocolSetSpec extends ZIOSpecDefault {
           ConnectorValidation.validateTls(ProtocolSet.h1Only, tlsPresent = false).isRight,
           ConnectorValidation.validateTls(ProtocolSet.h1Only, tlsPresent = true).isRight,
         )
+      },
+      test("H1C connector reports tlsPresent=false") {
+        val c = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H1C())
+        assertTrue(!c.tlsPresent)
       },
     ),
     suite("negotiation policy")(
@@ -211,6 +218,14 @@ object ConnectorProtocolSetSpec extends ZIOSpecDefault {
       test("concise H2C construction still validates") {
         val c = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2C())
         assertTrue(c.validate.isRight, c.protocolSet == Right(ProtocolSet.h2cOnly))
+      },
+      test("H1C connector validates under the Single negotiation policy") {
+        val c = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H1C())
+        assertTrue(
+          c.negotiation == NegotiationPolicy.Single,
+          c.protocolSet == Right(ProtocolSet.h1Only),
+          c.validate.isRight,
+        )
       },
       test("concise H2 construction still validates") {
         val c = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsCfg))

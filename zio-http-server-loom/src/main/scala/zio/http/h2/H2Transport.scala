@@ -45,6 +45,7 @@ final class H2Transport[Ctx](
     LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.H2Transport")
 
   private val http2Config = connector.protocol match {
+    case Protocol.H1C()        => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
     case Protocol.H2C(http2)   => http2
     case Protocol.H2(_, http2) => http2
     case Protocol.H3(_, _, _)  => throw new UnsupportedOperationException("H3/QUIC is not implemented yet")
@@ -114,6 +115,7 @@ final class H2Transport[Ctx](
 
   private def tlsConfig =
     connector.protocol match {
+      case Protocol.H1C()       => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
       case Protocol.H2C(_)      => None
       case Protocol.H2(tls, _)  => Some(tls)
       case Protocol.H3(_, _, _) => None
@@ -874,6 +876,7 @@ final class H2Transport[Ctx](
 
   private def protocolName: String =
     connector.protocol match {
+      case Protocol.H1C()       => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
       case Protocol.H2C(_)      => "h2c"
       case Protocol.H2(_, _)    => "h2"
       case Protocol.H3(_, _, _) => "h3"

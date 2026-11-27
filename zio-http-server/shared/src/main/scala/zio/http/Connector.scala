@@ -11,6 +11,15 @@ private object ConnectorSchemas {
   implicit val secretSchema: Schema[Secret] = Schema[String].transform(Secret(_), Secret.unwrap)
 }
 
+/**
+ * One server binding: address, application protocol, transport family, and
+ * shared request limits.
+ *
+ * `Protocol.H1C` is cleartext strict HTTP/1.1, `Protocol.H2C` is cleartext
+ * prior-knowledge HTTP/2, and `Protocol.H2`/`Protocol.H3` are their TLS
+ * counterparts. `Protocol.H3` is model-only: no engine is installed, so every
+ * H3 binding fails validation before bind.
+ */
 case class Connector(
   bind: BindAddress = BindAddress.Tcp(),
   protocol: Protocol = Protocol.H2C(),
@@ -122,9 +131,13 @@ case class Connector(
   def protocolSet: Either[ConnectorFailure, ProtocolSet] =
     ProtocolSet.fromLegacy(protocol)
 
-  /** True when this connector carries TLS identity (`H2` or `H3`). */
+  /**
+   * True when this connector carries TLS identity (`H2` or `H3`); false for the
+   * cleartext protocols (`H1C` and `H2C`).
+   */
   def tlsPresent: Boolean =
     protocol match {
+      case Protocol.H1C()       => false
       case Protocol.H2C(_)      => false
       case Protocol.H2(_, _)    => true
       case Protocol.H3(_, _, _) => true
@@ -199,12 +212,26 @@ object BindAddress {
   implicit val schema: Schema[BindAddress] = Schema.derived[BindAddress]
 }
 
+/**
+ * Application protocol served by one [[Connector]] binding.
+ *
+ * `H1C` is cleartext strict HTTP/1.1 (no TLS, no h2c Upgrade); `H2C` is
+ * cleartext prior-knowledge/preface HTTP/2; `H2` is TLS HTTP/2; `H3` is TLS
+ * HTTP/3 (model-only: no engine is installed, so every H3 binding fails before
+ * bind).
+ */
 sealed trait Protocol
 object Protocol {
+
+  /**
+   * Cleartext strict HTTP/1.1: no TLS and no h2c Upgrade or prior knowledge.
+   */
+  case class H1C()                                                                                   extends Protocol
   case class H2C(http2: Http2Config = Http2Config())                                                 extends Protocol
   case class H2(tls: TlsConfig, http2: Http2Config = Http2Config())                                  extends Protocol
   case class H3(tls: TlsConfig, quic: QuicConfig = QuicConfig(), http3: Http3Config = Http3Config()) extends Protocol
 
+  implicit val h1cSchema: Schema[H1C]   = Schema.derived[H1C]
   implicit val h2cSchema: Schema[H2C]   = Schema.derived[H2C]
   implicit val h2Schema: Schema[H2]     = Schema.derived[H2]
   implicit val h3Schema: Schema[H3]     = Schema.derived[H3]
