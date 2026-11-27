@@ -108,10 +108,20 @@ object H1LimitsSpec extends ZIOSpecDefault {
         assertTrue(is[H1Error.TooManyTrailers](decoder.feed(wire(raw))))
       },
       test("rejects a single feed larger than the retention cap") {
-        val decoder = new H1Decoder(tiny)
+        // The request-line cap is enforced mid-scan now, so lift it (as the
+        // cross-feed sibling below already does) to isolate the retention
+        // bound: unterminated garbage past maxRequestLineLength is rejected as
+        // LineTooLong before retention is ever consulted.
+        val decoder = new H1Decoder(tiny.copy(maxRequestLineLength = 128))
         val raw     = "X" * 65
 
         assertTrue(is[H1Error.RetentionOverflow](decoder.feed(wire(raw))))
+      },
+      test("rejects an unterminated request line as soon as it exceeds the line cap") {
+        val decoder = new H1Decoder(tiny)
+        val raw     = "X" * 17
+
+        assertTrue(is[H1Error.LineTooLong](decoder.feed(wire(raw))) && decoder.poisoned)
       },
       test("rejects retention overflow accumulated across feeds") {
         val decoder = new H1Decoder(tiny.copy(maxRequestLineLength = 128))

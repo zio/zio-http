@@ -17,16 +17,33 @@
 package zio.http.h1
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 import zio.blocks.chunk.Chunk
 
-private[h1] final case class H1CompletedRequest(message: H1Request, next: Int)
 private[h1] final case class H1CompletedResponse(message: H1Response, next: Int)
 private[h1] final case class H1Line(content: String, next: Int)
 private[h1] final case class H1ParsedHeaders(headers: H1Headers, next: Int)
 private[h1] final case class H1ChunkedBody(body: Chunk[Byte], trailers: H1Headers, next: Int)
 private[h1] final case class H1ParsedTrailers(headers: H1Headers, next: Int)
 
+/**
+ * HTTP/1.1 decoder with a resumable, linear-time request parser.
+ *
+ * The request scan persists its state across [[feed]] calls: `scanFrom` is the
+ * first buffer index not yet proven LF-free, and a per-message state machine
+ * (request line, header section, fixed body, chunk framing, trailer section)
+ * remembers what has already been parsed. Each buffered byte is therefore
+ * examined O(1) times no matter how the socket delivers it, and every line
+ * bound is enforced during the scan - an unterminated line past its bound is
+ * rejected before any CRLF arrives.
+ *
+ * Response decoding ([[feedResponse]]) keeps the restart-per-feed shape. The
+ * two paths share only the byte buffer, the poison flag, and compaction; both
+ * maintain the invariant that `start` is 0 on every feed entry, so [[poisoned]]
+ * and [[bufferedBytes]] stay coherent for either path. A single instance must
+ * not be interleaved between the two paths.
+ */
 final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete: H1Headers => Unit = _ => ()) {
   private val CR: Byte = 13
   private val LF: Byte = 10
@@ -37,9 +54,41 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
   private var poisonedFlag: Boolean = false
   private var compactionCount: Long = 0L
 
+  // ---------------------------------------------------- resumable request scan
+
+  /** Which part of the message starting at `start` is being accumulated. */
+  private var reqState: H1Decoder.RequestState = H1Decoder.ReqLine
+
+  /** Start of the line currently being scanned. */
+  private var lineStart: Int = 0
+
+  /** First buffer index not yet proven LF-free; the LF scan resumes here. */
+  private var scanFrom: Int = 0
+
+  /** Monotonic count of buffer bytes examined by the request scanner. */
+  private var scannedBytesCount: Long = 0L
+
+  /** Per-message accumulators, cleared by [[resetMessage]] after every emit. */
+  private var method: String                 = null
+  private var target: String                 = null
+  private val headerFields                   = ListBuffer.empty[H1Header]
+  private var headerCount                    = 0
+  private var headerSectionBytes             = 0
+  private var currentHeaders: H1Headers      = H1Headers.Empty
+  private var framing: H1BodyFraming         = H1BodyFraming.Empty
+  private var bodyLength: Long               = 0L
+  private var bodyStart: Int                 = 0
+  private var chunkRemaining: Long           = 0L
+  private var dataStart: Int                 = 0
+  private val bodyBuffer                     = ArrayBuffer.empty[Byte]
+  private val trailerFields                  = ListBuffer.empty[H1Header]
+  private var trailerCount                   = 0
+  private var trailerSectionBytes            = 0
+  private var announcedTrailers: Set[String] = Set.empty[String]
+
   /**
    * Guards the Expect hook so a request blocked on its body fires it exactly
-   * once across re-parses.
+   * once.
    */
   private var headersCompleteFired: Boolean = false
 
@@ -48,27 +97,37 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
   def bufferCapacity: Int = buffer.length
   def compactions: Long   = compactionCount
 
+  /** Monotonic count of buffer bytes examined by the request scanner. */
+  private[h1] def scannedBytes: Long = scannedBytesCount
+
   def feed(bytes: Chunk[Byte]): Either[H1Error, List[H1Request]] = {
     if (poisonedFlag) return Left(H1Error.DecoderPoisoned())
     append(bytes)
-    val messages = List.newBuilder[H1Request]
-    var pos      = start
+    val messages = ListBuffer.empty[H1Request]
     var failure  = Option.empty[H1Error]
-    var blocked  = false
-    while (failure.isEmpty && !blocked) {
-      parseRequest(pos) match {
-        case Left(error)            => failure = Some(error)
-        case Right(None)            => blocked = true
-        case Right(Some(completed)) =>
-          messages += completed.message
-          pos = completed.next
+    var running  = true
+    while (running && failure.isEmpty) {
+      val step: Either[H1Error, Boolean] = reqState match {
+        case H1Decoder.ReqLine      => stepReqLine()
+        case H1Decoder.Headers      => stepHeaders()
+        case H1Decoder.AfterHeaders => stepAfterHeaders(messages)
+        case H1Decoder.BodyFixed    => stepBodyFixed(messages)
+        case H1Decoder.ChunkSize    => stepChunkSize()
+        case H1Decoder.ChunkData    => stepChunkData()
+        case H1Decoder.ChunkTrailer => stepChunkTrailer(messages)
+      }
+      step match {
+        case Left(error)  => failure = Some(error)
+        case Right(true)  => ()
+        case Right(false) => running = false
       }
     }
-    if (failure.isDefined) poison(failure.get)
-    else {
-      compact(pos)
-      if (end - start > limits.maxUndecodedBytes) poison(H1Error.RetentionOverflow())
-      else Right(messages.result())
+    failure match {
+      case Some(error) => poison(error)
+      case None        =>
+        compactRequestBuffer()
+        if (end - start > limits.maxUndecodedBytes) poison(H1Error.RetentionOverflow())
+        else Right(messages.toList)
     }
   }
 
@@ -96,10 +155,289 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
     }
   }
 
+  // ------------------------------------------------------------------- states
+
+  private def stepReqLine(): Either[H1Error, Boolean] =
+    scanLine(limits.maxRequestLineLength, H1Error.LineTooLong("request line exceeds the bound")) match {
+      case H1Decoder.LineBlocked              => Right(false)
+      case H1Decoder.LineFailed(error)        => Left(error)
+      case H1Decoder.LineFound(content, next) =>
+        parseRequestLine(content) match {
+          case Left(error)                         => Left(error)
+          case Right((parsedMethod, parsedTarget)) =>
+            method = parsedMethod
+            target = parsedTarget
+            lineStart = next
+            scanFrom = next
+            reqState = H1Decoder.Headers
+            Right(true)
+        }
+    }
+
+  private def stepHeaders(): Either[H1Error, Boolean] = {
+    val bound = limits.maxHeaderSectionBytes - headerSectionBytes - 2
+    scanLine(bound, H1Error.HeaderSectionTooLarge("header section exceeds the bound")) match {
+      case H1Decoder.LineBlocked              => Right(false)
+      case H1Decoder.LineFailed(error)        => Left(error)
+      case H1Decoder.LineFound(content, next) =>
+        if (content.isEmpty) {
+          lineStart = next
+          scanFrom = next
+          reqState = H1Decoder.AfterHeaders
+          Right(true)
+        } else
+          parseHeaderField(content) match {
+            case Left(error)  => Left(error)
+            case Right(field) =>
+              headerSectionBytes += content.length + 2
+              headerCount += 1
+              if (field.name.length > limits.maxHeaderNameLength)
+                Left(H1Error.HeaderNameTooLong("header name exceeds the bound: '" + field.name + "'"))
+              else if (field.value.length > limits.maxHeaderValueLength)
+                Left(H1Error.HeaderValueTooLong("header value exceeds the bound"))
+              else if (headerSectionBytes > limits.maxHeaderSectionBytes)
+                Left(H1Error.HeaderSectionTooLarge("header section exceeds the bound"))
+              else if (headerCount > limits.maxHeaderCount)
+                Left(H1Error.TooManyHeaders("too many header fields"))
+              else {
+                headerFields += field
+                lineStart = next
+                scanFrom = next
+                Right(true)
+              }
+          }
+    }
+  }
+
+  private def stepAfterHeaders(messages: ListBuffer[H1Request]): Either[H1Error, Boolean] = {
+    currentHeaders = H1Headers(headerFields.toList)
+    validateRequestHost(target, currentHeaders) match {
+      case Left(error) => Left(error)
+      case Right(())   =>
+        H1Framing.resolve(
+          currentHeaders,
+          limits,
+          isResponse = false,
+          statusCode = 0,
+          requestMethod = method,
+        ) match {
+          case Left(error)     => Left(error)
+          case Right(resolved) =>
+            validateExpect(currentHeaders) match {
+              case Left(error)           => Left(error)
+              case Right(expectContinue) =>
+                framing = resolved
+                if (expectContinue && hasPendingBody(resolved) && !headersCompleteFired) {
+                  onHeadersComplete(currentHeaders)
+                  headersCompleteFired = true
+                }
+                resolved match {
+                  case H1BodyFraming.Empty         =>
+                    emitRequest(messages, lineStart, emptyChunk, H1Headers.Empty)
+                    Right(true)
+                  case H1BodyFraming.Fixed(length) =>
+                    bodyLength = length
+                    bodyStart = lineStart
+                    reqState = H1Decoder.BodyFixed
+                    Right(true)
+                  case H1BodyFraming.Chunked       =>
+                    bodyBuffer.clear()
+                    announcedTrailers = announcedTrailerNames(currentHeaders)
+                    reqState = H1Decoder.ChunkSize
+                    Right(true)
+                }
+            }
+        }
+    }
+  }
+
+  private def stepBodyFixed(messages: ListBuffer[H1Request]): Either[H1Error, Boolean] = {
+    val available = (end - bodyStart).toLong
+    if (available < bodyLength) Right(false)
+    else {
+      val length = bodyLength.toInt
+      val body   = copyChunk(bodyStart, length)
+      scannedBytesCount += length.toLong
+      emitRequest(messages, bodyStart + length, body, H1Headers.Empty)
+      Right(true)
+    }
+  }
+
+  private def stepChunkSize(): Either[H1Error, Boolean] =
+    scanLine(limits.maxChunkLineLength, H1Error.LineTooLong("chunk-size line exceeds the bound")) match {
+      case H1Decoder.LineBlocked              => Right(false)
+      case H1Decoder.LineFailed(error)        => Left(error)
+      case H1Decoder.LineFound(content, next) =>
+        if (content.isEmpty) Left(H1Error.InvalidMessage("empty chunk-size line"))
+        else if (content.length > limits.maxChunkLineLength)
+          Left(H1Error.LineTooLong("chunk-size line exceeds the bound"))
+        else
+          H1Validation.parseChunkSize(content) match {
+            case Left(error) => Left(error)
+            case Right(size) =>
+              if (size > limits.maxUndecodedBytes.toLong)
+                Left(H1Error.BodyTooLarge("chunk size exceeds the retention bound"))
+              else if (bodyBuffer.length.toLong + size > limits.maxUndecodedBytes.toLong)
+                Left(H1Error.BodyTooLarge("chunked body exceeds the retention bound"))
+              else if (size == 0L) {
+                lineStart = next
+                scanFrom = next
+                reqState = H1Decoder.ChunkTrailer
+                Right(true)
+              } else {
+                chunkRemaining = size
+                dataStart = next
+                lineStart = next
+                scanFrom = next
+                reqState = H1Decoder.ChunkData
+                Right(true)
+              }
+          }
+    }
+
+  private def stepChunkData(): Either[H1Error, Boolean] = {
+    val needed = chunkRemaining + 2L
+    if ((end - dataStart).toLong < needed) Right(false)
+    else {
+      val dataEnd = dataStart + chunkRemaining.toInt
+      if (buffer(dataEnd) != CR || buffer(dataEnd + 1) != LF)
+        Left(H1Error.InvalidMessage("chunk data terminator must be CRLF"))
+      else {
+        var i = dataStart
+        while (i < dataEnd) {
+          bodyBuffer += buffer(i)
+          i += 1
+        }
+        scannedBytesCount += chunkRemaining + 2L
+        lineStart = dataEnd + 2
+        scanFrom = dataEnd + 2
+        reqState = H1Decoder.ChunkSize
+        Right(true)
+      }
+    }
+  }
+
+  private def stepChunkTrailer(messages: ListBuffer[H1Request]): Either[H1Error, Boolean] = {
+    val bound = limits.maxTrailerSectionBytes - trailerSectionBytes - 2
+    scanLine(bound, H1Error.TrailerSectionTooLarge("trailer section exceeds the bound")) match {
+      case H1Decoder.LineBlocked              => Right(false)
+      case H1Decoder.LineFailed(error)        => Left(error)
+      case H1Decoder.LineFound(content, next) =>
+        if (content.isEmpty) {
+          val parsed      = trailerFields.toList
+          val unannounced = parsed.find(header => !announcedTrailers.contains(header.name.toLowerCase))
+          unannounced match {
+            case Some(header) => Left(H1Error.AmbiguousFraming("unannounced trailer field: '" + header.name + "'"))
+            case None         =>
+              emitRequest(messages, next, Chunk.fromArray(bodyBuffer.toArray), H1Headers(parsed))
+              Right(true)
+          }
+        } else
+          parseHeaderField(content) match {
+            case Left(error)  => Left(error)
+            case Right(field) =>
+              trailerSectionBytes += content.length + 2
+              trailerCount += 1
+              if (field.name.equalsIgnoreCase("Content-Length") || field.name.equalsIgnoreCase("Transfer-Encoding"))
+                Left(H1Error.AmbiguousFraming("framing header inside trailers: '" + field.name + "'"))
+              else if (field.name.length > limits.maxHeaderNameLength)
+                Left(H1Error.HeaderNameTooLong("trailer name exceeds the bound: '" + field.name + "'"))
+              else if (field.value.length > limits.maxHeaderValueLength)
+                Left(H1Error.HeaderValueTooLong("trailer value exceeds the bound"))
+              else if (trailerSectionBytes > limits.maxTrailerSectionBytes)
+                Left(H1Error.TrailerSectionTooLarge("trailer section exceeds the bound"))
+              else if (trailerCount > limits.maxTrailerCount)
+                Left(H1Error.TooManyTrailers("too many trailer fields"))
+              else {
+                trailerFields += field
+                lineStart = next
+                scanFrom = next
+                Right(true)
+              }
+          }
+    }
+  }
+
+  // ------------------------------------------------------------------ helpers
+
+  /**
+   * Resumes the LF scan at `scanFrom` for the line starting at `lineStart`.
+   *
+   * The scan is single-pass: a CR is resolved by peeking the next byte (a CR at
+   * the buffer edge blocks and resumes on the CR itself), so every buffered
+   * byte is examined O(1) times across feeds. `bound` is the maximum content
+   * length this line may have; a regular byte that proves the line would exceed
+   * it fails immediately with `boundError`, before any LF arrives. An empty
+   * line never trips the bound, as it has no content bytes.
+   */
+  private def scanLine(bound: Int, boundError: H1Error): H1Decoder.LineResult = {
+    var i = scanFrom
+    while (i < end) {
+      scannedBytesCount += 1L
+      val b = buffer(i)
+      if (b == LF)
+        // A legal line always completes on the CR peek below, so an LF
+        // reached by the scan is bare or not CR-terminated.
+        return H1Decoder.LineFailed(H1Error.InvalidMessage("line must end with CRLF"))
+      if (b == CR) {
+        if (i + 1 == end) {
+          scanFrom = i
+          return H1Decoder.LineBlocked
+        }
+        if (buffer(i + 1) != LF)
+          return H1Decoder.LineFailed(H1Error.InvalidMessage("lone CR inside a line"))
+        scannedBytesCount += 1L
+        val contentLength = i - lineStart
+        scannedBytesCount += contentLength.toLong
+        return H1Decoder.LineFound(latin1(lineStart, i), i + 2)
+      }
+      if (i + 1 - lineStart > bound)
+        return H1Decoder.LineFailed(boundError)
+      i += 1
+    }
+    scanFrom = end
+    H1Decoder.LineBlocked
+  }
+
+  private def emitRequest(messages: ListBuffer[H1Request], next: Int, body: Chunk[Byte], trailers: H1Headers): Unit = {
+    messages += H1Request(method, target, currentHeaders, body, framing, trailers)
+    start = next
+    resetMessage()
+  }
+
+  /**
+   * Drops every per-message accumulator and points the scan at the next request
+   * line. The consumed prefix is compacted away once per feed, after the parse
+   * loop, together with the cursor shift.
+   */
+  private def resetMessage(): Unit = {
+    reqState = H1Decoder.ReqLine
+    lineStart = start
+    scanFrom = start
+    method = null
+    target = null
+    headerFields.clear()
+    headerCount = 0
+    headerSectionBytes = 0
+    currentHeaders = H1Headers.Empty
+    framing = H1BodyFraming.Empty
+    bodyLength = 0L
+    bodyStart = 0
+    chunkRemaining = 0L
+    dataStart = 0
+    bodyBuffer.clear()
+    trailerFields.clear()
+    trailerCount = 0
+    trailerSectionBytes = 0
+    announcedTrailers = Set.empty[String]
+    headersCompleteFired = false
+  }
+
   private def poison(error: H1Error): Either[H1Error, Nothing] = {
     poisonedFlag = true
     start = 0
     end = 0
+    resetMessage()
     Left(error)
   }
 
@@ -109,6 +447,23 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
       if (remaining > 0) System.arraycopy(buffer, pos, buffer, 0, remaining)
       start = 0
       end = remaining
+      compactionCount += 1L
+    }
+
+  /**
+   * Compacts the consumed prefix once per feed and shifts the persisted scan
+   * cursors with it, so `start` is 0 again on the next feed's entry.
+   */
+  private def compactRequestBuffer(): Unit =
+    if (start > 0) {
+      val remaining = end - start
+      if (remaining > 0) System.arraycopy(buffer, start, buffer, 0, remaining)
+      end = remaining
+      lineStart -= start
+      scanFrom -= start
+      bodyStart -= start
+      dataStart -= start
+      start = 0
       compactionCount += 1L
     }
 
@@ -130,185 +485,6 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
       i += 1
     }
   }
-
-  private def parseRequest(pos: Int): Either[H1Error, Option[H1CompletedRequest]] =
-    readLine(pos) match {
-      case Left(error)       => Left(error)
-      case Right(None)       => Right(None)
-      case Right(Some(line)) =>
-        parseRequestLine(line.content) match {
-          case Left(error)             => Left(error)
-          case Right((method, target)) =>
-            parseHeaders(line.next) match {
-              case Left(error)          => Left(error)
-              case Right(None)          => Right(None)
-              case Right(Some(headers)) =>
-                validateRequestHost(target, headers.headers) match {
-                  case Left(error) => Left(error)
-                  case Right(())   =>
-                    H1Framing.resolve(
-                      headers.headers,
-                      limits,
-                      isResponse = false,
-                      statusCode = 0,
-                      requestMethod = method,
-                    ) match {
-                      case Left(error)    => Left(error)
-                      case Right(framing) =>
-                        validateExpect(headers.headers) match {
-                          case Left(error)           => Left(error)
-                          case Right(expectContinue) =>
-                            if (expectContinue && hasPendingBody(framing) && !headersCompleteFired) {
-                              onHeadersComplete(headers.headers)
-                              headersCompleteFired = true
-                            }
-                            val completed: Either[H1Error, Option[H1CompletedRequest]] = framing match {
-                              case H1BodyFraming.Empty         =>
-                                Right(
-                                  Some(
-                                    H1CompletedRequest(
-                                      H1Request(method, target, headers.headers, emptyChunk, framing, H1Headers.Empty),
-                                      headers.next,
-                                    ),
-                                  ),
-                                )
-                              case H1BodyFraming.Fixed(length) =>
-                                val available = (end - headers.next).toLong
-                                if (available < length) Right(None)
-                                else {
-                                  val body = copyChunk(headers.next, length.toInt)
-                                  Right(
-                                    Some(
-                                      H1CompletedRequest(
-                                        H1Request(method, target, headers.headers, body, framing, H1Headers.Empty),
-                                        headers.next + length.toInt,
-                                      ),
-                                    ),
-                                  )
-                                }
-                              case H1BodyFraming.Chunked       =>
-                                parseChunkedBody(headers.next, announcedTrailerNames(headers.headers)) match {
-                                  case Left(error)          => Left(error)
-                                  case Right(None)          => Right(None)
-                                  case Right(Some(chunked)) =>
-                                    Right(
-                                      Some(
-                                        H1CompletedRequest(
-                                          H1Request(
-                                            method,
-                                            target,
-                                            headers.headers,
-                                            chunked.body,
-                                            framing,
-                                            chunked.trailers,
-                                          ),
-                                          chunked.next,
-                                        ),
-                                      ),
-                                    )
-                                }
-                            }
-                            completed match {
-                              case Right(Some(_)) => headersCompleteFired = false
-                              case _              => ()
-                            }
-                            completed
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-  private def parseResponse(pos: Int, requestMethod: String): Either[H1Error, Option[H1CompletedResponse]] =
-    readLine(pos) match {
-      case Left(error)       => Left(error)
-      case Right(None)       => Right(None)
-      case Right(Some(line)) =>
-        parseStatusLine(line.content) match {
-          case Left(error)             => Left(error)
-          case Right((status, reason)) =>
-            parseHeaders(line.next) match {
-              case Left(error)          => Left(error)
-              case Right(None)          => Right(None)
-              case Right(Some(headers)) =>
-                if (isNoBody(status, requestMethod)) {
-                  if (headers.headers.contains("Transfer-Encoding"))
-                    Left(H1Error.AmbiguousFraming("Transfer-Encoding is forbidden on a bodyless response"))
-                  else
-                    Right(
-                      Some(
-                        H1CompletedResponse(
-                          H1Response(status, reason, headers.headers, emptyChunk, H1BodyFraming.Empty, H1Headers.Empty),
-                          headers.next,
-                        ),
-                      ),
-                    )
-                } else {
-                  H1Framing.resolve(
-                    headers.headers,
-                    limits,
-                    isResponse = true,
-                    statusCode = status,
-                    requestMethod = requestMethod,
-                  ) match {
-                    case Left(error)    => Left(error)
-                    case Right(framing) =>
-                      framing match {
-                        case H1BodyFraming.Empty         =>
-                          Right(
-                            Some(
-                              H1CompletedResponse(
-                                H1Response(status, reason, headers.headers, emptyChunk, framing, H1Headers.Empty),
-                                headers.next,
-                              ),
-                            ),
-                          )
-                        case H1BodyFraming.Fixed(length) =>
-                          val available = (end - headers.next).toLong
-                          if (available < length) Right(None)
-                          else {
-                            val body = copyChunk(headers.next, length.toInt)
-                            Right(
-                              Some(
-                                H1CompletedResponse(
-                                  H1Response(status, reason, headers.headers, body, framing, H1Headers.Empty),
-                                  headers.next + length.toInt,
-                                ),
-                              ),
-                            )
-                          }
-                        case H1BodyFraming.Chunked       =>
-                          parseChunkedBody(headers.next, announcedTrailerNames(headers.headers)) match {
-                            case Left(error)          => Left(error)
-                            case Right(None)          => Right(None)
-                            case Right(Some(chunked)) =>
-                              Right(
-                                Some(
-                                  H1CompletedResponse(
-                                    H1Response(
-                                      status,
-                                      reason,
-                                      headers.headers,
-                                      chunked.body,
-                                      framing,
-                                      chunked.trailers,
-                                    ),
-                                    chunked.next,
-                                  ),
-                                ),
-                              )
-                          }
-                      }
-                  }
-                }
-            }
-        }
-    }
-
-  private def isNoBody(status: Int, requestMethod: String): Boolean =
-    (status >= 100 && status <= 199) || status == 204 || status == 304 ||
-      H1Validation.equalsIgnoreCase(requestMethod, "HEAD")
 
   /**
    * Every HTTP/1.1 request carries exactly one non-empty `Host`, regardless of
@@ -672,6 +848,96 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
     }
   }
 
+  private def parseResponse(pos: Int, requestMethod: String): Either[H1Error, Option[H1CompletedResponse]] =
+    readLine(pos) match {
+      case Left(error)       => Left(error)
+      case Right(None)       => Right(None)
+      case Right(Some(line)) =>
+        parseStatusLine(line.content) match {
+          case Left(error)             => Left(error)
+          case Right((status, reason)) =>
+            parseHeaders(line.next) match {
+              case Left(error)          => Left(error)
+              case Right(None)          => Right(None)
+              case Right(Some(headers)) =>
+                if (isNoBody(status, requestMethod)) {
+                  if (headers.headers.contains("Transfer-Encoding"))
+                    Left(H1Error.AmbiguousFraming("Transfer-Encoding is forbidden on a bodyless response"))
+                  else
+                    Right(
+                      Some(
+                        H1CompletedResponse(
+                          H1Response(status, reason, headers.headers, emptyChunk, H1BodyFraming.Empty, H1Headers.Empty),
+                          headers.next,
+                        ),
+                      ),
+                    )
+                } else {
+                  H1Framing.resolve(
+                    headers.headers,
+                    limits,
+                    isResponse = true,
+                    statusCode = status,
+                    requestMethod = requestMethod,
+                  ) match {
+                    case Left(error)    => Left(error)
+                    case Right(framing) =>
+                      framing match {
+                        case H1BodyFraming.Empty         =>
+                          Right(
+                            Some(
+                              H1CompletedResponse(
+                                H1Response(status, reason, headers.headers, emptyChunk, framing, H1Headers.Empty),
+                                headers.next,
+                              ),
+                            ),
+                          )
+                        case H1BodyFraming.Fixed(length) =>
+                          val available = (end - headers.next).toLong
+                          if (available < length) Right(None)
+                          else {
+                            val body = copyChunk(headers.next, length.toInt)
+                            Right(
+                              Some(
+                                H1CompletedResponse(
+                                  H1Response(status, reason, headers.headers, body, framing, H1Headers.Empty),
+                                  headers.next + length.toInt,
+                                ),
+                              ),
+                            )
+                          }
+                        case H1BodyFraming.Chunked       =>
+                          parseChunkedBody(headers.next, announcedTrailerNames(headers.headers)) match {
+                            case Left(error)          => Left(error)
+                            case Right(None)          => Right(None)
+                            case Right(Some(chunked)) =>
+                              Right(
+                                Some(
+                                  H1CompletedResponse(
+                                    H1Response(
+                                      status,
+                                      reason,
+                                      headers.headers,
+                                      chunked.body,
+                                      framing,
+                                      chunked.trailers,
+                                    ),
+                                    chunked.next,
+                                  ),
+                                ),
+                              )
+                          }
+                      }
+                  }
+                }
+            }
+        }
+    }
+
+  private def isNoBody(status: Int, requestMethod: String): Boolean =
+    (status >= 100 && status <= 199) || status == 204 || status == 304 ||
+      H1Validation.equalsIgnoreCase(requestMethod, "HEAD")
+
   private val emptyChunk: Chunk[Byte] = Chunk.fromArray(new Array[Byte](0))
 
   private def copyChunk(from: Int, length: Int): Chunk[Byte] = {
@@ -679,4 +945,20 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
     System.arraycopy(buffer, from, out, 0, length)
     Chunk.fromArray(out)
   }
+}
+
+private[h1] object H1Decoder {
+  sealed trait RequestState
+  case object ReqLine      extends RequestState
+  case object Headers      extends RequestState
+  case object AfterHeaders extends RequestState
+  case object BodyFixed    extends RequestState
+  case object ChunkSize    extends RequestState
+  case object ChunkData    extends RequestState
+  case object ChunkTrailer extends RequestState
+
+  sealed trait LineResult
+  case object LineBlocked                                extends LineResult
+  final case class LineFound(content: String, next: Int) extends LineResult
+  final case class LineFailed(error: H1Error)            extends LineResult
 }
