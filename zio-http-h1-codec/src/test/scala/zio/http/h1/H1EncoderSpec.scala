@@ -59,19 +59,20 @@ object H1EncoderSpec extends ZIOSpecDefault {
         test("decode inverts encode for responses") {
           val statuses = List(200, 204, 304, 404, 500)
           val checks   = statuses.map { status =>
+            val bodyless = status == 204 || status == 304
             val response = H1Response(
               status = status,
               reason = "Reason",
-              headers = H1Headers(List(H1Header("Content-Length", "3"))),
-              body = if (status == 204 || status == 304) Chunk.empty else wire("abc"),
-              framing = H1BodyFraming.Fixed(3L),
+              headers = if (bodyless) H1Headers.Empty else H1Headers(List(H1Header("Content-Length", "3"))),
+              body = if (bodyless) Chunk.empty else wire("abc"),
+              framing = if (bodyless) H1BodyFraming.Empty else H1BodyFraming.Fixed(3L),
               trailers = H1Headers.Empty,
             )
             val decoder  = new H1Decoder()
             H1Encoder.encodeResponse(response).flatMap(decoder.feedResponse(_, "GET")) match {
               case Right(List(decoded)) =>
                 decoded.status == status && decoded.reason == "Reason" &&
-                (if (status == 204 || status == 304) decoded.body == Chunk.empty else decoded.body == wire("abc"))
+                (if (bodyless) decoded.body == Chunk.empty else decoded.body == wire("abc"))
               case _                    => false
             }
           }
@@ -193,6 +194,329 @@ object H1EncoderSpec extends ZIOSpecDefault {
           assertTrue(isInvalid(H1Encoder.encodeResponse(response)))
         },
       ),
+      suite("framing consistency rejections")(
+        test("rejects duplicate Content-Length even when the values agree") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Content-Length", "5"), H1Header("Content-Length", "5"))),
+            wire("hello"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects duplicate Transfer-Encoding") {
+          val response = H1Response(
+            200,
+            "OK",
+            H1Headers(
+              List(H1Header("Transfer-Encoding", "chunked"), H1Header("Transfer-Encoding", "chunked")),
+            ),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects Content-Length combined with Transfer-Encoding") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(
+              List(H1Header("Host", "x"), H1Header("Content-Length", "5"), H1Header("Transfer-Encoding", "chunked")),
+            ),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Content-Length that disagrees with fixed framing") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Content-Length", "4"))),
+            wire("hello"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Content-Length with chunked framing") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Content-Length", "5"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Transfer-Encoding that is not exactly chunked") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "gzip"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Transfer-Encoding chunked with fixed framing") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+            wire("hello"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects a response whose body length disagrees with fixed framing") {
+          val response = H1Response(
+            200,
+            "OK",
+            H1Headers(List(H1Header("Content-Length", "5"))),
+            wire("hello!"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers.Empty,
+          )
+
+          assertTrue(isInvalid(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects Transfer-Encoding on a bodyless response") {
+          val response = H1Response(
+            204,
+            "No Content",
+            H1Headers(List(H1Header("Transfer-Encoding", "chunked"))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects Content-Length on a bodyless response") {
+          val response = H1Response(
+            304,
+            "Not Modified",
+            H1Headers(List(H1Header("Content-Length", "0"))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects chunked framing on a bodyless response") {
+          val response = H1Response(
+            204,
+            "No Content",
+            H1Headers.Empty,
+            Chunk.empty,
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects a response body when framing is Empty") {
+          val response = H1Response(200, "OK", H1Headers.Empty, wire("hello"), H1BodyFraming.Empty, H1Headers.Empty)
+
+          assertTrue(isInvalid(H1Encoder.encodeResponse(response)))
+        },
+        test("rejects a request body when framing is Empty") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"))),
+            wire("hello"),
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isInvalid(H1Encoder.encodeRequest(request)))
+        },
+      ),
+      suite("trailer rejections")(
+        test("rejects Content-Length inside the trailer section") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers(List(H1Header("Content-Length", "5"))),
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Transfer-Encoding inside the trailer section") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers(List(H1Header("Transfer-Encoding", "chunked"))),
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects Trailer inside the trailer section") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers(List(H1Header("Trailer", "X-Sum"))),
+          )
+
+          assertTrue(isAmbiguous(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects trailers without chunked framing") {
+          val request = H1Request(
+            "POST",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Content-Length", "5"))),
+            wire("hello"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers(List(H1Header("X-Sum", "1"))),
+          )
+
+          assertTrue(isInvalid(H1Encoder.encodeRequest(request)))
+        },
+      ),
+      suite("request Host validation")(
+        test("rejects a request without a Host header") {
+          val request = H1Request("GET", "/", H1Headers.Empty, Chunk.empty, H1BodyFraming.Empty, H1Headers.Empty)
+
+          assertTrue(isInvalid(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects a request with an empty Host header") {
+          val request = H1Request(
+            "GET",
+            "/",
+            H1Headers(List(H1Header("Host", ""))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isInvalid(H1Encoder.encodeRequest(request)))
+        },
+        test("rejects a request with multiple Host headers") {
+          val request = H1Request(
+            "GET",
+            "/",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Host", "y"))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(isInvalid(H1Encoder.encodeRequest(request)))
+        },
+      ),
+      suite("valid messages")(
+        test("accepts matching Content-Length and fixed framing") {
+          val request = H1Request(
+            "POST",
+            "/u",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Content-Length", "5"))),
+            wire("hello"),
+            H1BodyFraming.Fixed(5L),
+            H1Headers.Empty,
+          )
+
+          assertTrue(
+            H1Encoder.encodeRequest(request) ==
+              Right(wire("POST /u HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello")),
+          )
+        },
+        test("accepts Transfer-Encoding chunked with chunked framing") {
+          val request = H1Request(
+            "POST",
+            "/u",
+            H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers.Empty,
+          )
+
+          assertTrue(
+            H1Encoder.encodeRequest(request) ==
+              Right(wire("POST /u HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n")),
+          )
+        },
+        test("accepts a request with a Host header") {
+          val request = H1Request(
+            "GET",
+            "/",
+            H1Headers(List(H1Header("Host", "x"))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(H1Encoder.encodeRequest(request) == Right(wire("GET / HTTP/1.1\r\nHost: x\r\n\r\n")))
+        },
+        test("accepts announced trailers with chunked framing") {
+          val request = H1Request(
+            "POST",
+            "/u",
+            H1Headers(
+              List(H1Header("Host", "x"), H1Header("Trailer", "X-Sum"), H1Header("Transfer-Encoding", "chunked")),
+            ),
+            wire("hello"),
+            H1BodyFraming.Chunked,
+            H1Headers(List(H1Header("X-Sum", "9"))),
+          )
+
+          assertTrue(
+            H1Encoder.encodeRequest(request) ==
+              Right(
+                wire(
+                  "POST /u HTTP/1.1\r\nHost: x\r\nTrailer: X-Sum\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\nX-Sum: 9\r\n\r\n",
+                ),
+              ),
+          )
+        },
+        test("accepts HEAD-style Content-Length metadata with Empty framing") {
+          val response = H1Response(
+            200,
+            "OK",
+            H1Headers(List(H1Header("Content-Length", "5"))),
+            Chunk.empty,
+            H1BodyFraming.Empty,
+            H1Headers.Empty,
+          )
+
+          assertTrue(
+            H1Encoder.encodeResponse(response) == Right(wire("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n")),
+          )
+        },
+        test("accepts a bodyless response without framing headers") {
+          val response =
+            H1Response(204, "No Content", H1Headers.Empty, Chunk.empty, H1BodyFraming.Empty, H1Headers.Empty)
+
+          assertTrue(
+            H1Encoder.encodeResponse(response) == Right(wire("HTTP/1.1 204 No Content\r\n\r\n")),
+          )
+        },
+      ),
     )
 
   private def wire(s: String): Chunk[Byte] =
@@ -212,5 +536,11 @@ object H1EncoderSpec extends ZIOSpecDefault {
     result match {
       case Left(_: H1Error.InvalidMessage) => true
       case _                               => false
+    }
+
+  private def isAmbiguous(result: Either[H1Error, Any]): Boolean =
+    result match {
+      case Left(_: H1Error.AmbiguousFraming) => true
+      case _                                 => false
     }
 }
