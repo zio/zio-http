@@ -1,5 +1,7 @@
 package zio.http.h1
 
+import java.io.EOFException
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -10,6 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
+import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider}
 
 import zio.http.h2.{PeerInfo, TcpListener}
 
@@ -22,6 +25,7 @@ import zio.http.{
   Connector,
   DefectHandler,
   EngineDispatch,
+  Header,
   Headers,
   HeadersBuilder,
   Method,
@@ -29,6 +33,7 @@ import zio.http.{
   Request,
   Response,
   Routes,
+  Scheme,
   URL,
   Version,
 }
@@ -86,6 +91,9 @@ final class H1Transport[Ctx](
 
   private val activeConnections = new AtomicLong(0L)
 
+  private val logger =
+    LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h1.H1Transport")
+
   /**
    * Retention bound for the per-connection decoder: a body within
    * `maxRequestBodySize` (plus headroom for framing overhead) always decodes,
@@ -131,7 +139,18 @@ final class H1Transport[Ctx](
       val peerTrusted = dispatch.isPeerTrusted(peer)
       connectionLoop(input, output, peer, peerTrusted)
     } catch {
-      case NonFatal(_) => () // Client disconnect and read/write failures end quietly.
+      // Client disconnect and socket failure end quietly — the same severity
+      // (none) H2Connection.run uses for EOF/IOException.
+      case _: EOFException => ()
+      case _: IOException  => ()
+      case NonFatal(e)     =>
+        logger.error(
+          "H1 connection error",
+          "protocol"      -> AttributeValue.StringValue("http/1.1"),
+          "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+          "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+          "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
+        )
     }
 
   private def connectionLoop(
@@ -252,7 +271,10 @@ final class H1Transport[Ctx](
             writeError(output, 501, "Not Implemented")
             false
           case Some(method) =>
-            buildUrl(method, h1request.target) match {
+            // The codec guarantees exactly one non-empty Host per accepted
+            // request (see H1Decoder.validateRequestHost).
+            val hostHeader = h1request.headers.headerValues("Host").head
+            buildUrl(method, h1request.target, hostHeader) match {
               case None      =>
                 writeError(output, 400, "Bad Request")
                 false
@@ -279,21 +301,67 @@ final class H1Transport[Ctx](
         }
       }
     } catch {
-      case NonFatal(_) =>
+      case NonFatal(e) =>
+        // Unexpected engine/conversion failure (handler defects are already
+        // mapped by EngineDispatch): the same error level and fields
+        // H2Transport logs per stream. The wire answer stays the detail-free
+        // 500; the method is a codec-validated token, never raw attacker bytes.
+        logger.error(
+          "H1 request error",
+          "method"        -> AttributeValue.StringValue(h1request.method),
+          "error_type"    -> AttributeValue.StringValue(e.getClass.getSimpleName),
+          "error_message" -> AttributeValue.StringValue(Option(e.getMessage).getOrElse("")),
+          "stacktrace"    -> AttributeValue.StringValue(stackTraceToString(e)),
+        )
         writeError(output, 500, "Internal Server Error")
         false
     }
 
-  private def buildUrl(method: Method, target: String): Option[URL] =
+  /**
+   * URL parity with H2 (`H2Transport.parseUrl`): every accepted request's URL
+   * carries a scheme and an authority. Origin-form and `*` targets resolve the
+   * validated `Host` header over the cleartext `http` scheme; an absolute-form
+   * target keeps its own scheme and authority (the codec already proved it
+   * agrees with `Host`). A trusted `X-Forwarded-Proto`/`-Host` still overrides
+   * downstream via `dispatch.applyProxyUrl`, exactly like H2.
+   */
+  private def buildUrl(method: Method, target: String, hostHeader: String): Option[URL] =
     if (target == "*") {
-      if (method == Method.OPTIONS) Some(URL.fromPath(Path.root))
+      if (method == Method.OPTIONS) Some(applyHostAuthority(URL.fromPath(Path.root), hostHeader))
       else None
     } else {
       URL.parse(target) match {
-        case Right(url) => Some(url)
+        case Right(url) =>
+          if (isAbsoluteForm(target)) Some(url)
+          else Some(applyHostAuthority(url, hostHeader))
         case Left(_)    => None
       }
     }
+
+  /**
+   * The codec's absolute-form discriminator: an `http://` / `https://` prefix.
+   */
+  private def isAbsoluteForm(target: String): Boolean =
+    target.regionMatches(true, 0, "https://", 0, 8) || target.regionMatches(true, 0, "http://", 0, 7)
+
+  /**
+   * Applies the validated `Host` header authority (host and optional port,
+   * `[IPv6]` bracketed forms included) plus the cleartext scheme, mirroring
+   * `H2Transport.parseUrl`'s `:authority` handling exactly — including the
+   * raw-value fallback when `Header.Host.parse` rejects.
+   */
+  private def applyHostAuthority(url: URL, hostHeader: String): URL = {
+    val withScheme = url.scheme(Scheme.HTTP)
+    Header.Host.parse(hostHeader) match {
+      case Right(host) =>
+        val withHost = withScheme.host(host.host)
+        host.port match {
+          case Some(port) => withHost.port(port)
+          case None       => withHost
+        }
+      case Left(_)     => withScheme.host(hostHeader)
+    }
+  }
 
   private def buildHeaders(headers: H1Headers): Headers = {
     val pairs   = H1ModelConversion.toFieldPairs(headers)
@@ -473,6 +541,12 @@ final class H1Transport[Ctx](
         case NonFatal(_) => ()
       }
     }
+
+  private def stackTraceToString(e: Throwable): String = {
+    val sw = new java.io.StringWriter()
+    e.printStackTrace(new java.io.PrintWriter(sw))
+    sw.toString
+  }
 }
 
 object H1Transport {

@@ -901,6 +901,50 @@ object H1RequestSmugglingSpec extends ZIOSpecDefault {
             "victim",
           )
         },
+        test(
+          "0.CL proof: nothing dispatches or answers before the declared body completes, then the completed request is served",
+        ) {
+          val counter = new AtomicInteger(0)
+          withH1Server(countingRoutes(counter)) { port =>
+            ZIO.attemptBlocking {
+              val client = new RawH1Client(port)
+              try {
+                // Two of the five declared body bytes: the engine must neither
+                // dispatch the handler nor write any response byte yet. The
+                // 500ms socket read timeout is the observation bound.
+                client.socket.setSoTimeout(500)
+                client.sendRaw("POST /echo HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nab")
+                val silentBeforeCompletion     =
+                  try {
+                    client.readByte()
+                    false // a byte arrived before the body completed: desync hazard
+                  } catch {
+                    case _: java.net.SocketTimeoutException => true
+                  }
+                val dispatchedBeforeCompletion = counter.get()
+                // The remaining three bytes complete the declared body.
+                client.socket.setSoTimeout(10000)
+                client.sendRaw("cde")
+                val response                   = client.readResponse()
+                // Snapshot before the follow-up: assertTrue evaluates its
+                // arguments eagerly, so the one-dispatch proof must be captured
+                // before the reuse request dispatches.
+                val dispatchedAfterResponse    = counter.get()
+                client.sendRaw("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+                val followUp                   = client.readResponse()
+                assertTrue(
+                  silentBeforeCompletion,
+                  dispatchedBeforeCompletion == 0,
+                  response.status == 200,
+                  response.bodyText == "abcde",
+                  dispatchedAfterResponse == 1,
+                  followUp.status == 200 && followUp.bodyText == "victim",
+                  counter.get() == 2,
+                )
+              } finally client.close()
+            }
+          }
+        },
       ),
     ) @@ sequential
 }

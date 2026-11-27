@@ -134,7 +134,26 @@ object H1TransportSpec extends ZIOSpecDefault {
         responseAsResult(Response(status = Status(99), body = Body.fromString("bad")))
       },
     ),
+    Route(
+      RoutePattern(Method.GET, "/url"),
+      handler { (req: Request) =>
+        responseAsResult(Response(status = Status.Ok, body = Body.fromString(renderUrl(req))))
+      },
+    ),
+    Route(
+      RoutePattern(Method.OPTIONS, "/"),
+      handler { (req: Request) =>
+        responseAsResult(Response(status = Status.Ok, body = Body.fromString(renderUrl(req))))
+      },
+    ),
   )
+
+  /** Handler-observed URL rendering: `scheme|host|port|path`. */
+  private def renderUrl(req: Request): String =
+    req.url.scheme.map(_.text).getOrElse("none") + "|" +
+      req.url.host.getOrElse("none") + "|" +
+      req.url.port.map(_.toString).getOrElse("none") + "|" +
+      req.url.path.encode
 
   private def trustedProxyConnector: Connector =
     Connector(
@@ -573,9 +592,13 @@ object H1TransportSpec extends ZIOSpecDefault {
                   "X-Forwarded-Host: example.com\r\n\r\n",
               )
               val resp = client.readResponse()
+              // The forwarding headers have zero effect (client IP stays the
+              // peer, scheme/host stay unoverridden), but the baseline URL now
+              // carries the Host-derived authority and cleartext scheme — the
+              // same handler-observed URL H2 serves for `:authority`/`:scheme`.
               assertTrue(
                 resp.status == 200,
-                resp.bodyText == "127.0.0.1|127.0.0.1|none|none|none",
+                resp.bodyText == "127.0.0.1|127.0.0.1|none|127.0.0.1|http",
               )
             } finally client.close()
           }
@@ -596,6 +619,56 @@ object H1TransportSpec extends ZIOSpecDefault {
                 first.header("connection").isEmpty,
                 second.header("connection").isEmpty,
               )
+            } finally client.close()
+          }
+        }
+      },
+      test("origin-form request URL carries the cleartext scheme and the Host authority") {
+        withH1Server(routes) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH1Client(port)
+            try {
+              client.sendRaw("GET /url HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+              val resp = client.readResponse()
+              assertTrue(resp.status == 200, resp.bodyText == "http|127.0.0.1|none|/url")
+            } finally client.close()
+          }
+        }
+      },
+      test("origin-form request URL carries the Host port when the header declares one") {
+        withH1Server(routes) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH1Client(port)
+            try {
+              client.sendRaw("GET /url HTTP/1.1\r\nHost: 127.0.0.1:" + port.toString + "\r\n\r\n")
+              val resp = client.readResponse()
+              assertTrue(resp.status == 200, resp.bodyText == "http|127.0.0.1|" + port.toString + "|/url")
+            } finally client.close()
+          }
+        }
+      },
+      test("absolute-form request keeps its own authority and path") {
+        withH1Server(routes) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH1Client(port)
+            try {
+              client.sendRaw(
+                "GET http://127.0.0.1:" + port.toString + "/url HTTP/1.1\r\nHost: 127.0.0.1:" + port.toString + "\r\n\r\n",
+              )
+              val resp = client.readResponse()
+              assertTrue(resp.status == 200, resp.bodyText == "http|127.0.0.1|" + port.toString + "|/url")
+            } finally client.close()
+          }
+        }
+      },
+      test("asterisk-form OPTIONS keeps the root path and gains the scheme and Host authority") {
+        withH1Server(routes) { port =>
+          ZIO.attemptBlocking {
+            val client = new RawH1Client(port)
+            try {
+              client.sendRaw("OPTIONS * HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+              val resp = client.readResponse()
+              assertTrue(resp.status == 200, resp.bodyText == "http|127.0.0.1|none|/")
             } finally client.close()
           }
         }
