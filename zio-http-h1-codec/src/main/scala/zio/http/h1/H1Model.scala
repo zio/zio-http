@@ -95,20 +95,28 @@ private[h1] object H1Validation {
     var i = 0
     while (i < s.length) {
       val c = s.charAt(i)
+      if (c < 0x20 || c == 0x7f || c >= 0x80) return false
+      i += 1
+    }
+    true
+  }
+
+  def isReasonPhrase(s: String): Boolean = {
+    var i = 0
+    while (i < s.length) {
+      val c = s.charAt(i)
       if (c < 0x20 || c == 0x7f) return false
       i += 1
     }
     true
   }
 
-  def isReasonPhrase(s: String): Boolean = isHeaderValue(s)
-
   def isValidTarget(s: String): Boolean = {
     var i = 0
     if (s.isEmpty) return false
     while (i < s.length) {
       val c = s.charAt(i)
-      if (c <= 0x20 || c == 0x7f) return false
+      if (c <= 0x20 || c == 0x7f || c >= 0x80) return false
       i += 1
     }
     true

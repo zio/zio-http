@@ -34,4 +34,5 @@ object H1Error {
   final case class RetentionOverflow(message: String = "undecoded bytes exceed the retention bound") extends H1Error
   final case class BodyTooLarge(message: String = "declared body exceeds the retention bound")       extends H1Error
   final case class DecoderPoisoned(message: String = "decoder is poisoned after a fatal error")      extends H1Error
+  final case class UnsupportedExpectation(message: String = "unsupported Expect header")             extends H1Error
 }

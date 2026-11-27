@@ -226,6 +226,110 @@ object H1RejectionSpec extends ZIOSpecDefault {
             "GET / HTTP/1.1\r\nHost: x\r\n\r\nGARBAGE!!!\r\n\r\n",
           )
         },
+        test("rejects a comma-joined Content-Length") {
+          assertIs[H1Error.InvalidMessage](
+            "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5, 5\r\n\r\n",
+          )
+        },
+      ),
+      suite("request host identity")(
+        test("rejects multiple Host headers") {
+          assertIs[H1Error.InvalidMessage](
+            "GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n",
+          )
+        },
+        test("rejects multiple Host headers with an absolute-form target") {
+          assertIs[H1Error.InvalidMessage](
+            "GET http://a.com/x HTTP/1.1\r\nHost: a.com\r\nHost: a.com\r\n\r\n",
+          )
+        },
+        test("rejects a Host that conflicts with the absolute-form authority") {
+          assertIs[H1Error.InvalidMessage](
+            "GET http://a.com/x HTTP/1.1\r\nHost: b.com\r\n\r\n",
+          )
+        },
+        test("rejects a Host port that conflicts with the absolute-form port") {
+          assertIs[H1Error.InvalidMessage](
+            "GET http://a.com:8080/x HTTP/1.1\r\nHost: a.com\r\n\r\n",
+          )
+        },
+        test("rejects a Host port that conflicts with the https scheme default") {
+          assertIs[H1Error.InvalidMessage](
+            "GET https://a.com/x HTTP/1.1\r\nHost: a.com:80\r\n\r\n",
+          )
+        },
+        test("accepts a Host that matches the absolute-form authority case-insensitively") {
+          assertTrue(accepts("GET http://a.com/x HTTP/1.1\r\nHost: A.COM\r\n\r\n"))
+        },
+        test("accepts a Host port equal to the scheme default") {
+          assertTrue(
+            accepts("GET http://a.com/x HTTP/1.1\r\nHost: a.com:80\r\n\r\n") &&
+              accepts("GET https://a.com/x HTTP/1.1\r\nHost: a.com:443\r\n\r\n"),
+          )
+        },
+      ),
+      suite("trailer announcement")(
+        test("rejects a trailer field when nothing is announced") {
+          assertIs[H1Error.AmbiguousFraming](
+            "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n0\r\nX-Other: 1\r\n\r\n",
+          )
+        },
+        test("rejects a trailer field missing from the announced set") {
+          assertIs[H1Error.AmbiguousFraming](
+            "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTrailer: X-Sum\r\n\r\n0\r\nX-Other: 1\r\n\r\n",
+          )
+        },
+        test("accepts an announced trailer field") {
+          assertTrue(
+            accepts(
+              "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTrailer: X-Sum\r\n\r\n0\r\nX-Sum: 1\r\n\r\n",
+            ),
+          )
+        },
+        test("accepts an announcement whose trailer never arrives") {
+          assertTrue(
+            accepts("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTrailer: X-Sum\r\n\r\n0\r\n\r\n"),
+          )
+        },
+        test("accepts a comma-joined announcement covering the received fields") {
+          assertTrue(
+            accepts(
+              "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTrailer: X-A, X-B\r\n\r\n0\r\nX-A: 1\r\nX-B: 2\r\n\r\n",
+            ),
+          )
+        },
+      ),
+      suite("non-ASCII bytes")(
+        test("rejects a high byte in a header value") {
+          assertIs[H1Error.InvalidMessage](
+            "GET / HTTP/1.1\r\nHost: x\r\nX-A: \u00ff\r\n\r\n",
+          )
+        },
+        test("rejects a high byte in the request target") {
+          assertIs[H1Error.InvalidMessage](
+            "GET /\u00ff HTTP/1.1\r\nHost: x\r\n\r\n",
+          )
+        },
+      ),
+      suite("Expect handling")(
+        test("rejects an unsupported Expect token") {
+          assertIs[H1Error.UnsupportedExpectation](
+            "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nExpect: 100-continue-please\r\n\r\nhello",
+          )
+        },
+        test("rejects multiple Expect headers") {
+          assertIs[H1Error.UnsupportedExpectation](
+            "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nExpect: 100-continue\r\nExpect: 100-continue\r\n\r\nhello",
+          )
+        },
+        test("rejects an empty Expect value") {
+          assertIs[H1Error.UnsupportedExpectation](
+            "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nExpect:\r\n\r\nhello",
+          )
+        },
+        test("accepts a legal Expect on a bodyless request") {
+          assertTrue(accepts("GET / HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\n\r\n"))
+        },
       ),
       suite("reuse poisoning and close classification")(
         test("poisons the decoder after a fatal error") {
@@ -284,6 +388,11 @@ object H1RejectionSpec extends ZIOSpecDefault {
   private def assertIs[E <: H1Error](raw: String)(implicit tag: scala.reflect.ClassTag[E]): zio.test.TestResult = {
     val decoder = new H1Decoder()
     assertTrue(is[E](decoder.feed(wire(raw))))
+  }
+
+  private def accepts(raw: String): Boolean = {
+    val decoder = new H1Decoder()
+    decoder.feed(wire(raw)).exists(_.length == 1)
   }
 
   private def isResponse[E <: H1Error](raw: String)(implicit tag: scala.reflect.ClassTag[E]): Boolean = {

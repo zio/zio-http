@@ -25,7 +25,7 @@ object H1EncoderSpec extends ZIOSpecDefault {
       suite("roundtrip properties")(
         test("decode inverts encode over a method/target/header/body matrix") {
           val methods = List("GET", "POST", "PUT", "DELETE", "CUSTOM")
-          val targets = List("/", "/a?b=c", "http://h/p", "*")
+          val targets = List("/", "/a?b=c", "http://x/p", "*")
           val bodies  = List(Chunk.empty[Byte], wire("hello"))
           val checks  = for {
             method <- methods
@@ -46,7 +46,7 @@ object H1EncoderSpec extends ZIOSpecDefault {
           val request = H1Request(
             method = "POST",
             target = "/u",
-            headers = H1Headers(List(H1Header("Host", "x"))),
+            headers = H1Headers(List(H1Header("Host", "x"), H1Header("Trailer", "X-Sum"))),
             body = wire("hello world"),
             framing = H1BodyFraming.Chunked,
             trailers = H1Headers(List(H1Header("X-Sum", "9"))),
@@ -83,7 +83,7 @@ object H1EncoderSpec extends ZIOSpecDefault {
             "GET /a HTTP/1.1\r\nHost: x\r\n\r\n",
             "POST /s HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello",
             "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello",
-            "POST /u HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\nX-S: 1\r\n\r\n",
+            "POST /u HTTP/1.1\r\nHost: x\r\nTrailer: X-S\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\nX-S: 1\r\n\r\n",
           )
           val checks = wires.map { raw =>
             val decoder = new H1Decoder()

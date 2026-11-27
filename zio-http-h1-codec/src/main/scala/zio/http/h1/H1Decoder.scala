@@ -27,7 +27,7 @@ private[h1] final case class H1ParsedHeaders(headers: H1Headers, next: Int)
 private[h1] final case class H1ChunkedBody(body: Chunk[Byte], trailers: H1Headers, next: Int)
 private[h1] final case class H1ParsedTrailers(headers: H1Headers, next: Int)
 
-final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
+final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete: H1Headers => Unit = _ => ()) {
   private val CR: Byte = 13
   private val LF: Byte = 10
 
@@ -36,6 +36,12 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
   private var end: Int              = 0
   private var poisonedFlag: Boolean = false
   private var compactionCount: Long = 0L
+
+  /**
+   * Guards the Expect hook so a request blocked on its body fires it exactly
+   * once across re-parses.
+   */
+  private var headersCompleteFired: Boolean = false
 
   def poisoned: Boolean   = poisonedFlag
   def bufferedBytes: Int  = end - start
@@ -139,58 +145,78 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
               case Left(error)          => Left(error)
               case Right(None)          => Right(None)
               case Right(Some(headers)) =>
-                if (target.startsWith("/") && !headers.headers.contains("Host"))
-                  Left(H1Error.InvalidMessage("origin-form target requires a Host header"))
-                else {
-                  H1Framing.resolve(
-                    headers.headers,
-                    limits,
-                    isResponse = false,
-                    statusCode = 0,
-                    requestMethod = method,
-                  ) match {
-                    case Left(error)    => Left(error)
-                    case Right(framing) =>
-                      framing match {
-                        case H1BodyFraming.Empty         =>
-                          Right(
-                            Some(
-                              H1CompletedRequest(
-                                H1Request(method, target, headers.headers, emptyChunk, framing, H1Headers.Empty),
-                                headers.next,
-                              ),
-                            ),
-                          )
-                        case H1BodyFraming.Fixed(length) =>
-                          val available = (end - headers.next).toLong
-                          if (available < length) Right(None)
-                          else {
-                            val body = copyChunk(headers.next, length.toInt)
-                            Right(
-                              Some(
-                                H1CompletedRequest(
-                                  H1Request(method, target, headers.headers, body, framing, H1Headers.Empty),
-                                  headers.next + length.toInt,
-                                ),
-                              ),
-                            )
-                          }
-                        case H1BodyFraming.Chunked       =>
-                          parseChunkedBody(headers.next) match {
-                            case Left(error)          => Left(error)
-                            case Right(None)          => Right(None)
-                            case Right(Some(chunked)) =>
-                              Right(
-                                Some(
-                                  H1CompletedRequest(
-                                    H1Request(method, target, headers.headers, chunked.body, framing, chunked.trailers),
-                                    chunked.next,
+                validateRequestHost(target, headers.headers) match {
+                  case Left(error) => Left(error)
+                  case Right(())   =>
+                    H1Framing.resolve(
+                      headers.headers,
+                      limits,
+                      isResponse = false,
+                      statusCode = 0,
+                      requestMethod = method,
+                    ) match {
+                      case Left(error)    => Left(error)
+                      case Right(framing) =>
+                        validateExpect(headers.headers) match {
+                          case Left(error)           => Left(error)
+                          case Right(expectContinue) =>
+                            if (expectContinue && hasPendingBody(framing) && !headersCompleteFired) {
+                              onHeadersComplete(headers.headers)
+                              headersCompleteFired = true
+                            }
+                            val completed: Either[H1Error, Option[H1CompletedRequest]] = framing match {
+                              case H1BodyFraming.Empty         =>
+                                Right(
+                                  Some(
+                                    H1CompletedRequest(
+                                      H1Request(method, target, headers.headers, emptyChunk, framing, H1Headers.Empty),
+                                      headers.next,
+                                    ),
                                   ),
-                                ),
-                              )
-                          }
-                      }
-                  }
+                                )
+                              case H1BodyFraming.Fixed(length) =>
+                                val available = (end - headers.next).toLong
+                                if (available < length) Right(None)
+                                else {
+                                  val body = copyChunk(headers.next, length.toInt)
+                                  Right(
+                                    Some(
+                                      H1CompletedRequest(
+                                        H1Request(method, target, headers.headers, body, framing, H1Headers.Empty),
+                                        headers.next + length.toInt,
+                                      ),
+                                    ),
+                                  )
+                                }
+                              case H1BodyFraming.Chunked       =>
+                                parseChunkedBody(headers.next, announcedTrailerNames(headers.headers)) match {
+                                  case Left(error)          => Left(error)
+                                  case Right(None)          => Right(None)
+                                  case Right(Some(chunked)) =>
+                                    Right(
+                                      Some(
+                                        H1CompletedRequest(
+                                          H1Request(
+                                            method,
+                                            target,
+                                            headers.headers,
+                                            chunked.body,
+                                            framing,
+                                            chunked.trailers,
+                                          ),
+                                          chunked.next,
+                                        ),
+                                      ),
+                                    )
+                                }
+                            }
+                            completed match {
+                              case Right(Some(_)) => headersCompleteFired = false
+                              case _              => ()
+                            }
+                            completed
+                        }
+                    }
                 }
             }
         }
@@ -256,7 +282,7 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
                             )
                           }
                         case H1BodyFraming.Chunked       =>
-                          parseChunkedBody(headers.next) match {
+                          parseChunkedBody(headers.next, announcedTrailerNames(headers.headers)) match {
                             case Left(error)          => Left(error)
                             case Right(None)          => Right(None)
                             case Right(Some(chunked)) =>
@@ -286,6 +312,130 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
   private def isNoBody(status: Int, requestMethod: String): Boolean =
     (status >= 100 && status <= 199) || status == 204 || status == 304 ||
       H1Validation.equalsIgnoreCase(requestMethod, "HEAD")
+
+  private def validateRequestHost(target: String, headers: H1Headers): Either[H1Error, Unit] = {
+    val hostValues = headers.headerValues("Host")
+    if (hostValues.length > 1) Left(H1Error.InvalidMessage("multiple Host headers"))
+    else if (target.startsWith("/")) {
+      if (hostValues.isEmpty) Left(H1Error.InvalidMessage("origin-form target requires a Host header"))
+      else Right(())
+    } else if (hostValues.length == 1 && isAbsoluteForm(target)) checkAbsoluteFormHost(target, hostValues.head)
+    else Right(())
+  }
+
+  private def isAbsoluteForm(target: String): Boolean =
+    target.regionMatches(true, 0, "https://", 0, 8) || target.regionMatches(true, 0, "http://", 0, 7)
+
+  private def checkAbsoluteFormHost(target: String, hostHeader: String): Either[H1Error, Unit] = {
+    val https              = target.regionMatches(true, 0, "https://", 0, 8)
+    val schemeEnd          = if (https) 8 else 7
+    var authorityEnd       = target.length
+    var i                  = schemeEnd
+    var found              = false
+    while (i < target.length && !found) {
+      val c = target.charAt(i)
+      if (c == '/' || c == '?' || c == '#') {
+        authorityEnd = i
+        found = true
+      } else i += 1
+    }
+    val authority          = target.substring(schemeEnd, authorityEnd)
+    val (uriHost, uriPort) = splitAuthority(authority)
+    val (hdrHost, hdrPort) = splitAuthority(hostHeader)
+    if (!uriHost.equalsIgnoreCase(hdrHost))
+      Left(H1Error.InvalidMessage("Host header conflicts with the absolute-form target authority"))
+    else {
+      val defaultPort = if (https) 443L else 80L
+      (parsePort(uriPort), parsePort(hdrPort)) match {
+        case (Right(uriPortValue), Right(hdrPortValue)) =>
+          if (uriPortValue.getOrElse(defaultPort) == hdrPortValue.getOrElse(defaultPort)) Right(())
+          else Left(H1Error.InvalidMessage("Host header port conflicts with the absolute-form target"))
+        case _                                          =>
+          Left(H1Error.InvalidMessage("malformed port in the Host header or the absolute-form target"))
+      }
+    }
+  }
+
+  /**
+   * Splits an authority into its host part and raw port; the port is None when
+   * absent.
+   */
+  private def splitAuthority(authority: String): (String, Option[String]) =
+    if (authority.startsWith("[")) {
+      val close = authority.indexOf(']')
+      if (close < 0) (authority, None)
+      else if (authority.length > close + 1 && authority.charAt(close + 1) == ':')
+        (authority.substring(0, close + 1), Some(authority.substring(close + 2)))
+      else (authority.substring(0, close + 1), None)
+    } else {
+      val colon = authority.lastIndexOf(':')
+      if (colon > 0) (authority.substring(0, colon), Some(authority.substring(colon + 1)))
+      else (authority, None)
+    }
+
+  /**
+   * Parses a raw port; Left when the port is present but is not a plain digit
+   * run.
+   */
+  private def parsePort(raw: Option[String]): Either[Unit, Option[Long]] =
+    raw match {
+      case None        => Right(None)
+      case Some(value) =>
+        if (value.isEmpty) Left(())
+        else {
+          var i     = 0
+          var acc   = 0L
+          var valid = true
+          while (i < value.length && valid) {
+            val c = value.charAt(i)
+            if (c < '0' || c > '9') valid = false
+            else if (acc > (Long.MaxValue - (c - '0').toLong) / 10L) valid = false
+            else acc = acc * 10L + (c - '0').toLong
+            i += 1
+          }
+          if (valid) Right(Some(acc)) else Left(())
+        }
+    }
+
+  /**
+   * Validates the Expect header; Right(true) when the request carries a legal
+   * 100-continue expectation.
+   */
+  private def validateExpect(headers: H1Headers): Either[H1Error, Boolean] = {
+    val values = headers.headerValues("Expect")
+    if (values.isEmpty) Right(false)
+    else if (values.length != 1) Left(H1Error.UnsupportedExpectation("multiple Expect headers"))
+    else if (H1Validation.equalsIgnoreCase(H1Validation.trimOWS(values.head), "100-continue")) Right(true)
+    else Left(H1Error.UnsupportedExpectation("unsupported Expect value: '" + values.head + "'"))
+  }
+
+  private def hasPendingBody(framing: H1BodyFraming): Boolean =
+    framing match {
+      case H1BodyFraming.Fixed(length) => length > 0L
+      case H1BodyFraming.Chunked       => true
+      case H1BodyFraming.Empty         => false
+    }
+
+  /**
+   * Lowercased field names announced by the Trailer header; empty when the
+   * message announces none.
+   */
+  private def announcedTrailerNames(headers: H1Headers): Set[String] = {
+    val values = headers.headerValues("Trailer")
+    val names  = Set.newBuilder[String]
+    var i      = 0
+    while (i < values.length) {
+      val parts = values(i).split(",")
+      var j     = 0
+      while (j < parts.length) {
+        val token = H1Validation.trimOWS(parts(j)).toLowerCase
+        if (token.nonEmpty) names += token
+        j += 1
+      }
+      i += 1
+    }
+    names.result()
+  }
 
   private def readLine(pos: Int): Either[H1Error, Option[H1Line]] = {
     val lf = indexOfLF(pos)
@@ -416,7 +566,7 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
     else Right(H1Header(name, value))
   }
 
-  private def parseChunkedBody(pos: Int): Either[H1Error, Option[H1ChunkedBody]] = {
+  private def parseChunkedBody(pos: Int, announcedTrailers: Set[String]): Either[H1Error, Option[H1ChunkedBody]] = {
     val body    = new ArrayBuffer[Byte]()
     var cursor  = pos
     var failure = Option.empty[H1Error]
@@ -438,7 +588,7 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
                 else if (body.size.toLong + size > limits.maxUndecodedBytes.toLong)
                   failure = Some(H1Error.BodyTooLarge("chunked body exceeds the retention bound"))
                 else if (size == 0L) {
-                  parseTrailers(line.next) match {
+                  parseTrailers(line.next, announcedTrailers) match {
                     case Left(error)           => failure = Some(error)
                     case Right(None)           => return Right(None)
                     case Right(Some(trailers)) =>
@@ -468,7 +618,7 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
     else Right(result)
   }
 
-  private def parseTrailers(pos: Int): Either[H1Error, Option[H1ParsedTrailers]] = {
+  private def parseTrailers(pos: Int, announcedTrailers: Set[String]): Either[H1Error, Option[H1ParsedTrailers]] = {
     val fields       = List.newBuilder[H1Header]
     var cursor       = pos
     var sectionBytes = 0
@@ -508,7 +658,14 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default) {
       }
     }
     if (failure.isDefined) Left(failure.get)
-    else Right(Some(H1ParsedTrailers(H1Headers(fields.result()), cursor)))
+    else {
+      val parsed      = fields.result()
+      val unannounced = parsed.find(header => !announcedTrailers.contains(header.name.toLowerCase))
+      unannounced match {
+        case Some(header) => Left(H1Error.AmbiguousFraming("unannounced trailer field: '" + header.name + "'"))
+        case None         => Right(Some(H1ParsedTrailers(H1Headers(parsed), cursor)))
+      }
+    }
   }
 
   private val emptyChunk: Chunk[Byte] = Chunk.fromArray(new Array[Byte](0))

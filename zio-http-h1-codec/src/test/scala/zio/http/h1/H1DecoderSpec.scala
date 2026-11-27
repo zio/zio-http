@@ -65,7 +65,7 @@ object H1DecoderSpec extends ZIOSpecDefault {
           val decoder = new H1Decoder()
           val result  = decoder.feed(
             wire(
-              "POST /upload HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\nX-Sum: 1\r\n\r\n",
+              "POST /upload HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nTrailer: X-Sum\r\n\r\n5\r\nhello\r\n0\r\nX-Sum: 1\r\n\r\n",
             ),
           )
 
@@ -75,7 +75,9 @@ object H1DecoderSpec extends ZIOSpecDefault {
                 H1Request(
                   method = "POST",
                   target = "/upload",
-                  headers = H1Headers(List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"))),
+                  headers = H1Headers(
+                    List(H1Header("Host", "x"), H1Header("Transfer-Encoding", "chunked"), H1Header("Trailer", "X-Sum")),
+                  ),
                   body = wire("hello"),
                   framing = H1BodyFraming.Chunked,
                   trailers = H1Headers(List(H1Header("X-Sum", "1"))),
@@ -297,6 +299,88 @@ object H1DecoderSpec extends ZIOSpecDefault {
           }
 
           assertTrue(failed.isEmpty && emitted.length == 1 && emitted.head.target == "/one")
+        },
+      ),
+      suite("Expect: 100-continue hook")(
+        test("fires the hook once for a fixed-length body") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val result  =
+            decoder.feed(wire("POST /s HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 5\r\n\r\nhello"))
+
+          assertTrue(
+            result.exists(_.length == 1) &&
+              fired.length == 1 &&
+              fired.head == H1Headers(
+                List(H1Header("Host", "x"), H1Header("Expect", "100-continue"), H1Header("Content-Length", "5")),
+              ),
+          )
+        },
+        test("fires the hook once for a chunked body") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val result  = decoder.feed(
+            wire(
+              "POST /u HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n",
+            ),
+          )
+
+          assertTrue(result.exists(_.length == 1) && fired.length == 1)
+        },
+        test("does not fire the hook for bodyless requests with Expect") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val first   = decoder.feed(wire("GET / HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\n\r\n"))
+          val second  =
+            decoder.feed(wire("POST /z HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 0\r\n\r\n"))
+
+          assertTrue(first.exists(_.length == 1) && second.exists(_.length == 1) && fired.isEmpty)
+        },
+        test("does not fire the hook without an Expect header") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val result  = decoder.feed(wire("POST /s HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello"))
+
+          assertTrue(result.exists(_.length == 1) && fired.isEmpty)
+        },
+        test("fires the hook exactly once under byte-at-a-time feeding") {
+          val bytes   = wire("POST /s HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 5\r\n\r\nhello")
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          var decoded = List.empty[H1Request]
+          var index   = 0
+          while (index < bytes.length) {
+            decoder.feed(bytes.slice(index, index + 1)) match {
+              case Right(msgs) => decoded = decoded ++ msgs
+              case Left(_)     => ()
+            }
+            index += 1
+          }
+
+          assertTrue(decoded.length == 1 && decoded.head.body == wire("hello") && fired.length == 1)
+        },
+        test("fires the hook before any body byte is consumed") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val first   =
+            decoder.feed(wire("POST /s HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 5\r\n\r\nhel"))
+          val second  = decoder.feed(wire("lo"))
+
+          assertTrue(
+            first == Right(Nil) &&
+              fired.length == 1 &&
+              second.exists(_.length == 1) &&
+              second.exists(_.head.body == wire("hello")) &&
+              fired.length == 1,
+          )
+        },
+        test("fires the hook once per pipelined request with Expect") {
+          var fired   = List.empty[H1Headers]
+          val decoder = new H1Decoder(onHeadersComplete = headers => fired = fired :+ headers)
+          val one     = "POST /s HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 5\r\n\r\nhello"
+          val result  = decoder.feed(wire(one + one))
+
+          assertTrue(result.exists(_.length == 2) && fired.length == 2)
         },
       ),
     )
