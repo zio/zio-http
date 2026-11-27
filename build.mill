@@ -342,12 +342,28 @@ object h2Codec extends Module {
   }
 }
 
+object h1Codec extends Module {
+  val r = wsRoot / "zio-http-h1-codec"
+  object jvm extends Cross[JvmModule](scalaVersions)
+  trait JvmModule extends ZioHttpJvmModule {
+    def artifactName     = "zio-http-h1-codec"
+    override def sources = Task.Sources(r / "src" / "main" / "scala")
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      blocksDep("chunk"),
+    )
+    object test extends ScoverageTests with ZioHttpTestModule {
+      override def moduleDeps = Seq(h1Codec.jvm())
+      override def sources    = Task.Sources(r / "src" / "test" / "scala")
+    }
+  }
+}
+
 object serverLoom extends Module {
   val r = wsRoot / "zio-http-server-loom"
   object jvm extends Cross[JvmModule](scalaVersions)
   trait JvmModule extends ZioHttpJvmModule {
     def artifactName     = "zio-http-server-loom"
-    def moduleDeps       = Seq(server.jvm(), h2Codec.jvm())
+    def moduleDeps       = Seq(server.jvm(), h2Codec.jvm(), h1Codec.jvm())
     override def sources = Task.Sources(r / "src" / "main" / "scala")
     // Branch minimum is 75%: ~25% of branches are in private defensive Any-match arms
     // (toStream, toUnit, toOptionalFrame, toReceivedFrame, toSendError) that exist for
@@ -423,6 +439,8 @@ def testJvm(scalaVersion: String) = Task.Command {
   core.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   h2Codec.jvm(scalaVersion).test.testForked()()
   h2Codec.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
+  h1Codec.jvm(scalaVersion).test.testForked()()
+  h1Codec.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   serverLoom.jvm(scalaVersion).test.testForked()()
   serverLoom.jvm(scalaVersion).scoverage.validateCoverageMinimums()()
   clientJava.jvm(scalaVersion).test.testForked()()
