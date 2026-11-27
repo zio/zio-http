@@ -243,6 +243,29 @@ object H1RejectionSpec extends ZIOSpecDefault {
             "GET http://a.com/x HTTP/1.1\r\nHost: a.com\r\nHost: a.com\r\n\r\n",
           )
         },
+        test("rejects an absolute-form target without a Host header") {
+          assertIs[H1Error.InvalidMessage](
+            "GET http://a.com/x HTTP/1.1\r\n\r\n",
+          )
+        },
+        test("rejects an empty Host header on an origin-form target") {
+          assertIs[H1Error.InvalidMessage](
+            "GET / HTTP/1.1\r\nHost:\r\n\r\n",
+          )
+        },
+        test("rejects an empty Host header on an absolute-form target") {
+          assertIs[H1Error.InvalidMessage](
+            "GET http://a.com/x HTTP/1.1\r\nHost:\r\n\r\n",
+          )
+        },
+        test("rejects an asterisk-form target without a Host header") {
+          assertIs[H1Error.InvalidMessage](
+            "OPTIONS * HTTP/1.1\r\n\r\n",
+          )
+        },
+        test("accepts an asterisk-form target with a single non-empty Host") {
+          assertTrue(accepts("OPTIONS * HTTP/1.1\r\nHost: a.com\r\n\r\n"))
+        },
         test("rejects a Host that conflicts with the absolute-form authority") {
           assertIs[H1Error.InvalidMessage](
             "GET http://a.com/x HTTP/1.1\r\nHost: b.com\r\n\r\n",

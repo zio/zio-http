@@ -131,10 +131,8 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
     }
   }
 
-  private def parseRequest(pos: Int): Either[H1Error, Option[H1CompletedRequest]] = {
-    var p = pos
-    if (end - p >= 2 && buffer(p) == CR && buffer(p + 1) == LF) p += 2
-    readLine(p) match {
+  private def parseRequest(pos: Int): Either[H1Error, Option[H1CompletedRequest]] =
+    readLine(pos) match {
       case Left(error)       => Left(error)
       case Right(None)       => Right(None)
       case Right(Some(line)) =>
@@ -221,7 +219,6 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
             }
         }
     }
-  }
 
   private def parseResponse(pos: Int, requestMethod: String): Either[H1Error, Option[H1CompletedResponse]] =
     readLine(pos) match {
@@ -313,14 +310,21 @@ final class H1Decoder(val limits: H1Limits = H1Limits.Default, onHeadersComplete
     (status >= 100 && status <= 199) || status == 204 || status == 304 ||
       H1Validation.equalsIgnoreCase(requestMethod, "HEAD")
 
+  /**
+   * Every HTTP/1.1 request carries exactly one non-empty `Host`, regardless of
+   * the request-target form; an absolute-form target must additionally agree
+   * with it on host and port.
+   */
   private def validateRequestHost(target: String, headers: H1Headers): Either[H1Error, Unit] = {
     val hostValues = headers.headerValues("Host")
-    if (hostValues.length > 1) Left(H1Error.InvalidMessage("multiple Host headers"))
-    else if (target.startsWith("/")) {
-      if (hostValues.isEmpty) Left(H1Error.InvalidMessage("origin-form target requires a Host header"))
+    if (hostValues.isEmpty) Left(H1Error.InvalidMessage("HTTP/1.1 request requires a Host header"))
+    else if (hostValues.length > 1) Left(H1Error.InvalidMessage("multiple Host headers"))
+    else {
+      val host = H1Validation.trimOWS(hostValues.head)
+      if (host.isEmpty) Left(H1Error.InvalidMessage("empty Host header"))
+      else if (isAbsoluteForm(target)) checkAbsoluteFormHost(target, host)
       else Right(())
-    } else if (hostValues.length == 1 && isAbsoluteForm(target)) checkAbsoluteFormHost(target, hostValues.head)
-    else Right(())
+    }
   }
 
   private def isAbsoluteForm(target: String): Boolean =

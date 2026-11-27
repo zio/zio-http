@@ -105,17 +105,17 @@ object H1DecoderSpec extends ZIOSpecDefault {
             ),
           )
         },
-        test("ignores a single leading CRLF before the request line") {
+        test("rejects a leading CRLF before the request line") {
           val decoder = new H1Decoder()
           val result  = decoder.feed(wire("\r\nGET / HTTP/1.1\r\nHost: x\r\n\r\n"))
 
-          assertTrue(result.exists(_.length == 1) && result.exists(_.head.method == "GET"))
+          assertTrue(isError[H1Error.InvalidMessage](result) && decoder.poisoned)
         },
-        test("accepts absolute-form target without Host") {
+        test("rejects an absolute-form target without Host") {
           val decoder = new H1Decoder()
           val result  = decoder.feed(wire("GET http://example.com/y HTTP/1.1\r\n\r\n"))
 
-          assertTrue(result.exists(_.length == 1) && result.exists(_.head.target == "http://example.com/y"))
+          assertTrue(isError[H1Error.InvalidMessage](result) && decoder.poisoned)
         },
         test("parses two keep-alive requests from one feed") {
           val decoder = new H1Decoder()

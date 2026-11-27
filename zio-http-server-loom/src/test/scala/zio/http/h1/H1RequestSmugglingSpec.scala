@@ -33,13 +33,15 @@ import zio.http.{Body, Method, Request, Response, Route, Routes, Status, handler
  * absolute-form target with a matching `Host` is served.
  *
  * Hardened boundary pinned here (deliberately stricter than RFC obs-text
- * tolerance): exactly one length mechanism; duplicate or conflicting
+ * tolerance): a message starts exactly with its request line (a leading CRLF is
+ * fatal, never skipped); exactly one length mechanism; duplicate or conflicting
  * Content-Length, any Transfer-Encoding other than a single `chunked`, chunk
  * extensions, and framing headers inside trailers are fatal; bare LF, obs-fold,
  * whitespace before the colon, control bytes, and non-ASCII (>= 0x80) bytes are
- * rejected in header names, header values, and targets alike; exactly one
- * `Host`, agreeing with the absolute-form authority (host and port, scheme
- * defaults 80/443); chunked trailers must be announced via `Trailer`
+ * rejected in header names, header values, and targets alike; every request
+ * carries exactly one non-empty `Host` (missing or empty is fatal regardless of
+ * target form), agreeing with the absolute-form authority (host and port,
+ * scheme defaults 80/443); chunked trailers must be announced via `Trailer`
  * (announced-but-absent is fine); `Expect` must be a single `100-continue` or
  * the request fails `417`.
  *
@@ -456,6 +458,27 @@ object H1RequestSmugglingSpec extends ZIOSpecDefault {
             ),
           )
         },
+        test("a leading CRLF before the request line classifies InvalidMessage and poisons") {
+          assertTrue(
+            codecRejectsAs[H1Error.InvalidMessage](
+              "\r\nGET / HTTP/1.1\r\nHost: x\r\n\r\n",
+            ),
+          )
+        },
+        test("absolute-form target without a Host header classifies InvalidMessage and poisons") {
+          assertTrue(
+            codecRejectsAs[H1Error.InvalidMessage](
+              "GET http://127.0.0.1/ HTTP/1.1\r\n\r\n",
+            ),
+          )
+        },
+        test("empty Host header classifies InvalidMessage and poisons") {
+          assertTrue(
+            codecRejectsAs[H1Error.InvalidMessage](
+              "GET / HTTP/1.1\r\nHost:\r\n\r\n",
+            ),
+          )
+        },
         test("absolute-form target with a conflicting Host authority classifies InvalidMessage") {
           assertTrue(
             codecRejectsAs[H1Error.InvalidMessage](
@@ -737,6 +760,24 @@ object H1RequestSmugglingSpec extends ZIOSpecDefault {
         test("origin-form target without a Host header rejects 400 with no dispatch") {
           rejectsLive(
             "GET / HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            400,
+          )
+        },
+        test("leading CRLF before the request line rejects 400 with no dispatch") {
+          rejectsLive(
+            "\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            400,
+          )
+        },
+        test("absolute-form target without a Host header rejects 400 with no dispatch") {
+          rejectsLive(
+            "GET http://127.0.0.1/ HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            400,
+          )
+        },
+        test("empty Host header rejects 400 with no dispatch") {
+          rejectsLive(
+            "GET / HTTP/1.1\r\nHost:\r\n\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
             400,
           )
         },
