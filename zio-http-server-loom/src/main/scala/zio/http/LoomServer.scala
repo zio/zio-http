@@ -113,8 +113,10 @@ private[http] object H2Engine extends HttpServerEngine {
 
 /**
  * The single stateless H1 engine: selected for cleartext strict HTTP/1.1
- * (`Protocol.H1C`) bindings. The selection seam is stable; the bind body lands
- * with the H1 transport implementation and currently refuses to bind.
+ * (`Protocol.H1C`) bindings. Delegates to the strict-codec
+ * [[zio.http.h1.H1Transport]], which binds the cleartext listener and serves
+ * sequential keep-alive connections on Loom virtual threads; listener close is
+ * the shutdown path.
  */
 private[http] object H1Engine extends HttpServerEngine {
 
@@ -124,5 +126,5 @@ private[http] object H1Engine extends HttpServerEngine {
     connector: Connector,
     defectHandler: DefectHandler,
   ): BoundConnectorHandle =
-    throw new UnsupportedOperationException("HTTP/1.1 engine is not wired yet")
+    new zio.http.h1.H1Transport(routes, context, connector, defectHandler).start()
 }
