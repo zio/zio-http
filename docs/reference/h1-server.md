@@ -6,7 +6,7 @@ title: H1 Server
 The v4 server (`LoomServer`) can serve cleartext strict HTTP/1.1 when the
 connector's protocol is `Protocol.H1C()`. H2C remains the default: when
 `protocol` is omitted from `Connector`, the server speaks HTTP/2 with prior
-knowledge (see the [H2 Server](h2-server.md) page).
+knowledge (see the [H2 Server](./h2-server.md) page).
 
 ## Serving H1
 
@@ -60,6 +60,16 @@ val handle               = Server.serve(routes, Context.empty.add(server))
 | `Connector.trustedProxy` | default-deny | Exactly as on H2: forwarding headers (`X-Forwarded-*`, `Forwarded`) are honored only for allowlisted-CIDR or mTLS peers, otherwise stripped. No forwarding is performed either way. |
 | `Connector.requestTelemetry` | `false` | Same gate as on H2; when enabled, each request is instrumented with protocol `http/1.1`. |
 
+## Shared connector settings
+
+`Connector` is shared with the H2/H3 surface, but H1C honors only some knobs:
+`maxRequestBodySize`, `requestTimeoutMs`, `idleTimeout`, `trustedProxy`, and
+`requestTelemetry` apply to H1C, with `requestTimeoutMs` covering both the body
+read and the handler. `headerTimeoutMs` and `bodyTimeoutMs` are H2/H3-only
+(H1C uses `requestTimeoutMs` instead), and `readBufferBytes` is currently not
+honored by H1, which uses a fixed 8 KiB read buffer. See the
+[H2 Server](./h2-server.md) page for the H2-specific limits.
+
 ## Security posture
 
 Framing is strict and single-interpretation. The following are rejected with
@@ -90,6 +100,6 @@ This release does not include:
 - HTTP/1.0
 - `CONNECT` tunnels (rejected with `501 Not Implemented`)
 - proxy forwarding: `trustedProxy` only gates or strips forwarding headers
-- TLS/ALPN HTTP/1.1 (TLS is H2-only in this release)
+- TLS/ALPN HTTP/1.1 (H1C is cleartext-only in this release)
 - WebSockets and any other `Upgrade` protocol
 - shared-port H1/H2 negotiation: one connector speaks one protocol

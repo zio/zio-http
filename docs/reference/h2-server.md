@@ -3,10 +3,12 @@ id: h2-server
 title: H2 Server
 ---
 
-The v4 server (`LoomServer`) serves HTTP/2 only: cleartext H2C and H2 over
-TLS. There is no HTTP/1.1 server mode, no Netty transport, and no H3/QUIC
-transport (`H2Transport` rejects `Protocol.H3` with
-`UnsupportedOperationException`).
+The v4 server (`LoomServer`) serves HTTP/2 — cleartext H2C by default and H2
+over TLS — and cleartext HTTP/1.1 when the connector selects
+`Protocol.H1C()`. H1 is opt-in: omitting `protocol` keeps
+`Protocol.H2C()`. There is no Netty transport and no H3/QUIC transport
+(`H2Transport` rejects `Protocol.H3` with `UnsupportedOperationException`).
+See the [H1 Server](./h1-server.md) page for the HTTP/1.1 mode.
 
 ```scala mdoc:compile-only
 import zio.blocks.context.Context
@@ -73,8 +75,9 @@ val connector = Connector(
   silently bypassing negotiation.
 - `AlpnPolicy.StrictH2` (the default) rejects non-`h2` clients at the TLS
   layer with an `SSLHandshakeException`. `NegotiateH2Preferred` accepts the
-  negotiated protocol, but the server itself stays H2-only: the policy only
-  governs TLS rejection versus acceptance.
+  negotiated protocol. Either way the ALPN policy only governs TLS rejection
+  versus acceptance for H2; it offers no TLS HTTP/1.1 (`Protocol.H1C` is
+  cleartext-only).
 - `tlsVersions` pins the accepted TLS versions (default
   `List("TLSv1.3", "TLSv1.2")`); older clients are rejected during the
   handshake. `AlpnConfigSpec`, `TlsVersionPinSpec`, and the
@@ -96,9 +99,12 @@ read off `Connector` (`zio-http-server/shared/src/main/scala/zio/http/Connector.
 companion `Default*` vals) or `ClientConfig`
 (`zio-http-client/shared/src/main/scala/zio/http/ClientConfig.scala`) — not
 guessed. The server knobs live on the top-level `Connector` and apply across
-H2/H3 at the config-concept level; only the H2 transport enforces them today
-(H3 wiring is future work). Wire-only settings stay on `Http2Config` (see
-above).
+H1C/H2/H3 at the config-concept level. The H2 transport enforces all of them;
+H1C enforces `maxRequestBodySize`, `requestTimeoutMs`, `trustedProxy`, and
+`requestTelemetry`, but not `headerTimeoutMs`/`bodyTimeoutMs` (H1C uses
+`requestTimeoutMs` instead) and not `readBufferBytes` (H1C uses a fixed 8 KiB
+read buffer). H3 wiring is future work. Wire-only settings stay on
+`Http2Config` (see above).
 
 | Knob | Default | Enforcement point | Violation signal |
 | ---- | ------- | ----------------- | ---------------- |
