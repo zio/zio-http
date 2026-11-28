@@ -209,12 +209,14 @@ object ProtocolSet {
   }
 
   /**
-   * Migration from the prior unreleased single-`protocol` shape. `H2C` and `H2`
-   * map to their singleton sets; `H3` has no mapping and reports
-   * [[ConnectorFailure.H3NotAdvertised]] — H3 is not advertised or runnable.
+   * Migration from the prior unreleased single-`protocol` shape. `H1C` maps to
+   * the H1-only set, `H2C` and `H2` map to their singleton sets; `H3` has no
+   * mapping and reports [[ConnectorFailure.H3NotAdvertised]] — H3 is not
+   * advertised or runnable.
    */
   def fromLegacy(protocol: Protocol): Either[ConnectorFailure, ProtocolSet] =
     protocol match {
+      case Protocol.H1C()       => Right(h1Only)
       case Protocol.H2C(_)      => Right(h2cOnly)
       case Protocol.H2(_, _)    => Right(h2Only)
       case Protocol.H3(_, _, _) => Left(ConnectorFailure.H3NotAdvertised)

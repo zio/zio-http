@@ -2,18 +2,15 @@ package zio.http.h2
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
-import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import zio.blocks.chunk.Chunk
 import zio.blocks.context.Context
-import zio.blocks.endpoint.{RouteTree, SegmentSubtree}
 import zio.blocks.mux.{MuxError, MuxStream}
-import zio.blocks.scope.Scope
-import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, SpanKind, metric, trace}
+import zio.blocks.telemetry.{AttributeValue, ConsoleLogRecordProcessor, LoggerProvider, metric}
 
 import zio.http.h2.H2Frame.{Data, Headers, WindowUpdate}
-import zio.http.h2.hpack.{HeaderField, Hpack, HpackCodec}
+import zio.http.h2.hpack.{HeaderField, HpackCodec}
 import zio.http.{
   BindAddress,
   Body,
@@ -22,16 +19,14 @@ import zio.http.{
   BoundConnectorHandle,
   Connector,
   DefectHandler,
-  Halt,
+  EngineDispatch,
   Header,
   Method,
   Protocol,
   Request,
   Response,
-  Route,
   Routes,
   Scheme,
-  TrustedProxyConfig,
   URL,
   Version,
 }
@@ -42,16 +37,15 @@ final class H2Transport[Ctx](
   connector: Connector,
   defectHandler: DefectHandler,
 ) {
-  private val routeTree: RouteTree[Route[Ctx]] =
-    H2Transport.buildRouteTree(routes)
+  private val dispatch = new EngineDispatch(routes, context, defectHandler, connector.trustedProxy)
 
-  private val requestCounter        = metric.counter("http.requests.total")
   private val activeConnections     = metric.upDownCounter("http.connections.active")
   private val activeConnectionCount = new AtomicLong(0L)
   private val logger                =
     LoggerProvider.builder.addLogRecordProcessor(new ConsoleLogRecordProcessor).build().get("zio.http.h2.H2Transport")
 
   private val http2Config = connector.protocol match {
+    case Protocol.H1C()        => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
     case Protocol.H2C(http2)   => http2
     case Protocol.H2(_, http2) => http2
     case Protocol.H3(_, _, _)  => throw new UnsupportedOperationException("H3/QUIC is not implemented yet")
@@ -78,7 +72,7 @@ final class H2Transport[Ctx](
               // Trust inputs (peer IP literal, mTLS cert presence) are
               // connection-stable: decide once per connection so the
               // per-request path never re-parses the peer IP.
-              val peerTrusted    = connector.trustedProxy.isTrusted(peer.address, peer.hasPeerCert)
+              val peerTrusted    = dispatch.isPeerTrusted(peer)
               val connection     =
                 new H2Connection(
                   input = input,
@@ -121,6 +115,7 @@ final class H2Transport[Ctx](
 
   private def tlsConfig =
     connector.protocol match {
+      case Protocol.H1C()       => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
       case Protocol.H2C(_)      => None
       case Protocol.H2(tls, _)  => Some(tls)
       case Protocol.H3(_, _, _) => None
@@ -209,40 +204,8 @@ final class H2Transport[Ctx](
   }
 
   private def instrumentRequest(request: Request): Response =
-    if (!connector.requestTelemetry) handleRequest(request)
-    else {
-      val startedAtNanos = System.nanoTime()
-      val requestPath    = request.url.path.encode
-
-      trace.span("http.request", SpanKind.Server) { span =>
-        span.setAttribute("http.request.method", request.method.toString)
-        span.setAttribute("url.path", requestPath)
-        span.setAttribute("network.protocol.name", protocolName)
-
-        val response   = handleRequest(request)
-        val durationMs = nanosToMillis(System.nanoTime() - startedAtNanos)
-
-        span.setAttribute("http.response.status_code", response.status.code.toLong)
-        span.setAttribute("http.server.active_connections", activeConnectionCount.get())
-        span.setAttribute("http.server.duration_ms", durationMs)
-        requestCounter.add(
-          1L,
-          "method"      -> request.method.toString,
-          "path"        -> requestPath,
-          "status"      -> response.status.code,
-          "protocol"    -> protocolName,
-        )
-        logger.info(
-          "HTTP request",
-          "method"      -> AttributeValue.StringValue(request.method.toString),
-          "path"        -> AttributeValue.StringValue(requestPath),
-          "status"      -> AttributeValue.LongValue(response.status.code.toLong),
-          "duration_ms" -> AttributeValue.LongValue(durationMs),
-        )
-
-        response
-      }
-    }
+    if (!connector.requestTelemetry) dispatch.handleRequest(request)
+    else dispatch.instrumentRequest(request, protocolName, () => activeConnectionCount.get())
 
   private def awaitHeaders(stream: MuxStream[Int, H2Frame, H2Frame], connection: H2Connection): Headers =
     awaitFrame(stream, connection, Long.MaxValue) match {
@@ -269,11 +232,11 @@ final class H2Transport[Ctx](
         checkEmptyBodyLength(stream, connection, declaredLength)
         Body.empty
       } else Body.fromChunk(readRequestBody(stream, connection, declaredLength, bodyDeadlineNanos))
-    val proxy          = resolveProxyTrust(httpHeaders, peer, peerTrusted)
+    val proxy          = dispatch.resolveProxy(httpHeaders, peer, peerTrusted)
 
     Request(
       method = parseMethod(pseudoHeaders.method),
-      url = applyProxyUrl(
+      url = dispatch.applyProxyUrl(
         parseUrl(
           pseudoHeaders.path,
           pseudoHeaders.scheme,
@@ -286,89 +249,6 @@ final class H2Transport[Ctx](
       version = Version.`HTTP/2.0`,
     )
   }
-
-  /**
-   * Gates forwarding headers on proxy trust (default-deny).
-   *
-   * When `peer` is trusted, `X-Forwarded-For/Proto/Host` (or RFC 7239
-   * `Forwarded`) resolve the client IP, scheme, and host; otherwise the headers
-   * are ignored entirely and the socket peer address is the client IP. Either
-   * way the raw forwarding headers are stripped before route handlers run (an
-   * attacker must not smuggle them through, nor spoof the normalized
-   * `x-client-ip` / `x-peer-address` headers, which are removed from the wire
-   * set and re-added here), and the peer address plus the resolved client IP
-   * are attached as `x-peer-address` / `x-client-ip`.
-   */
-  private def resolveProxyTrust(
-    headers: zio.http.Headers,
-    peer: PeerInfo,
-    peerTrusted: Boolean,
-  ): H2Transport.ResolvedProxy = {
-    val trusted   = peerTrusted
-    val forwarded = if (trusted) H2Transport.parseForwarded(headers) else None
-    val clientIp  = forwarded.flatMap(_.clientIp).getOrElse(peer.address)
-    // Pre-check before stripping: the common default-deny case (no
-    // forwarding headers on the wire) keeps `headers` untouched and allocates
-    // nothing; otherwise one single-pass rebuild, not one copy per name.
-    val stripped  =
-      if (H2Transport.hasProxyHeader(headers)) H2Transport.stripProxyHeaders(headers)
-      else headers
-    val enriched  = stripped
-      .add(TrustedProxyConfig.PeerAddressHeader, peer.address)
-      .add(TrustedProxyConfig.ClientIpHeader, clientIp)
-    val withHost  = forwarded.flatMap(_.host) match {
-      case Some(host) => enriched.set(Header.Host.name, host)
-      case None       => enriched
-    }
-    H2Transport.ResolvedProxy(withHost, forwarded.flatMap(_.proto), forwarded.flatMap(_.host))
-  }
-
-  private def applyProxyUrl(url: URL, proxy: H2Transport.ResolvedProxy): URL = {
-    val withScheme = proxy.proto match {
-      case Some(proto) => url.scheme(Scheme.fromString(proto))
-      case None        => url
-    }
-    proxy.host match {
-      case Some(host) =>
-        Header.Host.parse(host) match {
-          case Right(parsed) =>
-            val withHost = withScheme.host(parsed.host)
-            parsed.port match {
-              case Some(port) => withHost.port(port)
-              case None       => withHost
-            }
-          case Left(_)       => withScheme.host(host)
-        }
-      case None       => withScheme
-    }
-  }
-
-  private def handleRequest(request: Request): Response = {
-    routeTree.get(request.method, request.path) match {
-      case Some(route) =>
-        route.pattern.decode(request.method, request.path) match {
-          case Right(vars) =>
-            val openScope = Scope.global.open()
-            try {
-              toResponse(invokeHandler(route, request, vars, openScope.scope), request)
-            } finally {
-              openScope.close().orThrow()
-            }
-          case Left(_)     => Response.notFound
-        }
-      case None        => Response.notFound
-    }
-  }
-
-  private def invokeHandler(route: Route[Ctx], request: Request, vars: Any, scope: Scope): Any =
-    try route.handler.handle(request, context, vars, scope)
-    catch {
-      case throwable: Throwable =>
-        try defectHandler.handleDefect(request, throwable)
-        catch {
-          case _: Throwable => Response.internalServerError
-        }
-    }
 
   private def sendResponse(
     stream: MuxStream[Int, H2Frame, H2Frame],
@@ -975,23 +855,6 @@ final class H2Transport[Ctx](
     builder.result()
   }
 
-  private def toResponse(result: Any, request: Request): Response =
-    result match {
-      case response: Response       => response
-      case halt: Halt               => halt.response
-      case Left(response: Response) => response
-      case Right(halt: Halt)        => halt.response
-      case other                    =>
-        try {
-          toResponse(
-            defectHandler.handleDefect(request, new IllegalStateException("Unexpected handler result: " + other)),
-            request,
-          )
-        } catch {
-          case _: Throwable => Response.internalServerError
-        }
-    }
-
   private def chunkBody(body: Chunk[Byte], maxFrameSize: Int): Chunk[Chunk[Byte]] = {
     val frameSize = Math.max(1, maxFrameSize)
     val builder   = Chunk.newBuilder[Chunk[Byte]]
@@ -1013,12 +876,11 @@ final class H2Transport[Ctx](
 
   private def protocolName: String =
     connector.protocol match {
+      case Protocol.H1C()       => throw new UnsupportedOperationException("H2 transport cannot serve HTTP/1.1")
       case Protocol.H2C(_)      => "h2c"
       case Protocol.H2(_, _)    => "h2"
       case Protocol.H3(_, _, _) => "h3"
     }
-
-  private def nanosToMillis(nanos: Long): Long = nanos / 1000000L
 
   private def stackTraceToString(e: Throwable): String = {
     val sw = new java.io.StringWriter()
@@ -1078,144 +940,12 @@ object H2Transport {
     override def fillInStackTrace(): Throwable = this
   }
 
-  private def buildRouteTree[Ctx](routes: Routes[Ctx]): RouteTree[Route[Ctx]] =
-    routes.routes.foldLeft(RouteTree.empty[Route[Ctx]]) { (tree, route) =>
-      val alternatives = route.pattern.alternatives
-      if (alternatives.nonEmpty) tree.add(route.pattern, route)
-      else tree.merge(rootRouteTree(route))
-    }
-
-  private def rootRouteTree[Ctx](route: Route[Ctx]): RouteTree[Route[Ctx]] = {
-    val rootSubtree = SegmentSubtree[Route[Ctx]](Map.empty, ListMap.empty, Some(route))
-    RouteTree(Map(route.pattern.method -> rootSubtree))
-  }
-
   private final case class PseudoHeaders(
     method: String,
     path: String,
     scheme: String,
     authority: String,
   )
-
-  /**
-   * Forwarding headers stripped before route handlers run. Includes the
-   * normalized `x-client-ip` / `x-peer-address` headers themselves so a peer
-   * cannot spoof them: they are removed from the wire set and re-added by
-   * `resolveProxyTrust` after trust gating.
-   */
-  private val ProxyHeaderNames: List[String] =
-    List("x-forwarded-for", "x-forwarded-proto", "x-forwarded-host", "forwarded", "x-client-ip", "x-peer-address")
-
-  private final case class ForwardedValues(clientIp: Option[String], proto: Option[String], host: Option[String])
-
-  private final case class ResolvedProxy(headers: zio.http.Headers, proto: Option[String], host: Option[String])
-
-  /**
-   * Extracts forwarding values from `X-Forwarded-For/Proto/Host`, falling back
-   * to RFC 7239 `Forwarded` when no `X-Forwarded-For` is present. Only the
-   * first (leftmost, closest-to-client) element is used. Returns `None` when
-   * neither header family is present.
-   */
-  private def parseForwarded(headers: zio.http.Headers): Option[ForwardedValues] = {
-    val xff = headers.rawGet("x-forwarded-for").map(firstListValue).filter(_.nonEmpty)
-    if (xff.isDefined)
-      Some(
-        ForwardedValues(
-          clientIp = xff.map(normalizeForwardedIp),
-          proto = headers.rawGet("x-forwarded-proto").map(firstListValue).filter(_.nonEmpty).map(_.toLowerCase),
-          host = headers.rawGet("x-forwarded-host").map(firstListValue).filter(_.nonEmpty),
-        ),
-      )
-    else headers.rawGet("forwarded").map(parseRfc7239Forwarded)
-  }
-
-  private def firstListValue(value: String): String = {
-    val comma = value.indexOf(',')
-    (if (comma < 0) value else value.substring(0, comma)).trim
-  }
-
-  /**
-   * Normalizes one `for=` / `X-Forwarded-For` element to a bare IP: strips
-   * quotes, IPv6 brackets (with optional port), and an IPv4 port suffix.
-   */
-  private def normalizeForwardedIp(value: String): String = {
-    val trimmed = value.trim.stripPrefix("\"").stripSuffix("\"").trim
-    if (trimmed.startsWith("[")) {
-      val close = trimmed.indexOf(']')
-      if (close > 0) trimmed.substring(1, close) else trimmed
-    } else {
-      val colon = trimmed.indexOf(':')
-      if (colon >= 0 && trimmed.indexOf(':', colon + 1) < 0 && trimmed.contains(".")) trimmed.substring(0, colon)
-      else trimmed
-    }
-  }
-
-  /**
-   * Parses the first element of an RFC 7239 `Forwarded` header
-   * (`for=…;proto=…;host=…`). Obfuscated (`_…`) and `unknown` identifiers
-   * resolve to no client IP. Scanned with `indexOf` loops — no regex `split`
-   * anywhere on this path.
-   */
-  private def parseRfc7239Forwarded(value: String): ForwardedValues = {
-    var clientIp: Option[String] = None
-    var proto: Option[String]    = None
-    var host: Option[String]     = None
-    // First element only: up to the first ',' (or the end), mirroring the old
-    // `split(",", 2)(0)`.
-    val comma                    = value.indexOf(',')
-    val end                      = if (comma < 0) value.length else comma
-    var start                    = 0
-    while (start < end) {
-      val semi    = value.indexOf(';', start)
-      val pairEnd = if (semi < 0 || semi > end) end else semi
-      val eq      = value.indexOf('=', start)
-      if (eq > start && eq < pairEnd) {
-        val key = value.substring(start, eq).trim.toLowerCase
-        val raw = value.substring(eq + 1, pairEnd).trim.stripPrefix("\"").stripSuffix("\"").trim
-        key match {
-          case "for"   =>
-            if (raw.nonEmpty && !raw.equalsIgnoreCase("unknown") && !raw.startsWith("_"))
-              clientIp = Some(normalizeForwardedIp(raw))
-          case "proto" => if (raw.nonEmpty) proto = Some(raw.toLowerCase)
-          case "host"  => if (raw.nonEmpty) host = Some(raw)
-          case _       => ()
-        }
-      }
-      start = pairEnd + 1
-    }
-    ForwardedValues(clientIp, proto, host)
-  }
-
-  /**
-   * True when any forwarding/normalized header is present. Allocation-free
-   * boolean scans, so the common default-deny case (nothing present) pays no
-   * rebuild before `resolveProxyTrust` keeps the headers untouched.
-   */
-  private def hasProxyHeader(headers: zio.http.Headers): Boolean =
-    headers.has("x-forwarded-for") ||
-      headers.has("x-forwarded-proto") ||
-      headers.has("x-forwarded-host") ||
-      headers.has("forwarded") ||
-      headers.has("x-client-ip") ||
-      headers.has("x-peer-address")
-
-  /**
-   * Strips every forwarding/normalized header in a single pass over the header
-   * list (one builder, one output), replacing N per-name `remove` copies.
-   * `Headers` stores names pre-lowercased, so plain equality against the
-   * lowercase `ProxyHeaderNames` matches `remove`'s case-insensitive behavior.
-   */
-  private def stripProxyHeaders(headers: zio.http.Headers): zio.http.Headers = {
-    val pairs   = headers.toList
-    val builder = zio.http.HeadersBuilder.make(pairs.length)
-    var index   = 0
-    while (index < pairs.length) {
-      val (name, value) = pairs(index)
-      if (!ProxyHeaderNames.contains(name)) builder.add(name, value)
-      index += 1
-    }
-    builder.build()
-  }
 
   private implicit final class EitherOps[A](private val either: Either[String, A]) extends AnyVal {
     def getOrElse(default: => A): A =

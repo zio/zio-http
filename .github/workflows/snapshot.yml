@@ -33,7 +33,7 @@ jobs:
       - name: Publish snapshot
         run: |
           chmod +x ./mill && ./mill mill.javalib.SonatypeCentralPublishModule/publishAll \
-            --publishArtifacts "{core,server,client,endpoint,h2Codec,serverLoom,clientJava,zio,testkit}.jvm.__.publishArtifacts" \
+            --publishArtifacts "{core,server,client,endpoint,h2Codec,h1Codec,serverLoom,clientJava,zio,testkit}.jvm.__.publishArtifacts" \
             --username $SONATYPE_USERNAME --password $SONATYPE_PASSWORD
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}

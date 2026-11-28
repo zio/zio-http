@@ -11,6 +11,15 @@ private object ConnectorSchemas {
   implicit val secretSchema: Schema[Secret] = Schema[String].transform(Secret(_), Secret.unwrap)
 }
 
+/**
+ * One server binding: address, application protocol, transport family, and
+ * shared request limits.
+ *
+ * `Protocol.H1C` is cleartext-only strict HTTP/1.1, `Protocol.H2C` is cleartext
+ * prior-knowledge HTTP/2, and `Protocol.H2`/`Protocol.H3` are their TLS
+ * counterparts. `Protocol.H3` is model-only: no engine is installed, so every
+ * H3 binding fails validation before bind.
+ */
 case class Connector(
   bind: BindAddress = BindAddress.Tcp(),
   protocol: Protocol = Protocol.H2C(),
@@ -18,23 +27,30 @@ case class Connector(
   /**
    * Maximum size in bytes of a single request body accepted by the server.
    *
-   * This is a general binding-level knob shared by the H2 and H3 transports:
-   * wire-only settings stay on `Http2Config`/`Http3Config`. The H2 transport
-   * accounts DATA-frame payloads incrementally against this cap while reading
-   * the request body and resets the stream with
+   * This is a general binding-level knob shared by the H1C and H2/H3
+   * transports: wire-only settings stay on `Http2Config`/`Http3Config`. The H2
+   * transport accounts DATA-frame payloads incrementally against this cap while
+   * reading the request body and resets the stream with
    * `RST_STREAM(FLOW_CONTROL_ERROR)` the moment the cap is exceeded, so an
    * over-cap body is never buffered in full. A declared `content-length` larger
    * than this cap is rejected before any body bytes are read.
+   *
+   * The H1C transport fully buffers the request body before dispatch and
+   * rejects a declared or received body over this cap with `413 Payload Too
+   * Large`, closing the connection.
    */
   maxRequestBodySize: Long = Connector.DefaultMaxRequestBodySize,
   /**
    * Whole-request deadline in milliseconds, measured from stream start until
    * the response completes.
    *
-   * This is a general binding-level knob shared by the H2 and H3 transports:
-   * wire-only settings stay on `Http2Config`/`Http3Config`. The H2 transport
-   * forwards it to the per-stream request timer, which resets the stream with
-   * `RST_STREAM(CANCEL)` on expiry. Non-positive disables. Default 30 seconds.
+   * This is a general binding-level knob shared by the H1C and H2/H3
+   * transports: wire-only settings stay on `Http2Config`/`Http3Config`. The H2
+   * transport forwards it to the per-stream request timer, which measures from
+   * stream start until the response completes and resets the stream with
+   * `RST_STREAM(CANCEL)` on expiry. The H1C transport bounds the whole
+   * keep-alive turn — request read, handler, and response write — and closes
+   * the connection on expiry. Non-positive disables. Default 30 seconds.
    */
   requestTimeoutMs: Long = Connector.DefaultRequestTimeoutMs,
   /**
@@ -44,7 +60,9 @@ case class Connector(
    * wire-only settings stay on `Http2Config`/`Http3Config`. It bounds the time
    * to receive a complete header block, including trailing CONTINUATION frames
    * (`H2Connection` pending headers). Expiry resets the stream with
-   * `RST_STREAM(CANCEL)`. Non-positive disables. Default 5 seconds.
+   * `RST_STREAM(CANCEL)`. The H1C transport does not use this knob; its
+   * whole-request deadline is `requestTimeoutMs`. Non-positive disables.
+   * Default 5 seconds.
    */
   headerTimeoutMs: Long = Connector.DefaultHeaderTimeoutMs,
   /**
@@ -55,19 +73,20 @@ case class Connector(
    * wire-only settings stay on `Http2Config`/`Http3Config`. Total elapsed time
    * is enforced, not just the gap between frames, so a drip that keeps moving
    * but too slowly still times out (`H2Transport` body read). Expiry resets the
-   * stream with `RST_STREAM(CANCEL)`. Non-positive disables. Default 10
-   * seconds.
+   * stream with `RST_STREAM(CANCEL)`. The H1C transport does not use this knob;
+   * its whole-request deadline is `requestTimeoutMs`. Non-positive disables.
+   * Default 10 seconds.
    */
   bodyTimeoutMs: Long = Connector.DefaultBodyTimeoutMs,
   /**
    * Which TCP peers are trusted to supply forwarding headers
    * (`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, RFC 7239
-   * `Forwarded`) to the loom HTTP/2 transport.
+   * `Forwarded`) to the server transports.
    *
-   * This is a general binding-level knob shared by the H2 and H3 transports.
-   * Default-deny: `TrustedProxyConfig.default` trusts nothing, so forwarding
-   * headers from any peer are stripped with zero effect and the resolved client
-   * IP falls back to the socket peer address.
+   * This is a general binding-level knob shared by the H1C and H2/H3
+   * transports. Default-deny: `TrustedProxyConfig.default` trusts nothing, so
+   * forwarding headers from any peer are stripped with zero effect and the
+   * resolved client IP falls back to the socket peer address.
    */
   trustedProxy: TrustedProxyConfig = TrustedProxyConfig.default,
   /**
@@ -83,29 +102,30 @@ case class Connector(
    */
   negotiation: NegotiationPolicy = NegotiationPolicy.Single,
   /**
-   * Enables per-request tracing, metrics and request logging on the HTTP/2
-   * transport.
+   * Enables per-request tracing, metrics and request logging on the H1C and
+   * H2/H3 transports.
    *
    * Off by default. When enabled, every request records an `http.request` span
    * (the default tracer samples always-on), increments the
    * `http.requests.total` counter with four labels, and writes one formatted
-   * log line to stdout. Those are meaningful costs on the hot path (the log
-   * write is a syscall per request), and a library should not print every
-   * request by default. Use the `AccessLog` middleware with a sink for access
-   * logging; enable this only when per-request spans/metrics are actually
-   * wanted.
+   * log line to stdout. H1C requests carry the protocol label `http/1.1`. Those
+   * are meaningful costs on the hot path (the log write is a syscall per
+   * request), and a library should not print every request by default. Use the
+   * `AccessLog` middleware with a sink for access logging; enable this only
+   * when per-request spans/metrics are actually wanted.
    */
   requestTelemetry: Boolean = false,
   /**
    * Initial per-connection read buffer size, in bytes (default 1024).
    *
-   * A blocking `read(dst)` holds `dst` for as long as the reader is parked, so
-   * under the Loom transport this buffer is live per idle keep-alive
-   * connection. A small initial size keeps idle cost low (SSE / long-poll
-   * fan-out); the buffer grows on demand up to one max-size frame when a
-   * partial frame needs more, then shrinks back after that frame is consumed.
-   * Raise it for upload-heavy workloads to trade idle memory for fewer read
-   * syscalls.
+   * Only the H2 transport uses this knob today: the H1C transport currently
+   * uses a fixed 8 KiB read buffer and does not honor this setting. A blocking
+   * `read(dst)` holds `dst` for as long as the reader is parked, so under the
+   * Loom transport this buffer is live per idle keep-alive connection. A small
+   * initial size keeps idle cost low (SSE / long-poll fan-out); the buffer
+   * grows on demand up to one max-size frame when a partial frame needs more,
+   * then shrinks back after that frame is consumed. Raise it for upload-heavy
+   * workloads to trade idle memory for fewer read syscalls.
    */
   readBufferBytes: Int = 1024,
 ) {
@@ -122,9 +142,13 @@ case class Connector(
   def protocolSet: Either[ConnectorFailure, ProtocolSet] =
     ProtocolSet.fromLegacy(protocol)
 
-  /** True when this connector carries TLS identity (`H2` or `H3`). */
+  /**
+   * True when this connector carries TLS identity (`H2` or `H3`); false for the
+   * cleartext protocols (`H1C` and `H2C`).
+   */
   def tlsPresent: Boolean =
     protocol match {
+      case Protocol.H1C()       => false
       case Protocol.H2C(_)      => false
       case Protocol.H2(_, _)    => true
       case Protocol.H3(_, _, _) => true
@@ -199,12 +223,27 @@ object BindAddress {
   implicit val schema: Schema[BindAddress] = Schema.derived[BindAddress]
 }
 
+/**
+ * Application protocol served by one [[Connector]] binding.
+ *
+ * `H1C` is cleartext-only strict HTTP/1.1 (no TLS/ALPN, no h2c Upgrade); `H2C`
+ * is cleartext prior-knowledge/preface HTTP/2; `H2` is TLS HTTP/2; `H3` is TLS
+ * HTTP/3 (model-only: no engine is installed, so every H3 binding fails before
+ * bind).
+ */
 sealed trait Protocol
 object Protocol {
+
+  /**
+   * Cleartext-only strict HTTP/1.1: no TLS, no ALPN, and no h2c Upgrade or
+   * prior-knowledge HTTP/2 dispatch.
+   */
+  case class H1C()                                                                                   extends Protocol
   case class H2C(http2: Http2Config = Http2Config())                                                 extends Protocol
   case class H2(tls: TlsConfig, http2: Http2Config = Http2Config())                                  extends Protocol
   case class H3(tls: TlsConfig, quic: QuicConfig = QuicConfig(), http3: Http3Config = Http3Config()) extends Protocol
 
+  implicit val h1cSchema: Schema[H1C]   = Schema.derived[H1C]
   implicit val h2cSchema: Schema[H2C]   = Schema.derived[H2C]
   implicit val h2Schema: Schema[H2]     = Schema.derived[H2]
   implicit val h3Schema: Schema[H3]     = Schema.derived[H3]
@@ -295,8 +334,9 @@ object TlsSource {
  *
  * This controls whether the Loom H2 server rejects (at the TLS layer) clients
  * that do not negotiate `h2`, or accepts whatever ALPN protocol was negotiated.
- * The server itself stays H2-only: the policy adds no HTTP/1.1 fallback
- * handling, it only governs TLS rejection vs. acceptance.
+ * The policy applies to the TLS H2 listener only: it adds no TLS HTTP/1.1
+ * fallback handling, because `Protocol.H1C` is cleartext-only; it only governs
+ * TLS rejection vs. acceptance.
  *
  * This server policy is independent from any future client-side
  * `ClientAlpnPolicy`: the two govern opposite ends of the handshake and must
@@ -321,10 +361,10 @@ object AlpnPolicy {
 }
 
 /**
- * H2-only server TLS identity: `alpnProtocols` order pins the preferred ALPN
+ * H2 server TLS identity: `alpnProtocols` order pins the preferred ALPN
  * protocol, `alpnPolicy` decides whether non-`h2` clients are rejected or
- * accepted (no HTTP/1.1 fallback either way), and `tlsVersions` pins the
- * negotiable TLS versions.
+ * accepted (no TLS HTTP/1.1 fallback either way; `Protocol.H1C` is
+ * cleartext-only), and `tlsVersions` pins the negotiable TLS versions.
  */
 case class TlsConfig(
   certChain: TlsSource,
@@ -355,8 +395,8 @@ object TlsConfig {
 
 /**
  * Which TCP peers are trusted to supply forwarding headers (`X-Forwarded-For`,
- * `X-Forwarded-Proto`, `X-Forwarded-Host`, RFC 7239 `Forwarded`) to the loom
- * HTTP/2 transport.
+ * `X-Forwarded-Proto`, `X-Forwarded-Host`, RFC 7239 `Forwarded`) to the server
+ * transports.
  *
  * Default-deny: `TrustedProxyConfig.default` trusts nothing, so forwarding
  * headers from any peer are stripped with zero effect and the resolved client

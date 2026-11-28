@@ -5,8 +5,9 @@ import zio.test._
 /**
  * Built-in engine selection: H2C and H2 connectors resolve to the same
  * stateless `H2Engine` singleton (TLS vs cleartext is connector transport, not
- * version), while H3 has a connector type but no engine and is refused before
- * bind. No user-visible engine arguments are involved.
+ * version), cleartext H1C resolves to the stateless `H1Engine` singleton, while
+ * H3 has a connector type but no engine and is refused before bind. No
+ * user-visible engine arguments are involved.
  */
 
 object EngineSelectionSpec extends ZIOSpecDefault {
@@ -22,6 +23,10 @@ object EngineSelectionSpec extends ZIOSpecDefault {
       val h2c = Connector(bind = BindAddress.localhost(0))
       val h2  = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H2(tlsHole))
       assertTrue(HttpEngine.engineFor(h2c) eq H2Engine, HttpEngine.engineFor(h2) eq H2Engine)
+    },
+    test("an H1C connector selects the H1 engine") {
+      val h1c = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H1C())
+      assertTrue(HttpEngine.engineFor(h1c) eq H1Engine)
     },
     test("H3 connector has no engine") {
       val h3      = Connector(bind = BindAddress.localhost(0), protocol = Protocol.H3(tlsHole))
